@@ -96,5 +96,72 @@ class XlsxAvailabilityTests(unittest.TestCase):
         self.assertIn("openpyxl", str(ctx.exception).lower())
 
 
+class XlsxSmokeTests(unittest.TestCase):
+    """Smoke test du chemin XLSX bout-en-bout, exécuté seulement si
+    openpyxl est installé. Couvre une régression historique :
+    l'ajustement des largeurs de colonnes ne doit PAS plomber sur les
+    lignes contenant des cellules fusionnées (`MergedCell` n'a pas
+    d'attribut `column_letter`).
+    """
+
+    def setUp(self):
+        from export import HAS_OPENPYXL
+        if not HAS_OPENPYXL:
+            self.skipTest("openpyxl absent")
+
+    def test_export_complet_ne_plante_pas(self):
+        import os
+        import tempfile
+        from export import export_prbs_xlsx
+        from resistographe import (Arbre, Chantier, COULEUR_CLASSE,
+                                    DegradationExterne, Sondage)
+
+        a = Arbre(numero_arbre="42", essence="Platane",
+                   rayon_tronc_cm=20.0, port_arbre="libre",
+                   epaisseur_ecorce_cm=1.5,
+                   commentaire="Test smoke xlsx")
+        a.sondages.append(Sondage(numero=1, grade=0,
+                                    bois_sain_cm=15.0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(numero=2, grade=200,
+                                    bois_sain_cm=12.0, bois_altere_cm=8.0))
+        a.degradations_externes.append(
+            DegradationExterne(grade_debut=125, grade_fin=175,
+                                profondeur_cm=2.0))
+        c = Chantier(nom="Mission test", adresse="42 rue test",
+                      operateur="EC", date_releve="08/05/2026")
+        c.arbres.append(a)
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx",
+                                          delete=False) as tmp:
+            path = tmp.name
+        try:
+            export_prbs_xlsx(a, c, path,
+                              couleur_classe=COULEUR_CLASSE,
+                              classer_prbs=classer_prbs)
+            self.assertGreater(os.path.getsize(path), 1000)
+
+            # Vérification structure : les 16 lignes de directions
+            # sont écrites avec les bons grades.
+            import openpyxl
+            wb = openpyxl.load_workbook(path)
+            ws = wb.active
+            # On cherche la ligne d'en-tête puis on lit les 16 suivantes.
+            header_row = next(
+                row for row in range(1, 30)
+                if ws.cell(row=row, column=1).value == "Grade (gr)")
+            grades = [ws.cell(row=header_row + 1 + k, column=1).value
+                      for k in range(16)]
+            self.assertEqual(grades, [i * 25 for i in range(16)])
+
+            # Largeurs de colonnes appliquées correctement (régression
+            # historique : MergedCell sur la ligne 1 cassait la boucle
+            # `ws.column_dimensions[...].width = ...`).
+            self.assertGreater(ws.column_dimensions["A"].width, 0)
+            self.assertGreater(ws.column_dimensions["J"].width, 0)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

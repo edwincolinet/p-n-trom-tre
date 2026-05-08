@@ -28,6 +28,7 @@ from typing import Any, List, Mapping
 try:
     from openpyxl import Workbook
     from openpyxl.styles import (Alignment, Border, Font, PatternFill, Side)
+    from openpyxl.utils import get_column_letter
     HAS_OPENPYXL = True
 except ImportError:
     HAS_OPENPYXL = False
@@ -334,9 +335,13 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
                    end_row=row, end_column=10)
 
     # --- Largeurs de colonnes ajustées ---
+    # NB : on n'utilise PAS `ws.cell(row=1, column=i).column_letter` ici,
+    # car la ligne 1 contient une cellule fusionnée A1:J1 et toutes les
+    # cellules au-delà de A1 sont des `MergedCell` qui n'ont pas
+    # `column_letter`. `get_column_letter` est la bonne API.
     widths = [10, 11, 10, 14, 16, 18, 9, 10, 22, 36]
     for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
 
     # --- Gel : tout l'en-tête (titre + identité + en-tête tableau) ---
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
