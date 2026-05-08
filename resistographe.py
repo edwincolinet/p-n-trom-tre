@@ -1,17 +1,15 @@
 """
-Pénétromètre — Application d'expertise (v3.2)
-==============================================
+Pénétromètre — Application d'expertise
+======================================
 
-Refonte complète :
-- plus de seuil 30 % (obsolète pour Silvavenir),
-- multi-arbres dans un fichier « chantier »,
+- multi-arbres dans un fichier « mission » (.json),
 - tableau de sondages ↔ dessin synchronisés (altération = cavité interne),
 - dessin vectoriel natif (Tkinter Canvas) avec interpolation spline
   pour une section réellement ronde,
-- palette vive vert / orange, typographie soignée.
+- contreforts (empattements) et dégradations externes,
+- export PNG du dessin et fiche PDF A4 par arbre.
 
-Dépendances : Python 3.9+, tkinter (stdlib). Aucune dépendance externe.
-Pour l'export PNG : Pillow (`pip install Pillow`) — optionnel.
+Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 """
 
 from __future__ import annotations
@@ -32,6 +30,9 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+
+
+__version__ = "3.3.0"
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +975,7 @@ class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("Pénétromètre — Expertise arboricole")
+        self.title(f"Pénétromètre — Expertise arboricole (v{__version__})")
         self.geometry("1480x900")
         self.minsize(1280, 780)
         self.configure(bg=COLOR_BG)
@@ -2595,7 +2596,8 @@ class App(tk.Tk):
     def action_about(self) -> None:
         messagebox.showinfo(
             "À propos",
-            "Pénétromètre — Expertise arboricole\n\n"
+            f"Pénétromètre — Expertise arboricole\n"
+            f"Version {__version__}\n\n"
             "Application desktop Python autonome.\n"
             "Tableau de sondages ↔ dessin synchronisés.\n"
             "Section ronde par interpolation spline.\n\n"

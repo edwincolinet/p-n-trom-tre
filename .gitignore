@@ -48,3 +48,6 @@ missions/
 # OS
 Thumbs.db
 desktop.ini
+
+# Cache MIME local généré par update-mime-database (Linux)
+mimeinfo.cache

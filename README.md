@@ -24,7 +24,7 @@ permet, pour chaque arbre d'une mission, de :
 
 ```bash
 # Prérequis : Python 3.9 ou plus récent (Python 3.12 recommandé)
-pip install Pillow
+pip install -r requirements.txt
 ```
 
 Tkinter doit être disponible. C'est le cas par défaut sur Windows et macOS.

@@ -1,0 +1,10 @@
+# Pénétromètre — dépendances runtime
+#
+# Tkinter est livré avec Python (stdlib). Sur Debian/Ubuntu :
+#   sudo apt install python3-tk
+#
+# Pillow est utilisée pour le rendu PNG et la génération du PDF d'expertise.
+# Plage testée localement avec Pillow 10.x ; on autorise 10.x à 11.x pour
+# rester compatible avec les distributions Linux récentes sans imposer
+# d'upgrade brutal.
+Pillow>=10.0,<12
