@@ -38,6 +38,16 @@ python resistographe.py
 
 Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
 
+## Tests
+
+```bash
+python -m unittest discover tests
+```
+
+73 tests unitaires (stdlib, aucune dépendance) couvrent le barème
+Silvavenir, la géométrie des contreforts, l'extrapolation de
+l'altération, le calcul PRBS et la migration des anciens fichiers JSON.
+
 ## Fichiers à conserver ensemble
 
 ```

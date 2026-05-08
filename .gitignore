@@ -35,7 +35,8 @@ ENV/
 
 # Tests / outputs
 *.log
-test_*.py
+# tests jetables au root (suite de tests durable : voir tests/)
+/test_*.py
 preview_*.png
 fiche_*.pdf
 fiche_*.png

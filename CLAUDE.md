@@ -128,7 +128,16 @@ python -c "import ast; ast.parse(open('resistographe.py').read())"
 
 # Lancer l'app
 python resistographe.py
+
+# Lancer la suite de tests (stdlib unittest, aucune dépendance)
+python -m unittest discover tests
 ```
+
+La suite couvre les fonctions pures à risque métier : barème
+`classer_prbs`, géométrie des contreforts (`bell_max_at_grade`,
+`contrefort_zones`), extrapolation de l'altération, calcul PRBS, et
+migration JSON. Lancer la suite avant tout commit qui touche au modèle
+ou aux helpers géométriques.
 
 ## Pièges connus
 
