@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Pénétromètre Silvavenir
+Comment=Expertise arboricole — dessin de section au pénétromètre
+Exec=python3 /home/edwin/Documents/penetrometre_silvavenir/resistographe.py
+Path=/home/edwin/Documents/penetrometre_silvavenir
+Icon=/home/edwin/Documents/penetrometre_silvavenir/Icone.jpeg
+Terminal=false
+Categories=Office;Science;
+StartupWMClass=Tk
+
+
