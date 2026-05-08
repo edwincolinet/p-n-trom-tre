@@ -191,15 +191,24 @@ python -m unittest discover tests
 
 La suite couvre les fonctions pures à risque métier : barème
 `classer_prbs`, géométrie des contreforts (`bell_max_at_grade`,
-`contrefort_zones`), extrapolation de l'altération, calcul PRBS, et
-migration JSON. Lancer la suite avant tout commit qui touche au modèle
-ou aux helpers géométriques.
+`contrefort_zones`), primitives de rendu partagées Tk↔PIL
+(`polar_to_xy`, `cavity_polygon`, `contrefort_zone_outline`,
+`degradation_externe_outline`), extrapolation de l'altération,
+calcul PRBS, migration JSON et données du tableau exporté
+(`prbs_table_rows`). Un smoke test XLSX est exécuté si openpyxl est
+installé (skip sinon). Lancer la suite avant tout commit qui touche
+au modèle, aux helpers géométriques ou aux exports.
 
 ## Pièges connus
 
-- Le rendu Tkinter et le rendu PIL sont **deux moteurs distincts** mais
-  doivent rester visuellement identiques. Toute modif d'un côté doit
-  être répercutée de l'autre.
+- Le rendu Tkinter et le rendu PIL sont **deux moteurs distincts** qui
+  partagent désormais leurs primitives géométriques (cf. `geometry.py`
+  → `polar_to_xy`, `cavity_polygon`, `contrefort_zone_outline`,
+  `degradation_externe_outline`). La géométrie ne peut donc plus
+  diverger. Restent à synchroniser à la main : la palette/typographie,
+  l'API de dessin, l'écorce/anneau (cf. piège `outline+width`
+  ci-dessous) et tout ce qui est spécifique à chaque renderer
+  (lettres cardinales, règle graduée, légende, échelle).
 - Les positions des éléments hors-tronc (lettres cardinales, pastilles
   de sondage, règle graduée) sont en **pixels absolus** (pas en cm)
   pour rester constantes quel que soit le rayon de l'arbre.
@@ -242,18 +251,40 @@ ou aux helpers géométriques.
   900 px). Au-delà de 8/12 sondages, la hauteur de ligne et la police
   du tableau se resserrent (38/35/32 px, 17/16/15 pt) pour que la
   page reste sur une feuille A4 unique.
+- **XLSX et cellules fusionnées** : pour appliquer les largeurs de
+  colonnes dans `export_prbs_xlsx`, utiliser
+  `openpyxl.utils.get_column_letter(i)` et **PAS**
+  `ws.cell(row=1, column=i).column_letter`. La ligne 1 contient un
+  titre fusionné A1:J1 : openpyxl renvoie alors des `MergedCell` pour
+  les colonnes 2..10, et `MergedCell` n'expose pas `column_letter`.
+  Couvert par `XlsxSmokeTests.test_export_complet_ne_plante_pas`.
 
 ## Quand tu modifies l'app
 
-1. **Avant** de toucher au code : lire la zone concernée (ce fichier
-   est gros, ~3400 lignes — utiliser `grep -n` pour localiser).
-2. Pour les changements visuels : **mettre à jour Tkinter ET PIL**.
-3. Pour les changements de modèle : penser à la migration JSON.
-4. Tester en lançant l'app et en sauvegardant / rechargeant un `.json`.
-5. Pour valider les exports PNG/PDF, générer un échantillon avec
+1. **Avant** de toucher au code : lire la zone concernée
+   (`resistographe.py` fait ~3 200 lignes ; utiliser `grep -n` pour
+   localiser, et privilégier `geometry.py` / `export.py` quand le
+   changement est en réalité métier ou export).
+2. **Géométrie partagée** : si tu changes la géométrie d'un élément
+   (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
+   les deux renderers Tk et PIL héritent automatiquement. Pour les
+   aspects spécifiques à un renderer (couleurs, traits, écorce,
+   typographie), modifie côté Tk **et** côté PIL.
+3. Pour les changements de modèle : penser à la migration JSON
+   (`Chantier.from_dict`).
+4. **Lancer la suite de tests** (`python -m unittest discover tests`)
+   avant tout commit qui touche au modèle, à la géométrie ou aux
+   exports.
+5. Tester en lançant l'app et en sauvegardant / rechargeant un `.json`.
+6. Pour valider les exports PNG/PDF, générer un échantillon avec
    plusieurs cas (avec/sans écorce, avec/sans contreforts, avec/sans
    sondages, avec une dégradation externe traversant un contrefort) —
    les bugs de raster PIL n'apparaissent pas toujours dans Tkinter.
-6. Pour les changements de légende : tester en condition « stress »
-   (16 sondages + commentaire long) pour s'assurer que la fiche
+7. Pour valider les exports XLSX/HTML, ouvrir réellement le fichier
+   produit (LibreOffice/Excel pour XLSX, navigateur pour HTML) :
+   l'écriture peut réussir sans que le résultat soit visuellement
+   correct. Le smoke test couvre la non-régression mécanique
+   (taille, structure), pas l'esthétique.
+8. Pour les changements de légende : tester en condition « stress »
+   (16 sondages + commentaire long) pour s'assurer que la fiche PDF
    reste sur une seule page.
