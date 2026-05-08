@@ -62,25 +62,30 @@ DIRECTION_LABELS = {
 }
 
 # Palette — vive, naturaliste, pensée pour l'expertise arboricole
-COLOR_BG         = "#F7F3EA"
-COLOR_PANEL      = "#FFFFFF"
+COLOR_BG         = "#F7F3EA"   # fond général
+COLOR_PANEL      = "#FFFFFF"   # panneaux blancs
+COLOR_SIDE_PANEL = "#EAE5D8"   # bandeau latéral (liste des arbres)
 COLOR_INK        = "#1A2E22"
 COLOR_MUTED      = "#6E7B73"
 
+# `COLOR_ACCENT` est la couleur de marque utilisée pour les boutons,
+# titres et chrome UI. Elle vaut actuellement le même hex que
+# `COULEUR_CLASSE[CLASSE_VERT]` ci-dessous : si Silvavenir décide un
+# jour de différencier le vert chrome du vert classe, c'est ici qu'il
+# faudra dissocier.
 COLOR_ACCENT     = "#2D7A3E"
 COLOR_ACCENT_SOFT= "#C9E4CE"
 
 COLOR_BARK       = "#5C3A1E"   # brun écorce (intact)
 COLOR_BARK_LIGHT = "#8B6244"
 COLOR_WOOD       = "#F0DC9E"   # beige doré (bois ancien jaunissant)
-COLOR_WOOD_DARK  = "#C9B486"   # ancien usage : conservé pour compat.
+COLOR_WOOD_DARK  = "#C9B486"   # variante foncée (états :hover des boutons)
 COLOR_CERNE      = "#2A1F10"   # cernes : brun très foncé presque noir
 # COLOR_ROT distinct de COLOR_BARK : la dégradation (cavité interne et
 # dégradation externe) doit se voir comme un brun NETTEMENT plus foncé
 # que l'écorce intacte, pour que la « plaie » soit lisible quand elle
 # traverse la couche d'écorce.
 COLOR_ROT        = "#3E2510"   # brun très foncé : bois dégradé
-COLOR_ROT_DARK   = "#3E2510"   # alias (legacy)
 COLOR_SOND       = "#1F3A8A"
 
 # Couleurs hexa associées aux classes Silvavenir. Cette table est la
@@ -905,10 +910,10 @@ class App(tk.Tk):
                     font=("Helvetica", 10))
         s.configure("TFrame", background=COLOR_BG)
         s.configure("Panel.TFrame", background=COLOR_PANEL)
-        s.configure("Side.TFrame", background="#EAE5D8")
+        s.configure("Side.TFrame", background=COLOR_SIDE_PANEL)
         s.configure("TLabel", background=COLOR_BG, foreground=COLOR_INK)
         s.configure("Panel.TLabel", background=COLOR_PANEL, foreground=COLOR_INK)
-        s.configure("Side.TLabel", background="#EAE5D8", foreground=COLOR_INK)
+        s.configure("Side.TLabel", background=COLOR_SIDE_PANEL, foreground=COLOR_INK)
         s.configure("Title.TLabel", background=COLOR_BG,
                     foreground=COLOR_ACCENT,
                     font=("Georgia", 18, "bold"))
@@ -948,8 +953,8 @@ class App(tk.Tk):
         s.map("Treeview",
               background=[("selected", COLOR_ACCENT_SOFT)],
               foreground=[("selected", COLOR_INK)])
-        s.configure("Side.Treeview", background="#EAE5D8",
-                    fieldbackground="#EAE5D8", rowheight=28)
+        s.configure("Side.Treeview", background=COLOR_SIDE_PANEL,
+                    fieldbackground=COLOR_SIDE_PANEL, rowheight=28)
         s.map("Side.Treeview",
               background=[("selected", COLOR_ACCENT)],
               foreground=[("selected", "white")])
@@ -2899,10 +2904,9 @@ def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
     if has_sondages:
         items.append(("arrow", "Sondage"))
 
-    classes = (
-        ("Vert", "#2D7A3E"),
-        ("Orange", "#E67E22"),
-        ("Rouge", "#C0392B"),
+    classes = tuple(
+        (label, COULEUR_CLASSE[label])
+        for label in (CLASSE_VERT, CLASSE_ORANGE, CLASSE_ROUGE)
     ) if has_sondages else ()
     classes_prefix = "Classe du sondage :"
 
@@ -3155,7 +3159,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             col_c = COULEUR_CLASSE[classe]
             if k % 2 == 0:
                 d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
-                            fill="#F7F3EA")
+                            fill=COLOR_BG)
             if deg_ext > 0:
                 prbs_txt = f"{prbs_adj:g}  (–{deg_ext:g} ext.)"
             else:
