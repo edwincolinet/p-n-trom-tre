@@ -15,47 +15,61 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 
 ## Structure
 
-Tout le code tient dans un fichier unique de ~3400 lignes :
-
 ```
-resistographe.py        ← l'application complète
+resistographe.py        ← l'application (modèle + UI Tk + rendu PIL)
+geometry.py             ← briques pures testables (stdlib uniquement)
+tests/                  ← suite unittest sur les fonctions pures
 silvavenir_logo.jpg     ← logo affiché dans le header et les PDF
 Lancer_Penetrometre.bat ← lanceur double-clic Windows
+requirements.txt        ← Pillow pinnée
 ```
 
 Le nom de fichier `resistographe.py` reste celui-ci pour des raisons
 historiques même si le produit s'appelle « Pénétromètre » (Résistographe
 est une marque déposée).
 
-## Architecture du fichier
+## Architecture
 
-Le fichier est organisé en sections séparées par des bandeaux de
-commentaires :
+### `geometry.py` — fonctions pures (stdlib uniquement)
 
-1. **Constantes** (palette couleurs, grades, ports)
+Module isolé de Tk et PIL, couvert par les tests :
+
+- `catmull_rom_closed` — interpolation spline fermée.
+- `bell_max_at_grade(grade, contreforts)` — hauteur de cloche cosinus²
+  maximale à un grade donné (max sur tous les contreforts qui
+  couvrent ce grade).
+- `contrefort_zones(contreforts)` — fusion des intervalles angulaires
+  qui se chevauchent ou se touchent (une seule cloche unifiée par
+  zone connectée, plus de V entre deux contreforts proches).
+- `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
+  renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
+  couleur est une convention de présentation et vit côté UI.
+- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
+  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+
+### `resistographe.py` — application
+
+Organisé en sections séparées par des bandeaux de commentaires :
+
+1. **Imports + constantes** : palette couleurs, `GRADES`,
+   `DIRECTION_LABELS`, `COULEUR_CLASSE` (mapping label → hex pour
+   l'affichage).
 2. **Modèle de données** — dataclasses :
    - `Sondage` — une mesure ponctuelle dans une direction
    - `DegradationExterne` — un arc d'écorce dégradée
    - `Contrefort` — empattement à la base (cloche cosinus²)
    - `Arbre` — un arbre avec ses sondages, dégradations et contreforts
    - `Chantier` — une mission qui regroupe plusieurs arbres
-3. **Helpers géométrie contreforts** (module-level) :
-   - `bell_max_at_grade(grade, contreforts)` — hauteur max de cloche
-     en un point angulaire donné, en parcourant tous les contreforts
-   - `contrefort_zones(contreforts)` — fusion des intervalles
-     angulaires qui se chevauchent ou se touchent (pour dessiner une
-     seule cloche unifiée par groupe au lieu d'un V entre deux
-     contreforts proches)
-4. **Logique métier** sur `Arbre` (méthodes) :
+3. **Logique métier** sur `Arbre` (méthodes) :
    - `recompute_alteration_from_sondages()` — extrapolation par moyenne
      pondérée linéaire entre voisins
    - `prbs_par_grade()` — PRBS ajustée (intègre dégrad. externes)
    - `repartition_classes()` — Vert/Orange/Rouge sur le pourtour
-5. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
+4. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
    section transversale en temps réel dans la fenêtre
-6. **Application** — `class App(tk.Tk)` : fenêtre principale, onglets,
+5. **Application** — `class App(tk.Tk)` : fenêtre principale, onglets,
    sync UI ↔ modèle, actions
-7. **Rendu PIL** — `render_arbre_to_pil_image()` et
+6. **Rendu PIL** — `render_arbre_to_pil_image()` et
    `render_fiche_arbre_to_pdf_page()` : génération PNG et PDF.
    Helpers associés : `_pil_load_fonts()`, `_fit_text()` (troncature
    ellipsis pour rester dans une largeur), `_draw_horizontal_legend_pil()`

@@ -31,6 +31,19 @@ try:
 except ImportError:
     HAS_PIL = False
 
+# Helpers géométriques + barème classifient des fonctions pures testées
+# isolément (cf. tests/). Voir geometry.py pour le détail.
+from geometry import (
+    CLASSE_ORANGE,
+    CLASSE_ROUGE,
+    CLASSE_VERT,
+    PORTS_ARBRE,
+    bell_max_at_grade,
+    catmull_rom_closed,
+    classer_prbs,
+    contrefort_zones,
+)
+
 
 __version__ = "3.3.0"
 
@@ -70,37 +83,14 @@ COLOR_ROT        = "#3E2510"   # brun très foncé : bois dégradé
 COLOR_ROT_DARK   = "#3E2510"   # alias (legacy)
 COLOR_SOND       = "#1F3A8A"
 
-
-# ---------------------------------------------------------------------------
-# Interpolation spline (Catmull-Rom fermée)
-# ---------------------------------------------------------------------------
-
-def catmull_rom_closed(points: List[Tuple[float, float]],
-                       samples_per_segment: int = 24) -> List[Tuple[float, float]]:
-    n = len(points)
-    if n < 3:
-        return list(points)
-    out: List[Tuple[float, float]] = []
-    for i in range(n):
-        p0 = points[(i - 1) % n]
-        p1 = points[i]
-        p2 = points[(i + 1) % n]
-        p3 = points[(i + 2) % n]
-        for k in range(samples_per_segment):
-            t = k / samples_per_segment
-            t2 = t * t
-            t3 = t2 * t
-            x = 0.5 * ((2 * p1[0]) +
-                       (-p0[0] + p2[0]) * t +
-                       (2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]) * t2 +
-                       (-p0[0] + 3*p1[0] - 3*p2[0] + p3[0]) * t3)
-            y = 0.5 * ((2 * p1[1]) +
-                       (-p0[1] + p2[1]) * t +
-                       (2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]) * t2 +
-                       (-p0[1] + 3*p1[1] - 3*p2[1] + p3[1]) * t3)
-            out.append((x, y))
-    out.append(out[0])
-    return out
+# Couleurs hexa associées aux classes Silvavenir. Cette table est la
+# convention de présentation : `classer_prbs` (dans geometry.py) renvoie
+# uniquement le label, et la couche UI le traduit en couleur via ce dict.
+COULEUR_CLASSE = {
+    CLASSE_VERT:   "#2D7A3E",
+    CLASSE_ORANGE: "#E67E22",
+    CLASSE_ROUGE:  "#C0392B",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -220,96 +210,9 @@ class Contrefort:
         return rayon_cm * angle_rad
 
 
-def bell_max_at_grade(grade: float,
-                      contreforts: List["Contrefort"]) -> float:
-    """Hauteur de cloche maximale (en cm) à l'angle `grade` donné, en
-    prenant le maximum sur tous les contreforts qui couvrent ce grade.
-
-    Renvoie 0 si aucun contrefort ne projette de cloche à cet angle.
-
-    Sert à fusionner les contreforts adjacents : à la jonction de deux
-    cloches, on prend celle qui culmine le plus haut, ce qui évite
-    l'encoche en V qui apparaissait quand chaque contrefort était
-    dessiné isolément.
-    """
-    h = 0.0
-    for c in contreforts:
-        if c.longueur_cm <= 0 or c.largeur_grades <= 0:
-            continue
-        demi = c.largeur_grades / 2.0
-        # distance angulaire signée dans [-200, 200)
-        diff = ((grade - c.grade_centre + 200) % 400) - 200
-        if -demi <= diff <= demi:
-            profil = math.cos(diff / demi * math.pi / 2.0) ** 2
-            h = max(h, c.longueur_cm * profil)
-    return h
-
-
-def contrefort_zones(contreforts: List["Contrefort"]
-                     ) -> List[Tuple[float, float]]:
-    """Renvoie la liste des zones angulaires `(a, b)` (en grades) sur
-    lesquelles au moins un contrefort projette une cloche.
-
-    Les contreforts qui se chevauchent ou se touchent sont fusionnés en
-    une seule zone (un seul polygone à dessiner). Les zones peuvent
-    avoir `a < 0` lorsqu'elles enjambent le grade 0 — l'appelant fait
-    `g % 400` au moment d'échantillonner.
-    """
-    cs = [c for c in contreforts
-          if c.longueur_cm > 0 and c.largeur_grades > 0]
-    if not cs:
-        return []
-    raw = []
-    for c in cs:
-        demi = c.largeur_grades / 2.0
-        a = (c.grade_centre - demi) % 400
-        b = a + c.largeur_grades  # peut dépasser 400 (wrap)
-        raw.append((a, b))
-    raw.sort()
-    merged = [list(raw[0])]
-    for a, b in raw[1:]:
-        if a <= merged[-1][1]:
-            merged[-1][1] = max(merged[-1][1], b)
-        else:
-            merged.append([a, b])
-    # Wrap : la dernière zone enjambe-t-elle 400 et chevauche-t-elle
-    # la première ? Si oui, on les fusionne.
-    while len(merged) >= 2 and merged[-1][1] - 400 >= merged[0][0]:
-        last = merged.pop()
-        first = merged[0]
-        first[0] = last[0] - 400
-        first[1] = max(first[1], last[1] - 400)
-    if len(merged) == 1 and merged[0][1] - merged[0][0] >= 400:
-        merged = [[0.0, 400.0]]
-    return [tuple(z) for z in merged]
-
-
-PORTS_ARBRE = ["libre", "semi-libre", "architecturé", "traumatique"]
-
-# Groupes de barèmes PRBS (Silvavenir) :
-#   - libre + semi-libre : Vert > 30%, Orange 15-30%, Rouge < 15%
-#   - architecturé + traumatique : Vert > 20%, Orange 10-20%, Rouge < 10%
-PORTS_GROUPE_LIBRE = ("libre", "semi-libre")
-PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
-
-
-def classer_prbs(ratio_tR: float, port_arbre: str) -> tuple[str, str]:
-    """Classe un sondage selon son ratio t/R et le port de l'arbre.
-
-    Seuils Silvavenir :
-    - libre / semi-libre :        Vert > 30%, Orange 15-30%, Rouge < 15%
-    - architecturé / traumatique :Vert > 20%, Orange 10-20%, Rouge < 10%
-
-    Retourne (label, couleur_hex).
-    """
-    p = port_arbre.lower().strip()
-    seuils = (0.20, 0.10) if p in PORTS_GROUPE_STRICT else (0.30, 0.15)
-    if ratio_tR > seuils[0]:
-        return "Vert", "#2D7A3E"
-    elif ratio_tR >= seuils[1]:
-        return "Orange", "#E67E22"
-    else:
-        return "Rouge", "#C0392B"
+# `bell_max_at_grade`, `contrefort_zones`, `classer_prbs` et les
+# constantes `PORTS_*` / `CLASSE_*` sont importés depuis `geometry.py`
+# (en haut du fichier). Voir ce module pour le détail.
 
 
 @dataclass
@@ -460,7 +363,7 @@ class Arbre:
             "Rouge":  {"n": 0, "grades": 0, "pct": 0.0},
         }
         for i, r in enumerate(ratios):
-            classe, _ = classer_prbs(r, self.port_arbre)
+            classe = classer_prbs(r, self.port_arbre)
             result[classe]["n"] += 1
             result[classe]["grades"] += 25  # chaque secteur fait 25 gr
         # Pourcentage du périmètre (16 secteurs = 400 gr)
@@ -494,8 +397,8 @@ class Arbre:
         # comme indicateurs complémentaires d'alerte locale.
         tR_moyen = sum(ratios) / len(ratios) if ratios else 1.0
         result["tR_moyen"] = tR_moyen
-        result["classe_globale"], _ = classer_prbs(tR_moyen,
-                                                    self.port_arbre)
+        result["classe_globale"] = classer_prbs(tR_moyen,
+                                                 self.port_arbre)
         # Pire classe ponctuelle (info compl√©mentaire)
         if result["Rouge"]["n"] > 0:
             result["classe_pire"] = "Rouge"
@@ -842,7 +745,7 @@ class SectionCanvas(tk.Canvas):
                                  arrow=tk.LAST, arrowshape=(10, 12, 4))
 
                 # Pastille à 13 px sous l'écorce
-                _, col_class = classer_prbs(s.ratio_tR(R), port)
+                col_class = COULEUR_CLASSE[classer_prbs(s.ratio_tR(R), port)]
                 px, py = self._polar_idx_to_xy(cx, cy, scale,
                                                R - 13/scale, i)
                 r_bul = 11
@@ -1215,8 +1118,7 @@ class App(tk.Tk):
             ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
             ("Hauteur du sondage (cm)",   self.var_h_s, None),
             ("Hauteur de l'arbre (m)",    self.var_h_arb, None),
-            ("Port de l'arbre",           self.var_port,
-             ["libre", "semi-libre", "architecturé", "traumatique"]),
+            ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
             ("Commentaire",               self.var_comm, None),
         ]
         for i, (lbl, var, choices) in enumerate(rows):
@@ -2379,7 +2281,7 @@ class App(tk.Tk):
                 deg_ext = deg_ext_par_grade[idx_grade]
                 prbs_adj = max(0.0, s.prbs_cm - deg_ext)
                 ratio = prbs_adj / R if R > 0 else 0.0
-                classe, _ = classer_prbs(ratio, port)
+                classe = classer_prbs(ratio, port)
                 tag = classe.lower()
                 # Affichage : si dégradation ext. présente, on note
                 # la PRBS ajustée + le composant ext. en parenthèses
@@ -2847,7 +2749,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
             penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
             penetration = max(0.0, min(penetration, R))
             end_radius = R - penetration
-            _, col_class = classer_prbs(s.ratio_tR(R), port)
+            col_class = COULEUR_CLASSE[classer_prbs(s.ratio_tR(R), port)]
             # Flèche : depuis 18 px sous l'écorce vers la fin de pénétration
             x_ext, y_ext = polar(R - 18/scale, i)
             x_end, y_end = polar(end_radius, i)
@@ -3249,7 +3151,8 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             deg_ext = deg_ext_par_grade[idx_g]
             prbs_adj = max(0.0, s.prbs_cm - deg_ext)
             ratio = prbs_adj / R
-            classe, col_c = classer_prbs(ratio, arbre.port_arbre)
+            classe = classer_prbs(ratio, arbre.port_arbre)
+            col_c = COULEUR_CLASSE[classe]
             if k % 2 == 0:
                 d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
                             fill="#F7F3EA")
@@ -3306,9 +3209,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             seg_pct = rep[cls]["pct"]
             seg_w = bar_w * seg_pct / 100.0
             if seg_w > 0:
-                _, col = classer_prbs(
-                    {"Vert": 1.0, "Orange": 0.20, "Rouge": 0.05}[cls],
-                    arbre.port_arbre)
+                col = COULEUR_CLASSE[cls]
                 d.rectangle([x_cur, y, x_cur + seg_w, y + bar_h],
                             fill=col)
                 if seg_w > 95:
@@ -3341,9 +3242,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             n = rep[cls]["n"]
             if n > 0:
                 grades = rep[cls]["grades"]
-                _, col = classer_prbs(
-                    {"Vert": 1.0, "Orange": 0.20, "Rouge": 0.05}[cls],
-                    arbre.port_arbre)
+                col = COULEUR_CLASSE[cls]
                 chunks.append(
                     (f"{cls} {n}/16 ({grades} gr)", col))
         if chunks:
@@ -3366,9 +3265,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         # Boîte plus large et plus haute pour rester proportionnée aux
         # autres éléments de la page.
         classe_g = rep["classe_globale"]
-        _, col_g = classer_prbs(
-            {"Vert": 1.0, "Orange": 0.20, "Rouge": 0.05}[classe_g],
-            arbre.port_arbre)
+        col_g = COULEUR_CLASSE[classe_g]
         box_w, box_h = 460, 60
         d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
         d.text((margin+box_w/2, y+box_h/2),
