@@ -8,3 +8,9 @@
 # rester compatible avec les distributions Linux récentes sans imposer
 # d'upgrade brutal.
 Pillow>=10.0,<12
+
+# openpyxl est utilisée par l'export XLSX du tableau PRBS (menu Export
+# > Tableau XLSX). C'est une dépendance optionnelle : l'app démarre
+# et fonctionne sans, mais l'entrée de menu signale alors qu'elle
+# n'est pas disponible.
+openpyxl>=3.1,<4

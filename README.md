@@ -129,6 +129,12 @@ PRBS de la direction concernée.
   identité de l'arbre, dessin annoté, tableau PRBS coloré, diagnostic
   avec barre de répartition Vert / Orange / Rouge
 - **PNG** : dessin haute résolution
+- **XLSX** : tableau PRBS d'un arbre, une ligne par direction (16 grades,
+  sondées + extrapolées), classes color-codées, diagnostic en pied.
+  Nécessite [openpyxl](https://pypi.org/project/openpyxl/)
+  (`pip install -r requirements.txt`).
+- **HTML** autonome : même tableau, en page imprimable. CSS embarqué,
+  ouvrable dans n'importe quel navigateur, aucune dépendance.
 - **CSV** : tous les sondages de la mission, séparateur `;`,
   encodage UTF-8 avec BOM (compatible Excel)
 

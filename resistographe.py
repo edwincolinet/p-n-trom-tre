@@ -48,6 +48,7 @@ from geometry import (
     polar_idx_to_xy,
     polar_to_xy,
 )
+from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
 
 
 __version__ = "3.3.0"
@@ -914,7 +915,11 @@ class App(tk.Tk):
                       command=self.action_export_png)
         f.add_command(label="Exporter fiche arbre (PDF)…",
                       command=self.action_export_pdf_arbre)
-        f.add_command(label="Exporter tableau CSV…",
+        f.add_command(label="Exporter tableau arbre (XLSX)…",
+                      command=self.action_export_prbs_xlsx)
+        f.add_command(label="Exporter tableau arbre (HTML)…",
+                      command=self.action_export_prbs_html)
+        f.add_command(label="Exporter sondages mission (CSV)…",
                       command=self.action_export_csv)
         f.add_separator()
         f.add_command(label="Quitter", command=self.destroy)
@@ -1280,7 +1285,13 @@ class App(tk.Tk):
         ttk.Button(btn_exp, text="🖼 PNG du dessin", style="Ghost.TButton",
                    command=self.action_export_png
                    ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="📊 CSV de la mission", style="Ghost.TButton",
+        ttk.Button(btn_exp, text="📊 Tableau XLSX", style="Ghost.TButton",
+                   command=self.action_export_prbs_xlsx
+                   ).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_exp, text="🌐 Tableau HTML", style="Ghost.TButton",
+                   command=self.action_export_prbs_html
+                   ).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_exp, text="📋 CSV mission", style="Ghost.TButton",
                    command=self.action_export_csv
                    ).pack(side="left")
 
@@ -2436,6 +2447,62 @@ class App(tk.Tk):
                                     tR_pct,
                                     s.compartimentation, s.commentaire])
             messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
+        except Exception as e:
+            messagebox.showerror("Erreur", str(e))
+
+    def action_export_prbs_xlsx(self) -> None:
+        a = self._current_arbre()
+        if not a:
+            return
+        if not HAS_OPENPYXL:
+            messagebox.showerror(
+                "Export XLSX indisponible",
+                "Le module openpyxl n'est pas installé.\n\n"
+                "Pour activer cet export, lance dans un terminal :\n"
+                "    pip install -r requirements.txt\n\n"
+                "L'export HTML reste disponible sans dépendance.")
+            return
+        if a.rayon_tronc_cm <= 0:
+            messagebox.showerror("Export impossible",
+                "Renseigne un rayon de tronc avant l'export.")
+            return
+        default = (f"tableau_arbre_{a.numero_arbre or 'X'}.xlsx"
+                   .replace(" ", "_"))
+        p = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            initialfile=default,
+            filetypes=[("Classeur Excel", "*.xlsx")])
+        if not p:
+            return
+        try:
+            export_prbs_xlsx(a, self.chantier, p,
+                              couleur_classe=COULEUR_CLASSE,
+                              classer_prbs=classer_prbs)
+            messagebox.showinfo("Exporté", f"Tableau XLSX enregistré :\n{p}")
+        except Exception as e:
+            messagebox.showerror("Erreur", str(e))
+
+    def action_export_prbs_html(self) -> None:
+        a = self._current_arbre()
+        if not a:
+            return
+        if a.rayon_tronc_cm <= 0:
+            messagebox.showerror("Export impossible",
+                "Renseigne un rayon de tronc avant l'export.")
+            return
+        default = (f"tableau_arbre_{a.numero_arbre or 'X'}.html"
+                   .replace(" ", "_"))
+        p = filedialog.asksaveasfilename(
+            defaultextension=".html",
+            initialfile=default,
+            filetypes=[("Page HTML", "*.html")])
+        if not p:
+            return
+        try:
+            export_prbs_html(a, self.chantier, p,
+                              couleur_classe=COULEUR_CLASSE,
+                              classer_prbs=classer_prbs)
+            messagebox.showinfo("Exporté", f"Tableau HTML enregistré :\n{p}")
         except Exception as e:
             messagebox.showerror("Erreur", str(e))
 

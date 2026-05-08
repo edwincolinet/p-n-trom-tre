@@ -18,10 +18,11 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ```
 resistographe.py        ← l'application (modèle + UI Tk + rendu PIL)
 geometry.py             ← briques pures testables (stdlib uniquement)
+export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
 tests/                  ← suite unittest sur les fonctions pures
 silvavenir_logo.jpg     ← logo affiché dans le header et les PDF
 Lancer_Penetrometre.bat ← lanceur double-clic Windows
-requirements.txt        ← Pillow pinnée
+requirements.txt        ← Pillow + openpyxl (XLSX) pinnés
 ```
 
 Le nom de fichier `resistographe.py` reste celui-ci pour des raisons
@@ -65,6 +66,22 @@ points `(x, y)` en coordonnées écran, prêtes à passer à
 - `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy,
   scale)` — polygone d'une dégradation externe (bord externe qui suit
   `R+ep+cloche`, bord interne à `outer-profondeur`).
+
+### `export.py` — exports tableau PRBS
+
+Module dédié aux deux exports stylés du tableau PRBS d'un arbre :
+- `prbs_table_rows(arbre, classer_prbs)` — pure : 16 dicts (un par
+  direction), inclut sondées + extrapolées + dégradation externe.
+- `export_prbs_xlsx(arbre, chantier, path, couleur_classe,
+  classer_prbs)` — fichier Excel stylé. Nécessite openpyxl (dégradé
+  proprement avec `RuntimeError` clair sinon — `HAS_OPENPYXL` flag).
+- `export_prbs_html(arbre, chantier, path, couleur_classe,
+  classer_prbs)` — fichier HTML autonome (CSS embarqué, imprimable
+  en PDF via le navigateur). Aucune dépendance.
+
+`couleur_classe` (le dict `COULEUR_CLASSE`) est injecté depuis l'UI
+pour ne pas créer de cycle d'import (export.py n'importe pas
+resistographe.py). Les arbres et chantiers sont reçus en duck-typing.
 
 ### `resistographe.py` — application
 
