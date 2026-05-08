@@ -174,3 +174,145 @@ def classer_prbs(ratio_tR: float, port_arbre: str) -> str:
         return CLASSE_ORANGE
     else:
         return CLASSE_ROUGE
+
+
+# ----------------------------------------------------------------------
+# Primitives géométriques de rendu (partagées Tkinter ↔ PIL)
+# ----------------------------------------------------------------------
+#
+# Les fonctions ci-dessous renvoient des listes de points `(x, y)` en
+# coordonnées écran (pixels), prêtes à être passées à `Canvas
+# .create_polygon` (Tkinter, en aplatissant) ou à `ImageDraw.polygon`
+# (PIL, qui accepte directement la liste de tuples).
+#
+# Convention :
+# - `cx, cy` : centre du tronc en pixels.
+# - `scale`  : facteur cm → pixels.
+# - `grade`  : direction angulaire en grades (0 à 400, sens horaire,
+#              0 = Nord en haut).
+# - `idx`    : indice de direction (0 à 15) pour les 16 directions
+#              sondées, équivalent à `grade = idx * 25`.
+
+def polar_to_xy(cx: float, cy: float, scale: float,
+                r_cm: float, grade: float) -> Tuple[float, float]:
+    """Convertit (rayon en cm, grade 0-400) en pixels (x, y).
+    0 gr = Nord (en haut), sens horaire."""
+    a = math.radians(grade * 360.0 / 400.0 - 90.0)
+    return (cx + r_cm * scale * math.cos(a),
+            cy + r_cm * scale * math.sin(a))
+
+
+def polar_idx_to_xy(cx: float, cy: float, scale: float,
+                    r_cm: float, idx: int) -> Tuple[float, float]:
+    """Variante indexée : `idx` est un entier dans [0, 16) qui
+    correspond à `grade = idx * 25`. Utilisé pour les 16 directions
+    sondées."""
+    a = math.radians(idx * (360.0 / 16) - 90.0)
+    return (cx + r_cm * scale * math.cos(a),
+            cy + r_cm * scale * math.sin(a))
+
+
+def cavity_polygon(alteration_par_grade: List[float],
+                   cx: float, cy: float, scale: float,
+                   samples_per_segment: int = 28
+                   ) -> List[Tuple[float, float]]:
+    """Renvoie le polygone lissé de la cavité d'altération (Catmull-
+    Rom fermée passant par les 16 points sondés/extrapolés).
+
+    `alteration_par_grade` est la liste de 16 épaisseurs d'altération
+    en cm (correspond à `Arbre.alteration_par_grade`).
+    """
+    pts = [polar_idx_to_xy(cx, cy, scale, max(0.0, alteration_par_grade[i]), i)
+           for i in range(16)]
+    return catmull_rom_closed(pts, samples_per_segment)
+
+
+def contrefort_zone_outline(zone: Tuple[float, float],
+                            contreforts: List[Any],
+                            R: float, ep_cm: float,
+                            cx: float, cy: float, scale: float,
+                            R_inner: Any = None) -> dict:
+    """Pour une zone fusionnée `(a, b)` renvoyée par `contrefort_zones`,
+    échantillonne la cloche cosinus² fusionnée et renvoie les listes de
+    points qui composent les polygones à dessiner.
+
+    Le dict renvoyé contient toujours :
+    - `wood_outer` : bord externe du noyau bois (suit `R + bell`)
+    - `base`       : retour à `R_inner` (déjà inversé pour
+                     concaténation directe → polygone fermé).
+
+    Et si `ep_cm > 0` (écorce non nulle), il contient en plus :
+    - `bark_outer` : bord externe de la couche d'écorce
+                     (suit `R + bell + ep`)
+    - `bark_inner` : bord interne plat de la couche d'écorce (à `R`,
+                     déjà inversé).
+
+    Le caller construit ensuite ses polygones :
+    - polygone bois : `wood_outer + base`
+    - polygone écorce (si ep>0) : `bark_outer + bark_inner`
+    """
+    a, b = zone
+    span = b - a
+    n_steps = max(32, int(span) + 1)
+    if R_inner is None:
+        R_inner = R - 1.0 / scale
+
+    wood_outer: List[Tuple[float, float]] = []
+    bark_outer: List[Tuple[float, float]] = []
+    for k in range(n_steps + 1):
+        t = a + k * span / n_steps
+        g = t % 400
+        bell = bell_max_at_grade(g, contreforts)
+        r_wood = R + bell
+        wood_outer.append(polar_to_xy(cx, cy, scale, r_wood, g))
+        if ep_cm > 0:
+            bark_outer.append(polar_to_xy(cx, cy, scale, r_wood + ep_cm, g))
+
+    base: List[Tuple[float, float]] = []
+    for k in range(n_steps, -1, -1):
+        t = a + k * span / n_steps
+        g = t % 400
+        base.append(polar_to_xy(cx, cy, scale, R_inner, g))
+
+    out = {"wood_outer": wood_outer, "base": base}
+    if ep_cm > 0:
+        bark_inner: List[Tuple[float, float]] = []
+        for k in range(n_steps, -1, -1):
+            t = a + k * span / n_steps
+            g = t % 400
+            bark_inner.append(polar_to_xy(cx, cy, scale, R, g))
+        out["bark_outer"] = bark_outer
+        out["bark_inner"] = bark_inner
+    return out
+
+
+def degradation_externe_outline(deg: Any,
+                                contreforts: List[Any],
+                                R: float, ep_cm: float,
+                                cx: float, cy: float, scale: float
+                                ) -> List[Tuple[float, float]]:
+    """Renvoie le polygone d'une dégradation externe : bord externe
+    qui suit la surface réelle (`R + ep + bell_max(g)`) puis bord
+    interne en sens inverse (à `outer - profondeur`).
+
+    `deg` est typé `Any` (duck-typing) : on lit `grade_debut`,
+    `profondeur_cm` et la méthode `largeur_grades()`. La dataclass
+    `DegradationExterne` vit dans resistographe.py.
+
+    Renvoie une liste vide si la dégradation est dégénérée (profondeur
+    nulle ou rayon nul).
+    """
+    if deg.profondeur_cm <= 0 or R <= 0:
+        return []
+    largeur = deg.largeur_grades()
+    n_steps = max(16, int(largeur) + 1)
+    outer_pts: List[Tuple[float, float]] = []
+    inner_pts: List[Tuple[float, float]] = []
+    for k in range(n_steps + 1):
+        g = (deg.grade_debut + k * largeur / n_steps) % 400
+        bell = bell_max_at_grade(g, contreforts)
+        r_out = R + ep_cm + bell
+        r_in = max(0.0, r_out - deg.profondeur_cm)
+        outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g))
+        inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g))
+    return outer_pts + list(reversed(inner_pts))

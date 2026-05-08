@@ -40,8 +40,13 @@ from geometry import (
     PORTS_ARBRE,
     bell_max_at_grade,
     catmull_rom_closed,
+    cavity_polygon,
     classer_prbs,
+    contrefort_zone_outline,
     contrefort_zones,
+    degradation_externe_outline,
+    polar_idx_to_xy,
+    polar_to_xy,
 )
 
 
@@ -507,71 +512,30 @@ class SectionCanvas(tk.Canvas):
         scale = radius_px / R_eff if R_eff > 0 else 1.0
         return cx, cy, scale
 
-    def _polar_idx_to_xy(self, cx, cy, scale, r_cm, idx):
-        a = math.radians(idx * (360.0 / 16) - 90.0)
-        return (cx + r_cm * scale * math.cos(a),
-                cy + r_cm * scale * math.sin(a))
-
-    def _polar_grade_to_xy(self, cx, cy, scale, r_cm, grade):
-        """Convertit (rayon en cm, grade en gr 0-400) en (x,y) écran.
-        0 gr = Nord (en haut), sens horaire."""
-        a = math.radians(grade * 360.0 / 400.0 - 90.0)
-        return (cx + r_cm * scale * math.cos(a),
-                cy + r_cm * scale * math.sin(a))
-
     def _draw_contreforts_canvas(self, cx, cy, scale, R,
                                   contreforts,
                                   ep_cm: float = 0.0,
                                   R_inner: Optional[float] = None) -> None:
-        """Dessine TOUS les contreforts en fusionnant les zones qui se
-        chevauchent ou se touchent — une seule cloche unifiée par zone
-        connectée, dont la hauteur en chaque grade est le maximum des
-        hauteurs des contreforts qui la composent.
-
-        Évite l'encoche en V qui apparaissait quand chaque contrefort
-        était dessiné isolément.
+        """Dessine TOUS les contreforts en utilisant les polygones fusionnés
+        renvoyés par `contrefort_zone_outline` (cf. geometry.py). Évite
+        l'encoche en V à la jonction de deux contreforts proches.
         """
         if R <= 0 or not contreforts:
             return
-        if R_inner is None:
-            R_inner = R - 1.0 / scale
-        for a, b in contrefort_zones(contreforts):
-            span = b - a
-            n_steps = max(32, int(span) + 1)
-            wood_outer = []
-            bark_outer = []
-            for k in range(n_steps + 1):
-                t = a + k * span / n_steps
-                g = t % 400
-                bell = bell_max_at_grade(g, contreforts)
-                r_wood = R + bell
-                wood_outer.append(
-                    self._polar_grade_to_xy(cx, cy, scale, r_wood, g))
-                if ep_cm > 0:
-                    bark_outer.append(
-                        self._polar_grade_to_xy(cx, cy, scale,
-                                                r_wood + ep_cm, g))
-            base = []
-            for k in range(n_steps, -1, -1):
-                t = a + k * span / n_steps
-                g = t % 400
-                base.append(
-                    self._polar_grade_to_xy(cx, cy, scale, R_inner, g))
+        for zone in contrefort_zones(contreforts):
+            poly = contrefort_zone_outline(zone, contreforts, R, ep_cm,
+                                            cx, cy, scale, R_inner=R_inner)
+            wood_outer = poly["wood_outer"]
             if ep_cm > 0:
                 # Couche d'écorce : bord interne à R (arc constant),
-                # bord externe à r_wood + ep (suit la cloche).
-                bark_inner = []
-                for k in range(n_steps, -1, -1):
-                    t = a + k * span / n_steps
-                    g = t % 400
-                    bark_inner.append(
-                        self._polar_grade_to_xy(cx, cy, scale, R, g))
-                flat_bark = [coord for p in (bark_outer + bark_inner)
+                # bord externe suit la cloche r_wood + ep.
+                flat_bark = [coord for p in (poly["bark_outer"]
+                                              + poly["bark_inner"])
                              for coord in p]
                 self.create_polygon(*flat_bark, fill=COLOR_BARK,
                                     outline="")
             # Polygone bois : noyau de bois sous l'écorce.
-            flat_wood = [coord for p in (wood_outer + base)
+            flat_wood = [coord for p in (wood_outer + poly["base"])
                          for coord in p]
             self.create_polygon(*flat_wood, fill=COLOR_WOOD, outline="")
             if ep_cm == 0:
@@ -582,36 +546,13 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_degradation_externe_canvas(self, cx, cy, scale, R, ep_cm,
                                           contreforts, deg) -> None:
-        """Dessine une dégradation externe sur le canvas Tkinter.
-
-        Le bord externe du polygone suit la SURFACE réelle de l'arbre :
-        `R + ep + bell_max(grade)`. En zone sans contrefort, cela vaut
-        `R + ep` ; en zone de contrefort, cela suit la cloche, ce qui
-        permet à la dégradation de creuser le contrefort dans le secteur
-        qu'elle couvre.
-
-        Le bord interne est à `outer - profondeur`, donc la profondeur
-        est mesurée depuis la surface externe — ce qui est cohérent avec
-        la sémantique d'une plaie radiale.
-        """
-        if deg.profondeur_cm <= 0 or R <= 0:
+        """Dessine une dégradation externe sur le canvas Tkinter à partir
+        des points renvoyés par `degradation_externe_outline` (cf.
+        geometry.py)."""
+        points = degradation_externe_outline(deg, contreforts, R, ep_cm,
+                                              cx, cy, scale)
+        if not points:
             return
-        # Échantillonnage fin pour suivre la cloche dans le secteur du
-        # contrefort éventuel.
-        n_steps = max(16, int(deg.largeur_grades()) + 1)
-        outer_pts = []
-        inner_pts = []
-        for k in range(n_steps + 1):
-            g = (deg.grade_debut
-                 + k * deg.largeur_grades() / n_steps) % 400
-            bell = bell_max_at_grade(g, contreforts)
-            r_out = R + ep_cm + bell
-            r_in = max(0.0, r_out - deg.profondeur_cm)
-            outer_pts.append(
-                self._polar_grade_to_xy(cx, cy, scale, r_out, g))
-            inner_pts.append(
-                self._polar_grade_to_xy(cx, cy, scale, r_in, g))
-        points = outer_pts + list(reversed(inner_pts))
         flat = [c for p in points for c in p]
         # Pas de contour : fusion visuelle avec la cavité interne
         self.create_polygon(*flat, fill=COLOR_ROT, outline="")
@@ -660,11 +601,9 @@ class SectionCanvas(tk.Canvas):
         # égal à cette épaisseur. La couronne externe de bois sain fait
         # donc (R - altéré) d'épaisseur.
         alt = A.alteration_par_grade
-        inner_cm = [max(0.0, alt[i]) for i in range(16)]
         if any(a > 0 for a in alt):
-            pts_inner = [self._polar_idx_to_xy(cx, cy, scale, inner_cm[i], i)
-                         for i in range(16)]
-            smooth = catmull_rom_closed(pts_inner, 28)
+            smooth = cavity_polygon(alt, cx, cy, scale,
+                                     samples_per_segment=28)
             flat = [c for p in smooth for c in p]
             # Pas de contour : la couleur est uniforme avec les dégradations
             # externes, ce qui permet la fusion visuelle quand elles se
@@ -705,9 +644,9 @@ class SectionCanvas(tk.Canvas):
 
         # 4. Graduations des 16 grades (tirets à l'extérieur de l'écorce)
         for i, g in enumerate(GRADES):
-            x1, y1 = self._polar_idx_to_xy(cx, cy, scale, R_ext, i)
+            x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
             tick_len_cm = 8 / scale
-            x2, y2 = self._polar_idx_to_xy(cx, cy, scale,
+            x2, y2 = polar_idx_to_xy(cx, cy, scale,
                                             R_ext + tick_len_cm, i)
             major = (g % 50 == 0)
             self.create_line(x1, y1, x2, y2,
@@ -719,7 +658,7 @@ class SectionCanvas(tk.Canvas):
             lbl = DIRECTION_LABELS.get(g, "")
             if not lbl:
                 continue
-            lx, ly = self._polar_idx_to_xy(cx, cy, scale,
+            lx, ly = polar_idx_to_xy(cx, cy, scale,
                                             R_ext + 25/scale, i)
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
@@ -741,9 +680,9 @@ class SectionCanvas(tk.Canvas):
                 penetration = max(0.0, min(penetration, R))
                 end_radius = R - penetration
                 # Flèche : depuis 13 px sous l'écorce
-                x_ext, y_ext = self._polar_idx_to_xy(cx, cy, scale,
+                x_ext, y_ext = polar_idx_to_xy(cx, cy, scale,
                                                      R - 13/scale, i)
-                x_end, y_end = self._polar_idx_to_xy(cx, cy, scale,
+                x_end, y_end = polar_idx_to_xy(cx, cy, scale,
                                                      end_radius, i)
                 self.create_line(x_ext, y_ext, x_end, y_end,
                                  fill=COLOR_SOND, width=2,
@@ -751,7 +690,7 @@ class SectionCanvas(tk.Canvas):
 
                 # Pastille à 13 px sous l'écorce
                 col_class = COULEUR_CLASSE[classer_prbs(s.ratio_tR(R), port)]
-                px, py = self._polar_idx_to_xy(cx, cy, scale,
+                px, py = polar_idx_to_xy(cx, cy, scale,
                                                R - 13/scale, i)
                 r_bul = 11
                 self.create_oval(px - r_bul - 2, py - r_bul - 2,
@@ -2614,15 +2553,13 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     radius_px = R * scale
     radius_ext_px = R_ext * scale
 
+    # Helpers locaux : on délègue aux primitives de geometry.py mais on
+    # capture (cx, cy, scale) pour rester lisible côté call-sites.
     def polar(r_cm, idx):
-        a = math.radians(idx * (360/16) - 90)
-        return (cx + r_cm * scale * math.cos(a),
-                cy + r_cm * scale * math.sin(a))
+        return polar_idx_to_xy(cx, cy, scale, r_cm, idx)
 
     def polar_grade(r_cm, grade):
-        a = math.radians(grade * 360/400 - 90)
-        return (cx + r_cm * scale * math.cos(a),
-                cy + r_cm * scale * math.sin(a))
+        return polar_to_xy(cx, cy, scale, r_cm, grade)
 
     # Disque bois sain
     d.ellipse([cx-radius_px, cy-radius_px, cx+radius_px, cy+radius_px],
@@ -2639,10 +2576,8 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # Cavité altération (spline) — couleur uniforme, pas de contour
     arbre.recompute_alteration_from_sondages()
     alt = arbre.alteration_par_grade
-    inner_cm = [max(0, alt[i]) for i in range(16)]
     if any(a > 0 for a in alt):
-        pts = [polar(inner_cm[i], i) for i in range(16)]
-        smooth = catmull_rom_closed(pts, 32)
+        smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=32)
         d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
     # Écorce. Si une épaisseur est renseignée, on dessine un anneau
@@ -2663,37 +2598,17 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                   outline=COLOR_BARK, width=4)
 
     # Contreforts (empattements à la base du tronc) — fusionnés par
-    # zones connectées. Les contreforts qui se chevauchent ou se
-    # touchent sont rendus comme une seule cloche unifiée (max des
-    # hauteurs à chaque grade), ce qui évite les encoches en V à la
-    # jonction de deux contreforts proches.
-    cf_inner_r = R - 1.0 / scale
-    for a, b in contrefort_zones(arbre.contreforts):
-        span = b - a
-        n_steps = max(32, int(span) + 1)
-        wood_outer = []
-        bark_outer = []
-        for k in range(n_steps + 1):
-            t = a + k * span / n_steps
-            g = t % 400
-            bell = bell_max_at_grade(g, arbre.contreforts)
-            r_wood = R + bell
-            wood_outer.append(polar_grade(r_wood, g))
-            if ep > 0:
-                bark_outer.append(polar_grade(r_wood + ep, g))
-        base = []
-        for k in range(n_steps, -1, -1):
-            t = a + k * span / n_steps
-            g = t % 400
-            base.append(polar_grade(cf_inner_r, g))
+    # zones connectées via `contrefort_zone_outline`. Plusieurs
+    # contreforts qui se touchent sont rendus comme une seule cloche
+    # unifiée (max des hauteurs), ce qui évite l'encoche en V.
+    for zone in contrefort_zones(arbre.contreforts):
+        poly = contrefort_zone_outline(zone, arbre.contreforts, R, ep,
+                                        cx, cy, scale)
+        wood_outer = poly["wood_outer"]
         if ep > 0:
-            bark_inner = []
-            for k in range(n_steps, -1, -1):
-                t = a + k * span / n_steps
-                g = t % 400
-                bark_inner.append(polar_grade(R, g))
-            d.polygon(bark_outer + bark_inner, fill=COLOR_BARK)
-        d.polygon(wood_outer + base, fill=COLOR_WOOD)
+            d.polygon(poly["bark_outer"] + poly["bark_inner"],
+                      fill=COLOR_BARK)
+        d.polygon(wood_outer + poly["base"], fill=COLOR_WOOD)
         if ep == 0:
             d.line(wood_outer, fill=COLOR_BARK, width=4, joint="curve")
 
@@ -2703,21 +2618,10 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # (R + ep + cloche), donc une dégradation qui passe sur un
     # contrefort y mord à concurrence de sa profondeur.
     for deg in arbre.degradations_externes:
-        if deg.profondeur_cm <= 0:
-            continue
-        n_steps = max(16, int(deg.largeur_grades()) + 1)
-        outer_pts = []
-        inner_pts = []
-        for k in range(n_steps + 1):
-            g = (deg.grade_debut
-                 + k * deg.largeur_grades() / n_steps) % 400
-            bell = bell_max_at_grade(g, arbre.contreforts)
-            r_out = R + ep + bell
-            r_in = max(0.0, r_out - deg.profondeur_cm)
-            outer_pts.append(polar_grade(r_out, g))
-            inner_pts.append(polar_grade(r_in, g))
-        pts_arc = outer_pts + list(reversed(inner_pts))
-        d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
+        pts_arc = degradation_externe_outline(deg, arbre.contreforts,
+                                               R, ep, cx, cy, scale)
+        if pts_arc:
+            d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
 
     # Ticks 16 grades — à l'extérieur de l'écorce
     for i, g in enumerate(GRADES):

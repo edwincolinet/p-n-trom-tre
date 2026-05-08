@@ -14,9 +14,15 @@ import unittest
 
 from resistographe import (
     Contrefort,
+    DegradationExterne,
     bell_max_at_grade,
     catmull_rom_closed,
+    cavity_polygon,
+    contrefort_zone_outline,
     contrefort_zones,
+    degradation_externe_outline,
+    polar_idx_to_xy,
+    polar_to_xy,
 )
 
 
@@ -160,6 +166,115 @@ class ContrefortZonesTests(unittest.TestCase):
         cf = Contrefort(grade_centre=0, largeur_grades=400, longueur_cm=10.0)
         zones = contrefort_zones([cf])
         self.assertEqual(zones, [(0.0, 400.0)])
+
+
+class PolarConversionsTests(unittest.TestCase):
+
+    CX, CY, SCALE = 100.0, 100.0, 10.0  # 10 px/cm
+
+    def test_grade_zero_pointe_au_nord(self):
+        # Grade 0 = Nord = au-dessus du centre (y plus petit en écran).
+        x, y = polar_to_xy(self.CX, self.CY, self.SCALE, r_cm=5.0, grade=0)
+        self.assertAlmostEqual(x, self.CX)
+        self.assertAlmostEqual(y, self.CY - 5.0 * self.SCALE)
+
+    def test_grade_100_pointe_a_l_est(self):
+        # 100 gr = E = à droite du centre.
+        x, y = polar_to_xy(self.CX, self.CY, self.SCALE, r_cm=5.0, grade=100)
+        self.assertAlmostEqual(x, self.CX + 5.0 * self.SCALE)
+        self.assertAlmostEqual(y, self.CY, places=6)
+
+    def test_grade_200_pointe_au_sud(self):
+        x, y = polar_to_xy(self.CX, self.CY, self.SCALE, r_cm=5.0, grade=200)
+        self.assertAlmostEqual(x, self.CX, places=6)
+        self.assertAlmostEqual(y, self.CY + 5.0 * self.SCALE)
+
+    def test_polar_idx_equivalent_a_polar_grade(self):
+        # idx i correspond à grade = i * 25.
+        for i in range(16):
+            with self.subTest(idx=i):
+                a = polar_idx_to_xy(self.CX, self.CY, self.SCALE, 7.0, i)
+                b = polar_to_xy(self.CX, self.CY, self.SCALE, 7.0, i * 25)
+                self.assertAlmostEqual(a[0], b[0], places=6)
+                self.assertAlmostEqual(a[1], b[1], places=6)
+
+    def test_rayon_zero_donne_le_centre(self):
+        for grade in (0, 50, 100, 250):
+            with self.subTest(grade=grade):
+                x, y = polar_to_xy(self.CX, self.CY, self.SCALE, 0, grade)
+                self.assertAlmostEqual(x, self.CX, places=6)
+                self.assertAlmostEqual(y, self.CY, places=6)
+
+
+class CavityPolygonTests(unittest.TestCase):
+
+    def test_aucune_alteration_centre_partout(self):
+        # Toutes les altérations à 0 : tous les points convergent au centre.
+        alt = [0.0] * 16
+        pts = cavity_polygon(alt, cx=50, cy=50, scale=10,
+                              samples_per_segment=4)
+        for x, y in pts:
+            self.assertAlmostEqual(x, 50, places=6)
+            self.assertAlmostEqual(y, 50, places=6)
+
+    def test_renvoie_un_polygone_ferme(self):
+        alt = [3.0, 5.0, 4.0, 3.5, 6.0, 4.0, 3.0, 5.0,
+               4.5, 3.0, 4.0, 5.0, 3.5, 4.5, 3.0, 5.0]
+        pts = cavity_polygon(alt, cx=0, cy=0, scale=1)
+        # Catmull-Rom fermée : premier point == dernier point
+        self.assertEqual(pts[0], pts[-1])
+        # Beaucoup d'échantillons (16 segments × samples_per_segment + 1)
+        self.assertGreater(len(pts), 16)
+
+
+class ContrefortZoneOutlineTests(unittest.TestCase):
+
+    def test_sans_ecorce_renvoie_seulement_wood_et_base(self):
+        cf = Contrefort(grade_centre=100, largeur_grades=50, longueur_cm=10.0)
+        zone = contrefort_zones([cf])[0]
+        out = contrefort_zone_outline(zone, [cf], R=20.0, ep_cm=0.0,
+                                       cx=0, cy=0, scale=1)
+        self.assertEqual(set(out.keys()), {"wood_outer", "base"})
+        self.assertEqual(len(out["wood_outer"]), len(out["base"]))
+
+    def test_avec_ecorce_renvoie_les_4_listes(self):
+        cf = Contrefort(grade_centre=100, largeur_grades=50, longueur_cm=10.0)
+        zone = contrefort_zones([cf])[0]
+        out = contrefort_zone_outline(zone, [cf], R=20.0, ep_cm=2.0,
+                                       cx=0, cy=0, scale=1)
+        self.assertEqual(set(out.keys()),
+                         {"wood_outer", "base", "bark_outer", "bark_inner"})
+        # Toutes les listes ont la même longueur (échantillonnage cohérent)
+        n = len(out["wood_outer"])
+        self.assertEqual(len(out["base"]), n)
+        self.assertEqual(len(out["bark_outer"]), n)
+        self.assertEqual(len(out["bark_inner"]), n)
+
+
+class DegradationExterneOutlineTests(unittest.TestCase):
+
+    def test_profondeur_zero_renvoie_liste_vide(self):
+        deg = DegradationExterne(grade_debut=0, grade_fin=100,
+                                  profondeur_cm=0.0)
+        pts = degradation_externe_outline(deg, [], R=20.0, ep_cm=0.0,
+                                            cx=0, cy=0, scale=1)
+        self.assertEqual(pts, [])
+
+    def test_rayon_zero_renvoie_liste_vide(self):
+        deg = DegradationExterne(grade_debut=0, grade_fin=100,
+                                  profondeur_cm=2.0)
+        pts = degradation_externe_outline(deg, [], R=0.0, ep_cm=0.0,
+                                            cx=0, cy=0, scale=1)
+        self.assertEqual(pts, [])
+
+    def test_polygone_pair_outer_plus_inner(self):
+        # Le polygone est outer + reversed(inner), donc taille paire.
+        deg = DegradationExterne(grade_debut=50, grade_fin=100,
+                                  profondeur_cm=2.0)
+        pts = degradation_externe_outline(deg, [], R=20.0, ep_cm=0.0,
+                                            cx=0, cy=0, scale=1)
+        self.assertGreater(len(pts), 0)
+        self.assertEqual(len(pts) % 2, 0)
 
 
 if __name__ == "__main__":

@@ -34,6 +34,14 @@ est une marque déposée).
 
 Module isolé de Tk et PIL, couvert par les tests :
 
+**Logique métier**
+- `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
+  renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
+  couleur est une convention de présentation et vit côté UI.
+- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
+  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+
+**Géométrie pure**
 - `catmull_rom_closed` — interpolation spline fermée.
 - `bell_max_at_grade(grade, contreforts)` — hauteur de cloche cosinus²
   maximale à un grade donné (max sur tous les contreforts qui
@@ -41,11 +49,22 @@ Module isolé de Tk et PIL, couvert par les tests :
 - `contrefort_zones(contreforts)` — fusion des intervalles angulaires
   qui se chevauchent ou se touchent (une seule cloche unifiée par
   zone connectée, plus de V entre deux contreforts proches).
-- `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
-  renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
-  couleur est une convention de présentation et vit côté UI.
-- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
-  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+
+**Primitives de rendu partagées Tk ↔ PIL** (renvoient des listes de
+points `(x, y)` en coordonnées écran, prêtes à passer à
+`Canvas.create_polygon` ou à `ImageDraw.polygon`) :
+- `polar_to_xy(cx, cy, scale, r_cm, grade)` — polaire → écran.
+  Grade 0 = Nord, sens horaire.
+- `polar_idx_to_xy(cx, cy, scale, r_cm, idx)` — variante indexée
+  (idx ∈ [0,16) ↔ grade = idx × 25).
+- `cavity_polygon(alteration_par_grade, cx, cy, scale)` — polygone
+  lissé de la cavité d'altération.
+- `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy,
+  scale)` — dict `{wood_outer, base, bark_outer?, bark_inner?}` pour
+  une zone fusionnée renvoyée par `contrefort_zones`.
+- `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy,
+  scale)` — polygone d'une dégradation externe (bord externe qui suit
+  `R+ep+cloche`, bord interne à `outer-profondeur`).
 
 ### `resistographe.py` — application
 
@@ -74,9 +93,15 @@ Organisé en sections séparées par des bandeaux de commentaires :
    Helpers associés : `_pil_load_fonts()`, `_fit_text()` (troncature
    ellipsis pour rester dans une largeur), `_draw_horizontal_legend_pil()`
    (légende sur une ligne, sous l'échelle).
-   **Le code de rendu PIL est volontairement parallèle au rendu Tkinter**
-   (mêmes calculs de positions, palettes communes). Quand tu modifies
-   un aspect visuel, **modifie systématiquement les deux**.
+
+   **Tkinter et PIL partagent les primitives géométriques** définies
+   dans `geometry.py` (cf. ci-dessus : `polar_to_xy`, `cavity_polygon`,
+   `contrefort_zone_outline`, `degradation_externe_outline`). La
+   géométrie ne peut donc plus diverger entre les deux moteurs. Restent
+   spécifiques à chaque renderer : la palette/typographie, l'API de
+   dessin (`Canvas.create_*` vs `d.polygon/ellipse/line`), la couche
+   d'écorce (cf. piège `outline+width` ci-dessous), et tout ce qui est
+   purement présentation (échelle, lettres cardinales, règle graduée).
 
 ## Conventions métier importantes
 
