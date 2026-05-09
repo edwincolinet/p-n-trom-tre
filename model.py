@@ -374,19 +374,34 @@ class Chantier:
             "Libre, semi-libre ou traumatique": "libre",
             "Architecturé ou traumatique": "architecturé",
         }
+        # Champs connus de chaque dataclass : permet d'ignorer
+        # silencieusement un champ inconnu dans un JSON futur (ascendance
+        # garantie même si on ajoute un champ côté code et qu'on revient
+        # à une ancienne version de l'app, ou inversement). Sans ce
+        # filtre, `Arbre(**a)` lèverait TypeError sur clé inattendue.
+        arbre_fields = set(Arbre.__dataclass_fields__)
+        sondage_fields = set(Sondage.__dataclass_fields__)
+        deg_fields = set(DegradationExterne.__dataclass_fields__)
+        cf_fields = set(Contrefort.__dataclass_fields__)
+
         arbres = []
         for a in d.get("arbres", []):
-            sondages = [Sondage(**s) for s in a.pop("sondages", [])]
-            degs = [DegradationExterne(**dg)
+            sondages = [Sondage(**{k: v for k, v in s.items()
+                                    if k in sondage_fields})
+                        for s in a.pop("sondages", [])]
+            degs = [DegradationExterne(**{k: v for k, v in dg.items()
+                                           if k in deg_fields})
                     for dg in a.pop("degradations_externes", [])]
             # Contreforts : ajout v3.3 — anciens fichiers → liste vide
-            contreforts = [Contrefort(**c)
+            contreforts = [Contrefort(**{k: v for k, v in c.items()
+                                          if k in cf_fields})
                            for c in a.pop("contreforts", [])]
             # Migration du port si ancien format
             if "port_arbre" in a:
                 a["port_arbre"] = port_legacy.get(a["port_arbre"],
                                                   a["port_arbre"])
-            arb = Arbre(**a)
+            arb = Arbre(**{k: v for k, v in a.items()
+                           if k in arbre_fields})
             arb.sondages = sondages
             arb.degradations_externes = degs
             arb.contreforts = contreforts

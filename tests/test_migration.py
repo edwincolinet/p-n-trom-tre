@@ -127,6 +127,45 @@ class RoundTripTests(unittest.TestCase):
                          ["A", "B", "C"])
         self.assertAlmostEqual(c2.arbres[1].rayon_tronc_cm, 22.0)
 
+    def test_champs_inconnus_ignores(self):
+        # Compatibilité descendante : un JSON futur peut contenir des
+        # champs qu'une ancienne version de l'app ne connaît pas
+        # encore. from_dict doit les ignorer silencieusement plutôt que
+        # planter avec TypeError sur "unexpected keyword argument".
+        d = {
+            "nom": "Future",
+            "_version_future": "v9.9",          # clé inconnue niveau Chantier
+            "arbres": [{
+                "numero_arbre": "1",
+                "rayon_tronc_cm": 18.0,
+                "futur_metier_inconnu": 42,    # clé inconnue niveau Arbre
+                "sondages": [{
+                    "numero": 1, "grade": 0,
+                    "bois_sain_cm": 10.0, "bois_altere_cm": 8.0,
+                    "nouveau_champ": "X",      # clé inconnue niveau Sondage
+                }],
+                "degradations_externes": [{
+                    "numero": 1, "grade_debut": 50, "grade_fin": 100,
+                    "profondeur_cm": 2.0,
+                    "tag_v9": True,            # clé inconnue niveau Dégradation
+                }],
+                "contreforts": [{
+                    "numero": 1, "grade_centre": 0,
+                    "largeur_grades": 50, "longueur_cm": 10.0,
+                    "stade_v9": "active",      # clé inconnue niveau Contrefort
+                }],
+            }],
+        }
+        c = Chantier.from_dict(d)  # ne doit PAS lever
+        self.assertEqual(c.nom, "Future")
+        self.assertEqual(len(c.arbres), 1)
+        a = c.arbres[0]
+        self.assertEqual(a.numero_arbre, "1")
+        self.assertAlmostEqual(a.rayon_tronc_cm, 18.0)
+        self.assertEqual(len(a.sondages), 1)
+        self.assertEqual(len(a.degradations_externes), 1)
+        self.assertEqual(len(a.contreforts), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
