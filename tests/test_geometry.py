@@ -12,9 +12,7 @@ from __future__ import annotations
 import math
 import unittest
 
-from resistographe import (
-    Contrefort,
-    DegradationExterne,
+from geometry import (
     bell_max_at_grade,
     catmull_rom_closed,
     cavity_polygon,
@@ -24,6 +22,7 @@ from resistographe import (
     polar_idx_to_xy,
     polar_to_xy,
 )
+from model import Contrefort, DegradationExterne
 
 
 class CatmullRomTests(unittest.TestCase):

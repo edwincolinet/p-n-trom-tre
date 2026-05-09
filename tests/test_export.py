@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from resistographe import (
+from model import (
     Arbre,
     DegradationExterne,
     Sondage,

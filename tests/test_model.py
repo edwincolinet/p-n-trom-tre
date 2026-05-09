@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import unittest
 
-from resistographe import (
+from geometry import GRADES
+from model import (
     Arbre,
     Contrefort,
     DegradationExterne,
-    GRADES,
     Sondage,
 )
 
