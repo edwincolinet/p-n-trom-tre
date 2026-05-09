@@ -16,11 +16,16 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-resistographe.py        ← l'application (modèle + UI Tk + rendu PIL)
-geometry.py             ← briques pures testables (stdlib uniquement)
+resistographe.py        ← UI Tk + App + main (≈ 2200 lignes)
+model.py                ← dataclasses (Sondage, Arbre, …) + logique métier
+geometry.py             ← briques pures (spline, contreforts, barème, polaire)
+pil_render.py           ← rendu PNG + fiche PDF A4
+palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest sur les fonctions pures
-silvavenir_logo.jpg     ← logo affiché dans le header et les PDF
+tests/                  ← suite unittest (95 tests, stdlib uniquement)
+assets/
+  silvavenir_logo.jpg   ← logo (header app + fiche PDF)
+  Icone.jpeg            ← icône bureau pour Penetrometre.desktop
 Lancer_Penetrometre.bat ← lanceur double-clic Windows
 requirements.txt        ← Pillow + openpyxl (XLSX) pinnés
 ```
@@ -28,6 +33,18 @@ requirements.txt        ← Pillow + openpyxl (XLSX) pinnés
 Le nom de fichier `resistographe.py` reste celui-ci pour des raisons
 historiques même si le produit s'appelle « Pénétromètre » (Résistographe
 est une marque déposée).
+
+**Graphe de dépendances** (chaque module n'importe que vers le bas) :
+
+```
+geometry.py   (stdlib)
+   ↑
+model.py + palette.py
+   ↑
+export.py + pil_render.py
+   ↑
+resistographe.py  (Tk + main)
+```
 
 ## Architecture
 
@@ -83,42 +100,82 @@ Module dédié aux deux exports stylés du tableau PRBS d'un arbre :
 pour ne pas créer de cycle d'import (export.py n'importe pas
 resistographe.py). Les arbres et chantiers sont reçus en duck-typing.
 
-### `resistographe.py` — application
+### `model.py` — dataclasses + logique métier
+
+Module sans dépendance Tk ni PIL (stdlib + `geometry`), couvert par
+les tests :
+
+- `Sondage` — une mesure ponctuelle dans une direction.
+- `DegradationExterne` — un arc d'écorce dégradée.
+- `Contrefort` — empattement à la base (cloche cosinus²).
+- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées :
+  - `compute_alteration_par_grade()` — **pure** (ne mute pas).
+    Extrapolation par moyenne pondérée linéaire entre voisins.
+  - `recompute_alteration_from_sondages()` — **mutateur explicite**.
+    Met à jour le cache `self.alteration_par_grade` (qui est aussi
+    sérialisé en JSON via `asdict`). Seul moyen de rafraîchir le
+    cache. À appeler avant tout dessin qui lit
+    `arbre.alteration_par_grade` directement.
+  - `prbs_par_grade()`, `ratio_tR_par_grade()`,
+    `repartition_classes()` — purs : utilisent
+    `compute_alteration_par_grade()` à la volée. Ils n'écrivent
+    JAMAIS dans `self.alteration_par_grade` (verrou par test).
+- `Chantier` — mission qui regroupe plusieurs arbres. `to_dict` /
+  `from_dict` pour la persistance. **`from_dict` filtre les clés
+  inconnues** par `__dataclass_fields__` à chaque niveau, ce qui
+  rend l'ouverture robuste à un JSON futur qui contient des champs
+  qu'une ancienne version de l'app ne connaît pas encore.
+
+### `palette.py` — couleurs partagées Tk ↔ PIL
+
+Petit module sans logique : centralise les `COLOR_*` (panneaux,
+bois, écorce, cernes, dégradation, sondage) et le dict
+`COULEUR_CLASSE` (label → hex). Importé à la fois par
+`resistographe.py` (Tk) et `pil_render.py` (PIL). Sans ce module
+intermédiaire, les deux auraient un cycle d'import.
+
+### `pil_render.py` — rendu PNG + fiche PDF A4
+
+- `render_arbre_to_pil_image(arbre, …)` — section transversale
+  identique à celle du `SectionCanvas` Tk, mais sur une `PIL.Image`.
+- `render_fiche_arbre_to_pdf_page(arbre, chantier)` — page A4
+  150 DPI complète : en-tête mission + logo, identité de l'arbre,
+  dessin, légende horizontale, tableau PRBS ajustée, diagnostic.
+- Helpers : `_pil_load_fonts()` (multi-OS avec fallback),
+  `_fit_text()` (troncature ellipsis), `_draw_horizontal_legend_pil()`.
+- `HAS_PIL` exposé : `False` si Pillow absent ; les actions d'export
+  côté UI affichent alors un message clair et n'appellent pas le
+  rendu.
+
+**Tkinter (`resistographe.SectionCanvas`) et PIL partagent les
+primitives géométriques** définies dans `geometry.py` (`polar_to_xy`,
+`cavity_polygon`, `contrefort_zone_outline`,
+`degradation_externe_outline`). La géométrie ne peut donc plus
+diverger entre les deux moteurs. Restent spécifiques à chaque
+renderer : la typographie, l'API de dessin (`Canvas.create_*` vs
+`d.polygon/ellipse/line`), la couche d'écorce (cf. piège
+`outline+width` ci-dessous), et tout ce qui est purement
+présentation (échelle, lettres cardinales, règle graduée).
+
+### `resistographe.py` — application Tk + main
 
 Organisé en sections séparées par des bandeaux de commentaires :
 
-1. **Imports + constantes** : palette couleurs, `GRADES`,
-   `DIRECTION_LABELS`, `COULEUR_CLASSE` (mapping label → hex pour
-   l'affichage).
-2. **Modèle de données** — dataclasses :
-   - `Sondage` — une mesure ponctuelle dans une direction
-   - `DegradationExterne` — un arc d'écorce dégradée
-   - `Contrefort` — empattement à la base (cloche cosinus²)
-   - `Arbre` — un arbre avec ses sondages, dégradations et contreforts
-   - `Chantier` — une mission qui regroupe plusieurs arbres
-3. **Logique métier** sur `Arbre` (méthodes) :
-   - `recompute_alteration_from_sondages()` — extrapolation par moyenne
-     pondérée linéaire entre voisins
-   - `prbs_par_grade()` — PRBS ajustée (intègre dégrad. externes)
-   - `repartition_classes()` — Vert/Orange/Rouge sur le pourtour
-4. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
-   section transversale en temps réel dans la fenêtre
-5. **Application** — `class App(tk.Tk)` : fenêtre principale, onglets,
-   sync UI ↔ modèle, actions
-6. **Rendu PIL** — `render_arbre_to_pil_image()` et
-   `render_fiche_arbre_to_pdf_page()` : génération PNG et PDF.
-   Helpers associés : `_pil_load_fonts()`, `_fit_text()` (troncature
-   ellipsis pour rester dans une largeur), `_draw_horizontal_legend_pil()`
-   (légende sur une ligne, sous l'échelle).
+1. **Imports + logger applicatif** (`logging.getLogger("penetrometre")`).
+2. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
+   section transversale en temps réel dans la fenêtre.
+3. **Application** — `class App(tk.Tk)` : fenêtre principale,
+   onglets, sync UI ↔ modèle, actions (ajouter/dupliquer arbre,
+   exports PNG/PDF/CSV/XLSX/HTML, …).
+4. **`main()`** — configure `_setup_logging()` puis lance
+   `App().mainloop()`. Le logger écrit dans
+   `~/.penetrometre/penetrometre.log` (RotatingFileHandler), ce qui
+   rend les exceptions visibles même en double-clic Windows. Toutes
+   les actions d'export catchent leurs exceptions avec
+   `log.exception(...)` avant le `messagebox.showerror`.
 
-   **Tkinter et PIL partagent les primitives géométriques** définies
-   dans `geometry.py` (cf. ci-dessus : `polar_to_xy`, `cavity_polygon`,
-   `contrefort_zone_outline`, `degradation_externe_outline`). La
-   géométrie ne peut donc plus diverger entre les deux moteurs. Restent
-   spécifiques à chaque renderer : la palette/typographie, l'API de
-   dessin (`Canvas.create_*` vs `d.polygon/ellipse/line`), la couche
-   d'écorce (cf. piège `outline+width` ci-dessous), et tout ce qui est
-   purement présentation (échelle, lettres cardinales, règle graduée).
+Les dataclasses du modèle et le rendu PIL sont **importés** depuis
+`model` et `pil_render` ; ils ne sont plus définis ici.
 
 ## Conventions métier importantes
 

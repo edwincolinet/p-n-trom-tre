@@ -544,7 +544,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # Logo à droite
     logo_w = 0
     try:
-        logo_path = Path(__file__).parent / "silvavenir_logo.jpg"
+        logo_path = Path(__file__).parent / "assets" / "silvavenir_logo.jpg"
         if logo_path.exists():
             logo = Image.open(logo_path).convert("RGBA")
             target_h = header_h - 24

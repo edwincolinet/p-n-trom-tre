@@ -52,8 +52,15 @@ l'altération, le calcul PRBS et la migration des anciens fichiers JSON.
 
 ```
 mon-dossier/
-├── resistographe.py            ← le programme
-├── silvavenir_logo.jpg         ← le logo (header app + fiche PDF)
+├── resistographe.py            ← le programme (UI Tk + main)
+├── model.py                     ← dataclasses + logique métier
+├── pil_render.py                ← rendu PNG + fiche PDF
+├── geometry.py                  ← géométrie pure + barème
+├── export.py                    ← exports XLSX/HTML
+├── palette.py                   ← couleurs partagées Tk ↔ PIL
+├── assets/
+│   ├── silvavenir_logo.jpg     ← logo (header app + fiche PDF)
+│   └── Icone.jpeg              ← icône bureau (.desktop)
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
 ```
 

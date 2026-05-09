@@ -591,7 +591,7 @@ class App(tk.Tk):
         self._logo_image = None
         try:
             from PIL import Image as PILImage, ImageTk
-            logo_path = Path(__file__).parent / "silvavenir_logo.jpg"
+            logo_path = Path(__file__).parent / "assets" / "silvavenir_logo.jpg"
             if logo_path.exists():
                 pil = PILImage.open(logo_path)
                 # Redimensionner à 60 px de haut en gardant le ratio
@@ -1193,10 +1193,24 @@ class App(tk.Tk):
         new = simpledialog.askstring("Renuméroter l'arbre",
                                      "Nouveau n° d'arbre :",
                                      initialvalue=a.numero_arbre, parent=self)
-        if new:
-            a.numero_arbre = new
-            self.var_num.set(new)
-            self._refresh_tree_arbres()
+        if not new or new == a.numero_arbre:
+            return
+        # Avertissement non bloquant si le numéro est déjà utilisé par
+        # un autre arbre de la mission. L'utilisateur peut quand même
+        # confirmer (cas d'un renommage en chaîne, ou d'un doublon
+        # volontaire pour un arbre jumeau identifié sur le terrain).
+        already_used = any(x is not a and x.numero_arbre == new
+                           for x in self.chantier.arbres)
+        if already_used:
+            confirmer = messagebox.askyesno(
+                "Numéro déjà utilisé",
+                f"Un autre arbre porte déjà le n° « {new} ».\n\n"
+                "Continuer quand même ?")
+            if not confirmer:
+                return
+        a.numero_arbre = new
+        self.var_num.set(new)
+        self._refresh_tree_arbres()
 
     # --- Sondages ---------------------------------------------------
 
