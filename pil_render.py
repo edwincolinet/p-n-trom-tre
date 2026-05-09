@@ -267,6 +267,11 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     if show_sondages:
         port = arbre.port_arbre
         meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
+        # Profondeur de dégradation externe par direction : la pastille
+        # est classée sur la PRBS AJUSTÉE (PRBS - dégrad. externe
+        # couvrant le grade) pour rester cohérente avec le tableau
+        # Diagnostic et la fiche PDF.
+        deg_ext_par_grade = arbre.degradation_externe_par_grade()
         for s in arbre.sondages:
             if s.grade not in GRADES:
                 continue
@@ -274,7 +279,9 @@ def render_arbre_to_pil_image(arbre: "Arbre",
             penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
             penetration = max(0.0, min(penetration, R))
             end_radius = R - penetration
-            col_class = COULEUR_CLASSE[classer_prbs(s.ratio_tR(R), port)]
+            prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
+            ratio_adj = prbs_adj / R if R > 0 else 0.0
+            col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
             # Flèche : depuis 18 px sous l'écorce vers la fin de pénétration
             x_ext, y_ext = polar(R - 18/scale, i)
             x_end, y_end = polar(end_radius, i)

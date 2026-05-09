@@ -287,6 +287,11 @@ class SectionCanvas(tk.Canvas):
         if self.show_sondages:
             port = A.port_arbre
             meche = A.meche_cm if A.meche_cm > 0 else float("inf")
+            # Profondeur de dégradation externe par direction : la
+            # pastille est classée sur la PRBS AJUSTÉE (PRBS - dégrad.
+            # externe couvrant le grade) afin d'être cohérente avec le
+            # tableau Diagnostic et la fiche PDF.
+            deg_ext_par_grade = A.degradation_externe_par_grade()
             for s in A.sondages:
                 if s.grade not in GRADES:
                     continue
@@ -303,8 +308,11 @@ class SectionCanvas(tk.Canvas):
                                  fill=COLOR_SOND, width=2,
                                  arrow=tk.LAST, arrowshape=(10, 12, 4))
 
-                # Pastille à 13 px sous l'écorce
-                col_class = COULEUR_CLASSE[classer_prbs(s.ratio_tR(R), port)]
+                # Pastille à 13 px sous l'écorce, classée sur la PRBS
+                # ajustée (cohérence avec le tableau et la fiche PDF).
+                prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
+                ratio_adj = prbs_adj / R if R > 0 else 0.0
+                col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
                 px, py = polar_idx_to_xy(cx, cy, scale,
                                                R - 13/scale, i)
                 r_bul = 11
