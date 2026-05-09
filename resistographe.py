@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import math
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -77,6 +79,12 @@ from pil_render import (
 
 
 __version__ = "3.3.0"
+
+
+# Logger applicatif — configuré par `_setup_logging()` au démarrage.
+# Tant qu'aucun handler n'est attaché (cas tests / import du module
+# sans `main()`), les messages partent dans le vide silencieusement.
+log = logging.getLogger("penetrometre")
 
 
 # ---------------------------------------------------------------------------
@@ -1966,6 +1974,7 @@ class App(tk.Tk):
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
         except Exception as e:
+            log.exception("Échec ouverture mission")
             messagebox.showerror("Erreur d'ouverture", str(e))
 
     def action_save(self) -> None:
@@ -1977,6 +1986,7 @@ class App(tk.Tk):
                           ensure_ascii=False)
             self.title(f"Pénétromètre — {self.current_file.name}")
         except Exception as e:
+            log.exception("Échec enregistrement mission")
             messagebox.showerror("Erreur", str(e))
 
     def action_save_as(self) -> None:
@@ -2011,6 +2021,7 @@ class App(tk.Tk):
             img.save(p, "PNG")
             messagebox.showinfo("Exporté", f"Image enregistrée : {p}")
         except Exception as e:
+            log.exception("Échec export PNG")
             messagebox.showerror("Erreur d'export", str(e))
 
     def action_export_pdf_arbre(self) -> None:
@@ -2040,8 +2051,7 @@ class App(tk.Tk):
             messagebox.showinfo("Exporté",
                                 f"Fiche PDF enregistrée : {p}")
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            log.exception("Échec export PDF")
             messagebox.showerror("Erreur d'export PDF", str(e))
 
     def action_export_csv(self) -> None:
@@ -2096,6 +2106,7 @@ class App(tk.Tk):
                                     s.compartimentation, s.commentaire])
             messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
         except Exception as e:
+            log.exception("Échec export CSV")
             messagebox.showerror("Erreur", str(e))
 
     def action_export_prbs_xlsx(self) -> None:
@@ -2128,6 +2139,7 @@ class App(tk.Tk):
                               classer_prbs=classer_prbs)
             messagebox.showinfo("Exporté", f"Tableau XLSX enregistré :\n{p}")
         except Exception as e:
+            log.exception("Échec export XLSX")
             messagebox.showerror("Erreur", str(e))
 
     def action_export_prbs_html(self) -> None:
@@ -2152,6 +2164,7 @@ class App(tk.Tk):
                               classer_prbs=classer_prbs)
             messagebox.showinfo("Exporté", f"Tableau HTML enregistré :\n{p}")
         except Exception as e:
+            log.exception("Échec export HTML")
             messagebox.showerror("Erreur", str(e))
 
     def action_about(self) -> None:
@@ -2167,8 +2180,54 @@ class App(tk.Tk):
             "\n\n— Silvavenir, Foresterie urbaine.")
 
 
+def _setup_logging() -> Path:
+    """Configure le logger applicatif vers un fichier rotatif lisible
+    par l'utilisateur final.
+
+    Sans cela, `traceback.print_exc()` part sur stdout — invisible
+    quand l'app est lancée par double-clic Windows ou via le `.desktop`
+    Linux. Avec ce logging, on peut demander à un utilisateur "envoie-
+    moi le contenu de ~/.penetrometre/penetrometre.log" en cas de
+    bug à distance.
+
+    Renvoie le chemin du fichier de log (utilisable pour journaliser
+    son emplacement au démarrage).
+    """
+    log_dir = Path.home() / ".penetrometre"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "penetrometre.log"
+
+    logger = logging.getLogger("penetrometre")
+    # Idempotence : ne pas doubler les handlers si _setup_logging est
+    # rappelé (cas test, ou rechargement à chaud).
+    if logger.handlers:
+        return log_path
+    logger.setLevel(logging.INFO)
+    handler = RotatingFileHandler(
+        log_path, maxBytes=512_000, backupCount=2,
+        encoding="utf-8")
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"))
+    logger.addHandler(handler)
+    # On ne propage pas vers le root logger : pas de duplication si une
+    # autre lib configure son propre handler.
+    logger.propagate = False
+    return log_path
+
+
 def main():
-    App().mainloop()
+    log_path = _setup_logging()
+    log = logging.getLogger("penetrometre")
+    log.info("Démarrage Pénétromètre v%s", __version__)
+    try:
+        App().mainloop()
+    except Exception:
+        log.exception("Crash non rattrapé dans la boucle principale")
+        raise
+    finally:
+        log.info("Arrêt Pénétromètre — log: %s", log_path)
+
 
 if __name__ == "__main__":
     main()
