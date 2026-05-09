@@ -169,13 +169,17 @@ class Arbre:
             return f"{base} — {self.essence}"
         return base
 
-    def recompute_alteration_from_sondages(self) -> None:
-        """Recalcule les 16 épaisseurs d'altération :
+    def compute_alteration_par_grade(self) -> List[float]:
+        """Calcule (sans muter) les 16 épaisseurs d'altération :
 
         - directions sondées : valeur la plus défavorable des sondages,
         - directions non sondées : moyenne pondérée entre les 2 sondages
           voisins (sens horaire / anti-horaire) — uniquement s'il y a
           au moins 2 sondages. Sinon 0 (bois sain).
+
+        Pure : ne modifie pas `self.alteration_par_grade`. Pour mettre
+        à jour le cache (et persister dans le JSON via `asdict`), passer
+        par `recompute_alteration_from_sondages`.
         """
         # Étape 1 : valeurs aux directions sondées
         measured: dict[int, float] = {}
@@ -191,8 +195,7 @@ class Arbre:
             # là où elles existent, et 0 ailleurs.
             for idx, v in measured.items():
                 new_vals[idx] = v
-            self.alteration_par_grade = new_vals
-            return
+            return new_vals
 
         # Étape 2 : pour chaque grade, soit mesuré, soit extrapolé
         sorted_idx = sorted(measured.keys())
@@ -230,7 +233,23 @@ class Arbre:
                 w_prev = d_next / total
                 new_vals[i] = (measured[next_idx] * w_next
                                + measured[prev_idx] * w_prev)
-        self.alteration_par_grade = new_vals
+        return new_vals
+
+    def recompute_alteration_from_sondages(self) -> None:
+        """Met à jour le cache `self.alteration_par_grade` (donc aussi
+        ce qui sera sérialisé en JSON via `asdict`).
+
+        À appeler chaque fois que les sondages ont changé et qu'on veut
+        que la valeur stockée reflète la dérivée correcte. Les méthodes
+        de calcul (`prbs_par_grade`, `ratio_tR_par_grade`,
+        `repartition_classes`) sont pures et n'en dépendent pas — elles
+        appellent `compute_alteration_par_grade` à la volée.
+
+        Les rendus (Tk/PIL) qui lisent directement
+        `arbre.alteration_par_grade` doivent appeler ce mutateur avant
+        de dessiner, sinon ils peuvent lire une valeur périmée.
+        """
+        self.alteration_par_grade = self.compute_alteration_par_grade()
 
     def degradation_externe_par_grade(self) -> List[float]:
         """Pour chaque direction (16 grades), retourne la profondeur
@@ -249,13 +268,13 @@ class Arbre:
         rayon - altération interne - dégradation externe.
 
         C'est l'épaisseur de bois sain effectivement disponible, qui
-        intègre les deux types de dégradation.
+        intègre les deux types de dégradation. Pure : ne mute pas
+        `self.alteration_par_grade`.
         """
         R = self.rayon_tronc_cm
         if R <= 0:
             return [0.0] * 16
-        self.recompute_alteration_from_sondages()
-        alt_int = self.alteration_par_grade
+        alt_int = self.compute_alteration_par_grade()
         deg_ext = self.degradation_externe_par_grade()
         return [max(0.0, R - alt_int[i] - deg_ext[i]) for i in range(16)]
 

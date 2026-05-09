@@ -248,6 +248,40 @@ class PrbsParGradeTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=0.0)
         self.assertEqual(a.prbs_par_grade(), [0.0] * 16)
 
+    def test_prbs_par_grade_ne_mute_pas_l_alteration(self):
+        # Contrat : prbs_par_grade est un getter pur. Il ne doit JAMAIS
+        # toucher au cache `alteration_par_grade` — sinon les appelants
+        # qui lisent ce cache après un changement de sondage peuvent
+        # observer un état incohérent. Pour mettre à jour le cache, on
+        # passe explicitement par recompute_alteration_from_sondages.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
+        # Cache volontairement périmé (on force des valeurs aberrantes).
+        sentinelle = [-99.0] * 16
+        a.alteration_par_grade = list(sentinelle)
+        _ = a.prbs_par_grade()
+        # Aucun appel à recompute n'a eu lieu : le cache doit être
+        # toujours périmé exactement comme on l'a laissé.
+        self.assertEqual(a.alteration_par_grade, sentinelle)
+        # Et `recompute` reste le moyen explicite de rafraîchir.
+        a.recompute_alteration_from_sondages()
+        self.assertNotEqual(a.alteration_par_grade, sentinelle)
+        self.assertAlmostEqual(a.alteration_par_grade[0], 5.0)
+
+    def test_compute_alteration_par_grade_pure(self):
+        # Variante exposée pour les appelants qui veulent calculer
+        # sans muter (utilisée par export.prbs_table_rows).
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=4.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=4.0))
+        a.alteration_par_grade = [-1.0] * 16  # cache périmé
+        out = a.compute_alteration_par_grade()
+        self.assertAlmostEqual(out[0], 4.0)
+        self.assertAlmostEqual(out[8], 4.0)
+        # Le cache est resté périmé : preuve de la pureté.
+        self.assertEqual(a.alteration_par_grade, [-1.0] * 16)
+
 
 class RepartitionClassesTests(unittest.TestCase):
 
