@@ -2053,20 +2053,46 @@ class App(tk.Tk):
         try:
             with open(p, "w", newline="", encoding="utf-8-sig") as f:
                 w = csv.writer(f, delimiter=";")
+                # Colonnes brutes : PRBS et Bois altéré tels que mesurés
+                # par le pénétromètre. t/R (%) reste basé sur la PRBS
+                # brute pour ne pas casser les ré-analyses existantes.
+                # Colonnes ajustées : Dégrad. ext. retranchée + PRBS
+                # effective et t/R ajusté + classe — cohérents avec le
+                # tableau Diagnostic, la fiche PDF et les exports
+                # XLSX/HTML.
                 w.writerow(["N° arbre", "Essence", "Rayon (cm)",
+                            "Port",
                             "N° sondage", "Grade (gr)", "Direction",
                             "PRBS (cm)", "Bois altéré (cm)",
                             "t/R (%)",
+                            "Dégrad. ext. (cm)",
+                            "PRBS ajustée (cm)",
+                            "t/R ajusté (%)",
+                            "Classe",
                             "Compartimentation", "Commentaire"])
                 for a in self.chantier.arbres:
+                    R = a.rayon_tronc_cm
+                    deg_ext_par_grade = a.degradation_externe_par_grade()
                     for s in a.sondages:
                         d = DIRECTION_LABELS.get(s.grade, "")
-                        tR_pct = f"{100*s.ratio_tR(a.rayon_tronc_cm):.1f}"
+                        tR_pct = f"{100*s.ratio_tR(R):.1f}"
+                        idx_g = (GRADES.index(s.grade)
+                                 if s.grade in GRADES else 0)
+                        deg_ext = deg_ext_par_grade[idx_g]
+                        prbs_adj = max(0.0, s.prbs_cm - deg_ext)
+                        ratio_adj = prbs_adj / R if R > 0 else 0.0
+                        tR_adj_pct = f"{100*ratio_adj:.1f}"
+                        classe = classer_prbs(ratio_adj, a.port_arbre)
                         w.writerow([a.numero_arbre, a.essence,
-                                    a.rayon_tronc_cm, s.numero,
+                                    a.rayon_tronc_cm, a.port_arbre,
+                                    s.numero,
                                     s.grade, d,
                                     s.prbs_cm, s.bois_altere_cm,
                                     tR_pct,
+                                    deg_ext,
+                                    prbs_adj,
+                                    tR_adj_pct,
+                                    classe,
                                     s.compartimentation, s.commentaire])
             messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
         except Exception as e:
