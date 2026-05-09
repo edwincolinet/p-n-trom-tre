@@ -25,6 +25,8 @@ import html as html_lib
 from datetime import datetime
 from typing import Any, List, Mapping
 
+from geometry import DIRECTION_LABELS, GRADES
+
 try:
     from openpyxl import Workbook
     from openpyxl.styles import (Alignment, Border, Font, PatternFill, Side)
@@ -37,15 +39,9 @@ except ImportError:
 # ----------------------------------------------------------------------
 # Données : une ligne par direction (16 lignes)
 # ----------------------------------------------------------------------
-
-DIRECTION_LABELS = {
-    0: "N",   25: "",    50: "NE",  75: "",
-    100: "E", 125: "",  150: "SE", 175: "",
-    200: "S", 225: "",  250: "SO", 275: "",
-    300: "O", 325: "",  350: "NO", 375: "",
-}
-
-GRADES = [i * 25 for i in range(16)]
+#
+# `GRADES` et `DIRECTION_LABELS` sont importés depuis `geometry.py`
+# (source unique).
 
 
 def prbs_table_rows(arbre: Any, classer_prbs) -> List[dict]:

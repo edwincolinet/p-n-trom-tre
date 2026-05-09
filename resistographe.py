@@ -37,6 +37,8 @@ from geometry import (
     CLASSE_ORANGE,
     CLASSE_ROUGE,
     CLASSE_VERT,
+    DIRECTION_LABELS,
+    GRADES,
     PORTS_ARBRE,
     bell_max_at_grade,
     catmull_rom_closed,
@@ -55,17 +57,11 @@ __version__ = "3.3.0"
 
 
 # ---------------------------------------------------------------------------
-# Constantes métier
+# Constantes UI / palette
 # ---------------------------------------------------------------------------
-
-GRADES: List[int] = [i * 25 for i in range(16)]  # 0, 25, 50, ..., 375
-
-DIRECTION_LABELS = {
-    0: "N",   25: "",    50: "NE",  75: "",
-    100: "E", 125: "",  150: "SE", 175: "",
-    200: "S", 225: "",  250: "SO", 275: "",
-    300: "O", 325: "",  350: "NO", 375: "",
-}
+#
+# `GRADES` et `DIRECTION_LABELS` sont importés depuis `geometry.py`
+# (source unique métier des 16 directions de sondage).
 
 # Palette — vive, naturaliste, pensée pour l'expertise arboricole
 COLOR_BG         = "#F7F3EA"   # fond général

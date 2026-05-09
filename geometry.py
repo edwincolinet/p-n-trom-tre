@@ -7,6 +7,8 @@ qui peuvent être couvertes par des tests unitaires sans embarquer la
 couche graphique.
 
 Contenu :
+- `GRADES`, `DIRECTION_LABELS` : 16 directions du sondage (constantes
+  métier, source unique partagée par le modèle et les exports).
 - `catmull_rom_closed` : interpolation spline fermée (Catmull & Rom).
 - `bell_max_at_grade`  : hauteur de cloche cosinus² maximale à un grade
   donné, sur l'ensemble des contreforts qui couvrent ce grade.
@@ -23,7 +25,30 @@ sont des conventions de présentation qui vivent côté UI dans
 from __future__ import annotations
 
 import math
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
+
+
+# ----------------------------------------------------------------------
+# Constantes métier des 16 directions
+# ----------------------------------------------------------------------
+#
+# Le sondage couvre 16 directions cardinales et inter-cardinales, par
+# pas de 25 grades (= 22,5°). Grade 0 = Nord, sens horaire.
+# `DIRECTION_LABELS` mappe chaque grade vers son libellé cardinal court
+# ("N", "NE", "E", ...) — chaîne vide pour les inter-quadrants
+# (25, 75, 125, …) qui n'ont pas de nom court.
+#
+# Source unique partagée par le modèle (`model.py`), les exports
+# (`export.py`) et les renderers (`resistographe.py`, `pil_render.py`).
+
+GRADES: List[int] = [i * 25 for i in range(16)]  # 0, 25, 50, …, 375
+
+DIRECTION_LABELS: Dict[int, str] = {
+    0: "N",   25: "",    50: "NE",  75: "",
+    100: "E", 125: "",  150: "SE", 175: "",
+    200: "S", 225: "",  250: "SO", 275: "",
+    300: "O", 325: "",  350: "NO", 375: "",
+}
 
 
 # ----------------------------------------------------------------------
