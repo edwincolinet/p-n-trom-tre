@@ -44,9 +44,12 @@ Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
 python -m unittest discover tests
 ```
 
-73 tests unitaires (stdlib, aucune dépendance) couvrent le barème
+95 tests unitaires (stdlib, aucune dépendance) couvrent le barème
 Silvavenir, la géométrie des contreforts, l'extrapolation de
-l'altération, le calcul PRBS et la migration des anciens fichiers JSON.
+l'altération, le calcul PRBS, la migration des anciens fichiers JSON
+(et la robustesse aux clés inconnues d'un format futur), ainsi que
+le contrat de pureté de `prbs_par_grade`. Un smoke test XLSX est
+exécuté si openpyxl est installé (skip sinon).
 
 ## Fichiers à conserver ensemble
 
@@ -143,7 +146,11 @@ PRBS de la direction concernée.
 - **HTML** autonome : même tableau, en page imprimable. CSS embarqué,
   ouvrable dans n'importe quel navigateur, aucune dépendance.
 - **CSV** : tous les sondages de la mission, séparateur `;`,
-  encodage UTF-8 avec BOM (compatible Excel)
+  encodage UTF-8 avec BOM (compatible Excel). Inclut les colonnes
+  brutes (PRBS, Bois altéré, t/R) **et** les colonnes ajustées
+  (Dégrad. ext., PRBS ajustée, t/R ajusté, Classe), pour qu'une
+  ré-analyse Excel/R reproduise exactement le diagnostic de la
+  fiche PDF.
 
 ## Barème PRBS (Silvavenir)
 
@@ -158,10 +165,27 @@ Application du barème selon le port de l'arbre :
 
 Les missions sont enregistrées en **JSON lisible** (`.json`). Les fichiers
 des versions précédentes sont migrés automatiquement à l'ouverture.
+Réciproquement, un JSON contenant des champs inconnus (par exemple
+issu d'une version plus récente de l'app) est chargé en ignorant
+silencieusement ces champs au lieu de planter.
 
 Note technique : la classe Python interne s'appelle toujours `Chantier`
 pour rester compatible avec les fichiers déjà enregistrés. Seuls les
 libellés affichés à l'utilisateur ont été changés en « Mission ».
+
+## En cas de problème
+
+Toutes les exceptions (échec d'export PDF/PNG/XLSX/HTML, problème
+d'ouverture de mission, etc.) sont journalisées avec leur stack
+trace complète dans :
+
+```
+~/.penetrometre/penetrometre.log
+```
+
+(`%USERPROFILE%\.penetrometre\penetrometre.log` sous Windows.)
+
+C'est ce fichier qu'il faut joindre quand on signale un bug.
 
 ## Crédits
 

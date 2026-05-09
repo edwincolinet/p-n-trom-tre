@@ -218,20 +218,35 @@ Les dataclasses du modèle et le rendu PIL sont **importés** depuis
 
 ## Conventions de code
 
-- Pas de dépendance ajoutée sans bonne raison. Tkinter pur + Pillow.
+- Pas de dépendance ajoutée sans bonne raison. Tkinter pur + Pillow
+  (+ openpyxl optionnel pour XLSX).
 - Compatibilité Python 3.9+ (annotations `Optional[X]` plutôt que `X | None`
   pour les positions critiques, mais `tuple[str, str]` est OK car Python 3.9
   supporte le PEP 585 dans ce contexte).
 - Tout en français côté UI et docstrings (le projet est franco-français).
-- Pas de `print` en production — tout passe par `messagebox`.
+- Pas de `print` en production — l'utilisateur voit les erreurs via
+  `messagebox`, et le détail (stack trace) part dans le logger applicatif
+  (`logging.getLogger("penetrometre")`, fichier
+  `~/.penetrometre/penetrometre.log`, configuré par `_setup_logging()`
+  au démarrage). Toute action d'export doit logger ses exceptions via
+  `log.exception(...)` avant le `messagebox.showerror`.
 
-## Compatibilité ascendante des fichiers
+## Compatibilité ascendante ET descendante des fichiers
 
-Les missions sont enregistrées en JSON. Le format évolue mais l'app doit
-**toujours pouvoir ouvrir les anciens fichiers**. La migration se fait
-silencieusement dans `Chantier.from_dict` (par ex. mapping des anciens
-libellés de port `"Libre, semi-libre ou traumatique"` → `"libre"`).
-**Ne jamais casser cette compatibilité** sans ajouter une migration.
+Les missions sont enregistrées en JSON. **L'app doit toujours pouvoir
+ouvrir les anciens fichiers** (compat ascendante) ET un fichier produit
+par une version plus récente avec des champs qu'on ne connaît pas
+encore (compat descendante).
+
+- Ascendante : migration silencieuse dans `Chantier.from_dict` (par ex.
+  mapping des anciens libellés de port
+  `"Libre, semi-libre ou traumatique"` → `"libre"`). **Ne jamais
+  casser cette compat sans ajouter une migration.**
+- Descendante : `from_dict` filtre chaque dict d'entrée par
+  `Class.__dataclass_fields__` avant `Class(**kwargs)`. Les clés JSON
+  inconnues sont ignorées silencieusement à tous les niveaux
+  (`Chantier`, `Arbre`, `Sondage`, `DegradationExterne`, `Contrefort`).
+  Verrouillé par `test_champs_inconnus_ignores`.
 
 ## Commandes utiles
 
@@ -315,23 +330,44 @@ au modèle, aux helpers géométriques ou aux exports.
   titre fusionné A1:J1 : openpyxl renvoie alors des `MergedCell` pour
   les colonnes 2..10, et `MergedCell` n'expose pas `column_letter`.
   Couvert par `XlsxSmokeTests.test_export_complet_ne_plante_pas`.
+- **Pastille du sondage = PRBS ajustée**, jamais PRBS brute. Les deux
+  renderers (Tk `SectionCanvas`, PIL `render_arbre_to_pil_image`)
+  calculent `prbs_adj = max(0, s.prbs_cm - deg_ext_par_grade[grade])`
+  puis `classer_prbs(prbs_adj / R, port)`. Ne pas régresser sur
+  `s.ratio_tR(R)` qui ignore la dégradation externe — la pastille
+  serait alors incohérente avec le tableau Diagnostic et la fiche PDF.
+- **`prbs_par_grade()` est un getter pur**. Il ne mute PAS
+  `self.alteration_par_grade`. Pour rafraîchir le cache (par exemple
+  avant un dessin qui le lit directement), passer **explicitement**
+  par `recompute_alteration_from_sondages()`. Verrou de pureté :
+  `test_prbs_par_grade_ne_mute_pas_l_alteration`.
 
 ## Quand tu modifies l'app
 
-1. **Avant** de toucher au code : lire la zone concernée
-   (`resistographe.py` fait ~3 200 lignes ; utiliser `grep -n` pour
-   localiser, et privilégier `geometry.py` / `export.py` quand le
-   changement est en réalité métier ou export).
+1. **Avant** de toucher au code : repérer le bon module en fonction de
+   la nature du changement.
+   - **Métier pur** (barème, géométrie, primitives polaires) →
+     `geometry.py`.
+   - **Modèle** (dataclasses, extrapolation, calcul PRBS, migration
+     JSON) → `model.py`.
+   - **Rendu PNG/PDF** → `pil_render.py`.
+   - **Couleurs partagées Tk/PIL** → `palette.py`.
+   - **Exports tableau** (XLSX/HTML) → `export.py`.
+   - **UI Tk + dialogues + actions** → `resistographe.py`.
 2. **Géométrie partagée** : si tu changes la géométrie d'un élément
    (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
    les deux renderers Tk et PIL héritent automatiquement. Pour les
    aspects spécifiques à un renderer (couleurs, traits, écorce,
-   typographie), modifie côté Tk **et** côté PIL.
+   typographie, règle graduée, lettres cardinales), modifie côté Tk
+   **et** côté PIL.
 3. Pour les changements de modèle : penser à la migration JSON
-   (`Chantier.from_dict`).
-4. **Lancer la suite de tests** (`python -m unittest discover tests`)
-   avant tout commit qui touche au modèle, à la géométrie ou aux
-   exports.
+   (`Chantier.from_dict`). Si tu **ajoutes** un champ dataclass, les
+   anciens JSON le verront avec sa valeur par défaut (OK). Si tu
+   **renommes** ou **supprimes** un champ, ajouter une migration
+   ascendante explicite.
+4. **Lancer la suite de tests** (`python -m unittest discover tests`,
+   95 tests) avant tout commit qui touche au modèle, à la géométrie
+   ou aux exports.
 5. Tester en lançant l'app et en sauvegardant / rechargeant un `.json`.
 6. Pour valider les exports PNG/PDF, générer un échantillon avec
    plusieurs cas (avec/sans écorce, avec/sans contreforts, avec/sans
@@ -345,3 +381,23 @@ au modèle, aux helpers géométriques ou aux exports.
 8. Pour les changements de légende : tester en condition « stress »
    (16 sondages + commentaire long) pour s'assurer que la fiche PDF
    reste sur une seule page.
+9. En cas de bug remonté par un utilisateur : lui demander
+   `~/.penetrometre/penetrometre.log` (ou
+   `%USERPROFILE%\.penetrometre\penetrometre.log` sous Windows). Toutes
+   les exceptions des actions d'export y sont consignées avec leur
+   stack trace via `log.exception(...)`.
+
+## Limites connues (non corrigées)
+
+- **Duplication de rendu Tk ↔ PIL au-delà de la géométrie**.
+  `geometry.py` partage les primitives polaires et les contours
+  (cavité, contreforts, dégradations). Restent dupliqués entre Tk
+  (`SectionCanvas.redraw`) et PIL (`render_arbre_to_pil_image`) :
+  l'écorce/anneau, les cernes, la règle graduée, les pastilles, les
+  ticks et lettres cardinales — chacun avec ses paramètres en pixels
+  spécifiques (`outline+width`, anchors, polices). Toute modif
+  visuelle de ces éléments doit être faite côté Tk **et** côté PIL.
+- **Pas de tests visuels (golden images)** sur les rendus PIL. La
+  validation est manuelle via les exports d'échantillon (cf. point 6
+  ci-dessus). Une régression visuelle silencieuse (palette, marge,
+  alignement) ne sera pas détectée par `unittest discover`.
