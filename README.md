@@ -17,8 +17,8 @@ permet, pour chaque arbre d'une mission, de :
   cernes de croissance, cavité d'altération et flèches de sondage ;
 - obtenir un diagnostic complet avec PRBS, ratio t/R, classification
   Vert / Orange / Rouge ;
-- exporter une fiche d'expertise PDF par arbre, un PNG du dessin ou un CSV
-  de toute la mission.
+- exporter une fiche d'expertise PDF par arbre, un PNG du dessin, un
+  tableau PRBS XLSX ou HTML par arbre, ou un CSV de toute la mission.
 
 ## Installation
 
@@ -33,7 +33,7 @@ Sur Linux : `sudo apt install python3-tk`.
 ## Lancement
 
 ```bash
-python resistographe.py
+python penetrometre.py
 ```
 
 Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
@@ -44,26 +44,44 @@ Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
 python -m unittest discover tests
 ```
 
-95 tests unitaires (stdlib, aucune dépendance) couvrent le barème
-Silvavenir, la géométrie des contreforts, l'extrapolation de
-l'altération, le calcul PRBS, la migration des anciens fichiers JSON
-(et la robustesse aux clés inconnues d'un format futur), ainsi que
-le contrat de pureté de `prbs_par_grade`. Un smoke test XLSX est
-exécuté si openpyxl est installé (skip sinon).
+106 tests unitaires couvrent :
+
+- le barème Silvavenir et la classification Vert/Orange/Rouge ;
+- la géométrie des contreforts (cloche cos², fusion de zones, wrap au
+  grade 0) et les primitives polaires partagées Tk ↔ PIL ;
+- le calcul PRBS, l'extrapolation pondérée, la répartition par classe
+  et l'indicateur de fiabilité de l'extrapolation ;
+- la migration des anciens fichiers JSON ET la robustesse aux clés
+  inconnues d'un format futur, sans mutation du dict d'entrée ;
+- l'absence du cache `alteration_par_grade` (verrouille le refactor) ;
+- 4 **golden-image tests** sur le rendu PIL (arbre nu, écorce +
+  sondages, contreforts fusionnés, dégradation traversant un
+  contrefort) qui détectent toute régression visuelle ;
+- un smoke test XLSX bout-en-bout.
+
+Pour régénérer les fixtures golden-images après une évolution
+**intentionnelle** du rendu :
+
+```bash
+python -m tests.test_render --update
+```
 
 ## Fichiers à conserver ensemble
 
 ```
 mon-dossier/
-├── resistographe.py            ← le programme (UI Tk + main)
-├── model.py                     ← dataclasses + logique métier
-├── pil_render.py                ← rendu PNG + fiche PDF
-├── geometry.py                  ← géométrie pure + barème
-├── export.py                    ← exports XLSX/HTML
-├── palette.py                   ← couleurs partagées Tk ↔ PIL
+├── penetrometre.py             ← le programme (UI Tk + main)
+├── dialogs.py                  ← boîtes de dialogue Tk (Sondage,
+│                                  Dégradation externe, Contrefort)
+├── model.py                    ← dataclasses + logique métier
+├── pil_render.py               ← rendu PNG + fiche PDF
+├── geometry.py                 ← géométrie pure + barème
+├── export.py                   ← exports XLSX/HTML
+├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── assets/
 │   ├── silvavenir_logo.jpg     ← logo (header app + fiche PDF)
-│   └── Icone.jpeg              ← icône bureau (.desktop)
+│   ├── Icone.jpeg              ← icône bureau (.desktop)
+│   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
 ```
 
@@ -121,6 +139,10 @@ PRBS de la direction concernée.
 - **Répartition** sur les 16 directions du pourtour (extrapolées)
 - **Classe globale** = barème Silvavenir appliqué au **t/R moyen**
   sur les 16 directions
+- **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
+  écart angulaire maximal entre voisins : X gr » affichée dans le
+  diagnostic Tk, la fiche PDF, l'export XLSX et l'export HTML. Permet
+  de juger au coup d'œil la robustesse du diagnostic.
 
 ### Visualisation
 
@@ -193,3 +215,5 @@ C'est ce fichier qu'il faut joindre quand on signale un bug.
 - Convention PRBS : méthode VTA de Mattheck & Breloer (1994)
 - Barème de classification : convention Silvavenir
 - Logo : Silvavenir, Foresterie urbaine
+- Polices embarquées : DejaVu (`assets/fonts/`) sous licence Bitstream
+  Vera. Voir `assets/fonts/LICENSE`.

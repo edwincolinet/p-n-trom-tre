@@ -16,23 +16,27 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-resistographe.py        ← UI Tk + App + main (≈ 2200 lignes)
+penetrometre.py        ← UI Tk + App + main (≈ 1800 lignes)
+dialogs.py              ← 3 dialogues Tk (Sondage, Dégradation, Contrefort)
 model.py                ← dataclasses (Sondage, Arbre, …) + logique métier
 geometry.py             ← briques pures (spline, contreforts, barème, polaire)
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (95 tests, stdlib uniquement)
+tests/                  ← suite unittest (106 tests dont 4 golden-images PIL)
+tests/fixtures/         ← PNG de référence pour les golden-images
 assets/
   silvavenir_logo.jpg   ← logo (header app + fiche PDF)
   Icone.jpeg            ← icône bureau pour Penetrometre.desktop
+  fonts/                ← DejaVu Serif Bold + Sans + Sans-Bold + LICENSE
 Lancer_Penetrometre.bat ← lanceur double-clic Windows
+.github/workflows/      ← CI (matrix Python 3.9/3.12, unittest + py_compile)
 requirements.txt        ← Pillow + openpyxl (XLSX) pinnés
 ```
 
-Le nom de fichier `resistographe.py` reste celui-ci pour des raisons
-historiques même si le produit s'appelle « Pénétromètre » (Résistographe
-est une marque déposée).
+Note marque : le produit s'appelle « Pénétromètre » (terme générique).
+« Résistographe » est une marque déposée et n'apparaît plus dans le code
+ni dans les noms de fichier.
 
 **Graphe de dépendances** (chaque module n'importe que vers le bas) :
 
@@ -41,9 +45,9 @@ geometry.py   (stdlib)
    ↑
 model.py + palette.py
    ↑
-export.py + pil_render.py
+export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
-resistographe.py  (Tk + main)
+penetrometre.py  (Tk + main)
 ```
 
 ## Architecture
@@ -98,7 +102,7 @@ Module dédié aux deux exports stylés du tableau PRBS d'un arbre :
 
 `couleur_classe` (le dict `COULEUR_CLASSE`) est injecté depuis l'UI
 pour ne pas créer de cycle d'import (export.py n'importe pas
-resistographe.py). Les arbres et chantiers sont reçus en duck-typing.
+penetrometre.py). Les arbres et chantiers sont reçus en duck-typing.
 
 ### `model.py` — dataclasses + logique métier
 
@@ -108,18 +112,17 @@ les tests :
 - `Sondage` — une mesure ponctuelle dans une direction.
 - `DegradationExterne` — un arc d'écorce dégradée.
 - `Contrefort` — empattement à la base (cloche cosinus²).
-- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées :
-  - `compute_alteration_par_grade()` — **pure** (ne mute pas).
-    Extrapolation par moyenne pondérée linéaire entre voisins.
-  - `recompute_alteration_from_sondages()` — **mutateur explicite**.
-    Met à jour le cache `self.alteration_par_grade` (qui est aussi
-    sérialisé en JSON via `asdict`). Seul moyen de rafraîchir le
-    cache. À appeler avant tout dessin qui lit
-    `arbre.alteration_par_grade` directement.
+- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées,
+  **toutes pures** (aucune ne mute l'arbre) :
+  - `compute_alteration_par_grade()` — extrapolation par moyenne
+    pondérée linéaire entre voisins. **Unique** point d'accès à
+    l'altération extrapolée : pas de cache stocké sur l'arbre. Les
+    appelants (renderers, exports, diagnostic) stockent le résultat
+    dans une variable locale au moment où ils en ont besoin.
+    Verrouillé par `test_arbre_n_expose_plus_de_cache_alteration`.
   - `prbs_par_grade()`, `ratio_tR_par_grade()`,
-    `repartition_classes()` — purs : utilisent
-    `compute_alteration_par_grade()` à la volée. Ils n'écrivent
-    JAMAIS dans `self.alteration_par_grade` (verrou par test).
+    `repartition_classes()` — composent par-dessus
+    `compute_alteration_par_grade()` + `degradation_externe_par_grade()`.
 - `Chantier` — mission qui regroupe plusieurs arbres. `to_dict` /
   `from_dict` pour la persistance. **`from_dict` filtre les clés
   inconnues** par `__dataclass_fields__` à chaque niveau, ce qui
@@ -131,7 +134,7 @@ les tests :
 Petit module sans logique : centralise les `COLOR_*` (panneaux,
 bois, écorce, cernes, dégradation, sondage) et le dict
 `COULEUR_CLASSE` (label → hex). Importé à la fois par
-`resistographe.py` (Tk) et `pil_render.py` (PIL). Sans ce module
+`penetrometre.py` (Tk) et `pil_render.py` (PIL). Sans ce module
 intermédiaire, les deux auraient un cycle d'import.
 
 ### `pil_render.py` — rendu PNG + fiche PDF A4
@@ -157,7 +160,18 @@ renderer : la typographie, l'API de dessin (`Canvas.create_*` vs
 `outline+width` ci-dessous), et tout ce qui est purement
 présentation (échelle, lettres cardinales, règle graduée).
 
-### `resistographe.py` — application Tk + main
+### `dialogs.py` — boîtes de dialogue Tk
+
+Trois fonctions de niveau module, indépendantes de la classe `App` :
+`edit_sondage`, `edit_degradation`, `edit_contrefort`. Chacune reçoit
+`(parent, arbre, obj)`, **mute l'objet métier en place** et renvoie
+`True/False` selon validation/annulation. Aucun cycle d'import avec
+`penetrometre.py` : ce module ne dépend que de `geometry`, `model`,
+`palette`. Helpers internes : `_grade_choices`, `_parse_grade`,
+`_round_to_25` (factorisation des liens automatiques largeur ↔ grade,
+bois sain ↔ altéré).
+
+### `penetrometre.py` — application Tk + main
 
 Organisé en sections séparées par des bandeaux de commentaires :
 
@@ -166,7 +180,9 @@ Organisé en sections séparées par des bandeaux de commentaires :
    section transversale en temps réel dans la fenêtre.
 3. **Application** — `class App(tk.Tk)` : fenêtre principale,
    onglets, sync UI ↔ modèle, actions (ajouter/dupliquer arbre,
-   exports PNG/PDF/CSV/XLSX/HTML, …).
+   exports PNG/PDF/CSV/XLSX/HTML, …). Les actions d'ajout/édition
+   d'un sondage, d'une dégradation ou d'un contrefort délèguent aux
+   fonctions de `dialogs.py`.
 4. **`main()`** — configure `_setup_logging()` puis lance
    `App().mainloop()`. Le logger écrit dans
    `~/.penetrometre/penetrometre.log` (RotatingFileHandler), ce qui
@@ -175,7 +191,8 @@ Organisé en sections séparées par des bandeaux de commentaires :
    `log.exception(...)` avant le `messagebox.showerror`.
 
 Les dataclasses du modèle et le rendu PIL sont **importés** depuis
-`model` et `pil_render` ; ils ne sont plus définis ici.
+`model` et `pil_render` ; ils ne sont plus définis ici. De même, les
+3 dialogues d'édition vivent dans `dialogs.py`.
 
 ## Conventions métier importantes
 
@@ -252,10 +269,10 @@ encore (compat descendante).
 
 ```bash
 # Vérifier la syntaxe avant commit
-python -c "import ast; ast.parse(open('resistographe.py').read())"
+python -c "import ast; ast.parse(open('penetrometre.py').read())"
 
 # Lancer l'app
-python resistographe.py
+python penetrometre.py
 
 # Lancer la suite de tests (stdlib unittest, aucune dépendance)
 python -m unittest discover tests
@@ -333,14 +350,17 @@ au modèle, aux helpers géométriques ou aux exports.
 - **Pastille du sondage = PRBS ajustée**, jamais PRBS brute. Les deux
   renderers (Tk `SectionCanvas`, PIL `render_arbre_to_pil_image`)
   calculent `prbs_adj = max(0, s.prbs_cm - deg_ext_par_grade[grade])`
-  puis `classer_prbs(prbs_adj / R, port)`. Ne pas régresser sur
-  `s.ratio_tR(R)` qui ignore la dégradation externe — la pastille
-  serait alors incohérente avec le tableau Diagnostic et la fiche PDF.
-- **`prbs_par_grade()` est un getter pur**. Il ne mute PAS
-  `self.alteration_par_grade`. Pour rafraîchir le cache (par exemple
-  avant un dessin qui le lit directement), passer **explicitement**
-  par `recompute_alteration_from_sondages()`. Verrou de pureté :
-  `test_prbs_par_grade_ne_mute_pas_l_alteration`.
+  puis `classer_prbs(prbs_adj / R, port)`. `Sondage.ratio_tR_brut(R)`
+  est volontairement nommé « brut » : il ignore la dégradation externe
+  et n'est utilisé QUE par la colonne « t/R brut » du CSV mission
+  (compat ré-analyses Excel existantes). Pour toute logique de
+  diagnostic, c'est `Arbre.ratio_tR_par_grade()` qui fait foi.
+- **Pas de cache `alteration_par_grade` sur `Arbre`.** L'altération
+  extrapolée se calcule uniquement par `compute_alteration_par_grade()`
+  (pure). Le champ dataclass et le mutateur `recompute_...` ont été
+  retirés pour fermer la classe de bugs « cache périmé avant dessin ».
+  Verrou : `test_arbre_n_expose_plus_de_cache_alteration` (vérifie
+  l'absence du champ ET du mutateur).
 
 ## Quand tu modifies l'app
 
@@ -353,7 +373,8 @@ au modèle, aux helpers géométriques ou aux exports.
    - **Rendu PNG/PDF** → `pil_render.py`.
    - **Couleurs partagées Tk/PIL** → `palette.py`.
    - **Exports tableau** (XLSX/HTML) → `export.py`.
-   - **UI Tk + dialogues + actions** → `resistographe.py`.
+   - **Dialogues Tk** (Sondage, Dégradation, Contrefort) → `dialogs.py`.
+   - **UI Tk principale + actions** → `penetrometre.py`.
 2. **Géométrie partagée** : si tu changes la géométrie d'un élément
    (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
    les deux renderers Tk et PIL héritent automatiquement. Pour les
@@ -366,8 +387,11 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   95 tests) avant tout commit qui touche au modèle, à la géométrie
-   ou aux exports.
+   106 tests) avant tout commit qui touche au modèle, à la géométrie
+   ou aux exports. Si tu touches au rendu PIL et que les
+   golden-images ferment correctement à l'intention, régénère-les avec
+   `python -m tests.test_render --update` puis commit les nouveaux
+   PNG dans `tests/fixtures/`.
 5. Tester en lançant l'app et en sauvegardant / rechargeant un `.json`.
 6. Pour valider les exports PNG/PDF, générer un échantillon avec
    plusieurs cas (avec/sans écorce, avec/sans contreforts, avec/sans
@@ -397,7 +421,11 @@ au modèle, aux helpers géométriques ou aux exports.
   ticks et lettres cardinales — chacun avec ses paramètres en pixels
   spécifiques (`outline+width`, anchors, polices). Toute modif
   visuelle de ces éléments doit être faite côté Tk **et** côté PIL.
-- **Pas de tests visuels (golden images)** sur les rendus PIL. La
-  validation est manuelle via les exports d'échantillon (cf. point 6
-  ci-dessus). Une régression visuelle silencieuse (palette, marge,
-  alignement) ne sera pas détectée par `unittest discover`.
+- **Tests visuels uniquement côté PIL** (`tests/test_render.py`,
+  4 scénarios). Le rendu Tk (`SectionCanvas.redraw`) n'a pas de
+  golden-image équivalent : il nécessiterait Xvfb en CI et un
+  `Canvas.postscript` ou capture d'écran, ratio coût/valeur faible
+  tant que la géométrie reste partagée via `geometry.py`. Une
+  régression purement Tk (palette, marge spécifique Tk) ne sera
+  donc pas détectée automatiquement — comme aujourd'hui, la
+  validation se fait à l'œil en lançant l'app.
