@@ -67,6 +67,7 @@ from palette import (
     COLOR_WOOD_DARK,
     COULEUR_CLASSE,
 )
+from dialogs import edit_contrefort, edit_degradation, edit_sondage
 from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
 # Rendu PIL (PNG du dessin + fiche PDF A4). `HAS_PIL` reste False si
 # Pillow n'est pas installé : l'app démarre, et les actions d'export
@@ -1238,7 +1239,7 @@ class App(tk.Tk):
             return
         s = Sondage(numero=len(a.sondages) + 1, grade=0,
                     bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
-        if self._dialog_sondage(s, creating=True):
+        if edit_sondage(self, a, s):
             a.sondages.append(s)
             self._renum_sondages(a)
             self._refresh_sondages_table()
@@ -1253,7 +1254,7 @@ class App(tk.Tk):
         if not a:
             return
         s = a.sondages[idx]
-        if self._dialog_sondage(s, creating=False):
+        if edit_sondage(self, a, s):
             self._refresh_sondages_table()
             self._debounced_redraw()
 
@@ -1302,7 +1303,7 @@ class App(tk.Tk):
         deg = DegradationExterne(
             numero=len(a.degradations_externes) + 1,
             grade_debut=0, grade_fin=50, profondeur_cm=2.0)
-        if self._dialog_degradation(deg, creating=True):
+        if edit_degradation(self, a, deg):
             a.degradations_externes.append(deg)
             self._renum_degradations(a)
             self._refresh_degradations_table()
@@ -1317,7 +1318,7 @@ class App(tk.Tk):
         if not a:
             return
         deg = a.degradations_externes[idx]
-        if self._dialog_degradation(deg, creating=False):
+        if edit_degradation(self, a, deg):
             self._refresh_degradations_table()
             self._debounced_redraw()
 
@@ -1365,7 +1366,7 @@ class App(tk.Tk):
             return
         c = Contrefort(numero=len(a.contreforts) + 1,
                        grade_centre=0, largeur_grades=75, longueur_cm=10.0)
-        if self._dialog_contrefort(c, creating=True):
+        if edit_contrefort(self, a, c):
             a.contreforts.append(c)
             self._renum_contreforts(a)
             self._refresh_contreforts_table()
@@ -1380,7 +1381,7 @@ class App(tk.Tk):
         if not a:
             return
         c = a.contreforts[idx]
-        if self._dialog_contrefort(c, creating=False):
+        if edit_contrefort(self, a, c):
             self._refresh_contreforts_table()
             self._debounced_redraw()
 
@@ -1400,455 +1401,6 @@ class App(tk.Tk):
     def _renum_contreforts(self, a: Arbre) -> None:
         for i, c in enumerate(a.contreforts, 1):
             c.numero = i
-
-    def _dialog_degradation(self, deg: DegradationExterne,
-                             creating: bool) -> bool:
-        """Boîte de dialogue d'édition d'une dégradation externe.
-
-        Permet de saisir :
-        - direction de début (combobox des grades)
-        - direction de fin OU largeur en grades OU largeur en cm
-          (lien automatique entre les trois)
-        - profondeur radiale en cm
-        - commentaire
-        """
-        dlg = tk.Toplevel(self)
-        dlg.title(f"Dégradation externe n° {deg.numero}")
-        dlg.configure(bg=COLOR_PANEL)
-        dlg.transient(self)
-        dlg.grab_set()
-        dlg.resizable(False, False)
-
-        a = self._current_arbre()
-        R = a.rayon_tronc_cm if a else 0.0
-
-        # Variables locales
-        v_debut = tk.StringVar()
-        v_fin = tk.StringVar()
-        v_largeur_gr = tk.StringVar(value=str(deg.largeur_grades()))
-        v_largeur_cm = tk.StringVar(value=f"{deg.largeur_cm(R):.1f}")
-        v_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
-        v_com = tk.StringVar(value=deg.commentaire)
-        result = {"ok": False}
-        dlg._syncing = False
-
-        # Liste des grades
-        grade_choices = []
-        for g in GRADES:
-            lbl = DIRECTION_LABELS.get(g, "")
-            grade_choices.append(f"{g} gr" + (f" — {lbl}" if lbl else ""))
-
-        def find_grade_choice(grade_value):
-            for c in grade_choices:
-                if c.startswith(f"{grade_value} gr"):
-                    return c
-            return grade_choices[0]
-        v_debut.set(find_grade_choice(deg.grade_debut))
-        v_fin.set(find_grade_choice(deg.grade_fin))
-
-        # --- Layout ---
-        pad = {"padx": 10, "pady": 6}
-
-        ttk.Label(dlg, text="Direction de début (grade)",
-                  background=COLOR_PANEL).grid(row=0, column=0,
-                                               sticky="w", **pad)
-        ttk.Combobox(dlg, textvariable=v_debut, values=grade_choices,
-                     state="readonly", width=24
-                     ).grid(row=0, column=1, sticky="we", **pad)
-
-        ttk.Label(dlg, text="Direction de fin (grade, sens horaire)",
-                  background=COLOR_PANEL).grid(row=1, column=0,
-                                               sticky="w", **pad)
-        ttk.Combobox(dlg, textvariable=v_fin, values=grade_choices,
-                     state="readonly", width=24
-                     ).grid(row=1, column=1, sticky="we", **pad)
-
-        ttk.Label(dlg, text="— ou —", background=COLOR_PANEL,
-                  foreground=COLOR_MUTED, font=("Helvetica", 9, "italic")
-                  ).grid(row=2, column=0, columnspan=2, pady=(2, 2))
-
-        ttk.Label(dlg, text="Largeur en grades",
-                  background=COLOR_PANEL).grid(row=3, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_largeur_gr, width=12
-                  ).grid(row=3, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
-                  background=COLOR_PANEL).grid(row=4, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_largeur_cm, width=12
-                  ).grid(row=4, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Profondeur (cm, depuis l'écorce)",
-                  background=COLOR_PANEL).grid(row=5, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_prof, width=12
-                  ).grid(row=5, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
-                  ).grid(row=6, column=0, sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_com, width=28
-                  ).grid(row=6, column=1, sticky="we", **pad)
-
-        # --- Liens auto entre fin / largeur_gr / largeur_cm ---
-        def parse_grade(s: str) -> int:
-            return int(s.replace("°", " ").split(" ")[0].strip())
-
-        def round_to_grade(v: int) -> int:
-            """Arrondit à 25 gr près et ramène dans [0, 375]."""
-            v = round(v / 25) * 25
-            return v % 400
-
-        def _on_fin(*_):
-            if dlg._syncing:
-                return
-            try:
-                d = parse_grade(v_debut.get())
-                f = parse_grade(v_fin.get())
-                largeur = (f - d) % 400
-                if largeur == 0:
-                    largeur = 25
-                dlg._syncing = True
-                v_largeur_gr.set(str(largeur))
-                if R > 0:
-                    v_largeur_cm.set(
-                        f"{R * largeur * math.pi / 200:.1f}")
-                dlg._syncing = False
-            except (ValueError, IndexError):
-                pass
-
-        def _on_largeur_gr(*_):
-            if dlg._syncing:
-                return
-            try:
-                gr = round_to_grade(int(float(v_largeur_gr.get() or 25)))
-                if gr == 0:
-                    gr = 25
-                d = parse_grade(v_debut.get())
-                f = (d + gr) % 400
-                dlg._syncing = True
-                v_fin.set(find_grade_choice(f))
-                if R > 0:
-                    v_largeur_cm.set(
-                        f"{R * gr * math.pi / 200:.1f}")
-                dlg._syncing = False
-            except (ValueError, IndexError):
-                pass
-
-        def _on_largeur_cm(*_):
-            if dlg._syncing or R <= 0:
-                return
-            try:
-                cm = float(v_largeur_cm.get() or 0)
-                # cm = R × angle_rad → angle_gr = cm × 200 / (R × π)
-                gr = round_to_grade(int(cm * 200 / (R * math.pi)))
-                if gr == 0:
-                    gr = 25
-                d = parse_grade(v_debut.get())
-                f = (d + gr) % 400
-                dlg._syncing = True
-                v_largeur_gr.set(str(gr))
-                v_fin.set(find_grade_choice(f))
-                dlg._syncing = False
-            except (ValueError, IndexError, ZeroDivisionError):
-                pass
-
-        v_debut.trace_add("write", _on_fin)
-        v_fin.trace_add("write", _on_fin)
-        v_largeur_gr.trace_add("write", _on_largeur_gr)
-        v_largeur_cm.trace_add("write", _on_largeur_cm)
-
-        def ok():
-            try:
-                deg.grade_debut = round_to_grade(parse_grade(v_debut.get()))
-                deg.grade_fin = round_to_grade(parse_grade(v_fin.get()))
-                deg.profondeur_cm = max(0.0, float(v_prof.get() or 0))
-                deg.commentaire = v_com.get()
-                result["ok"] = True
-                dlg.destroy()
-            except (ValueError, IndexError) as e:
-                messagebox.showerror("Erreur de saisie",
-                                     f"Valeur invalide : {e}", parent=dlg)
-
-        btns = ttk.Frame(dlg, style="Panel.TFrame")
-        btns.grid(row=7, column=0, columnspan=2, pady=(10, 12))
-        ttk.Button(btns, text="Annuler", style="Ghost.TButton",
-                   command=dlg.destroy).pack(side="right", padx=6)
-        ttk.Button(btns, text="Valider", style="Accent.TButton",
-                   command=ok).pack(side="right")
-
-        dlg.wait_window()
-        return result["ok"]
-
-    def _dialog_contrefort(self, c: "Contrefort",
-                            creating: bool) -> bool:
-        """Boîte de dialogue d'édition d'un contrefort.
-
-        Saisie : orientation (combobox des grades), largeur en grades
-        (multiple de 25), longueur radiale en cm, commentaire.
-        Largeur cm sur le périmètre affichée à titre indicatif.
-        """
-        dlg = tk.Toplevel(self)
-        dlg.title(f"Contrefort n° {c.numero}")
-        dlg.configure(bg=COLOR_PANEL)
-        dlg.transient(self)
-        dlg.grab_set()
-        dlg.resizable(False, False)
-
-        a = self._current_arbre()
-        R = a.rayon_tronc_cm if a else 0.0
-
-        v_centre = tk.StringVar()
-        v_largeur_gr = tk.StringVar(value=str(c.largeur_grades))
-        v_largeur_cm = tk.StringVar(value=f"{c.largeur_cm(R):.1f}")
-        v_long = tk.StringVar(value=f"{c.longueur_cm:g}")
-        v_com = tk.StringVar(value=c.commentaire)
-        result = {"ok": False}
-        dlg._syncing = False
-
-        grade_choices = []
-        for g in GRADES:
-            lbl = DIRECTION_LABELS.get(g, "")
-            grade_choices.append(f"{g} gr" + (f" — {lbl}" if lbl else ""))
-
-        def find_grade_choice(grade_value):
-            for ch in grade_choices:
-                if ch.startswith(f"{grade_value} gr"):
-                    return ch
-            return grade_choices[0]
-        v_centre.set(find_grade_choice(c.grade_centre))
-
-        pad = {"padx": 10, "pady": 6}
-
-        ttk.Label(dlg, text="Orientation (grade central)",
-                  background=COLOR_PANEL).grid(row=0, column=0,
-                                               sticky="w", **pad)
-        ttk.Combobox(dlg, textvariable=v_centre, values=grade_choices,
-                     state="readonly", width=24
-                     ).grid(row=0, column=1, sticky="we", **pad)
-
-        ttk.Label(dlg, text="Largeur en grades (multiple de 25)",
-                  background=COLOR_PANEL).grid(row=1, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_largeur_gr, width=12
-                  ).grid(row=1, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
-                  background=COLOR_PANEL).grid(row=2, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_largeur_cm, width=12
-                  ).grid(row=2, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Longueur radiale (cm, vers l'extérieur)",
-                  background=COLOR_PANEL).grid(row=3, column=0,
-                                               sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_long, width=12
-                  ).grid(row=3, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
-                  ).grid(row=4, column=0, sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_com, width=28
-                  ).grid(row=4, column=1, sticky="we", **pad)
-
-        # Liens auto entre largeur_gr et largeur_cm
-        def round_to_grade(v: int) -> int:
-            v = round(v / 25) * 25
-            return max(25, min(400, v))
-
-        def _on_largeur_gr(*_):
-            if dlg._syncing:
-                return
-            try:
-                gr = round_to_grade(int(float(v_largeur_gr.get() or 25)))
-                dlg._syncing = True
-                if R > 0:
-                    v_largeur_cm.set(f"{R * gr * math.pi / 200:.1f}")
-                dlg._syncing = False
-            except (ValueError, IndexError):
-                pass
-
-        def _on_largeur_cm(*_):
-            if dlg._syncing or R <= 0:
-                return
-            try:
-                cm = float(v_largeur_cm.get() or 0)
-                gr = round_to_grade(int(cm * 200 / (R * math.pi)))
-                dlg._syncing = True
-                v_largeur_gr.set(str(gr))
-                dlg._syncing = False
-            except (ValueError, IndexError, ZeroDivisionError):
-                pass
-
-        v_largeur_gr.trace_add("write", _on_largeur_gr)
-        v_largeur_cm.trace_add("write", _on_largeur_cm)
-
-        def parse_grade(s: str) -> int:
-            return int(s.replace("°", " ").split(" ")[0].strip())
-
-        def ok():
-            try:
-                c.grade_centre = parse_grade(v_centre.get()) % 400
-                c.largeur_grades = round_to_grade(
-                    int(float(v_largeur_gr.get() or 25)))
-                c.longueur_cm = max(0.0, float(v_long.get() or 0))
-                c.commentaire = v_com.get()
-                result["ok"] = True
-                dlg.destroy()
-            except (ValueError, IndexError) as e:
-                messagebox.showerror("Erreur de saisie",
-                                     f"Valeur invalide : {e}", parent=dlg)
-
-        btns = ttk.Frame(dlg, style="Panel.TFrame")
-        btns.grid(row=5, column=0, columnspan=2, pady=(10, 12))
-        ttk.Button(btns, text="Annuler", style="Ghost.TButton",
-                   command=dlg.destroy).pack(side="right", padx=6)
-        ttk.Button(btns, text="Valider", style="Accent.TButton",
-                   command=ok).pack(side="right")
-
-        dlg.wait_window()
-        return result["ok"]
-
-    def _dialog_sondage(self, s: Sondage, creating: bool) -> bool:
-        dlg = tk.Toplevel(self)
-        dlg.title(f"Sondage n° {s.numero}")
-        dlg.configure(bg=COLOR_PANEL)
-        dlg.transient(self)
-        dlg.grab_set()
-        dlg.resizable(False, False)
-
-        a = self._current_arbre()
-        R = a.rayon_tronc_cm if a else 0.0
-
-        v_grade = tk.StringVar()
-        v_sain = tk.StringVar(value=f"{s.bois_sain_cm:g}")
-        v_alt = tk.StringVar(value=f"{s.bois_altere_cm:g}")
-        v_comp = tk.StringVar(value=s.compartimentation)
-        v_com = tk.StringVar(value=s.commentaire)
-        result = {"ok": False}
-        # drapeau pour éviter la récursion quand on met à jour l'un
-        # à partir de l'autre
-        dlg._syncing = False
-
-        grade_choices = []
-        for g in GRADES:
-            lbl = DIRECTION_LABELS.get(g, "")
-            # Format : "100 gr — E"  (grade sans ° car unité = grade)
-            grade_choices.append(f"{g} gr" + (f" — {lbl}" if lbl else ""))
-        for choice in grade_choices:
-            if choice.startswith(f"{s.grade} gr"):
-                v_grade.set(choice)
-                break
-        else:
-            v_grade.set(grade_choices[0])
-
-        pad = {"padx": 10, "pady": 6}
-
-        # Bandeau rappelant le rayon (référence pour le calcul auto)
-        if R > 0:
-            rappel = (f"Rayon du tronc de cet arbre : {R:g} cm\n"
-                      f"Règle : Bois sain + Bois altéré = Rayon.\n"
-                      f"Modifier l'un recalcule l'autre automatiquement.")
-        else:
-            rappel = ("⚠ Rayon du tronc non renseigné : le calcul auto "
-                      "entre bois sain et bois altéré est désactivé.")
-        ttk.Label(dlg, text=rappel, background=COLOR_PANEL,
-                  foreground=COLOR_MUTED, font=("Helvetica", 9, "italic"),
-                  wraplength=300, justify="left"
-                  ).grid(row=0, column=0, columnspan=2, sticky="we",
-                         padx=10, pady=(10, 4))
-
-        ttk.Label(dlg, text="Direction (grade)", background=COLOR_PANEL
-                  ).grid(row=1, column=0, sticky="w", **pad)
-        ttk.Combobox(dlg, textvariable=v_grade, values=grade_choices,
-                     state="readonly", width=26
-                     ).grid(row=1, column=1, sticky="we", **pad)
-
-        ttk.Label(dlg, text="Épaisseur bois sain (cm)",
-                  background=COLOR_PANEL
-                  ).grid(row=2, column=0, sticky="w", **pad)
-        ent_sain = ttk.Entry(dlg, textvariable=v_sain, width=12)
-        ent_sain.grid(row=2, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Épaisseur bois altéré (cm)",
-                  background=COLOR_PANEL
-                  ).grid(row=3, column=0, sticky="w", **pad)
-        ent_alt = ttk.Entry(dlg, textvariable=v_alt, width=12)
-        ent_alt.grid(row=3, column=1, sticky="w", **pad)
-
-        # --- Lien automatique bois sain <-> bois altéré -----------------
-        def _on_sain_changed(*_):
-            if dlg._syncing or R <= 0:
-                return
-            try:
-                v = float(v_sain.get() or 0)
-            except ValueError:
-                return
-            v = max(0.0, min(v, R))
-            dlg._syncing = True
-            v_alt.set(f"{R - v:g}")
-            dlg._syncing = False
-
-        def _on_alt_changed(*_):
-            if dlg._syncing or R <= 0:
-                return
-            try:
-                v = float(v_alt.get() or 0)
-            except ValueError:
-                return
-            v = max(0.0, min(v, R))
-            dlg._syncing = True
-            v_sain.set(f"{R - v:g}")
-            dlg._syncing = False
-
-        v_sain.trace_add("write", _on_sain_changed)
-        v_alt.trace_add("write", _on_alt_changed)
-
-        ttk.Label(dlg, text="Compartimentation", background=COLOR_PANEL
-                  ).grid(row=4, column=0, sticky="w", **pad)
-        ttk.Combobox(dlg, textvariable=v_comp,
-                     values=["active", "absente", "-"],
-                     state="readonly", width=16
-                     ).grid(row=4, column=1, sticky="w", **pad)
-
-        ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
-                  ).grid(row=5, column=0, sticky="w", **pad)
-        ttk.Entry(dlg, textvariable=v_com, width=28
-                  ).grid(row=5, column=1, sticky="we", **pad)
-
-        def ok():
-            try:
-                # Accepte "100 gr — E" ou ancien "100° — E"
-                raw = v_grade.get().replace("°", " ").split(" ")[0].strip()
-                s.grade = int(raw)
-                sain = float(v_sain.get() or 0)
-                alt = float(v_alt.get() or 0)
-                if R > 0:
-                    # Clamp et recoller à R pour éviter toute incohérence
-                    sain = max(0.0, min(sain, R))
-                    alt = max(0.0, min(alt, R))
-                    # si la somme ne fait pas R, on fait confiance à
-                    # l'altéré (dernière grandeur pertinente métier)
-                    if abs(sain + alt - R) > 1e-6:
-                        sain = R - alt
-                s.bois_sain_cm = sain
-                s.bois_altere_cm = alt
-                s.compartimentation = v_comp.get()
-                s.commentaire = v_com.get()
-                result["ok"] = True
-                dlg.destroy()
-            except ValueError as e:
-                messagebox.showerror("Erreur de saisie",
-                                     f"Valeur invalide : {e}", parent=dlg)
-
-        btns = ttk.Frame(dlg, style="Panel.TFrame")
-        btns.grid(row=6, column=0, columnspan=2, pady=(10, 12))
-        ttk.Button(btns, text="Annuler", style="Ghost.TButton",
-                   command=dlg.destroy).pack(side="right", padx=6)
-        ttk.Button(btns, text="Valider", style="Accent.TButton",
-                   command=ok).pack(side="right")
-
-        dlg.wait_window()
-        return result["ok"]
 
     def _toggle_show_sondages(self) -> None:
         """Réagit au check/uncheck de la case 'emplacement des sondages'."""
