@@ -736,7 +736,14 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                f"t/R minimal : {100*rep['tR_min']:.1f} %  "
                f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})",
                font=f(18, "sans"), fill=COLOR_INK)
-        y += 32
+        y += 28
+        extra_txt = arbre.extrapolation_summary_text()
+        if extra_txt:
+            d.text((margin, y), extra_txt,
+                   font=f(16, "sans"), fill=COLOR_MUTED)
+            y += 28
+        else:
+            y += 4
         d.text((margin, y),
                "Répartition sur le pourtour (16 directions) :",
                font=f(18, "sans_bold"), fill=COLOR_INK)

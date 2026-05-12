@@ -244,6 +244,59 @@ class Arbre:
                                + measured[prev_idx] * w_prev)
         return new_vals
 
+    def extrapolation_summary(self) -> dict:
+        """Indicateurs bruts de fiabilité de l'extrapolation.
+
+        Renvoie un dict :
+        - `n_sondees`         : nombre de directions (sur 16) qui ont
+                                  au moins un sondage direct.
+        - `n_extrapolees`     : `16 - n_sondees`.
+        - `ecart_max_grades`  : plus grand écart angulaire (en gr)
+                                  entre deux directions sondées
+                                  voisines, en circulaire. Vaut 400
+                                  quand une seule direction est sondée
+                                  (pas de second point → l'arc à
+                                  extrapoler couvre tout le tour).
+                                  Vaut 0 quand aucune direction n'est
+                                  sondée.
+
+        L'interprétation (« est-ce fiable ? ») est laissée au lecteur :
+        l'app expose les chiffres bruts dans le diagnostic et la fiche
+        PDF/XLSX/HTML, libre à l'opérateur Silvavenir d'en tirer la
+        conclusion adaptée à son cas.
+        """
+        grades_sondes = sorted({s.grade for s in self.sondages
+                                 if s.grade in GRADES})
+        n = len(grades_sondes)
+        if n == 0:
+            return {"n_sondees": 0, "n_extrapolees": 16,
+                    "ecart_max_grades": 0}
+        if n == 1:
+            return {"n_sondees": 1, "n_extrapolees": 15,
+                    "ecart_max_grades": 400}
+        ecart_max = max(
+            (grades_sondes[(i + 1) % n] - grades_sondes[i]) % 400
+            for i in range(n)
+        )
+        return {"n_sondees": n, "n_extrapolees": 16 - n,
+                "ecart_max_grades": ecart_max}
+
+    def extrapolation_summary_text(self) -> str:
+        """Phrase prête à afficher pour le diagnostic. Renvoie une
+        chaîne vide si aucun sondage n'a été saisi (auquel cas le
+        diagnostic affiche déjà « aucune altération »)."""
+        s = self.extrapolation_summary()
+        n = s["n_sondees"]
+        if n == 0:
+            return ""
+        if n == 16:
+            return "16/16 directions sondées — aucune extrapolation."
+        if n == 1:
+            return ("1/16 direction sondée — pas de second point, "
+                    "l'extrapolation est désactivée.")
+        return (f"{n}/16 directions sondées — écart angulaire maximal "
+                f"entre voisins : {s['ecart_max_grades']} gr.")
+
     def degradation_externe_par_grade(self) -> List[float]:
         """Pour chaque direction (16 grades), retourne la profondeur
         maximale de dégradation externe qui couvre cette direction.

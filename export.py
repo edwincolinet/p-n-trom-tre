@@ -323,6 +323,17 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
     ).font = META_VALUE_FONT
     ws.merge_cells(start_row=row, start_column=2,
                    end_row=row, end_column=10)
+    row += 1
+    extra_txt = arbre.extrapolation_summary_text()
+    if extra_txt:
+        ws.cell(row=row, column=1,
+                value="Fiabilité extrapolation").font = META_LABEL_FONT
+        c_extra = ws.cell(row=row, column=2, value=extra_txt)
+        c_extra.font = META_VALUE_FONT
+        c_extra.alignment = LEFT
+        ws.merge_cells(start_row=row, start_column=2,
+                       end_row=row, end_column=10)
+        row += 1
     row += 2
     ws.cell(row=row, column=1,
             value=f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
@@ -499,6 +510,14 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
     # Diagnostic
     classe_g = diag["classe_globale"]
     classe_g_color = couleur_classe.get(classe_g, "#CCCCCC")
+    extra_txt = arbre.extrapolation_summary_text()
+    extra_row_html = (
+        f'      <div class="row">\n'
+        f'        <span class="label">Fiabilité extrapolation</span>\n'
+        f'        <span>{_h(extra_txt)}</span>\n'
+        f'      </div>\n'
+        if extra_txt else ""
+    )
     diag_html = f"""
     <div class="diagnostic">
       <div class="row">
@@ -513,7 +532,7 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
         <span class="label">Répartition Vert/Orange/Rouge</span>
         <span>{diag['vert_n']}/16 ({diag['vert_pct']:.0f} %) • {diag['orange_n']}/16 ({diag['orange_pct']:.0f} %) • {diag['rouge_n']}/16 ({diag['rouge_pct']:.0f} %)</span>
       </div>
-    </div>
+{extra_row_html}    </div>
     """
 
     headers_html = "".join(

@@ -304,6 +304,76 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertAlmostEqual(total_pct, 100.0)
 
 
+class ExtrapolationSummaryTests(unittest.TestCase):
+    """Indicateurs de fiabilité de l'extrapolation (`Arbre.extrapolation_summary`)."""
+
+    def test_aucun_sondage(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 0)
+        self.assertEqual(s["n_extrapolees"], 16)
+        self.assertEqual(s["ecart_max_grades"], 0)
+
+    def test_un_seul_sondage_ecart_max_400(self):
+        # 1 seul sondage : aucun voisin → l'arc à extrapoler fait le
+        # tour complet (400 gr). Convention : ecart_max == 400.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(grade=0))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 1)
+        self.assertEqual(s["n_extrapolees"], 15)
+        self.assertEqual(s["ecart_max_grades"], 400)
+
+    def test_deux_sondages_opposes(self):
+        # Sondages à 0 et 200 gr → écart max = 200 gr (un demi-pourtour
+        # à extrapoler de part et d'autre).
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(grade=0))
+        a.sondages.append(Sondage(grade=200))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 2)
+        self.assertEqual(s["ecart_max_grades"], 200)
+
+    def test_quatre_sondages_repartis(self):
+        # Sondages à 0, 100, 200, 300 gr → écart max = 100 gr partout.
+        a = Arbre(rayon_tronc_cm=20.0)
+        for g in (0, 100, 200, 300):
+            a.sondages.append(Sondage(grade=g))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 4)
+        self.assertEqual(s["ecart_max_grades"], 100)
+
+    def test_seize_sondages_complets(self):
+        # 16 sondages → 25 gr d'écart partout (pas d'extrapolation).
+        a = Arbre(rayon_tronc_cm=20.0)
+        for g in GRADES:
+            a.sondages.append(Sondage(grade=g))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 16)
+        self.assertEqual(s["n_extrapolees"], 0)
+        self.assertEqual(s["ecart_max_grades"], 25)
+
+    def test_doublon_au_meme_grade_compte_une_seule_direction(self):
+        # Deux sondages au même grade ne comptent que pour 1 direction
+        # sondée — ils ne diminuent pas l'écart à extrapoler ailleurs.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(grade=0))
+        a.sondages.append(Sondage(grade=0))
+        a.sondages.append(Sondage(grade=200))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 2)
+        self.assertEqual(s["ecart_max_grades"], 200)
+
+    def test_repartition_inegale_ecart_max_correct(self):
+        # Sondages à 0, 25, 50 gr (concentrés en quart Nord). L'écart
+        # max est entre 50 et 0 dans le sens horaire = 350 gr.
+        a = Arbre(rayon_tronc_cm=20.0)
+        for g in (0, 25, 50):
+            a.sondages.append(Sondage(grade=g))
+        s = a.extrapolation_summary()
+        self.assertEqual(s["n_sondees"], 3)
+        self.assertEqual(s["ecart_max_grades"], 350)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1463,6 +1463,11 @@ class App(tk.Tk):
             f"Port : {a.port_arbre}",
             "",
         ]
+        # Fiabilité de l'extrapolation (visible avant la répartition).
+        extra_txt = a.extrapolation_summary_text()
+        if extra_txt:
+            lignes.append(extra_txt)
+            lignes.append("")
 
         # Si rien de saisi
         ratios = a.ratio_tR_par_grade()
