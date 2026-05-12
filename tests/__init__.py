@@ -4,8 +4,9 @@ Lancer depuis la racine du projet :
 
     python3 -m unittest discover tests
 
-Le `sys.path` est complété ici pour que `import resistographe` fonctionne
-même si on exécute pytest, unittest ou un fichier de tests isolément.
+Le `sys.path` est complété ici pour que les imports `model`, `geometry`,
+`palette`, `export`, `pil_render` fonctionnent même si on exécute
+pytest, unittest ou un fichier de tests isolément.
 """
 
 from __future__ import annotations

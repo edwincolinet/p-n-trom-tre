@@ -2,7 +2,7 @@
 Type=Application
 Name=Pénétromètre Silvavenir
 Comment=Expertise arboricole — dessin de section au pénétromètre
-Exec=python3 /home/edwin/Documents/penetrometre_silvavenir/resistographe.py
+Exec=python3 /home/edwin/Documents/penetrometre_silvavenir/penetrometre.py
 Path=/home/edwin/Documents/penetrometre_silvavenir
 Icon=/home/edwin/Documents/penetrometre_silvavenir/assets/Icone.jpeg
 Terminal=false

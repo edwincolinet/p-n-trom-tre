@@ -15,7 +15,7 @@ par pas de 25), pas une ligne par sondage : les directions extrapolées
 voit l'utilisateur dans le dessin.
 
 Les fonctions reçoivent les objets `arbre` / `chantier` en duck-typing
-(pour ne pas créer de dépendance circulaire avec resistographe.py) et
+(pour ne pas créer de dépendance circulaire avec penetrometre.py) et
 le dict `couleur_classe` (label → hex) injecté depuis l'UI.
 """
 

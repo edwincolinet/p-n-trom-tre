@@ -1,5 +1,5 @@
 """
-Palette de couleurs partagée entre la couche UI Tk (`resistographe.py`)
+Palette de couleurs partagée entre la couche UI Tk (`penetrometre.py`)
 et le rendu PIL (`pil_render.py`).
 
 Centraliser les couleurs ici a deux objectifs :
@@ -11,7 +11,7 @@ Centraliser les couleurs ici a deux objectifs :
    l'écorce.
 
 2. **Casser le cycle d'import.** Sans ce module, `pil_render.py` aurait
-   besoin d'importer la palette de `resistographe.py`, qui importe à
+   besoin d'importer la palette de `penetrometre.py`, qui importe à
    son tour `pil_render.py` pour les fonctions d'export. Ce module
    intermédiaire (sans dépendance Tk ni PIL) résout le problème.
 

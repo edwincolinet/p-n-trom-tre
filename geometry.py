@@ -19,7 +19,7 @@ Contenu :
 
 Les couleurs hexa associées aux classes ne sont PAS définies ici : ce
 sont des conventions de présentation qui vivent côté UI dans
-`resistographe.py` (`COULEUR_CLASSE`).
+`penetrometre.py` (`COULEUR_CLASSE`).
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from typing import Any, Dict, List, Tuple
 # (25, 75, 125, …) qui n'ont pas de nom court.
 #
 # Source unique partagée par le modèle (`model.py`), les exports
-# (`export.py`) et les renderers (`resistographe.py`, `pil_render.py`).
+# (`export.py`) et les renderers (`penetrometre.py`, `pil_render.py`).
 
 GRADES: List[int] = [i * 25 for i in range(16)]  # 0, 25, 50, …, 375
 
@@ -90,7 +90,7 @@ def catmull_rom_closed(points: List[Tuple[float, float]],
 #
 # Les fonctions ci-dessous prennent une liste de contreforts typée
 # `List[Any]` plutôt que `List[Contrefort]` : la dataclass `Contrefort`
-# vit dans `resistographe.py` (avec le reste du modèle) et l'importer
+# vit dans `penetrometre.py` (avec le reste du modèle) et l'importer
 # créerait une dépendance circulaire. On exploite simplement les
 # attributs publics (`longueur_cm`, `largeur_grades`, `grade_centre`).
 
@@ -171,7 +171,7 @@ PORTS_GROUPE_LIBRE = ("libre", "semi-libre")
 PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
 
 # Labels canoniques : la couche UI s'en sert comme clés du dict
-# `COULEUR_CLASSE` (dans resistographe.py).
+# `COULEUR_CLASSE` (dans penetrometre.py).
 CLASSE_VERT = "Vert"
 CLASSE_ORANGE = "Orange"
 CLASSE_ROUGE = "Rouge"
@@ -322,7 +322,7 @@ def degradation_externe_outline(deg: Any,
 
     `deg` est typé `Any` (duck-typing) : on lit `grade_debut`,
     `profondeur_cm` et la méthode `largeur_grades()`. La dataclass
-    `DegradationExterne` vit dans resistographe.py.
+    `DegradationExterne` vit dans penetrometre.py.
 
     Renvoie une liste vide si la dégradation est dégénérée (profondeur
     nulle ou rayon nul).

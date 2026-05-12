@@ -106,8 +106,8 @@ class CouleurClasseTests(unittest.TestCase):
 
     def test_toutes_les_classes_ont_une_couleur(self):
         # COULEUR_CLASSE est une convention de présentation : elle vit
-        # dans la couche UI (resistographe.py), pas dans geometry.py.
-        from resistographe import COULEUR_CLASSE
+        # dans palette.py, pas dans geometry.py.
+        from palette import COULEUR_CLASSE
         # On parcourt assez de ratios pour couvrir Vert / Orange / Rouge
         # sur les deux groupes de ports.
         observed = set()

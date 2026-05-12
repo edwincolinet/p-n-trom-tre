@@ -86,7 +86,8 @@ class XlsxAvailabilityTests(unittest.TestCase):
         from export import HAS_OPENPYXL, export_prbs_xlsx
         if HAS_OPENPYXL:
             self.skipTest("openpyxl est installé sur cette machine")
-        from resistographe import Arbre, Chantier, COULEUR_CLASSE
+        from model import Arbre, Chantier
+        from palette import COULEUR_CLASSE
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         c = Chantier()
         with self.assertRaises(RuntimeError) as ctx:
@@ -113,8 +114,8 @@ class XlsxSmokeTests(unittest.TestCase):
         import os
         import tempfile
         from export import export_prbs_xlsx
-        from resistographe import (Arbre, Chantier, COULEUR_CLASSE,
-                                    DegradationExterne, Sondage)
+        from model import Arbre, Chantier, DegradationExterne, Sondage
+        from palette import COULEUR_CLASSE
 
         a = Arbre(numero_arbre="42", essence="Platane",
                    rayon_tronc_cm=20.0, port_arbre="libre",
