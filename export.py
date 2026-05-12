@@ -66,9 +66,7 @@ def prbs_table_rows(arbre: Any, classer_prbs) -> List[dict]:
     R = arbre.rayon_tronc_cm
     prbs = arbre.prbs_par_grade()       # déjà ajusté (interne + externe)
     deg_ext = arbre.degradation_externe_par_grade()
-    # Altération interne calculée à la volée (pure) — on ne lit pas le
-    # cache `alteration_par_grade` qui peut être périmé si l'appelant
-    # n'a pas explicitement appelé `recompute_alteration_from_sondages`.
+    # Altération interne : seule API exposée par le modèle (pure).
     alt = arbre.compute_alteration_par_grade()
 
     # Index sondages par grade

@@ -190,8 +190,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                   outline=COLOR_CERNE, width=1)
 
     # Cavité altération (spline) — couleur uniforme, pas de contour
-    arbre.recompute_alteration_from_sondages()
-    alt = arbre.alteration_par_grade
+    alt = arbre.compute_alteration_par_grade()
     if any(a > 0 for a in alt):
         smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=32)
         d.polygon(smooth, fill=COLOR_ROT, outline=None)
@@ -411,7 +410,7 @@ def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
     has_decay = (
         bool(arbre.degradations_externes)
         or any(s.bois_altere_cm > 0 for s in arbre.sondages)
-        or any(a > 0 for a in arbre.alteration_par_grade)
+        or any(a > 0 for a in arbre.compute_alteration_par_grade())
     )
     has_bark = ep > 0
     has_sondages = bool(arbre.sondages)

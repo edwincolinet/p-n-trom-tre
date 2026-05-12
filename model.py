@@ -46,8 +46,18 @@ class Sondage:
         """
         return self.bois_sain_cm
 
-    def ratio_tR(self, rayon_cm: float) -> float:
-        """Ratio t/R (Mattheck) : PRBS / Rayon, en valeur décimale 0-1."""
+    def ratio_tR_brut(self, rayon_cm: float) -> float:
+        """Ratio t/R *brut* (Mattheck) : PRBS / Rayon, en valeur décimale 0-1.
+
+        Brut = ne tient PAS compte de la dégradation externe qui peut
+        couvrir la direction du sondage. Pour le diagnostic, utiliser
+        plutôt `Arbre.ratio_tR_par_grade()`, qui retranche la
+        dégradation externe avant de calculer le ratio.
+
+        Cette méthode reste exposée parce que l'export CSV conserve une
+        colonne « t/R brut » (compat ré-analyses existantes) à côté de
+        la colonne ajustée.
+        """
         if rayon_cm <= 0:
             return 0.0
         return min(1.0, self.prbs_cm / rayon_cm)
@@ -153,8 +163,6 @@ class Arbre:
     epaisseur_ecorce_cm: float = 0.0  # épaisseur radiale de l'écorce, ajoutée
     # vers l'extérieur du tronc — purement visuel, n'intervient pas dans la
     # PRBS ni le diagnostic. 0 = pas d'épaisseur (trait fin classique).
-    alteration_par_grade: List[float] = field(
-        default_factory=lambda: [0.0] * 16)
     sondages: List[Sondage] = field(default_factory=list)
     degradations_externes: List[DegradationExterne] = field(
         default_factory=list)
@@ -170,16 +178,17 @@ class Arbre:
         return base
 
     def compute_alteration_par_grade(self) -> List[float]:
-        """Calcule (sans muter) les 16 épaisseurs d'altération :
+        """Calcule les 16 épaisseurs d'altération à partir des sondages :
 
         - directions sondées : valeur la plus défavorable des sondages,
         - directions non sondées : moyenne pondérée entre les 2 sondages
           voisins (sens horaire / anti-horaire) — uniquement s'il y a
           au moins 2 sondages. Sinon 0 (bois sain).
 
-        Pure : ne modifie pas `self.alteration_par_grade`. Pour mettre
-        à jour le cache (et persister dans le JSON via `asdict`), passer
-        par `recompute_alteration_from_sondages`.
+        Fonction pure : ne mute rien. Les appelants (renderers, exports,
+        diagnostic) stockent le résultat dans une variable locale au
+        moment où ils en ont besoin. Pas de cache sur l'arbre : ça
+        évitait des bugs « cache périmé avant dessin ».
         """
         # Étape 1 : valeurs aux directions sondées
         measured: dict[int, float] = {}
@@ -235,22 +244,6 @@ class Arbre:
                                + measured[prev_idx] * w_prev)
         return new_vals
 
-    def recompute_alteration_from_sondages(self) -> None:
-        """Met à jour le cache `self.alteration_par_grade` (donc aussi
-        ce qui sera sérialisé en JSON via `asdict`).
-
-        À appeler chaque fois que les sondages ont changé et qu'on veut
-        que la valeur stockée reflète la dérivée correcte. Les méthodes
-        de calcul (`prbs_par_grade`, `ratio_tR_par_grade`,
-        `repartition_classes`) sont pures et n'en dépendent pas — elles
-        appellent `compute_alteration_par_grade` à la volée.
-
-        Les rendus (Tk/PIL) qui lisent directement
-        `arbre.alteration_par_grade` doivent appeler ce mutateur avant
-        de dessiner, sinon ils peuvent lire une valeur périmée.
-        """
-        self.alteration_par_grade = self.compute_alteration_par_grade()
-
     def degradation_externe_par_grade(self) -> List[float]:
         """Pour chaque direction (16 grades), retourne la profondeur
         maximale de dégradation externe qui couvre cette direction.
@@ -268,8 +261,7 @@ class Arbre:
         rayon - altération interne - dégradation externe.
 
         C'est l'épaisseur de bois sain effectivement disponible, qui
-        intègre les deux types de dégradation. Pure : ne mute pas
-        `self.alteration_par_grade`.
+        intègre les deux types de dégradation. Fonction pure.
         """
         R = self.rayon_tronc_cm
         if R <= 0:
@@ -386,21 +378,27 @@ class Chantier:
 
         arbres = []
         for a in d.get("arbres", []):
+            # Lecture non destructive : `get`, pas `pop`. Le filtre par
+            # `__dataclass_fields__` plus bas exclut de toute façon ces
+            # clés du dict passé à `Arbre(**...)`, et le caller conserve
+            # son dict d'origine intact (pas d'effet de bord).
             sondages = [Sondage(**{k: v for k, v in s.items()
                                     if k in sondage_fields})
-                        for s in a.pop("sondages", [])]
+                        for s in a.get("sondages", [])]
             degs = [DegradationExterne(**{k: v for k, v in dg.items()
                                            if k in deg_fields})
-                    for dg in a.pop("degradations_externes", [])]
+                    for dg in a.get("degradations_externes", [])]
             # Contreforts : ajout v3.3 — anciens fichiers → liste vide
             contreforts = [Contrefort(**{k: v for k, v in c.items()
                                           if k in cf_fields})
-                           for c in a.pop("contreforts", [])]
-            # Migration du port si ancien format
-            if "port_arbre" in a:
-                a["port_arbre"] = port_legacy.get(a["port_arbre"],
-                                                  a["port_arbre"])
-            arb = Arbre(**{k: v for k, v in a.items()
+                           for c in a.get("contreforts", [])]
+            # Migration du port si ancien format. On copie le dict pour
+            # appliquer la migration sans toucher à l'entrée du caller.
+            a_norm = dict(a)
+            if "port_arbre" in a_norm:
+                a_norm["port_arbre"] = port_legacy.get(a_norm["port_arbre"],
+                                                       a_norm["port_arbre"])
+            arb = Arbre(**{k: v for k, v in a_norm.items()
                            if k in arbre_fields})
             arb.sondages = sondages
             arb.degradations_externes = degs

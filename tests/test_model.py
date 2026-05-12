@@ -1,11 +1,11 @@
 """Tests des dataclasses métier et des méthodes calculées sur `Arbre`.
 
 Couvre :
-- `Sondage.ratio_tR` (cap, rayon nul).
+- `Sondage.ratio_tR_brut` (cap, rayon nul).
 - `DegradationExterne.largeur_grades` / `couvre_grade` (cas normal,
   wrap-around, début == fin).
 - `Contrefort.grade_debut` / `grade_fin` (wrap au grade 0).
-- `Arbre.recompute_alteration_from_sondages` (extrapolation pondérée,
+- `Arbre.compute_alteration_par_grade` (extrapolation pondérée,
   cas 0/1/N, doublons → max).
 - `Arbre.degradation_externe_par_grade` (max sur recouvrements).
 - `Arbre.prbs_par_grade` (combinaison interne + externe + cap à 0).
@@ -27,20 +27,20 @@ from model import (
 
 class SondageTests(unittest.TestCase):
 
-    def test_ratio_tR_rayon_zero(self):
+    def test_ratio_tR_brut_rayon_zero(self):
         s = Sondage(bois_sain_cm=5.0)
-        self.assertEqual(s.ratio_tR(0.0), 0.0)
-        self.assertEqual(s.ratio_tR(-3.0), 0.0)
+        self.assertEqual(s.ratio_tR_brut(0.0), 0.0)
+        self.assertEqual(s.ratio_tR_brut(-3.0), 0.0)
 
-    def test_ratio_tR_normal(self):
+    def test_ratio_tR_brut_normal(self):
         s = Sondage(bois_sain_cm=5.0)
-        self.assertAlmostEqual(s.ratio_tR(20.0), 0.25)
+        self.assertAlmostEqual(s.ratio_tR_brut(20.0), 0.25)
 
-    def test_ratio_tR_capped_a_1(self):
+    def test_ratio_tR_brut_capped_a_1(self):
         # Si le bois sain dépasse le rayon (saisie incohérente), le
         # ratio est plafonné à 1 — pas de division aberrante.
         s = Sondage(bois_sain_cm=30.0)
-        self.assertEqual(s.ratio_tR(20.0), 1.0)
+        self.assertEqual(s.ratio_tR_brut(20.0), 1.0)
 
     def test_prbs_alias_de_bois_sain(self):
         s = Sondage(bois_sain_cm=7.5)
@@ -116,15 +116,14 @@ class ContrefortTests(unittest.TestCase):
         self.assertAlmostEqual(c.largeur_cm(10.0), 10.0 * 3.141592653589793)
 
 
-class RecomputeAlterationTests(unittest.TestCase):
+class ComputeAlterationTests(unittest.TestCase):
 
     def _new_arbre(self) -> Arbre:
         return Arbre(rayon_tronc_cm=20.0)
 
     def test_aucun_sondage_donne_zeros(self):
         a = self._new_arbre()
-        a.recompute_alteration_from_sondages()
-        self.assertEqual(a.alteration_par_grade, [0.0] * 16)
+        self.assertEqual(a.compute_alteration_par_grade(), [0.0] * 16)
 
     def test_un_seul_sondage_pas_d_extrapolation(self):
         # Documenté : moins de 2 sondages → on garde la mesure ponctuelle
@@ -132,9 +131,9 @@ class RecomputeAlterationTests(unittest.TestCase):
         a = self._new_arbre()
         a.sondages.append(Sondage(grade=0, bois_sain_cm=15.0,
                                    bois_altere_cm=5.0))
-        a.recompute_alteration_from_sondages()
-        self.assertEqual(a.alteration_par_grade[0], 5.0)
-        self.assertEqual(sum(a.alteration_par_grade[1:]), 0.0)
+        alt = a.compute_alteration_par_grade()
+        self.assertEqual(alt[0], 5.0)
+        self.assertEqual(sum(alt[1:]), 0.0)
 
     def test_deux_sondages_opposes_donnent_moyenne_ponderee(self):
         # Sondage à 0 gr (idx 0) avec altéré=4, sondage à 200 gr (idx 8)
@@ -143,13 +142,13 @@ class RecomputeAlterationTests(unittest.TestCase):
         a = self._new_arbre()
         a.sondages.append(Sondage(grade=0, bois_altere_cm=4.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=8.0))
-        a.recompute_alteration_from_sondages()
-        self.assertAlmostEqual(a.alteration_par_grade[0], 4.0)
-        self.assertAlmostEqual(a.alteration_par_grade[8], 8.0)
+        alt = a.compute_alteration_par_grade()
+        self.assertAlmostEqual(alt[0], 4.0)
+        self.assertAlmostEqual(alt[8], 8.0)
         # Milieu (idx 4) entre idx 0 et idx 8 : (4+8)/2 = 6
-        self.assertAlmostEqual(a.alteration_par_grade[4], 6.0)
+        self.assertAlmostEqual(alt[4], 6.0)
         # idx 2 : 2 crans de 0, 6 crans de 8 → 4*0.75 + 8*0.25 = 5
-        self.assertAlmostEqual(a.alteration_par_grade[2], 5.0)
+        self.assertAlmostEqual(alt[2], 5.0)
 
     def test_doublon_au_meme_grade_le_pire_gagne(self):
         # Si plusieurs sondages au même grade, on garde la valeur
@@ -158,8 +157,8 @@ class RecomputeAlterationTests(unittest.TestCase):
         a.sondages.append(Sondage(grade=0, bois_altere_cm=3.0))
         a.sondages.append(Sondage(grade=0, bois_altere_cm=7.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
-        a.recompute_alteration_from_sondages()
-        self.assertAlmostEqual(a.alteration_par_grade[0], 7.0)
+        alt = a.compute_alteration_par_grade()
+        self.assertAlmostEqual(alt[0], 7.0)
 
 
 class DegradationExterneParGradeTests(unittest.TestCase):
@@ -248,39 +247,15 @@ class PrbsParGradeTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=0.0)
         self.assertEqual(a.prbs_par_grade(), [0.0] * 16)
 
-    def test_prbs_par_grade_ne_mute_pas_l_alteration(self):
-        # Contrat : prbs_par_grade est un getter pur. Il ne doit JAMAIS
-        # toucher au cache `alteration_par_grade` — sinon les appelants
-        # qui lisent ce cache après un changement de sondage peuvent
-        # observer un état incohérent. Pour mettre à jour le cache, on
-        # passe explicitement par recompute_alteration_from_sondages.
-        a = Arbre(rayon_tronc_cm=20.0)
-        a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
-        a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
-        # Cache volontairement périmé (on force des valeurs aberrantes).
-        sentinelle = [-99.0] * 16
-        a.alteration_par_grade = list(sentinelle)
-        _ = a.prbs_par_grade()
-        # Aucun appel à recompute n'a eu lieu : le cache doit être
-        # toujours périmé exactement comme on l'a laissé.
-        self.assertEqual(a.alteration_par_grade, sentinelle)
-        # Et `recompute` reste le moyen explicite de rafraîchir.
-        a.recompute_alteration_from_sondages()
-        self.assertNotEqual(a.alteration_par_grade, sentinelle)
-        self.assertAlmostEqual(a.alteration_par_grade[0], 5.0)
-
-    def test_compute_alteration_par_grade_pure(self):
-        # Variante exposée pour les appelants qui veulent calculer
-        # sans muter (utilisée par export.prbs_table_rows).
-        a = Arbre(rayon_tronc_cm=20.0)
-        a.sondages.append(Sondage(grade=0, bois_altere_cm=4.0))
-        a.sondages.append(Sondage(grade=200, bois_altere_cm=4.0))
-        a.alteration_par_grade = [-1.0] * 16  # cache périmé
-        out = a.compute_alteration_par_grade()
-        self.assertAlmostEqual(out[0], 4.0)
-        self.assertAlmostEqual(out[8], 4.0)
-        # Le cache est resté périmé : preuve de la pureté.
-        self.assertEqual(a.alteration_par_grade, [-1.0] * 16)
+    def test_arbre_n_expose_plus_de_cache_alteration(self):
+        # Verrou : le cache `alteration_par_grade` a été retiré. Toute
+        # tentative de le restaurer doit être détectée — il rouvrirait
+        # le piège « cache périmé avant dessin » qui motivait sa
+        # suppression. Source de vérité unique :
+        # `compute_alteration_par_grade()`.
+        self.assertNotIn("alteration_par_grade",
+                         Arbre.__dataclass_fields__)
+        self.assertFalse(hasattr(Arbre, "recompute_alteration_from_sondages"))
 
 
 class RepartitionClassesTests(unittest.TestCase):
@@ -327,6 +302,7 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertEqual(total_n, 16)
         self.assertEqual(total_grades, 400)
         self.assertAlmostEqual(total_pct, 100.0)
+
 
 
 if __name__ == "__main__":

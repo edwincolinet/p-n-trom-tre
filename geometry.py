@@ -245,7 +245,7 @@ def cavity_polygon(alteration_par_grade: List[float],
     Rom fermée passant par les 16 points sondés/extrapolés).
 
     `alteration_par_grade` est la liste de 16 épaisseurs d'altération
-    en cm (correspond à `Arbre.alteration_par_grade`).
+    en cm (le résultat de `Arbre.compute_alteration_par_grade()`).
     """
     pts = [polar_idx_to_xy(cx, cy, scale, max(0.0, alteration_par_grade[i]), i)
            for i in range(16)]

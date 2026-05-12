@@ -223,7 +223,7 @@ class SectionCanvas(tk.Canvas):
         # au résistographe, qui correspond à une zone centrale de rayon
         # égal à cette épaisseur. La couronne externe de bois sain fait
         # donc (R - altéré) d'épaisseur.
-        alt = A.alteration_par_grade
+        alt = A.compute_alteration_par_grade()
         if any(a > 0 for a in alt):
             smooth = cavity_polygon(alt, cx, cy, scale,
                                      samples_per_segment=28)
@@ -1107,8 +1107,6 @@ class App(tk.Tk):
 
     def _redraw_all(self) -> None:
         a = self._current_arbre()
-        if a:
-            a.recompute_alteration_from_sondages()
         self.section.set_arbre(a)
         self._refresh_diag()
 
@@ -2099,7 +2097,7 @@ class App(tk.Tk):
                     deg_ext_par_grade = a.degradation_externe_par_grade()
                     for s in a.sondages:
                         d = DIRECTION_LABELS.get(s.grade, "")
-                        tR_pct = f"{100*s.ratio_tR(R):.1f}"
+                        tR_pct = f"{100*s.ratio_tR_brut(R):.1f}"
                         idx_g = (GRADES.index(s.grade)
                                  if s.grade in GRADES else 0)
                         deg_ext = deg_ext_par_grade[idx_g]

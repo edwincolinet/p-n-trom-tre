@@ -127,6 +127,32 @@ class RoundTripTests(unittest.TestCase):
                          ["A", "B", "C"])
         self.assertAlmostEqual(c2.arbres[1].rayon_tronc_cm, 22.0)
 
+    def test_from_dict_ne_mute_pas_l_entree(self):
+        # Verrou de non-effet-de-bord : un dict passé à from_dict doit
+        # rester intact pour que le caller puisse le réutiliser
+        # (sérialisation, log, comparaison, etc.). Régression possible
+        # si quelqu'un remet un `a.pop(...)` dans la boucle des arbres.
+        import copy
+        d = {
+            "nom": "Test",
+            "arbres": [{
+                "numero_arbre": "1",
+                "rayon_tronc_cm": 18.0,
+                "port_arbre": "Libre, semi-libre ou traumatique",  # legacy
+                "sondages": [{"numero": 1, "grade": 0,
+                              "bois_sain_cm": 5.0, "bois_altere_cm": 3.0}],
+                "degradations_externes": [{"numero": 1, "grade_debut": 0,
+                                            "grade_fin": 50,
+                                            "profondeur_cm": 1.0}],
+                "contreforts": [{"numero": 1, "grade_centre": 100,
+                                  "largeur_grades": 50,
+                                  "longueur_cm": 8.0}],
+            }],
+        }
+        snapshot = copy.deepcopy(d)
+        Chantier.from_dict(d)
+        self.assertEqual(d, snapshot)
+
     def test_champs_inconnus_ignores(self):
         # Compatibilité descendante : un JSON futur peut contenir des
         # champs qu'une ancienne version de l'app ne connaît pas
