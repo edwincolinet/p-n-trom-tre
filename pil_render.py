@@ -73,19 +73,33 @@ if TYPE_CHECKING:
 
 
 def _pil_load_fonts():
-    """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL."""
+    """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
+
+    Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
+    licence permissive). Garantit un rendu PDF/PNG identique sur toute
+    machine, indépendamment des polices système installées.
+    Priorité 2 : polices système connues (Linux/Windows/macOS), pour
+    rester compatible avec une installation où `assets/fonts/` aurait
+    été retiré.
+    """
     if not HAS_PIL:
         return None
     from PIL import ImageFont
+    embedded = Path(__file__).parent / "assets" / "fonts"
     candidates = [
-        # Linux
+        # Polices embarquées (source unique, reproductible)
+        str(embedded / "DejaVuSerif-Bold.ttf"),
+        str(embedded / "DejaVuSans.ttf"),
+        str(embedded / "DejaVuSans-Bold.ttf"),
+        # Fallback Linux (chemins debian/ubuntu)
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        # Windows
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        # Fallback Windows
         r"C:\Windows\Fonts\georgiab.ttf",
         r"C:\Windows\Fonts\arial.ttf",
         r"C:\Windows\Fonts\arialbd.ttf",
-        # macOS
+        # Fallback macOS
         "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
         "/Library/Fonts/Arial.ttf",
     ]
