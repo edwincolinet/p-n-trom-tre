@@ -23,7 +23,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Installer les dépendances
+      - name: Installer les dépendances système (Xvfb + Tk)
+        # Xvfb : framebuffer X virtuel pour exécuter les tests Tk en
+        # headless (tests/test_section_canvas.py). python3-tk : binding
+        # Tkinter (parfois absent de l'image setup-python).
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb python3-tk
+
+      - name: Installer les dépendances Python
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -32,10 +40,13 @@ jobs:
       - name: Vérifier la syntaxe (py_compile)
         run: |
           python -m py_compile penetrometre.py model.py geometry.py \
-            palette.py export.py pil_render.py bareme.py dialogs.py
+            palette.py export.py pil_render.py bareme.py dialogs.py \
+            app_exports.py app_menu.py app_style.py
 
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Suite de tests (unittest)
-        run: python -m unittest discover tests -v
+      - name: Suite de tests (unittest, sous Xvfb)
+        # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk
+        # (test_section_canvas) s'exécutent au lieu de skipper.
+        run: xvfb-run -a python -m unittest discover tests -v

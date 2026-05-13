@@ -42,28 +42,40 @@ Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
 
 ```bash
 python -m unittest discover tests
+
+# en CI (ou sans X local) pour exécuter aussi les tests Tk :
+xvfb-run -a python -m unittest discover tests
 ```
 
-106 tests unitaires couvrent :
+116 tests unitaires couvrent :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au
   grade 0) et les primitives polaires partagées Tk ↔ PIL ;
 - le calcul PRBS, l'extrapolation pondérée, la répartition par classe
   et l'indicateur de fiabilité de l'extrapolation ;
+- le résumé textuel diagnostic (`Arbre.diagnostic_summary_lines`) ;
 - la migration des anciens fichiers JSON ET la robustesse aux clés
   inconnues d'un format futur, sans mutation du dict d'entrée ;
+- la présence de `format_version` dans le JSON écrit ;
 - l'absence du cache `alteration_par_grade` (verrouille le refactor) ;
-- 4 **golden-image tests** sur le rendu PIL (arbre nu, écorce +
-  sondages, contreforts fusionnés, dégradation traversant un
-  contrefort) qui détectent toute régression visuelle ;
+- 4 **golden-image tests PIL** (arbre nu, écorce + sondages,
+  contreforts fusionnés, dégradation traversant un contrefort) qui
+  détectent toute régression du rendu PNG/PDF ;
+- 4 **golden-dump tests Tk** (mêmes scénarios) qui comparent la liste
+  d'items du `SectionCanvas` à des fixtures JSON. Skipped si pas
+  de `DISPLAY` (CI sans Xvfb, SSH sans X11) ;
 - un smoke test XLSX bout-en-bout.
 
-Pour régénérer les fixtures golden-images après une évolution
-**intentionnelle** du rendu :
+Pour régénérer les fixtures après une évolution **intentionnelle** du
+rendu :
 
 ```bash
+# Côté PIL (PNG)
 python -m tests.test_render --update
+
+# Côté Tk (JSON) — DISPLAY requis, utiliser xvfb-run en CI
+python -m tests.test_section_canvas --update
 ```
 
 ## Fichiers à conserver ensemble

@@ -29,8 +29,10 @@ bareme.py               ← barème métier Silvavenir (classer_prbs, ports, cla
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (106 tests dont 4 golden-images PIL)
-tests/fixtures/         ← PNG de référence pour les golden-images
+tests/                  ← suite unittest (116 tests dont 4 golden-images
+                          PIL et 4 golden-dumps Tk)
+tests/_fixtures.py      ← scénarios d'arbre partagés (PIL + Tk)
+tests/fixtures/         ← PNG (golden PIL) + JSON (golden dump Tk)
 assets/
   silvavenir_logo.jpg   ← logo (header app + fiche PDF)
   Icone.jpeg            ← icône bureau pour Penetrometre.desktop
@@ -424,11 +426,17 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   106 tests) avant tout commit qui touche au modèle, à la géométrie
-   ou aux exports. Si tu touches au rendu PIL et que les
-   golden-images ferment correctement à l'intention, régénère-les avec
-   `python -m tests.test_render --update` puis commit les nouveaux
-   PNG dans `tests/fixtures/`.
+   116 tests) avant tout commit qui touche au modèle, à la géométrie
+   ou aux exports. Deux familles de golden-tests :
+   - **PIL** (`tests/test_render.py`, 4 scénarios) — régénération :
+     `python -m tests.test_render --update` (commit les `.png`).
+   - **Tk** (`tests/test_section_canvas.py`, 4 scénarios) — régénération :
+     `xvfb-run -a python -m tests.test_section_canvas --update` en CI,
+     ou `python -m tests.test_section_canvas --update` avec X local
+     (commit les `.json`). Skipped silencieusement si `DISPLAY`
+     indisponible (CI sans Xvfb, SSH sans X11).
+   Les scénarios sont définis une seule fois dans `tests/_fixtures.py`
+   (`build_arbre(scenario)` + `SCENARIOS`).
 5. Tester en lançant l'app et en sauvegardant / rechargeant un `.json`.
 6. Pour valider les exports PNG/PDF, générer un échantillon avec
    plusieurs cas (avec/sans écorce, avec/sans contreforts, avec/sans
@@ -458,11 +466,11 @@ au modèle, aux helpers géométriques ou aux exports.
   ticks et lettres cardinales — chacun avec ses paramètres en pixels
   spécifiques (`outline+width`, anchors, polices). Toute modif
   visuelle de ces éléments doit être faite côté Tk **et** côté PIL.
-- **Tests visuels uniquement côté PIL** (`tests/test_render.py`,
-  4 scénarios). Le rendu Tk (`SectionCanvas.redraw`) n'a pas de
-  golden-image équivalent : il nécessiterait Xvfb en CI et un
-  `Canvas.postscript` ou capture d'écran, ratio coût/valeur faible
-  tant que la géométrie reste partagée via `geometry.py`. Une
-  régression purement Tk (palette, marge spécifique Tk) ne sera
-  donc pas détectée automatiquement — comme aujourd'hui, la
-  validation se fait à l'œil en lançant l'app.
+- **Couverture visuelle des deux moteurs** : depuis l'ajout de
+  `tests/test_section_canvas.py`, le rendu Tk a son propre jeu de
+  golden-fixtures (dump JSON des items du Canvas, pas un screenshot).
+  Une régression purement Tk (palette, marge spécifique, item oublié
+  après refactor des `_build_*`) sera détectée par la CI sous Xvfb.
+  Limite résiduelle : le diff porte sur la structure du Canvas, pas
+  sur le rendu glyph par glyph — un changement de police système ne
+  fait pas régresser le test (et c'est ce qu'on veut).

@@ -45,6 +45,8 @@ fiche_*.png
 missions/
 *.json
 !exemple_*.json
+# Fixtures JSON des tests golden (versionnées)
+!tests/fixtures/*.json
 
 # OS
 Thumbs.db
