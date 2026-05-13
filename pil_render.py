@@ -32,14 +32,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
 from geometry import (
-    CLASSE_ORANGE,
-    CLASSE_ROUGE,
-    CLASSE_VERT,
     DIRECTION_LABELS,
     GRADES,
     cavity_polygon,
-    classer_prbs,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -69,6 +66,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage  # noqa: F401
+
     from model import Arbre, Chantier  # noqa: F401
 
 

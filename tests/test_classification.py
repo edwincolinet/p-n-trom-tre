@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import unittest
 
-from geometry import classer_prbs
+from bareme import classer_prbs
 
 
 class ClasserPrbsLibreTests(unittest.TestCase):

@@ -1,10 +1,10 @@
 """
-Helpers géométriques et logique de classification du Pénétromètre.
+Helpers géométriques purs du Pénétromètre.
 
 Ce module ne dépend QUE de la stdlib (`math`). Il est volontairement
-isolé de Tkinter, de PIL et de toute UI : il contient les briques pures
-qui peuvent être couvertes par des tests unitaires sans embarquer la
-couche graphique.
+isolé de Tkinter, de PIL et de toute UI : il contient les briques
+géométriques qui peuvent être couvertes par des tests unitaires sans
+embarquer la couche graphique.
 
 Contenu :
 - `GRADES`, `DIRECTION_LABELS` : 16 directions du sondage (constantes
@@ -14,19 +14,19 @@ Contenu :
   donné, sur l'ensemble des contreforts qui couvrent ce grade.
 - `contrefort_zones`   : fusion des arcs angulaires couverts par des
   contreforts adjacents ou chevauchants.
-- `classer_prbs`       : barème Silvavenir (label Vert/Orange/Rouge
-  selon le ratio t/R et le port de l'arbre).
+- `polar_to_xy`, `polar_idx_to_xy`, `cavity_polygon`,
+  `contrefort_zone_outline`, `degradation_externe_outline` :
+  primitives de rendu partagées Tkinter ↔ PIL.
 
-Les couleurs hexa associées aux classes ne sont PAS définies ici : ce
-sont des conventions de présentation qui vivent côté UI dans
-`penetrometre.py` (`COULEUR_CLASSE`).
+Le barème métier (`classer_prbs` + labels de classe + ports) vit dans
+`bareme.py`. Les couleurs hexa associées aux classes vivent dans
+`palette.py`.
 """
 
 from __future__ import annotations
 
 import math
 from typing import Any, Dict, List, Tuple
-
 
 # ----------------------------------------------------------------------
 # Constantes métier des 16 directions
@@ -156,49 +156,6 @@ def contrefort_zones(contreforts: List[Any]
     if len(merged) == 1 and merged[0][1] - merged[0][0] >= 400:
         merged = [[0.0, 400.0]]
     return [tuple(z) for z in merged]
-
-
-# ----------------------------------------------------------------------
-# Barème Silvavenir
-# ----------------------------------------------------------------------
-
-PORTS_ARBRE = ["libre", "semi-libre", "architecturé", "traumatique"]
-
-# Groupes de barèmes PRBS (Silvavenir) :
-#   - libre + semi-libre :        Vert > 30 %, Orange 15-30 %, Rouge < 15 %
-#   - architecturé + traumatique : Vert > 20 %, Orange 10-20 %, Rouge < 10 %
-PORTS_GROUPE_LIBRE = ("libre", "semi-libre")
-PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
-
-# Labels canoniques : la couche UI s'en sert comme clés du dict
-# `COULEUR_CLASSE` (dans penetrometre.py).
-CLASSE_VERT = "Vert"
-CLASSE_ORANGE = "Orange"
-CLASSE_ROUGE = "Rouge"
-
-
-def classer_prbs(ratio_tR: float, port_arbre: str) -> str:
-    """Classe un sondage selon son ratio t/R et le port de l'arbre.
-
-    Seuils Silvavenir :
-    - libre / semi-libre :         Vert > 30 %, Orange 15-30 %, Rouge < 15 %
-    - architecturé / traumatique : Vert > 20 %, Orange 10-20 %, Rouge < 10 %
-
-    Convention de bornes : seuil haut strict (`>`), seuil bas inclusif
-    (`>=`). Donc pile 30 % en port libre est Orange, pile 15 % est
-    Orange, 14,9 % est Rouge.
-
-    Renvoie le label de classe (`Vert`, `Orange` ou `Rouge`). La couleur
-    hexa associée est une convention de présentation et vit côté UI.
-    """
-    p = port_arbre.lower().strip()
-    seuils = (0.20, 0.10) if p in PORTS_GROUPE_STRICT else (0.30, 0.15)
-    if ratio_tR > seuils[0]:
-        return CLASSE_VERT
-    elif ratio_tR >= seuils[1]:
-        return CLASSE_ORANGE
-    else:
-        return CLASSE_ROUGE
 
 
 # ----------------------------------------------------------------------

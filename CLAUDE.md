@@ -16,10 +16,16 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-penetrometre.py        ← UI Tk + App + main (≈ 1800 lignes)
+penetrometre.py        ← UI Tk + App + main (≈ 1480 lignes)
+app_exports.py          ← actions d'export (PNG/PDF/CSV/XLSX/HTML)
+                          — adaptateur Tk vers les rendus purs
+app_menu.py             ← barre de menu Tk (Fichier/Arbres/?, raccourcis)
+app_style.py            ← thème ttk (couleurs, polices, padding)
 dialogs.py              ← 3 dialogues Tk (Sondage, Dégradation, Contrefort)
 model.py                ← dataclasses (Sondage, Arbre, …) + logique métier
-geometry.py             ← briques pures (spline, contreforts, barème, polaire)
+                          + persistance JSON (Chantier.load_from/save_to)
+geometry.py             ← briques pures (spline, contreforts, polaire)
+bareme.py               ← barème métier Silvavenir (classer_prbs, ports, classes)
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
@@ -41,27 +47,35 @@ ni dans les noms de fichier.
 **Graphe de dépendances** (chaque module n'importe que vers le bas) :
 
 ```
-geometry.py   (stdlib)
+geometry.py + bareme.py   (stdlib)
    ↑
 model.py + palette.py
    ↑
 export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
-penetrometre.py  (Tk + main)
+app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
+   ↑
+penetrometre.py  (Tk + main, classe App)
 ```
 
 ## Architecture
 
+### `bareme.py` — barème métier Silvavenir (stdlib uniquement)
+
+Module dédié à la règle métier de classification :
+- `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
+  renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
+  couleur est une convention de présentation et vit dans `palette.py`.
+- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
+  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+
+Séparé de `geometry.py` pour que le rôle de chaque module soit
+mono-préoccupation : `geometry.py` = géométrie pure, `bareme.py` =
+règle métier.
+
 ### `geometry.py` — fonctions pures (stdlib uniquement)
 
 Module isolé de Tk et PIL, couvert par les tests :
-
-**Logique métier**
-- `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
-  renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
-  couleur est une convention de présentation et vit côté UI.
-- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
-  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
 
 **Géométrie pure**
 - `catmull_rom_closed` — interpolation spline fermée.
@@ -112,8 +126,8 @@ les tests :
 - `Sondage` — une mesure ponctuelle dans une direction.
 - `DegradationExterne` — un arc d'écorce dégradée.
 - `Contrefort` — empattement à la base (cloche cosinus²).
-- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées,
-  **toutes pures** (aucune ne mute l'arbre) :
+- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées
+  **pures** (aucune ne mute l'arbre) :
   - `compute_alteration_par_grade()` — extrapolation par moyenne
     pondérée linéaire entre voisins. **Unique** point d'accès à
     l'altération extrapolée : pas de cache stocké sur l'arbre. Les
@@ -123,11 +137,31 @@ les tests :
   - `prbs_par_grade()`, `ratio_tR_par_grade()`,
     `repartition_classes()` — composent par-dessus
     `compute_alteration_par_grade()` + `degradation_externe_par_grade()`.
-- `Chantier` — mission qui regroupe plusieurs arbres. `to_dict` /
-  `from_dict` pour la persistance. **`from_dict` filtre les clés
-  inconnues** par `__dataclass_fields__` à chaque niveau, ce qui
-  rend l'ouverture robuste à un JSON futur qui contient des champs
-  qu'une ancienne version de l'app ne connaît pas encore.
+  - `renumeroter_sondages()` / `renumeroter_degradations()` /
+    `renumeroter_contreforts()` — mutateurs explicites appelés après
+    ajout/suppression depuis l'UI pour recoller les numéros 1..N.
+- `Chantier` — mission qui regroupe plusieurs arbres. Persistance JSON :
+  - `Chantier.load_from(path)` (classmethod) ouvre un fichier et
+    reconstruit le chantier. Tolère les anciens formats (migration
+    des libellés de port) et un format futur (filtre des clés
+    inconnues par `__dataclass_fields__` à chaque niveau).
+  - `chantier.save_to(path)` écrit le fichier indenté UTF-8.
+  - `to_dict` écrit `format_version: FORMAT_VERSION` ; `from_dict`
+    tolère son absence (anciens fichiers).
+
+### `app_exports.py` — actions d'export Tk
+
+Adaptateur Tk pour les 5 actions d'export utilisateur (PNG, PDF, CSV
+mission, XLSX, HTML). Chaque fonction :
+- vérifie les prérequis (`HAS_PIL`, `HAS_OPENPYXL`) avec un
+  `messagebox.showinfo` clair si manquant ;
+- gère le `filedialog` (nom suggéré + filtres) ;
+- entoure l'écriture d'un `try/except` qui logge via
+  `log.exception(...)` et notifie via `messagebox.showerror`.
+
+`App.action_export_*` sont des thin wrappers d'une ligne qui passent
+`self._current_arbre()` / `self.chantier` aux fonctions du module.
+Aucune dépendance vers `penetrometre.py` (pas de cycle).
 
 ### `palette.py` — couleurs partagées Tk ↔ PIL
 
@@ -180,19 +214,21 @@ Organisé en sections séparées par des bandeaux de commentaires :
    section transversale en temps réel dans la fenêtre.
 3. **Application** — `class App(tk.Tk)` : fenêtre principale,
    onglets, sync UI ↔ modèle, actions (ajouter/dupliquer arbre,
-   exports PNG/PDF/CSV/XLSX/HTML, …). Les actions d'ajout/édition
-   d'un sondage, d'une dégradation ou d'un contrefort délèguent aux
-   fonctions de `dialogs.py`.
+   ouverture / enregistrement, …). Délégations :
+   - dialogues d'ajout/édition (Sondage, Dégradation, Contrefort) →
+     `dialogs.py`.
+   - actions d'export (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
+   - persistance JSON (open/save) → `Chantier.load_from` /
+     `chantier.save_to` dans `model.py`.
+   - renumérotation 1..N après ajout/suppression →
+     `Arbre.renumeroter_*()`.
 4. **`main()`** — configure `_setup_logging()` puis lance
    `App().mainloop()`. Le logger écrit dans
    `~/.penetrometre/penetrometre.log` (RotatingFileHandler), ce qui
    rend les exceptions visibles même en double-clic Windows. Toutes
    les actions d'export catchent leurs exceptions avec
-   `log.exception(...)` avant le `messagebox.showerror`.
-
-Les dataclasses du modèle et le rendu PIL sont **importés** depuis
-`model` et `pil_render` ; ils ne sont plus définis ici. De même, les
-3 dialogues d'édition vivent dans `dialogs.py`.
+   `log.exception(...)` avant le `messagebox.showerror`
+   (dans `app_exports.py`).
 
 ## Conventions métier importantes
 
@@ -366,7 +402,8 @@ au modèle, aux helpers géométriques ou aux exports.
 
 1. **Avant** de toucher au code : repérer le bon module en fonction de
    la nature du changement.
-   - **Métier pur** (barème, géométrie, primitives polaires) →
+   - **Barème métier** (`classer_prbs`, ports, classes) → `bareme.py`.
+   - **Géométrie pure** (spline, contreforts, primitives polaires) →
      `geometry.py`.
    - **Modèle** (dataclasses, extrapolation, calcul PRBS, migration
      JSON) → `model.py`.

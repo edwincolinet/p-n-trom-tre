@@ -19,12 +19,15 @@ suite de tests unittest de couvrir la logique sans embarquer l'UI.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import List
+from pathlib import Path
+from typing import List, Union
 
-from geometry import DIRECTION_LABELS, GRADES, classer_prbs
+from bareme import classer_prbs
+from geometry import DIRECTION_LABELS, GRADES
 
 
 @dataclass
@@ -94,22 +97,16 @@ class DegradationExterne:
         return rayon_cm * angle_rad
 
     def couvre_grade(self, grade: int) -> bool:
-        """Vrai si la dégradation couvre la direction donnée."""
+        """Vrai si la dégradation couvre la direction donnée.
+
+        Bornes incluses, arc parcouru dans le sens horaire avec wrap au
+        grade 0. Un grade hors grille (non multiple de 25) renvoie
+        toujours False — la grille n'a que 16 directions.
+        """
         if grade not in GRADES:
             return False
-        # On parcourt l'arc du début à la fin dans le sens horaire
-        start = self.grade_debut
-        n = self.largeur_grades() // 25 + 1
-        for _ in range(n):
-            if start == grade:
-                return True
-            start = (start + 25) % 400
-            if start == self.grade_fin:
-                # on inclut la borne fin
-                if start == grade:
-                    return True
-                break
-        return False
+        offset = (grade - self.grade_debut) % 400
+        return offset <= self.largeur_grades()
 
 
 @dataclass
@@ -168,6 +165,22 @@ class Arbre:
         default_factory=list)
     contreforts: List[Contrefort] = field(default_factory=list)
     commentaire: str = ""
+
+    def renumeroter_sondages(self) -> None:
+        """Renumérote les sondages 1..N selon leur position dans la liste.
+        À appeler après ajout ou suppression."""
+        for i, s in enumerate(self.sondages, 1):
+            s.numero = i
+
+    def renumeroter_degradations(self) -> None:
+        """Renumérote les dégradations externes 1..N selon leur position."""
+        for i, deg in enumerate(self.degradations_externes, 1):
+            deg.numero = i
+
+    def renumeroter_contreforts(self) -> None:
+        """Renumérote les contreforts 1..N selon leur position."""
+        for i, c in enumerate(self.contreforts, 1):
+            c.numero = i
 
     @property
     def display_name(self) -> str:
@@ -280,6 +293,70 @@ class Arbre:
         )
         return {"n_sondees": n, "n_extrapolees": 16 - n,
                 "ecart_max_grades": ecart_max}
+
+    def diagnostic_summary_lines(self) -> List[str]:
+        """Renvoie les lignes textuelles du résumé diagnostic, prêtes à
+        être jointes par `"\\n".join(...)` pour un widget Label Tk.
+
+        Couvre :
+        - identité de l'arbre + comptes de sondages/dégradations/contreforts ;
+        - fiabilité de l'extrapolation (n/16 directions, écart angulaire max) ;
+        - direction critique (t/R minimal) ;
+        - répartition Vert/Orange/Rouge sur les 16 directions ;
+        - t/R moyen et classe globale.
+
+        Cas particuliers :
+        - rayon nul → une seule ligne d'aide à l'utilisateur ;
+        - aucune altération saisie → un message court remplace la
+          répartition.
+
+        Méthode pure, testable. Les widgets Tk sont mis à jour par
+        l'appelant (`App._refresh_diag`).
+        """
+        if self.rayon_tronc_cm <= 0:
+            return ["Renseignez le rayon du tronc et ajoutez des "
+                    "sondages pour obtenir un résumé."]
+
+        R = self.rayon_tronc_cm
+        rep = self.repartition_classes()
+        lignes: List[str] = [
+            f"« {self.display_name} »",
+            f"Rayon : {R:g} cm   •   Sondages : {len(self.sondages)}"
+            f"   •   Dégrad. ext. : {len(self.degradations_externes)}"
+            f"   •   Contreforts : {len(self.contreforts)}",
+            f"Port : {self.port_arbre}",
+            "",
+        ]
+        extra_txt = self.extrapolation_summary_text()
+        if extra_txt:
+            lignes.append(extra_txt)
+            lignes.append("")
+
+        # Si rien de saisi (t/R == 1 partout, à l'epsilon près)
+        ratios = self.ratio_tR_par_grade()
+        if all(r >= 0.999 for r in ratios):
+            lignes.append("Aucune altération saisie (interne ou externe).")
+            return lignes
+
+        lignes.append(
+            f"t/R minimal : {100*rep['tR_min']:.1f} %  "
+            f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})")
+        lignes.append("")
+        lignes.append("Répartition sur le pourtour (16 directions) :")
+        for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"),
+                             ("Rouge", "🔴")):
+            n = rep[cls]["n"]
+            pct = rep[cls]["pct"]
+            grades = rep[cls]["grades"]
+            if n > 0:
+                lignes.append(
+                    f"  {symbol} {cls:<7} : {n}/16 directions  "
+                    f"({grades} gr / {pct:.0f} % du pourtour)")
+        lignes.append("")
+        lignes.append(
+            f"t/R moyen sur le pourtour : {100*rep['tR_moyen']:.1f} %")
+        lignes.append(f"→ Classe globale : {rep['classe_globale']}")
+        return lignes
 
     def extrapolation_summary_text(self) -> str:
         """Phrase prête à afficher pour le diagnostic. Renvoie une
@@ -398,6 +475,13 @@ class Arbre:
         return result
 
 
+# Version du format JSON écrit par `Chantier.to_dict`. Incrémenter
+# (et ajouter une branche dans `from_dict`) quand une migration non
+# triviale est nécessaire. La lecture tolère son absence (anciens
+# fichiers pré-versionnés → traités comme v1).
+FORMAT_VERSION = 1
+
+
 @dataclass
 class Chantier:
     nom: str = "Nouvelle mission"
@@ -408,9 +492,30 @@ class Chantier:
     arbres: List[Arbre] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"nom": self.nom, "adresse": self.adresse,
+        return {"format_version": FORMAT_VERSION,
+                "nom": self.nom, "adresse": self.adresse,
                 "operateur": self.operateur, "date_releve": self.date_releve,
                 "arbres": [asdict(a) for a in self.arbres]}
+
+    def save_to(self, path: Union[str, Path]) -> None:
+        """Sauvegarde la mission au format JSON indenté UTF-8.
+
+        Le format est versionné via `format_version` (cf. `to_dict`).
+        L'app garantit de pouvoir relire les anciens fichiers (cf.
+        `from_dict` qui ignore les clés inconnues et migre les ports
+        renommés)."""
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
+
+    @classmethod
+    def load_from(cls, path: Union[str, Path]) -> "Chantier":
+        """Lit un fichier JSON de mission et reconstruit le Chantier
+        correspondant. Délègue le filtrage / la migration à
+        `from_dict` : robuste aux clés inconnues d'un format futur et
+        aux anciens libellés de port."""
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Chantier":

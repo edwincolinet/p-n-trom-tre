@@ -24,8 +24,7 @@ barème Silvavenir (Vert/Orange/Rouge), keyé par les constantes
 
 from __future__ import annotations
 
-from geometry import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
-
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 
 # ----------------------------------------------------------------------
 # Palette UI (panneaux, texte, accents)
@@ -67,7 +66,7 @@ COLOR_SOND       = "#1F3A8A"
 # Mapping classe Silvavenir → couleur hexa
 # ----------------------------------------------------------------------
 #
-# Le barème (cf. `classer_prbs` dans geometry.py) renvoie un label
+# Le barème (cf. `classer_prbs` dans bareme.py) renvoie un label
 # (Vert / Orange / Rouge). La couleur associée est purement visuelle :
 # elle vit ici, pas dans la logique métier. Les exports (XLSX, HTML)
 # reçoivent ce dict en paramètre, ce qui leur évite d'importer

@@ -29,7 +29,7 @@ from geometry import DIRECTION_LABELS, GRADES
 
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import (Alignment, Border, Font, PatternFill, Side)
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
     HAS_OPENPYXL = True
 except ImportError:
@@ -490,10 +490,12 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
                         else '<span class="muted">—</span>')
         comment_cell = (_h(r["commentaire"]) if r["commentaire"]
                         else '<span class="muted"></span>')
+        direction_cell = (_h(r["direction"]) if r["direction"]
+                          else '<span class="muted">—</span>')
         body_rows.append(
             "<tr>"
             f'<td class="num">{r["grade"]}</td>'
-            f'<td class="center">{_h(r["direction"]) or "<span class=\'muted\'>—</span>"}</td>'
+            f'<td class="center">{direction_cell}</td>'
             f'<td class="center {sonde_class}">{_h(sonde)}</td>'
             f'<td class="num">{round(r["alteration_cm"], 2):g}</td>'
             f'<td class="num">{deg_ext_cell}</td>'
@@ -530,7 +532,11 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
       </div>
       <div class="row">
         <span class="label">Répartition Vert/Orange/Rouge</span>
-        <span>{diag['vert_n']}/16 ({diag['vert_pct']:.0f} %) • {diag['orange_n']}/16 ({diag['orange_pct']:.0f} %) • {diag['rouge_n']}/16 ({diag['rouge_pct']:.0f} %)</span>
+        <span>
+          {diag['vert_n']}/16 ({diag['vert_pct']:.0f} %) •
+          {diag['orange_n']}/16 ({diag['orange_pct']:.0f} %) •
+          {diag['rouge_n']}/16 ({diag['rouge_pct']:.0f} %)
+        </span>
       </div>
 {extra_row_html}    </div>
     """

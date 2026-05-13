@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import unittest
 
+from bareme import classer_prbs
+from export import prbs_table_rows
 from model import (
     Arbre,
     DegradationExterne,
     Sondage,
 )
-from geometry import classer_prbs
-from export import prbs_table_rows
 
 
 class PrbsTableRowsTests(unittest.TestCase):
@@ -113,6 +113,7 @@ class XlsxSmokeTests(unittest.TestCase):
     def test_export_complet_ne_plante_pas(self):
         import os
         import tempfile
+
         from export import export_prbs_xlsx
         from model import Arbre, Chantier, DegradationExterne, Sondage
         from palette import COULEUR_CLASSE

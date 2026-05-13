@@ -1,0 +1,25 @@
+# Configuration ruff pour le Pénétromètre Silvavenir.
+#
+# Choix : règles serrées sur les VRAIS bugs (F = pyflakes, E9 = syntax,
+# I = isort), tolérantes sur le style. Ligne 120 (au-delà du PEP 8 79 mais
+# raisonnable pour les templates HTML/SQL embarqués).
+#
+# `target-version = py39` permet à ruff de détecter les fonctionnalités
+# qui ne sont valides qu'à partir de Python 3.10+ — notamment les
+# f-strings PEP 701 (3.12+).
+
+target-version = "py39"
+line-length = 120
+exclude = ["venv", "__pycache__", ".github", "assets"]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors (incl. E501 line length)
+    "F",    # pyflakes : imports/variables inutilisés, indéfinis, etc.
+    "W",    # pycodestyle warnings
+    "I",    # isort : tri des imports
+]
+
+[lint.isort]
+known-first-party = ["bareme", "dialogs", "export", "geometry",
+                     "model", "palette", "pil_render"]

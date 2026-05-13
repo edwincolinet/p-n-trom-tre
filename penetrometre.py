@@ -14,31 +14,33 @@ Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 
 from __future__ import annotations
 
-import csv
-import json
 import logging
-import math
+import tkinter as tk
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Optional, Tuple
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+# Actions d'export (PNG / PDF / CSV / XLSX / HTML) : adaptateur Tk qui
+# glue les fonctions pures de `pil_render.py` / `export.py` aux
+# filedialogs et au logger applicatif.
+import app_exports
+from app_menu import build_menu
+from app_style import apply_ttk_styles
 
-# Helpers géométriques + barème classifient des fonctions pures testées
-# isolément (cf. tests/). Voir geometry.py pour le détail.
+# Helpers géométriques + barème (fonctions pures testées isolément).
+from bareme import PORTS_ARBRE, classer_prbs
+from dialogs import edit_contrefort, edit_degradation, edit_sondage
 from geometry import (
     DIRECTION_LABELS,
     GRADES,
-    PORTS_ARBRE,
     cavity_polygon,
-    classer_prbs,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
     polar_idx_to_xy,
-    polar_to_xy,
 )
+
 # Modèle de données : dataclasses sérialisables (Sondage, Arbre, …) avec
 # leur logique métier (extrapolation, PRBS, classification). Voir
 # model.py pour le détail. Sans dépendance Tk/PIL : couvert par les tests.
@@ -49,10 +51,12 @@ from model import (
     DegradationExterne,
     Sondage,
 )
+
 # Palette partagée Tk ↔ PIL : couleurs UI et mapping classe → hex.
+# Les couleurs purement ttk-thème (Side, Accent_soft, Wood_dark) sont
+# importées par `app_style.py`, pas ici.
 from palette import (
     COLOR_ACCENT,
-    COLOR_ACCENT_SOFT,
     COLOR_BARK,
     COLOR_BARK_LIGHT,
     COLOR_BG,
@@ -61,23 +65,10 @@ from palette import (
     COLOR_MUTED,
     COLOR_PANEL,
     COLOR_ROT,
-    COLOR_SIDE_PANEL,
     COLOR_SOND,
     COLOR_WOOD,
-    COLOR_WOOD_DARK,
     COULEUR_CLASSE,
 )
-from dialogs import edit_contrefort, edit_degradation, edit_sondage
-from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
-# Rendu PIL (PNG du dessin + fiche PDF A4). `HAS_PIL` reste False si
-# Pillow n'est pas installé : l'app démarre, et les actions d'export
-# affichent un message clair sans planter.
-from pil_render import (
-    HAS_PIL,
-    render_arbre_to_pil_image,
-    render_fiche_arbre_to_pdf_page,
-)
-
 
 __version__ = "3.3.0"
 
@@ -465,116 +456,11 @@ class App(tk.Tk):
         self.current_file: Optional[Path] = None
         self._suspend_sync = False
 
-        self._setup_style()
-        self._build_menu()
+        apply_ttk_styles(self)
+        build_menu(self)
         self._build_layout()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
-
-    def _setup_style(self) -> None:
-        s = ttk.Style(self)
-        try:
-            s.theme_use("clam")
-        except tk.TclError:
-            pass
-        s.configure(".", background=COLOR_BG, foreground=COLOR_INK,
-                    font=("Helvetica", 10))
-        s.configure("TFrame", background=COLOR_BG)
-        s.configure("Panel.TFrame", background=COLOR_PANEL)
-        s.configure("Side.TFrame", background=COLOR_SIDE_PANEL)
-        s.configure("TLabel", background=COLOR_BG, foreground=COLOR_INK)
-        s.configure("Panel.TLabel", background=COLOR_PANEL, foreground=COLOR_INK)
-        s.configure("Side.TLabel", background=COLOR_SIDE_PANEL, foreground=COLOR_INK)
-        s.configure("Title.TLabel", background=COLOR_BG,
-                    foreground=COLOR_ACCENT,
-                    font=("Georgia", 18, "bold"))
-        s.configure("Sub.TLabel", background=COLOR_BG, foreground=COLOR_MUTED,
-                    font=("Helvetica", 10, "italic"))
-        s.configure("H.TLabel", background=COLOR_PANEL, foreground=COLOR_ACCENT,
-                    font=("Georgia", 12, "bold"))
-        s.configure("Muted.TLabel", background=COLOR_PANEL, foreground=COLOR_MUTED,
-                    font=("Helvetica", 9))
-        s.configure("TButton", padding=6)
-        s.configure("Accent.TButton", background=COLOR_ACCENT,
-                    foreground="white", padding=(12, 7),
-                    font=("Helvetica", 10, "bold"), borderwidth=0)
-        s.map("Accent.TButton",
-              background=[("active", COLOR_WOOD_DARK),
-                          ("pressed", COLOR_WOOD_DARK)])
-        s.configure("Ghost.TButton", background=COLOR_PANEL,
-                    foreground=COLOR_ACCENT, padding=(10, 6),
-                    font=("Helvetica", 10), borderwidth=1)
-        s.map("Ghost.TButton",
-              background=[("active", COLOR_ACCENT_SOFT)])
-        s.configure("TEntry", fieldbackground=COLOR_PANEL, foreground=COLOR_INK,
-                    padding=3)
-        s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
-        s.configure("TNotebook.Tab", padding=(16, 9),
-                    font=("Helvetica", 10, "bold"),
-                    background="#E7E2D4", foreground=COLOR_MUTED)
-        s.map("TNotebook.Tab",
-              background=[("selected", COLOR_PANEL)],
-              foreground=[("selected", COLOR_ACCENT)])
-        s.configure("Treeview", background=COLOR_PANEL,
-                    fieldbackground=COLOR_PANEL, foreground=COLOR_INK,
-                    rowheight=26, borderwidth=0)
-        s.configure("Treeview.Heading",
-                    background=COLOR_ACCENT, foreground="white",
-                    font=("Helvetica", 10, "bold"), borderwidth=0)
-        s.map("Treeview",
-              background=[("selected", COLOR_ACCENT_SOFT)],
-              foreground=[("selected", COLOR_INK)])
-        s.configure("Side.Treeview", background=COLOR_SIDE_PANEL,
-                    fieldbackground=COLOR_SIDE_PANEL, rowheight=28)
-        s.map("Side.Treeview",
-              background=[("selected", COLOR_ACCENT)],
-              foreground=[("selected", "white")])
-
-    def _build_menu(self) -> None:
-        m = tk.Menu(self)
-        self.config(menu=m)
-        f = tk.Menu(m, tearoff=0)
-        f.add_command(label="Nouvelle mission", accelerator="Ctrl+N",
-                      command=self.action_new)
-        f.add_command(label="Ouvrir mission…", accelerator="Ctrl+O",
-                      command=self.action_open)
-        f.add_command(label="Enregistrer", accelerator="Ctrl+S",
-                      command=self.action_save)
-        f.add_command(label="Enregistrer sous…", command=self.action_save_as)
-        f.add_separator()
-        f.add_command(label="Exporter dessin (PNG)…",
-                      command=self.action_export_png)
-        f.add_command(label="Exporter fiche arbre (PDF)…",
-                      command=self.action_export_pdf_arbre)
-        f.add_command(label="Exporter tableau arbre (XLSX)…",
-                      command=self.action_export_prbs_xlsx)
-        f.add_command(label="Exporter tableau arbre (HTML)…",
-                      command=self.action_export_prbs_html)
-        f.add_command(label="Exporter sondages mission (CSV)…",
-                      command=self.action_export_csv)
-        f.add_separator()
-        f.add_command(label="Quitter", command=self.destroy)
-        m.add_cascade(label="Fichier", menu=f)
-
-        a = tk.Menu(m, tearoff=0)
-        a.add_command(label="Ajouter un arbre", accelerator="Ctrl+T",
-                      command=self.action_add_arbre)
-        a.add_command(label="Dupliquer l'arbre courant",
-                      command=self.action_dup_arbre)
-        a.add_command(label="Renommer l'arbre courant",
-                      command=self.action_rename_arbre)
-        a.add_command(label="Supprimer l'arbre courant",
-                      command=self.action_del_arbre)
-        m.add_cascade(label="Arbres", menu=a)
-
-        h = tk.Menu(m, tearoff=0)
-        h.add_command(label="À propos", command=self.action_about)
-        m.add_cascade(label="?", menu=h)
-
-        self.bind_all("<Control-n>", lambda e: self.action_new())
-        self.bind_all("<Control-o>", lambda e: self.action_open())
-        self.bind_all("<Control-s>", lambda e: self.action_save())
-        self.bind_all("<Control-t>", lambda e: self.action_add_arbre())
 
     def _build_layout(self) -> None:
         header = ttk.Frame(self)
@@ -591,7 +477,8 @@ class App(tk.Tk):
         # Bloc droit : logo Silvavenir (si disponible)
         self._logo_image = None
         try:
-            from PIL import Image as PILImage, ImageTk
+            from PIL import Image as PILImage
+            from PIL import ImageTk
             logo_path = Path(__file__).parent / "assets" / "silvavenir_logo.jpg"
             if logo_path.exists():
                 pil = PILImage.open(logo_path)
@@ -1241,7 +1128,7 @@ class App(tk.Tk):
                     bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
         if edit_sondage(self, a, s):
             a.sondages.append(s)
-            self._renum_sondages(a)
+            a.renumeroter_sondages()
             self._refresh_sondages_table()
             self._debounced_redraw()
 
@@ -1267,13 +1154,9 @@ class App(tk.Tk):
         if not a:
             return
         del a.sondages[idx]
-        self._renum_sondages(a)
+        a.renumeroter_sondages()
         self._refresh_sondages_table()
         self._debounced_redraw()
-
-    def _renum_sondages(self, a: Arbre) -> None:
-        for i, s in enumerate(a.sondages, 1):
-            s.numero = i
 
     # ---- Dégradations externes -------------------------------------
 
@@ -1305,7 +1188,7 @@ class App(tk.Tk):
             grade_debut=0, grade_fin=50, profondeur_cm=2.0)
         if edit_degradation(self, a, deg):
             a.degradations_externes.append(deg)
-            self._renum_degradations(a)
+            a.renumeroter_degradations()
             self._refresh_degradations_table()
             self._debounced_redraw()
 
@@ -1331,13 +1214,9 @@ class App(tk.Tk):
         if not a:
             return
         del a.degradations_externes[idx]
-        self._renum_degradations(a)
+        a.renumeroter_degradations()
         self._refresh_degradations_table()
         self._debounced_redraw()
-
-    def _renum_degradations(self, a: Arbre) -> None:
-        for i, deg in enumerate(a.degradations_externes, 1):
-            deg.numero = i
 
     # --- Contreforts ---
     def _refresh_contreforts_table(self) -> None:
@@ -1368,7 +1247,7 @@ class App(tk.Tk):
                        grade_centre=0, largeur_grades=75, longueur_cm=10.0)
         if edit_contrefort(self, a, c):
             a.contreforts.append(c)
-            self._renum_contreforts(a)
+            a.renumeroter_contreforts()
             self._refresh_contreforts_table()
             self._debounced_redraw()
 
@@ -1394,13 +1273,9 @@ class App(tk.Tk):
         if not a:
             return
         del a.contreforts[idx]
-        self._renum_contreforts(a)
+        a.renumeroter_contreforts()
         self._refresh_contreforts_table()
         self._debounced_redraw()
-
-    def _renum_contreforts(self, a: Arbre) -> None:
-        for i, c in enumerate(a.contreforts, 1):
-            c.numero = i
 
     def _toggle_show_sondages(self) -> None:
         """Réagit au check/uncheck de la case 'emplacement des sondages'."""
@@ -1447,58 +1322,13 @@ class App(tk.Tk):
                     tags=(tag,))
 
         # --- Texte de résumé enrichi ---
-        if not a or a.rayon_tronc_cm <= 0:
-            self.lbl_diag.configure(text="Renseignez le rayon du tronc et "
-                                         "ajoutez des sondages pour obtenir "
-                                         "un résumé.")
+        if not a:
+            self.lbl_diag.configure(
+                text="Renseignez le rayon du tronc et ajoutez des "
+                     "sondages pour obtenir un résumé.")
             return
-        R = a.rayon_tronc_cm
-        rep = a.repartition_classes()
-        # En-tête
-        lignes = [
-            f"« {a.display_name} »",
-            f"Rayon : {R:g} cm   •   Sondages : {len(a.sondages)}"
-            f"   •   Dégrad. ext. : {len(a.degradations_externes)}"
-            f"   •   Contreforts : {len(a.contreforts)}",
-            f"Port : {a.port_arbre}",
-            "",
-        ]
-        # Fiabilité de l'extrapolation (visible avant la répartition).
-        extra_txt = a.extrapolation_summary_text()
-        if extra_txt:
-            lignes.append(extra_txt)
-            lignes.append("")
-
-        # Si rien de saisi
-        ratios = a.ratio_tR_par_grade()
-        if all(r >= 0.999 for r in ratios):
-            lignes.append("Aucune altération saisie (interne ou externe).")
-            self.lbl_diag.configure(text="\n".join(lignes))
-            return
-
-        # Direction critique
-        lignes.append(
-            f"t/R minimal : {100*rep['tR_min']:.1f} %  "
-            f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})")
-
-        # Répartition sur les 16 directions
-        lignes.append("")
-        lignes.append("Répartition sur le pourtour (16 directions) :")
-        for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"), ("Rouge", "🔴")):
-            n = rep[cls]["n"]
-            pct = rep[cls]["pct"]
-            grades = rep[cls]["grades"]
-            if n > 0:
-                lignes.append(
-                    f"  {symbol} {cls:<7} : {n}/16 directions  "
-                    f"({grades} gr / {pct:.0f} % du pourtour)")
-
-        lignes.append("")
-        lignes.append(
-            f"t/R moyen sur le pourtour : {100*rep['tR_moyen']:.1f} %")
-        lignes.append(f"→ Classe globale : {rep['classe_globale']}")
-
-        self.lbl_diag.configure(text="\n".join(lignes))
+        self.lbl_diag.configure(
+            text="\n".join(a.diagnostic_summary_lines()))
 
     # --- Fichier ----------------------------------------------------
 
@@ -1527,9 +1357,7 @@ class App(tk.Tk):
         if not p:
             return
         try:
-            with open(p, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            self.chantier = Chantier.from_dict(data)
+            self.chantier = Chantier.load_from(p)
             if not self.chantier.arbres:
                 self.chantier.arbres.append(Arbre())
             self.current_idx = 0
@@ -1550,9 +1378,7 @@ class App(tk.Tk):
         if not self.current_file:
             return self.action_save_as()
         try:
-            with open(self.current_file, "w", encoding="utf-8") as f:
-                json.dump(self.chantier.to_dict(), f, indent=2,
-                          ensure_ascii=False)
+            self.chantier.save_to(self.current_file)
             self.title(f"Pénétromètre — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")
@@ -1568,173 +1394,23 @@ class App(tk.Tk):
         self.action_save()
 
     def action_export_png(self) -> None:
-        if not HAS_PIL:
-            messagebox.showinfo(
-                "Pillow requis",
-                "L'export PNG nécessite Pillow.\n"
-                "Installez-le :  pip install Pillow")
-            return
-        a = self._current_arbre()
-        if not a:
-            return
-        p = filedialog.asksaveasfilename(
-            defaultextension=".png",
-            filetypes=[("Image PNG", "*.png")])
-        if not p:
-            return
-        try:
-            img = render_arbre_to_pil_image(
-                a, width=1600, height=1600,
-                show_sondages=self.section.show_sondages,
-                show_legend=True)
-            img.save(p, "PNG")
-            messagebox.showinfo("Exporté", f"Image enregistrée : {p}")
-        except Exception as e:
-            log.exception("Échec export PNG")
-            messagebox.showerror("Erreur d'export", str(e))
+        app_exports.export_png(self, self._current_arbre(),
+                                self.section.show_sondages)
 
     def action_export_pdf_arbre(self) -> None:
-        """Exporte une fiche PDF (dessin + tableau + diagnostic) pour
-        l'arbre courant. Utilise uniquement Pillow (multi-pages via save)."""
-        if not HAS_PIL:
-            messagebox.showinfo(
-                "Pillow requis",
-                "L'export PDF nécessite Pillow.\n"
-                "Installez-le :  pip install Pillow")
-            return
-        a = self._current_arbre()
-        if not a:
-            return
-        suggest = f"fiche_arbre_{a.numero_arbre or 'sans_num'}.pdf".replace(
-            " ", "_")
-        p = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            initialfile=suggest,
-            filetypes=[("Document PDF", "*.pdf")])
-        if not p:
-            return
-        try:
-            page = render_fiche_arbre_to_pdf_page(a, self.chantier)
-            # Pillow : sauvegarder une image en PDF donne un PDF 1 page
-            page.save(p, "PDF", resolution=150.0)
-            messagebox.showinfo("Exporté",
-                                f"Fiche PDF enregistrée : {p}")
-        except Exception as e:
-            log.exception("Échec export PDF")
-            messagebox.showerror("Erreur d'export PDF", str(e))
+        app_exports.export_pdf_arbre(self, self._current_arbre(),
+                                      self.chantier)
 
     def action_export_csv(self) -> None:
-        p = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV", "*.csv")])
-        if not p:
-            return
-        try:
-            with open(p, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.writer(f, delimiter=";")
-                # Colonnes brutes : PRBS et Bois altéré tels que mesurés
-                # par le pénétromètre. t/R (%) reste basé sur la PRBS
-                # brute pour ne pas casser les ré-analyses existantes.
-                # Colonnes ajustées : Dégrad. ext. retranchée + PRBS
-                # effective et t/R ajusté + classe — cohérents avec le
-                # tableau Diagnostic, la fiche PDF et les exports
-                # XLSX/HTML.
-                w.writerow(["N° arbre", "Essence", "Rayon (cm)",
-                            "Port",
-                            "N° sondage", "Grade (gr)", "Direction",
-                            "PRBS (cm)", "Bois altéré (cm)",
-                            "t/R (%)",
-                            "Dégrad. ext. (cm)",
-                            "PRBS ajustée (cm)",
-                            "t/R ajusté (%)",
-                            "Classe",
-                            "Compartimentation", "Commentaire"])
-                for a in self.chantier.arbres:
-                    R = a.rayon_tronc_cm
-                    deg_ext_par_grade = a.degradation_externe_par_grade()
-                    for s in a.sondages:
-                        d = DIRECTION_LABELS.get(s.grade, "")
-                        tR_pct = f"{100*s.ratio_tR_brut(R):.1f}"
-                        idx_g = (GRADES.index(s.grade)
-                                 if s.grade in GRADES else 0)
-                        deg_ext = deg_ext_par_grade[idx_g]
-                        prbs_adj = max(0.0, s.prbs_cm - deg_ext)
-                        ratio_adj = prbs_adj / R if R > 0 else 0.0
-                        tR_adj_pct = f"{100*ratio_adj:.1f}"
-                        classe = classer_prbs(ratio_adj, a.port_arbre)
-                        w.writerow([a.numero_arbre, a.essence,
-                                    a.rayon_tronc_cm, a.port_arbre,
-                                    s.numero,
-                                    s.grade, d,
-                                    s.prbs_cm, s.bois_altere_cm,
-                                    tR_pct,
-                                    deg_ext,
-                                    prbs_adj,
-                                    tR_adj_pct,
-                                    classe,
-                                    s.compartimentation, s.commentaire])
-            messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
-        except Exception as e:
-            log.exception("Échec export CSV")
-            messagebox.showerror("Erreur", str(e))
+        app_exports.export_csv_mission(self, self.chantier)
 
     def action_export_prbs_xlsx(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        if not HAS_OPENPYXL:
-            messagebox.showerror(
-                "Export XLSX indisponible",
-                "Le module openpyxl n'est pas installé.\n\n"
-                "Pour activer cet export, lance dans un terminal :\n"
-                "    pip install -r requirements.txt\n\n"
-                "L'export HTML reste disponible sans dépendance.")
-            return
-        if a.rayon_tronc_cm <= 0:
-            messagebox.showerror("Export impossible",
-                "Renseigne un rayon de tronc avant l'export.")
-            return
-        default = (f"tableau_arbre_{a.numero_arbre or 'X'}.xlsx"
-                   .replace(" ", "_"))
-        p = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            initialfile=default,
-            filetypes=[("Classeur Excel", "*.xlsx")])
-        if not p:
-            return
-        try:
-            export_prbs_xlsx(a, self.chantier, p,
-                              couleur_classe=COULEUR_CLASSE,
-                              classer_prbs=classer_prbs)
-            messagebox.showinfo("Exporté", f"Tableau XLSX enregistré :\n{p}")
-        except Exception as e:
-            log.exception("Échec export XLSX")
-            messagebox.showerror("Erreur", str(e))
+        app_exports.export_xlsx_arbre(self, self._current_arbre(),
+                                       self.chantier)
 
     def action_export_prbs_html(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        if a.rayon_tronc_cm <= 0:
-            messagebox.showerror("Export impossible",
-                "Renseigne un rayon de tronc avant l'export.")
-            return
-        default = (f"tableau_arbre_{a.numero_arbre or 'X'}.html"
-                   .replace(" ", "_"))
-        p = filedialog.asksaveasfilename(
-            defaultextension=".html",
-            initialfile=default,
-            filetypes=[("Page HTML", "*.html")])
-        if not p:
-            return
-        try:
-            export_prbs_html(a, self.chantier, p,
-                              couleur_classe=COULEUR_CLASSE,
-                              classer_prbs=classer_prbs)
-            messagebox.showinfo("Exporté", f"Tableau HTML enregistré :\n{p}")
-        except Exception as e:
-            log.exception("Échec export HTML")
-            messagebox.showerror("Erreur", str(e))
+        app_exports.export_html_arbre(self, self._current_arbre(),
+                                       self.chantier)
 
     def action_about(self) -> None:
         messagebox.showinfo(

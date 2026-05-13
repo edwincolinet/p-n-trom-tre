@@ -11,6 +11,7 @@ from __future__ import annotations
 import unittest
 
 from model import (
+    FORMAT_VERSION,
     Arbre,
     Chantier,
     Contrefort,
@@ -64,6 +65,25 @@ class FromDictTests(unittest.TestCase):
                 d = {"arbres": [{"numero_arbre": "1", "port_arbre": port}]}
                 c = Chantier.from_dict(d)
                 self.assertEqual(c.arbres[0].port_arbre, port)
+
+    def test_json_sans_format_version_est_lisible(self):
+        # Anciens fichiers pré-versionnés : pas de clé format_version.
+        # `from_dict` doit les charger sans broncher.
+        d = {"nom": "Ancien", "arbres": [
+            {"numero_arbre": "1", "rayon_tronc_cm": 20.0}]}
+        self.assertNotIn("format_version", d)
+        c = Chantier.from_dict(d)
+        self.assertEqual(c.nom, "Ancien")
+        self.assertEqual(len(c.arbres), 1)
+
+
+class FormatVersionTests(unittest.TestCase):
+    """Le JSON écrit par to_dict porte un champ format_version."""
+
+    def test_to_dict_inclut_format_version(self):
+        c = Chantier(nom="X")
+        d = c.to_dict()
+        self.assertEqual(d.get("format_version"), FORMAT_VERSION)
 
 
 class RoundTripTests(unittest.TestCase):

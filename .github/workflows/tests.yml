@@ -27,11 +27,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install ruff
 
       - name: Vérifier la syntaxe (py_compile)
         run: |
           python -m py_compile penetrometre.py model.py geometry.py \
-            palette.py export.py pil_render.py
+            palette.py export.py pil_render.py bareme.py dialogs.py
+
+      - name: Lint (ruff)
+        run: ruff check .
 
       - name: Suite de tests (unittest)
         run: python -m unittest discover tests -v

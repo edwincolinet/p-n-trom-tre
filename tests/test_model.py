@@ -375,5 +375,51 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         self.assertEqual(s["ecart_max_grades"], 350)
 
 
+class DiagnosticSummaryLinesTests(unittest.TestCase):
+    """Tests du résumé textuel utilisé par le panneau Diagnostic et par
+    les exports."""
+
+    def test_rayon_nul_renvoie_message_d_aide(self):
+        a = Arbre(rayon_tronc_cm=0.0)
+        lines = a.diagnostic_summary_lines()
+        self.assertEqual(len(lines), 1)
+        self.assertIn("rayon", lines[0].lower())
+
+    def test_sans_sondage_signale_aucune_alteration(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        lines = a.diagnostic_summary_lines()
+        joined = "\n".join(lines)
+        self.assertIn("Aucune altération", joined)
+        # Pas de répartition Vert/Orange/Rouge dans ce cas
+        self.assertNotIn("Répartition", joined)
+
+    def test_avec_alteration_inclut_classe_globale_et_repartition(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_sain_cm=2.0,
+                                    bois_altere_cm=18.0))
+        a.sondages.append(Sondage(grade=200, bois_sain_cm=2.0,
+                                    bois_altere_cm=18.0))
+        lines = a.diagnostic_summary_lines()
+        joined = "\n".join(lines)
+        # En-tête présent
+        self.assertIn("Rayon : 20", joined)
+        # Direction critique listée
+        self.assertIn("t/R minimal", joined)
+        # Répartition présente
+        self.assertIn("Répartition", joined)
+        # Classe globale finale (avec arbre très altéré → Rouge)
+        self.assertIn("Classe globale", joined)
+        self.assertIn("Rouge", joined)
+
+    def test_inclut_extrapolation_summary_text_si_partiel(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
+        lines = a.diagnostic_summary_lines()
+        joined = "\n".join(lines)
+        # 2/16 directions sondées → la ligne d'extrapolation apparaît
+        self.assertIn("2/16", joined)
+
+
 if __name__ == "__main__":
     unittest.main()
