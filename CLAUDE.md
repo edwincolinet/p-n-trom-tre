@@ -177,6 +177,11 @@ intermédiaire, les deux auraient un cycle d'import.
 
 - `render_arbre_to_pil_image(arbre, …)` — section transversale
   identique à celle du `SectionCanvas` Tk, mais sur une `PIL.Image`.
+  Orchestrateur d'une 70aine de lignes qui enchaîne les helpers
+  `_pil_draw_*` (un par couche logique : bois sain, cernes, cavité,
+  écorce, contreforts, dégradations, ticks, lettres cardinales,
+  sondages, règle, titre). Structure symétrique aux `_draw_*` de
+  `SectionCanvas` : modifier le helper concerné, pas l'orchestrateur.
 - `render_fiche_arbre_to_pdf_page(arbre, chantier)` — page A4
   150 DPI complète : en-tête mission + logo, identité de l'arbre,
   dessin, légende horizontale, tableau PRBS ajustée, diagnostic.
@@ -467,13 +472,13 @@ au modèle, aux helpers géométriques ou aux exports.
 - **Duplication de rendu Tk ↔ PIL au-delà de la géométrie**.
   `geometry.py` partage les primitives polaires et les contours
   (cavité, contreforts, dégradations). Restent dupliqués entre Tk
-  (helpers `SectionCanvas._draw_*`) et PIL (`render_arbre_to_pil_image`) :
-  l'écorce/anneau, les cernes, la règle graduée, les pastilles, les
-  ticks et lettres cardinales — chacun avec ses paramètres en pixels
-  spécifiques (`outline+width`, anchors, polices). Toute modif
-  visuelle de ces éléments doit être faite côté Tk **et** côté PIL.
-  Côté Tk, chaque couche a son helper `_draw_*` dédié dans
-  `SectionCanvas` — modifier le helper concerné, pas `redraw()`.
+  (helpers `SectionCanvas._draw_*`) et PIL (helpers `_pil_draw_*` de
+  `pil_render.py`) : l'écorce/anneau, les cernes, la règle graduée,
+  les pastilles, les ticks et lettres cardinales — chacun avec ses
+  paramètres en pixels spécifiques (`outline+width`, anchors, polices).
+  Les deux jeux de helpers sont **symétriques par nom** (`_draw_ticks`
+  ↔ `_pil_draw_ticks`, etc.) : toute modif visuelle se fait sur le
+  helper concerné dans LES DEUX fichiers.
 - **Couverture visuelle des deux moteurs** : depuis l'ajout de
   `tests/test_section_canvas.py`, le rendu Tk a son propre jeu de
   golden-fixtures (dump JSON des items du Canvas, pas un screenshot).

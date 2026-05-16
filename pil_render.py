@@ -41,7 +41,6 @@ from geometry import (
     contrefort_zones,
     degradation_externe_outline,
     polar_idx_to_xy,
-    polar_to_xy,
 )
 from palette import (
     COLOR_ACCENT,
@@ -132,10 +131,13 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     """Rend la section transversale d'un arbre en image PIL (PNG/PDF).
     Logique identique à SectionCanvas.redraw() mais sans dépendance tk.
 
-    Si `show_legend=True`, une légende adaptative est dessinée à gauche
-    du tronc (Bois sain / Bois dégradé / Écorce / Sondage / Classes) ;
-    la section circulaire est alors décalée vers la droite pour ménager
-    une bande dédiée à la légende.
+    Si `show_legend=True`, une légende adaptative est dessinée sous la
+    règle graduée sur UNE LIGNE horizontale (Bois sain / Bois dégradé /
+    Écorce / Sondage / Classes) ; une bande de hauteur est réservée en
+    bas, ce qui repousse la section vers le haut.
+
+    L'orchestration est ici, chaque couche est déléguée à un helper
+    `_pil_draw_*` (symétrique à SectionCanvas._draw_*).
     """
     from PIL import Image, ImageDraw
     f = _pil_load_fonts()
@@ -143,22 +145,19 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     d = ImageDraw.Draw(img, "RGBA")
 
     if arbre.rayon_tronc_cm <= 0:
-        d.text((width/2, height/2),
-               "Rayon non renseigné", fill=COLOR_MUTED,
-               font=f(28, "sans"), anchor="mm")
+        _pil_draw_placeholder(d, f, width, height)
         return img
 
     R = arbre.rayon_tronc_cm
+    ep = max(0.0, arbre.epaisseur_ecorce_cm)
+    R_ext = R + ep
     # Marges adaptées à la taille (responsive) :
     # - haut : titre+méta+lettre N hors écorce (proportionnel)
     # - bas : pastille S à l'intérieur, règle graduée + label
-    if show_title:
-        margin_top = max(140, int(height * 0.13))
-    else:
-        margin_top = 70   # juste pour que la lettre N tienne au-dessus
-    # Si la légende doit être affichée, on la pose en bas (sous la règle
-    # graduée), sur une seule ligne horizontale. On réserve donc une
-    # bande de hauteur en bas, ce qui repousse la section vers le haut.
+    margin_top = max(140, int(height * 0.13)) if show_title else 70
+    # Si la légende est demandée, on la pose en bas (sous la règle
+    # graduée), sur une seule ligne horizontale. On réserve une bande de
+    # hauteur en bas, ce qui repousse la section vers le haut.
     legend_bottom_h = max(70, int(height * 0.085)) if show_legend else 0
     margin_bottom = max(160, int(height * 0.16)) + legend_bottom_h
     margin_side = max(80, int(width * 0.08))
@@ -167,67 +166,92 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     radius_px_max = min(available_h / 2, available_v / 2)
     cx = width / 2
     cy = margin_top + radius_px_max
-    # Réserver l'espace pour l'écorce + les contreforts. L'écorce ajoute
-    # `epaisseur_ecorce_cm` vers l'extérieur, et les contreforts encore
-    # `longueur_cm` au-delà.
-    # `radius_px` reste le rayon en pixels du BOIS (tronc sous écorce) ;
-    # `radius_ext_px` est le rayon externe (bois + écorce).
-    ep = max(0.0, arbre.epaisseur_ecorce_cm)
-    R_ext = R + ep
+    # `radius_px` = rayon en pixels du BOIS ; `radius_ext_px` = bois+écorce.
+    # On réserve aussi l'espace des contreforts (longueur_cm au-delà de R+ep).
     expansion = ep + max((c.longueur_cm for c in arbre.contreforts),
                           default=0.0)
-    R_eff = R + expansion
-    scale = radius_px_max / R_eff
+    scale = radius_px_max / (R + expansion)
+
+    _pil_draw_bois_sain(d, cx, cy, R, scale)
+    _pil_draw_cernes(d, cx, cy, R, scale)
+    _pil_draw_cavite(d, arbre, cx, cy, scale)
+    _pil_draw_ecorce(d, cx, cy, R, ep, R_ext, scale)
+    _pil_draw_contreforts(d, arbre, cx, cy, R, ep, scale)
+    # Dégradations EN DERNIER (cf. CLAUDE.md « Ordre global des couches »).
+    _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale)
+    _pil_draw_ticks(d, cx, cy, R_ext, scale)
+    _pil_draw_cardinales(d, f, cx, cy, R_ext, scale)
+    if show_sondages:
+        _pil_draw_sondages(d, f, arbre, cx, cy, R, scale)
+    y_axis = _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height)
+    # Point central de la section
+    d.ellipse([cx-5, cy-5, cx+5, cy+5], fill=COLOR_INK)
+    if show_title:
+        _pil_draw_titre(d, f, arbre, R, width, height)
+    if show_legend:
+        legend_y = y_axis + max(50, int(height * 0.045))
+        _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
+                                     width=width, height=height,
+                                     font_fn=f)
+    return img
+
+
+# ----------------------------------------------------------------------
+# Helpers PIL — un par couche logique (symétrique à SectionCanvas._draw_*)
+# ----------------------------------------------------------------------
+
+def _pil_draw_placeholder(d, f, width, height) -> None:
+    d.text((width/2, height/2),
+           "Rayon non renseigné", fill=COLOR_MUTED,
+           font=f(28, "sans"), anchor="mm")
+
+
+def _pil_draw_bois_sain(d, cx, cy, R, scale) -> None:
     radius_px = R * scale
-    radius_ext_px = R_ext * scale
-
-    # Helpers locaux : on délègue aux primitives de geometry.py mais on
-    # capture (cx, cy, scale) pour rester lisible côté call-sites.
-    def polar(r_cm, idx):
-        return polar_idx_to_xy(cx, cy, scale, r_cm, idx)
-
-    def polar_grade(r_cm, grade):
-        return polar_to_xy(cx, cy, scale, r_cm, grade)
-
-    # Disque bois sain
     d.ellipse([cx-radius_px, cy-radius_px, cx+radius_px, cy+radius_px],
               fill=COLOR_WOOD)
 
-    # Cernes de croissance — par-dessus le bois, en brun très foncé fin.
-    # Ils seront partiellement effacés par la cavité qui suit, ce qui les
-    # rend visibles uniquement dans le bois sain.
+
+def _pil_draw_cernes(d, cx, cy, R, scale) -> None:
+    # Cernes par-dessus le bois, en brun foncé fin. Partiellement effacés
+    # par la cavité qui suit — visibles uniquement dans le bois sain.
+    radius_px = R * scale
     for k in range(1, 9):
         rr = radius_px * k / 9
         d.ellipse([cx-rr, cy-rr, cx+rr, cy+rr],
                   outline=COLOR_CERNE, width=1)
 
-    # Cavité altération (spline) — couleur uniforme, pas de contour
-    alt = arbre.compute_alteration_par_grade()
-    if any(a > 0 for a in alt):
-        smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=32)
-        d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
-    # Écorce. Si une épaisseur est renseignée, on dessine un anneau
-    # brun épais entre R et R+ep ; sinon trait fin classique au bord
-    # du bois.
-    # Note PIL : `d.ellipse(outline, width)` trace l'outline À
-    # L'INTÉRIEUR du bounding box (pas centré sur la frontière
-    # comme Tkinter). Avec bbox de rayon R_ext et width=ep_px,
-    # l'outline va de R_ext-ep à R_ext, soit exactement [R, R_ext].
+def _pil_draw_cavite(d, arbre, cx, cy, scale) -> None:
+    alt = arbre.compute_alteration_par_grade()
+    if not any(a > 0 for a in alt):
+        return
+    smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=32)
+    d.polygon(smooth, fill=COLOR_ROT, outline=None)
+
+
+def _pil_draw_ecorce(d, cx, cy, R, ep, R_ext, scale) -> None:
+    # Note PIL : `d.ellipse(outline, width)` trace l'outline À L'INTÉRIEUR
+    # du bounding box (pas centré sur la frontière comme Tkinter). Avec
+    # bbox de rayon R_ext et width=ep_px, l'outline va de R_ext-ep à
+    # R_ext, soit exactement [R, R_ext].
+    radius_ext_px = R_ext * scale
     if ep > 0:
         ep_px = max(1.0, ep * scale)
         d.ellipse([cx-radius_ext_px, cy-radius_ext_px,
                    cx+radius_ext_px, cy+radius_ext_px],
                   outline=COLOR_BARK, width=int(round(ep_px)))
     else:
+        radius_px = R * scale
         d.ellipse([cx-radius_px, cy-radius_px,
                    cx+radius_px, cy+radius_px],
                   outline=COLOR_BARK, width=4)
 
-    # Contreforts (empattements à la base du tronc) — fusionnés par
-    # zones connectées via `contrefort_zone_outline`. Plusieurs
-    # contreforts qui se touchent sont rendus comme une seule cloche
-    # unifiée (max des hauteurs), ce qui évite l'encoche en V.
+
+def _pil_draw_contreforts(d, arbre, cx, cy, R, ep, scale) -> None:
+    # Fusionnés par zones connectées : plusieurs contreforts qui se
+    # touchent sont rendus comme une seule cloche unifiée (max des
+    # hauteurs), ce qui évite l'encoche en V.
     for zone in contrefort_zones(arbre.contreforts):
         poly = contrefort_zone_outline(zone, arbre.contreforts, R, ep,
                                         cx, cy, scale)
@@ -239,32 +263,36 @@ def render_arbre_to_pil_image(arbre: "Arbre",
         if ep == 0:
             d.line(wood_outer, fill=COLOR_BARK, width=4, joint="curve")
 
-    # Dégradations externes — dessinées EN DERNIER pour qu'elles
-    # creusent l'écorce ET les contreforts dans leur secteur.
-    # Le bord externe du polygone suit la surface réelle de l'arbre
-    # (R + ep + cloche), donc une dégradation qui passe sur un
-    # contrefort y mord à concurrence de sa profondeur.
+
+def _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale) -> None:
+    # Le bord externe du polygone suit la surface réelle (R + ep + cloche).
+    # Une dégradation qui passe sur un contrefort y mord à concurrence
+    # de sa profondeur.
     for deg in arbre.degradations_externes:
         pts_arc = degradation_externe_outline(deg, arbre.contreforts,
                                                R, ep, cx, cy, scale)
         if pts_arc:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
 
-    # Ticks 16 grades — à l'extérieur de l'écorce
+
+def _pil_draw_ticks(d, cx, cy, R_ext, scale) -> None:
+    # 16 grades — tirets à l'extérieur de l'écorce.
     for i, g in enumerate(GRADES):
-        x1, y1 = polar(R_ext, i)
-        x2, y2 = polar(R_ext + 12/scale, i)
+        x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
+        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + 12/scale, i)
         maj = (g % 50 == 0)
         d.line([x1, y1, x2, y2],
                fill=COLOR_BARK if maj else COLOR_BARK_LIGHT,
                width=3 if maj else 1)
 
-    # Lettres cardinales — à 35 px hors écorce, halo blanc
+
+def _pil_draw_cardinales(d, f, cx, cy, R_ext, scale) -> None:
+    # Lettres cardinales à 45/scale cm hors écorce, halo blanc épais.
     for i, g in enumerate(GRADES):
         lbl = DIRECTION_LABELS.get(g, "")
         if not lbl:
             continue
-        lx, ly = polar(R_ext + 45/scale, i)
+        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + 45/scale, i)
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
@@ -273,55 +301,55 @@ def render_arbre_to_pil_image(arbre: "Arbre",
         d.text((lx, ly), lbl, font=f(36, "serif_bold"),
                fill=COLOR_INK, anchor="mm")
 
-    # Sondages (optionnel) — pastilles à l'INTÉRIEUR du tronc, juste sous
-    # l'écorce. Cela libère tout l'extérieur pour les lettres cardinales.
-    if show_sondages:
-        port = arbre.port_arbre
-        meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
-        # Profondeur de dégradation externe par direction : la pastille
-        # est classée sur la PRBS AJUSTÉE (PRBS - dégrad. externe
-        # couvrant le grade) pour rester cohérente avec le tableau
-        # Diagnostic et la fiche PDF.
-        deg_ext_par_grade = arbre.degradation_externe_par_grade()
-        for s in arbre.sondages:
-            if s.grade not in GRADES:
-                continue
-            i = GRADES.index(s.grade)
-            penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
-            penetration = max(0.0, min(penetration, R))
-            end_radius = R - penetration
-            prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
-            ratio_adj = prbs_adj / R if R > 0 else 0.0
-            col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-            # Flèche : depuis 18 px sous l'écorce vers la fin de pénétration
-            x_ext, y_ext = polar(R - 18/scale, i)
-            x_end, y_end = polar(end_radius, i)
-            d.line([x_ext, y_ext, x_end, y_end], fill=COLOR_SOND, width=4)
-            ang = math.atan2(y_end-y_ext, x_end-x_ext)
-            ah = 12
-            d.polygon([
-                (x_end, y_end),
-                (x_end - ah*math.cos(ang-0.5), y_end - ah*math.sin(ang-0.5)),
-                (x_end - ah*math.cos(ang+0.5), y_end - ah*math.sin(ang+0.5)),
-            ], fill=COLOR_SOND)
-            # Pastille à 18 px à l'INTÉRIEUR de l'écorce
-            px, py = polar(R - 18/scale, i)
-            r_b = 22
-            d.ellipse([px-r_b-2, py-r_b-2, px+r_b+2, py+r_b+2],
-                      fill="white")
-            d.ellipse([px-r_b, py-r_b, px+r_b, py+r_b],
-                      fill=col_class, outline="white", width=2)
-            d.text((px, py), str(s.numero), font=f(20, "sans_bold"),
-                   fill="white", anchor="mm")
 
-    # RÈGLE GRADUÉE — placée SOUS la section, hors de l'écorce.
-    # Étendue jusqu'au rayon externe (R + ep). La portion bois
-    # ([-R, +R]) est en trait noir fin ; les portions écorce
-    # ([-R_ext, -R] et [+R, +R_ext]) sont des barres brun foncé
-    # épaisses qui évoquent l'écorce.
+def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
+    # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
+    # Pastille classée sur la PRBS AJUSTÉE (cohérence Diagnostic + PDF).
+    port = arbre.port_arbre
+    meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
+    deg_ext_par_grade = arbre.degradation_externe_par_grade()
+    for s in arbre.sondages:
+        if s.grade not in GRADES:
+            continue
+        i = GRADES.index(s.grade)
+        penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
+        penetration = max(0.0, min(penetration, R))
+        end_radius = R - penetration
+        prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
+        ratio_adj = prbs_adj / R if R > 0 else 0.0
+        col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
+        # Flèche depuis 18 px sous l'écorce jusqu'au fond de pénétration.
+        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - 18/scale, i)
+        x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+        d.line([x_ext, y_ext, x_end, y_end], fill=COLOR_SOND, width=4)
+        ang = math.atan2(y_end-y_ext, x_end-x_ext)
+        ah = 12
+        d.polygon([
+            (x_end, y_end),
+            (x_end - ah*math.cos(ang-0.5), y_end - ah*math.sin(ang-0.5)),
+            (x_end - ah*math.cos(ang+0.5), y_end - ah*math.sin(ang+0.5)),
+        ], fill=COLOR_SOND)
+        # Pastille à 18 px à l'INTÉRIEUR de l'écorce.
+        px, py = polar_idx_to_xy(cx, cy, scale, R - 18/scale, i)
+        r_b = 22
+        d.ellipse([px-r_b-2, py-r_b-2, px+r_b+2, py+r_b+2],
+                  fill="white")
+        d.ellipse([px-r_b, py-r_b, px+r_b, py+r_b],
+                  fill=col_class, outline="white", width=2)
+        d.text((px, py), str(s.numero), font=f(20, "sans_bold"),
+               fill="white", anchor="mm")
+
+
+def _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height) -> float:
+    """Dessine la règle graduée sous la section et renvoie son ordonnée
+    `y_axis`. La portion bois [-R, +R] est en trait noir fin ; les
+    portions écorce ([-R_ext, -R] et [+R, +R_ext]) sont des barres brun
+    foncé épaisses qui évoquent l'écorce — l'œil mesure bois et écorce
+    sur la même règle.
+    """
+    radius_ext_px = R_ext * scale
     step = 5 if R >= 15 else (2 if R >= 6 else 1)
-    y_axis = cy + radius_ext_px + 105
-    y_axis = min(y_axis, height - 60)
+    y_axis = min(cy + radius_ext_px + 105, height - 60)
     wood_half_px = R * scale
     ext_half_px = R_ext * scale
     x_lw, x_rw = cx - wood_half_px, cx + wood_half_px
@@ -344,8 +372,8 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     if ep > 0:
         d.line([x_lw, y_axis-9, x_lw, y_axis+9], fill=COLOR_INK, width=3)
         d.line([x_rw, y_axis-9, x_rw, y_axis+9], fill=COLOR_INK, width=3)
-    # Graduations intermédiaires (bois) tous les `step` cm,
-    # exclues à la valeur R (déjà marquée par le tiret de transition).
+    # Graduations intermédiaires (bois) tous les `step` cm, exclues à R
+    # (déjà marquée par le tiret de transition).
     for r in range(step, int(R), step):
         rr = r * scale
         for sign in (-1, 1):
@@ -353,56 +381,42 @@ def render_arbre_to_pil_image(arbre: "Arbre",
             d.line([xg, y_axis-7, xg, y_axis+7], fill=COLOR_INK, width=2)
             d.text((xg, y_axis+28), f"{r}",
                    font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Étiquette à R (bord bois/écorce) en gras
+    # Étiquette à R en gras
     if R > 0:
         label_R = f"{R:g}"
         for xg in (x_lw, x_rw):
             d.text((xg, y_axis+28), label_R,
                    font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Étiquette à R+ep (extrémité externe) en gras brun.
-    # Si l'écart bois/écorce est trop serré (ep_px < 45 px en PIL),
-    # on décale d'une ligne en dessous pour ne pas chevaucher R.
+    # Étiquette à R+ep — décalée d'une ligne si ep_px < 45.
     if ep > 0:
         label_ext = f"{R + ep:g}"
         ext_y = y_axis + (52 if ep * scale < 45 else 28)
         for xg in (x_le, x_re):
             d.text((xg, ext_y), label_ext,
                    font=f(18, "sans_bold"), fill=COLOR_BARK, anchor="mm")
-    # Repère "0" au centre
+    # Repère "0" au centre + label "cm" à droite
     d.text((cx, y_axis+28), "0",
            font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Label "cm" à droite
     d.text((x_re+35, y_axis), "cm",
            font=f(20, "sans_bold"), fill=COLOR_INK, anchor="lm")
-    # Point central de la section
-    d.ellipse([cx-5, cy-5, cx+5, cy+5], fill=COLOR_INK)
+    return y_axis
 
-    # Titre — positions proportionnelles à la hauteur (si show_title)
-    if show_title:
-        title_y = max(45, int(height * 0.045))
-        sub_y = title_y + 52
-        d.text((width/2, title_y), arbre.display_name,
-               font=f(44, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
-        sub_parts = [f"Rayon {R:g} cm"]
-        if arbre.diametre_sous_ecorce_cm:
-            sub_parts.append(f"Ø sous écorce {arbre.diametre_sous_ecorce_cm:g} cm")
-        if arbre.hauteur_arbre_m:
-            sub_parts.append(f"H {arbre.hauteur_arbre_m:g} m")
-        if arbre.meche_cm:
-            sub_parts.append(f"Mèche {arbre.meche_cm:g} cm")
-        d.text((width/2, sub_y), "   •   ".join(sub_parts),
-               font=f(24, "sans"), fill=COLOR_MUTED, anchor="mm")
 
-    # Légende horizontale (uniquement si demandée), placée sous la
-    # règle graduée. Elle occupe la bande inférieure réservée par
-    # `legend_bottom_h` plus haut.
-    if show_legend:
-        legend_y = y_axis + max(50, int(height * 0.045))
-        _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
-                                     width=width, height=height,
-                                     font_fn=f)
-
-    return img
+def _pil_draw_titre(d, f, arbre, R, width, height) -> None:
+    # Titre + méta — positions proportionnelles à la hauteur.
+    title_y = max(45, int(height * 0.045))
+    sub_y = title_y + 52
+    d.text((width/2, title_y), arbre.display_name,
+           font=f(44, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
+    sub_parts = [f"Rayon {R:g} cm"]
+    if arbre.diametre_sous_ecorce_cm:
+        sub_parts.append(f"Ø sous écorce {arbre.diametre_sous_ecorce_cm:g} cm")
+    if arbre.hauteur_arbre_m:
+        sub_parts.append(f"H {arbre.hauteur_arbre_m:g} m")
+    if arbre.meche_cm:
+        sub_parts.append(f"Mèche {arbre.meche_cm:g} cm")
+    d.text((width/2, sub_y), "   •   ".join(sub_parts),
+           font=f(24, "sans"), fill=COLOR_MUTED, anchor="mm")
 
 
 def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
