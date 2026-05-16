@@ -726,10 +726,17 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     rep = arbre.repartition_classes()
     ratios = arbre.ratio_tR_par_grade()
     if R > 0 and not all(r >= 0.999 for r in ratios):
-        d.text((margin, y),
-               f"t/R moyen sur le pourtour : {100*rep['tR_moyen']:.1f} %",
-               font=f(18, "sans_bold"), fill=COLOR_INK)
-        y += 28
+        # t/R moyen et classe globale ne sont écrits que si le
+        # diagnostic est fiable (>= 2 sondages). Sinon on affiche
+        # l'avertissement et on saute la barre / l'encadré final —
+        # cf. Arbre.repartition_classes / diagnostic_fiable.
+        fiable = rep["diagnostic_fiable"]
+        if fiable:
+            d.text((margin, y),
+                   f"t/R moyen sur le pourtour : "
+                   f"{100*rep['tR_moyen']:.1f} %",
+                   font=f(18, "sans_bold"), fill=COLOR_INK)
+            y += 28
         d.text((margin, y),
                f"t/R minimal : {100*rep['tR_min']:.1f} %  "
                f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})",
@@ -742,85 +749,100 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             y += 28
         else:
             y += 4
-        d.text((margin, y),
-               "Répartition sur le pourtour (16 directions) :",
-               font=f(18, "sans_bold"), fill=COLOR_INK)
-        y += 30
-        # Barre horizontale empilée Vert/Orange/Rouge — plus haute pour
-        # que le pourcentage soit lisible même sur des segments étroits.
-        bar_w = W - 2*margin
-        bar_h = 36
-        x_cur = margin
-        # Petites étiquettes hors-barre pour les segments trop étroits
-        # pour porter leur texte à l'intérieur.
-        outside_labels = []
-        for cls in ("Vert", "Orange", "Rouge"):
-            seg_pct = rep[cls]["pct"]
-            seg_w = bar_w * seg_pct / 100.0
-            if seg_w > 0:
-                col = COULEUR_CLASSE[cls]
-                d.rectangle([x_cur, y, x_cur + seg_w, y + bar_h],
-                            fill=col)
-                if seg_w > 95:
-                    d.text((x_cur + seg_w/2, y + bar_h/2),
-                           f"{cls} {seg_pct:.0f} %",
-                           font=f(15, "sans_bold"), fill="white",
-                           anchor="mm")
-                else:
-                    outside_labels.append((cls, seg_pct, col,
-                                            x_cur + seg_w/2))
-                x_cur += seg_w
-        y += bar_h + 4
-        # Étiquettes externes (au-dessous de la barre, en couleur du
-        # segment), avec petit triangle indicateur au-dessus.
-        for cls, pct, col, x_center in outside_labels:
-            d.polygon([(x_center, y),
-                       (x_center - 6, y + 8),
-                       (x_center + 6, y + 8)], fill=col)
-            d.text((x_center, y + 12), f"{cls} {pct:.0f} %",
-                   font=f(15, "sans_bold"), fill=col, anchor="mt")
-        if outside_labels:
-            y += 36
+        if not fiable:
+            # Avertissement en rouge sombre, en lieu et place de la
+            # barre de répartition et de l'encadré classe globale.
+            d.text((margin, y),
+                   "⚠ Diagnostic global indisponible : il faut au moins",
+                   font=f(18, "sans_bold"), fill=(176, 0, 32))
+            y += 26
+            d.text((margin, y),
+                   "2 directions sondées pour extrapoler le pourtour.",
+                   font=f(18, "sans_bold"), fill=(176, 0, 32))
+            y += 30
         else:
-            y += 8
-        # Détail textuel — sur UNE seule ligne pour économiser l'espace.
-        # On n'affiche que les classes non vides, séparées par " • ", et
-        # chaque libellé est rendu dans la couleur de sa classe.
-        chunks = []
-        for cls in ("Vert", "Orange", "Rouge"):
-            n = rep[cls]["n"]
-            if n > 0:
-                grades = rep[cls]["grades"]
-                col = COULEUR_CLASSE[cls]
-                chunks.append(
-                    (f"{cls} {n}/16 ({grades} gr)", col))
-        if chunks:
-            font_chunk = f(17, "sans")
-            font_sep = f(17, "sans")
-            sep = "   •   "
-            sep_w = d.textbbox((0, 0), sep, font=font_sep)[2]
-            x_chunk = margin
-            for i, (txt, col) in enumerate(chunks):
-                if i > 0:
-                    d.text((x_chunk, y), sep,
-                           font=font_sep, fill=COLOR_MUTED)
-                    x_chunk += sep_w
-                d.text((x_chunk, y), txt, font=font_chunk, fill=col)
-                bbox = d.textbbox((0, 0), txt, font=font_chunk)
-                x_chunk += bbox[2] - bbox[0]
-            y += 28
-        y += 10
-        # Gros marqueur coloré pour la classe globale (basée sur t/R moyen).
-        # Boîte plus large et plus haute pour rester proportionnée aux
-        # autres éléments de la page.
-        classe_g = rep["classe_globale"]
-        col_g = COULEUR_CLASSE[classe_g]
-        box_w, box_h = 460, 60
-        d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
-        d.text((margin+box_w/2, y+box_h/2),
-               f"Classe globale : {classe_g}",
-               font=f(24, "sans_bold"), fill="white", anchor="mm")
-        y += box_h + 8
+            d.text((margin, y),
+                   "Répartition sur le pourtour (16 directions) :",
+                   font=f(18, "sans_bold"), fill=COLOR_INK)
+            y += 30
+            # Barre horizontale empilée Vert/Orange/Rouge — plus haute
+            # pour que le pourcentage soit lisible même sur des segments
+            # étroits.
+            bar_w = W - 2*margin
+            bar_h = 36
+            x_cur = margin
+            # Petites étiquettes hors-barre pour les segments trop étroits
+            # pour porter leur texte à l'intérieur.
+            outside_labels = []
+            for cls in ("Vert", "Orange", "Rouge"):
+                seg_pct = rep[cls]["pct"]
+                seg_w = bar_w * seg_pct / 100.0
+                if seg_w > 0:
+                    col = COULEUR_CLASSE[cls]
+                    d.rectangle([x_cur, y, x_cur + seg_w, y + bar_h],
+                                fill=col)
+                    if seg_w > 95:
+                        d.text((x_cur + seg_w/2, y + bar_h/2),
+                               f"{cls} {seg_pct:.0f} %",
+                               font=f(15, "sans_bold"), fill="white",
+                               anchor="mm")
+                    else:
+                        outside_labels.append((cls, seg_pct, col,
+                                                x_cur + seg_w/2))
+                    x_cur += seg_w
+            y += bar_h + 4
+            # Étiquettes externes (au-dessous de la barre, en couleur du
+            # segment), avec petit triangle indicateur au-dessus.
+            for cls, pct, col, x_center in outside_labels:
+                d.polygon([(x_center, y),
+                           (x_center - 6, y + 8),
+                           (x_center + 6, y + 8)], fill=col)
+                d.text((x_center, y + 12), f"{cls} {pct:.0f} %",
+                       font=f(15, "sans_bold"), fill=col, anchor="mt")
+            if outside_labels:
+                y += 36
+            else:
+                y += 8
+            # Détail textuel — sur UNE seule ligne pour économiser
+            # l'espace. On n'affiche que les classes non vides, séparées
+            # par " • ", et chaque libellé est rendu dans la couleur de
+            # sa classe.
+            chunks = []
+            for cls in ("Vert", "Orange", "Rouge"):
+                n = rep[cls]["n"]
+                if n > 0:
+                    grades = rep[cls]["grades"]
+                    col = COULEUR_CLASSE[cls]
+                    chunks.append(
+                        (f"{cls} {n}/16 ({grades} gr)", col))
+            if chunks:
+                font_chunk = f(17, "sans")
+                font_sep = f(17, "sans")
+                sep = "   •   "
+                sep_w = d.textbbox((0, 0), sep, font=font_sep)[2]
+                x_chunk = margin
+                for i, (txt, col) in enumerate(chunks):
+                    if i > 0:
+                        d.text((x_chunk, y), sep,
+                               font=font_sep, fill=COLOR_MUTED)
+                        x_chunk += sep_w
+                    d.text((x_chunk, y), txt,
+                           font=font_chunk, fill=col)
+                    bbox = d.textbbox((0, 0), txt, font=font_chunk)
+                    x_chunk += bbox[2] - bbox[0]
+                y += 28
+            y += 10
+            # Gros marqueur coloré pour la classe globale (basée sur
+            # t/R moyen). Boîte plus large et plus haute pour rester
+            # proportionnée aux autres éléments de la page.
+            classe_g = rep["classe_globale"]
+            col_g = COULEUR_CLASSE[classe_g]
+            box_w, box_h = 460, 60
+            d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
+            d.text((margin+box_w/2, y+box_h/2),
+                   f"Classe globale : {classe_g}",
+                   font=f(24, "sans_bold"), fill="white", anchor="mm")
+            y += box_h + 8
     else:
         d.text((margin, y), "Aucune altération saisie.",
                font=f(18, "sans"), fill=COLOR_INK)

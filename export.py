@@ -147,8 +147,8 @@ def _format_prbs(row: dict) -> str:
 
 
 def _diagnostic_summary(arbre: Any, classer_prbs) -> dict:
-    """Renvoie {tR_moyen, classe_globale, repartition} pour le pied
-    de tableau."""
+    """Renvoie {tR_moyen, classe_globale, repartition, diagnostic_fiable}
+    pour le pied de tableau."""
     rep = arbre.repartition_classes()
     return {
         "tR_moyen": rep["tR_moyen"],
@@ -159,6 +159,8 @@ def _diagnostic_summary(arbre: Any, classer_prbs) -> dict:
         "vert_pct": rep["Vert"]["pct"],
         "orange_pct": rep["Orange"]["pct"],
         "rouge_pct": rep["Rouge"]["pct"],
+        "diagnostic_fiable": rep["diagnostic_fiable"],
+        "n_sondees": rep["n_sondees"],
     }
 
 
@@ -298,32 +300,48 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
     ws.merge_cells(start_row=row, start_column=1,
                    end_row=row, end_column=10)
     row += 1
-    ws.cell(row=row, column=1,
-            value="t/R moyen (16 directions)").font = META_LABEL_FONT
-    ws.cell(row=row, column=2,
-            value=f"{100*diag['tR_moyen']:.1f} %").font = META_VALUE_FONT
-    row += 1
-    ws.cell(row=row, column=1,
-            value="Classe globale").font = META_LABEL_FONT
-    classe_g = diag["classe_globale"]
-    cell_g = ws.cell(row=row, column=2, value=classe_g)
-    cell_g.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
-    cell_g.fill = PatternFill(
-        "solid",
-        fgColor=couleur_classe.get(classe_g, "CCCCCC").lstrip("#"))
-    cell_g.alignment = CENTER
-    row += 1
-    ws.cell(row=row, column=1,
-            value="Répartition Vert/Orange/Rouge").font = META_LABEL_FONT
-    ws.cell(
-        row=row, column=2,
-        value=(f"{diag['vert_n']}/16  ({diag['vert_pct']:.0f} %) • "
-               f"{diag['orange_n']}/16  ({diag['orange_pct']:.0f} %) • "
-               f"{diag['rouge_n']}/16  ({diag['rouge_pct']:.0f} %)")
-    ).font = META_VALUE_FONT
-    ws.merge_cells(start_row=row, start_column=2,
-                   end_row=row, end_column=10)
-    row += 1
+    if not diag["diagnostic_fiable"]:
+        # Avec n_sondees < 2, t/R moyen et classe globale sont
+        # mécaniquement Verts (15 directions à 0). On ne les écrit
+        # pas dans le fichier — un avertissement les remplace.
+        cell_w = ws.cell(
+            row=row, column=1,
+            value=("⚠ Diagnostic global indisponible : il faut au moins "
+                   "2 directions sondées pour extrapoler le pourtour."))
+        cell_w.font = Font(name="Calibri", size=11, bold=True,
+                            color="B00020")
+        cell_w.alignment = LEFT
+        ws.merge_cells(start_row=row, start_column=1,
+                       end_row=row, end_column=10)
+        row += 1
+    else:
+        ws.cell(row=row, column=1,
+                value="t/R moyen (16 directions)").font = META_LABEL_FONT
+        ws.cell(row=row, column=2,
+                value=f"{100*diag['tR_moyen']:.1f} %").font = META_VALUE_FONT
+        row += 1
+        ws.cell(row=row, column=1,
+                value="Classe globale").font = META_LABEL_FONT
+        classe_g = diag["classe_globale"]
+        cell_g = ws.cell(row=row, column=2, value=classe_g)
+        cell_g.font = Font(name="Calibri", size=10, bold=True,
+                            color="FFFFFF")
+        cell_g.fill = PatternFill(
+            "solid",
+            fgColor=couleur_classe.get(classe_g, "CCCCCC").lstrip("#"))
+        cell_g.alignment = CENTER
+        row += 1
+        ws.cell(row=row, column=1,
+                value="Répartition Vert/Orange/Rouge").font = META_LABEL_FONT
+        ws.cell(
+            row=row, column=2,
+            value=(f"{diag['vert_n']}/16  ({diag['vert_pct']:.0f} %) • "
+                   f"{diag['orange_n']}/16  ({diag['orange_pct']:.0f} %) • "
+                   f"{diag['rouge_n']}/16  ({diag['rouge_pct']:.0f} %)")
+        ).font = META_VALUE_FONT
+        ws.merge_cells(start_row=row, start_column=2,
+                       end_row=row, end_column=10)
+        row += 1
     extra_txt = arbre.extrapolation_summary_text()
     if extra_txt:
         ws.cell(row=row, column=1,
@@ -429,6 +447,9 @@ td.muted { color: #6E7B73; }
     display: inline-block; padding: 4px 14px; border-radius: 4px;
     color: white; font-weight: 700;
 }
+.diagnostic .row.warning {
+    color: #B00020; font-weight: 600; font-size: 14px;
+}
 footer {
     margin-top: 28px; color: #6E7B73; font-size: 11px;
     font-style: italic;
@@ -510,8 +531,6 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
     body_html = "\n".join(body_rows)
 
     # Diagnostic
-    classe_g = diag["classe_globale"]
-    classe_g_color = couleur_classe.get(classe_g, "#CCCCCC")
     extra_txt = arbre.extrapolation_summary_text()
     extra_row_html = (
         f'      <div class="row">\n'
@@ -520,7 +539,21 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
         f'      </div>\n'
         if extra_txt else ""
     )
-    diag_html = f"""
+    if not diag["diagnostic_fiable"]:
+        # Avec n_sondees < 2, t/R moyen et classe globale sont
+        # mécaniquement Verts → on les masque et on affiche un
+        # avertissement à la place.
+        diag_html = f"""
+    <div class="diagnostic">
+      <div class="row warning">
+        <span>{_h("⚠ Diagnostic global indisponible : il faut au moins 2 directions sondées pour extrapoler le pourtour.")}</span>
+      </div>
+{extra_row_html}    </div>
+    """
+    else:
+        classe_g = diag["classe_globale"]
+        classe_g_color = couleur_classe.get(classe_g, "#CCCCCC")
+        diag_html = f"""
     <div class="diagnostic">
       <div class="row">
         <span class="label">t/R moyen (16 directions)</span>

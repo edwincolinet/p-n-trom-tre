@@ -258,6 +258,92 @@ class PrbsParGradeTests(unittest.TestCase):
         self.assertFalse(hasattr(Arbre, "recompute_alteration_from_sondages"))
 
 
+class SetRayonTests(unittest.TestCase):
+    """Règle métier : quand le rayon change, la PRBS (mesure physique
+    du pénétromètre) est préservée et le bois altéré est recalculé."""
+
+    def test_augmentation_du_rayon_augmente_le_bois_altere(self):
+        # PRBS = 5 cm mesurée. R passe de 20 à 25 → altéré passe de 15 à 20.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(bois_sain_cm=5.0, bois_altere_cm=15.0))
+        changed = a.set_rayon(25.0)
+        self.assertTrue(changed)
+        self.assertEqual(a.rayon_tronc_cm, 25.0)
+        self.assertEqual(a.sondages[0].bois_sain_cm, 5.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 20.0)
+
+    def test_diminution_du_rayon_diminue_le_bois_altere(self):
+        # PRBS = 5 cm. R passe de 20 à 12 → altéré passe de 15 à 7.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(bois_sain_cm=5.0, bois_altere_cm=15.0))
+        changed = a.set_rayon(12.0)
+        self.assertTrue(changed)
+        self.assertEqual(a.sondages[0].bois_sain_cm, 5.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 7.0)
+
+    def test_rayon_inferieur_a_la_prbs_borne_la_prbs(self):
+        # Cas non physique : PRBS = 18 et R nouveau = 10 → PRBS bornée
+        # à 10, altéré = 0.
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(bois_sain_cm=18.0, bois_altere_cm=2.0))
+        changed = a.set_rayon(10.0)
+        self.assertTrue(changed)
+        self.assertEqual(a.sondages[0].bois_sain_cm, 10.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 0.0)
+
+    def test_profondeur_degradation_externe_bornee_au_rayon(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.degradations_externes.append(
+            DegradationExterne(profondeur_cm=8.0))
+        a.set_rayon(5.0)
+        self.assertEqual(a.degradations_externes[0].profondeur_cm, 5.0)
+
+    def test_profondeur_degradation_externe_preservee_si_dans_le_rayon(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.degradations_externes.append(
+            DegradationExterne(profondeur_cm=3.0))
+        a.set_rayon(30.0)
+        self.assertEqual(a.degradations_externes[0].profondeur_cm, 3.0)
+
+    def test_rayon_identique_ne_modifie_rien(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(bois_sain_cm=5.0, bois_altere_cm=15.0))
+        changed = a.set_rayon(20.0)
+        self.assertFalse(changed)
+        self.assertEqual(a.sondages[0].bois_sain_cm, 5.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 15.0)
+
+    def test_rayon_initial_zero_ne_declenche_pas_l_ajustement(self):
+        # Cas où l'utilisateur a saisi des sondages avant d'avoir
+        # renseigné le rayon. On préserve les valeurs telles quelles —
+        # set_rayon ne les écrase pas même si la nouvelle valeur diffère.
+        a = Arbre(rayon_tronc_cm=0.0)
+        a.sondages.append(Sondage(bois_sain_cm=7.0, bois_altere_cm=3.0))
+        changed = a.set_rayon(20.0)
+        self.assertFalse(changed)
+        self.assertEqual(a.rayon_tronc_cm, 20.0)
+        self.assertEqual(a.sondages[0].bois_sain_cm, 7.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 3.0)
+
+    def test_rayon_negatif_est_borne_a_zero(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        a.sondages.append(Sondage(bois_sain_cm=5.0, bois_altere_cm=15.0))
+        a.set_rayon(-3.0)
+        self.assertEqual(a.rayon_tronc_cm, 0.0)
+        # Sondages remis à zéro car bornés au nouveau rayon nul.
+        self.assertEqual(a.sondages[0].bois_sain_cm, 0.0)
+        self.assertEqual(a.sondages[0].bois_altere_cm, 0.0)
+
+    def test_sans_sondages_ni_degradations(self):
+        # Pas de sondage ni de dégradation à ajuster mais le rayon a
+        # changé : on signale True pour que l'UI rafraîchisse la table
+        # contreforts (la colonne "Largeur (cm)" dépend de R).
+        a = Arbre(rayon_tronc_cm=20.0)
+        changed = a.set_rayon(15.0)
+        self.assertTrue(changed)
+        self.assertEqual(a.rayon_tronc_cm, 15.0)
+
+
 class RepartitionClassesTests(unittest.TestCase):
 
     def test_arbre_sain_tout_vert(self):
@@ -302,6 +388,31 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertEqual(total_n, 16)
         self.assertEqual(total_grades, 400)
         self.assertAlmostEqual(total_pct, 100.0)
+
+    def test_diagnostic_fiable_avec_deux_sondages(self):
+        # Dès n_sondees >= 2 → diagnostic_fiable = True.
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
+        rep = a.repartition_classes()
+        self.assertEqual(rep["n_sondees"], 2)
+        self.assertTrue(rep["diagnostic_fiable"])
+
+    def test_diagnostic_non_fiable_avec_un_seul_sondage(self):
+        # n_sondees == 1 → l'extrapolation est désactivée (15 directions
+        # supposées saines), la classe globale serait faussement Verte.
+        # Le flag protège les consommateurs (UI, PDF, XLSX, HTML).
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
+        rep = a.repartition_classes()
+        self.assertEqual(rep["n_sondees"], 1)
+        self.assertFalse(rep["diagnostic_fiable"])
+
+    def test_diagnostic_non_fiable_sans_sondage(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        rep = a.repartition_classes()
+        self.assertEqual(rep["n_sondees"], 0)
+        self.assertFalse(rep["diagnostic_fiable"])
 
 
 class ExtrapolationSummaryTests(unittest.TestCase):
@@ -419,6 +530,22 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         joined = "\n".join(lines)
         # 2/16 directions sondées → la ligne d'extrapolation apparaît
         self.assertIn("2/16", joined)
+
+    def test_un_seul_sondage_masque_la_classe_globale(self):
+        # Avec n=1, l'extrapolation est désactivée et toutes les autres
+        # directions sont supposées saines : le t/R moyen serait alors
+        # faussement Vert. On vérifie que ces deux indicateurs ne sont
+        # PAS affichés et qu'un avertissement explicite les remplace.
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
+        lines = a.diagnostic_summary_lines()
+        joined = "\n".join(lines)
+        self.assertNotIn("t/R moyen", joined)
+        self.assertNotIn("Classe globale", joined)
+        self.assertIn("Diagnostic global indisponible", joined)
+        # t/R minimal reste affiché : c'est une mesure réelle sur la
+        # seule direction sondée.
+        self.assertIn("t/R minimal", joined)
 
 
 if __name__ == "__main__":

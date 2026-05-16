@@ -20,14 +20,17 @@ suite de tests unittest de couvrir la logique sans embarquer l'UI.
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Union
 
-from bareme import classer_prbs
+from bareme import classer_prbs, normaliser_port
 from geometry import DIRECTION_LABELS, GRADES
+
+_log = logging.getLogger("penetrometre")
 
 
 @dataclass
@@ -165,6 +168,43 @@ class Arbre:
         default_factory=list)
     contreforts: List[Contrefort] = field(default_factory=list)
     commentaire: str = ""
+
+    def set_rayon(self, new_R: float) -> bool:
+        """Modifie le rayon et propage la cohérence aux sondages et
+        dégradations.
+
+        Règle métier : la PRBS (`bois_sain_cm`) est la mesure physique
+        du pénétromètre, on la **préserve** ; le bois altéré se
+        recalcule pour rester cohérent (sain + altéré = R). Si
+        `new_R < bois_sain`, la PRBS est bornée à `new_R` (cas non
+        physique sinon — on ne peut pas mesurer plus de bois sain que
+        le rayon).
+
+        Idem pour les dégradations externes : la profondeur est une
+        mesure physique d'épaisseur d'écorce dégradée, indépendante du
+        rayon. On la borne juste à `new_R` par sécurité.
+
+        L'ajustement n'est PAS déclenché quand l'ancien rayon vaut 0
+        (cas où l'utilisateur a saisi des sondages avant de renseigner
+        le rayon — on préserve les valeurs telles quelles).
+
+        Renvoie `True` si le rayon a effectivement changé (l'UI doit
+        alors rafraîchir tables sondages, dégradations et contreforts ;
+        la colonne « Largeur (cm) » des contreforts dépend elle aussi
+        de R, même quand il n'y a aucun sondage à ajuster). Renvoie
+        `False` quand le rayon est inchangé ou que l'ancien valait 0.
+        """
+        new_R = max(0.0, new_R)
+        old_R = self.rayon_tronc_cm
+        self.rayon_tronc_cm = new_R
+        if old_R <= 0 or abs(new_R - old_R) <= 1e-9:
+            return False
+        for s in self.sondages:
+            s.bois_sain_cm = min(s.bois_sain_cm, new_R)
+            s.bois_altere_cm = max(0.0, new_R - s.bois_sain_cm)
+        for deg in self.degradations_externes:
+            deg.profondeur_cm = min(deg.profondeur_cm, new_R)
+        return True
 
     def renumeroter_sondages(self) -> None:
         """Renumérote les sondages 1..N selon leur position dans la liste.
@@ -342,6 +382,18 @@ class Arbre:
             f"t/R minimal : {100*rep['tR_min']:.1f} %  "
             f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})")
         lignes.append("")
+
+        # Avec un seul sondage, l'extrapolation linéaire est désactivée
+        # (cf. compute_alteration_par_grade) : 15 des 16 directions sont
+        # alors supposées saines, ce qui ferait afficher faussement Vert
+        # pour t/R moyen et classe globale. On masque ces deux chiffres
+        # et on affiche un avertissement explicite à la place.
+        if not rep["diagnostic_fiable"]:
+            lignes.append(
+                "⚠ Diagnostic global indisponible : il faut au moins "
+                "2 directions sondées pour extrapoler le pourtour.")
+            return lignes
+
         lignes.append("Répartition sur le pourtour (16 directions) :")
         for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"),
                              ("Rouge", "🔴")):
@@ -419,8 +471,17 @@ class Arbre:
             "tR_min": float,         # ratio t/R minimal sur les 16
             "tR_min_grade": int,     # grade où t/R est minimal
             "tR_min_dir": str,       # direction cardinale ou voisine
-            "classe_globale": str,   # pire classe rencontrée
+            "classe_globale": str,   # classe issue du t/R moyen
+            "n_sondees": int,        # directions effectivement sondées
+            "diagnostic_fiable": bool,
           }
+
+        `diagnostic_fiable` est True dès qu'au moins 2 directions sont
+        sondées (seuil minimal pour que l'extrapolation linéaire ait un
+        sens). En-dessous, `classe_globale` et `tR_moyen` sont calculés
+        sur des valeurs majoritairement nulles et donnent un résultat
+        faussement Vert : les consommateurs (UI, fiche PDF, XLSX, HTML)
+        doivent masquer ces deux champs et signaler l'indisponibilité.
         """
         ratios = self.ratio_tR_par_grade()
         result = {
@@ -472,6 +533,15 @@ class Arbre:
             result["classe_pire"] = "Orange"
         else:
             result["classe_pire"] = "Vert"
+
+        # Fiabilité : il faut au moins 2 directions sondées pour que
+        # l'extrapolation linéaire (`compute_alteration_par_grade`)
+        # produise des valeurs significatives ailleurs que sur le grade
+        # sondé. À n=1, les 15 autres directions sont supposées saines,
+        # ce qui tire artificiellement le t/R moyen vers Vert.
+        n_sondees = self.extrapolation_summary()["n_sondees"]
+        result["n_sondees"] = n_sondees
+        result["diagnostic_fiable"] = n_sondees >= 2
         return result
 
 
@@ -519,6 +589,19 @@ class Chantier:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Chantier":
+        # Compatibilité descendante : un fichier produit par une version
+        # plus récente porte un format_version supérieur. Les clés
+        # inconnues sont déjà filtrées par dataclass plus bas, mais on
+        # journalise pour qu'un opérateur qui charge un fichier "trop
+        # récent" puisse comprendre si quelque chose semble manquer.
+        # L'absence de format_version (anciens fichiers pré-versionnés)
+        # est traitée silencieusement comme v1.
+        version = d.get("format_version", 1)
+        if isinstance(version, int) and version > FORMAT_VERSION:
+            _log.warning(
+                "Fichier au format v%d — cette version de l'app gère "
+                "jusqu'au v%d. Les champs récents seront ignorés.",
+                version, FORMAT_VERSION)
         # Mapping de migration des anciens libellés de port (v3.1 → v3.2)
         port_legacy = {
             "Libre, semi-libre ou traumatique": "libre",
@@ -554,8 +637,21 @@ class Chantier:
             # appliquer la migration sans toucher à l'entrée du caller.
             a_norm = dict(a)
             if "port_arbre" in a_norm:
-                a_norm["port_arbre"] = port_legacy.get(a_norm["port_arbre"],
-                                                       a_norm["port_arbre"])
+                raw_port = a_norm["port_arbre"]
+                migrated = port_legacy.get(raw_port, raw_port)
+                normalized = normaliser_port(migrated)
+                if not normalized:
+                    # Port inconnu (faute de frappe dans un JSON édité
+                    # à la main, ancien libellé non couvert par la
+                    # migration). On retombe sur "libre" — c'est le
+                    # défaut le moins permissif (seuils plus tolérants
+                    # que strict, donc moins de faux Vert).
+                    _log.warning(
+                        "Arbre n°%s : port_arbre inconnu %r — "
+                        "remplacé par 'libre'.",
+                        a_norm.get("numero_arbre", "?"), raw_port)
+                    normalized = "libre"
+                a_norm["port_arbre"] = normalized
             arb = Arbre(**{k: v for k, v in a_norm.items()
                            if k in arbre_fields})
             arb.sondages = sondages

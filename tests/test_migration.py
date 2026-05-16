@@ -66,6 +66,36 @@ class FromDictTests(unittest.TestCase):
                 c = Chantier.from_dict(d)
                 self.assertEqual(c.arbres[0].port_arbre, port)
 
+    def test_port_normalise_casse_et_espaces(self):
+        # Variations de casse ou espaces : le port est normalisé à la
+        # forme canonique attendue par classer_prbs.
+        for raw, expected in (("LIBRE", "libre"),
+                              ("  Architecturé  ", "architecturé"),
+                              ("Semi-Libre", "semi-libre")):
+            with self.subTest(raw=raw):
+                d = {"arbres": [{"numero_arbre": "1", "port_arbre": raw}]}
+                c = Chantier.from_dict(d)
+                self.assertEqual(c.arbres[0].port_arbre, expected)
+
+    def test_port_inconnu_fallback_libre(self):
+        # Faute de frappe ou libellé jamais supporté : on retombe sur
+        # "libre" (défaut le moins permissif) plutôt que de laisser une
+        # valeur qui ferait silencieusement basculer classer_prbs sur le
+        # groupe libre par défaut, sans signal. Un WARNING est émis sur
+        # le logger applicatif pour que l'opérateur puisse en prendre
+        # connaissance.
+        d = {"arbres": [{"numero_arbre": "1", "port_arbre": "libbre"}]}
+        with self.assertLogs("penetrometre", level="WARNING") as cm:
+            c = Chantier.from_dict(d)
+        self.assertEqual(c.arbres[0].port_arbre, "libre")
+        self.assertTrue(any("libbre" in m for m in cm.output))
+
+    def test_port_vide_fallback_libre(self):
+        d = {"arbres": [{"numero_arbre": "1", "port_arbre": ""}]}
+        with self.assertLogs("penetrometre", level="WARNING"):
+            c = Chantier.from_dict(d)
+        self.assertEqual(c.arbres[0].port_arbre, "libre")
+
     def test_json_sans_format_version_est_lisible(self):
         # Anciens fichiers pré-versionnés : pas de clé format_version.
         # `from_dict` doit les charger sans broncher.
@@ -84,6 +114,35 @@ class FormatVersionTests(unittest.TestCase):
         c = Chantier(nom="X")
         d = c.to_dict()
         self.assertEqual(d.get("format_version"), FORMAT_VERSION)
+
+    def test_format_futur_log_warning(self):
+        # Fichier produit par une version plus récente que la nôtre :
+        # le chargement reste possible (clés inconnues filtrées) mais
+        # un warning est émis pour signaler que des champs récents ont
+        # potentiellement été ignorés.
+        d = {"format_version": FORMAT_VERSION + 5, "nom": "futur",
+             "arbres": []}
+        with self.assertLogs("penetrometre", level="WARNING") as cm:
+            c = Chantier.from_dict(d)
+        self.assertEqual(c.nom, "futur")
+        self.assertTrue(any("format" in m.lower() for m in cm.output))
+
+    def test_format_version_egale_pas_de_warning(self):
+        d = {"format_version": FORMAT_VERSION, "nom": "present",
+             "arbres": []}
+        # Pas de warning attendu — un with assertLogs lèverait
+        # AssertionError si rien n'est loggé, donc on bascule sur
+        # assertNoLogs (Python 3.10+) ou inspection manuelle.
+        import logging
+        logger = logging.getLogger("penetrometre")
+        with self.assertLogs(logger, level="WARNING") as cm:
+            # On émet un warning factice pour que le context manager
+            # ne lève pas, puis on vérifie qu'aucun de nos messages
+            # n'est dans le buffer.
+            c = Chantier.from_dict(d)
+            logger.warning("sentinel")
+        self.assertEqual(c.nom, "present")
+        self.assertFalse(any("Fichier au format" in m for m in cm.output))
 
 
 class RoundTripTests(unittest.TestCase):

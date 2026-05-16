@@ -22,6 +22,26 @@ PORTS_GROUPE_LIBRE = ("libre", "semi-libre")
 PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
 
 
+def normaliser_port(value) -> str:
+    """Normalise une valeur de port en sa forme canonique.
+
+    - Strip + lower sur la chaîne d'entrée.
+    - Si la valeur ne correspond à aucun port connu : renvoie la chaîne
+      vide. Le caller (typiquement `Chantier.from_dict`) doit alors
+      décider du fallback à appliquer.
+
+    Sans cette normalisation, un port inattendu (faute de frappe dans
+    un fichier édité à la main, ancien libellé non couvert par la
+    migration) retomberait silencieusement dans la branche par défaut
+    de `classer_prbs` (= groupe libre), faussant le diagnostic légal
+    sans signal pour l'utilisateur.
+    """
+    if not isinstance(value, str):
+        return ""
+    p = value.lower().strip()
+    return p if p in PORTS_ARBRE else ""
+
+
 # ----------------------------------------------------------------------
 # Labels de classe
 # ----------------------------------------------------------------------
