@@ -29,7 +29,7 @@ bareme.py               ← barème métier Silvavenir (classer_prbs, ports, cla
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (116 tests dont 4 golden-images
+tests/                  ← suite unittest (134 tests dont 4 golden-images
                           PIL et 4 golden-dumps Tk)
 tests/_fixtures.py      ← scénarios d'arbre partagés (PIL + Tk)
 tests/fixtures/         ← PNG (golden PIL) + JSON (golden dump Tk)
@@ -214,6 +214,12 @@ Organisé en sections séparées par des bandeaux de commentaires :
 1. **Imports + logger applicatif** (`logging.getLogger("penetrometre")`).
 2. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
    section transversale en temps réel dans la fenêtre.
+   `redraw()` est un orchestrateur d'une quarantaine de lignes qui
+   enchaîne les helpers `_draw_*` (un par couche logique : bois sain,
+   cernes, cavité, écorce, contreforts, dégradations, ticks, lettres
+   cardinales, sondages, règle graduée, titre). L'ordre d'appel dans
+   `redraw` est l'ordre de superposition (cf. « Ordre global des
+   couches » plus bas).
 3. **Application** — `class App(tk.Tk)` : fenêtre principale,
    onglets, sync UI ↔ modèle, actions (ajouter/dupliquer arbre,
    ouverture / enregistrement, …). Délégations :
@@ -426,7 +432,7 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   116 tests) avant tout commit qui touche au modèle, à la géométrie
+   134 tests) avant tout commit qui touche au modèle, à la géométrie
    ou aux exports. Deux familles de golden-tests :
    - **PIL** (`tests/test_render.py`, 4 scénarios) — régénération :
      `python -m tests.test_render --update` (commit les `.png`).
@@ -461,11 +467,13 @@ au modèle, aux helpers géométriques ou aux exports.
 - **Duplication de rendu Tk ↔ PIL au-delà de la géométrie**.
   `geometry.py` partage les primitives polaires et les contours
   (cavité, contreforts, dégradations). Restent dupliqués entre Tk
-  (`SectionCanvas.redraw`) et PIL (`render_arbre_to_pil_image`) :
+  (helpers `SectionCanvas._draw_*`) et PIL (`render_arbre_to_pil_image`) :
   l'écorce/anneau, les cernes, la règle graduée, les pastilles, les
   ticks et lettres cardinales — chacun avec ses paramètres en pixels
   spécifiques (`outline+width`, anchors, polices). Toute modif
   visuelle de ces éléments doit être faite côté Tk **et** côté PIL.
+  Côté Tk, chaque couche a son helper `_draw_*` dédié dans
+  `SectionCanvas` — modifier le helper concerné, pas `redraw()`.
 - **Couverture visuelle des deux moteurs** : depuis l'ajout de
   `tests/test_section_canvas.py`, le rendu Tk a son propre jeu de
   golden-fixtures (dump JSON des items du Canvas, pas un screenshot).
