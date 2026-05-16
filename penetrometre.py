@@ -25,13 +25,13 @@ from typing import Optional, Tuple
 # Actions d'export (PNG / PDF / CSV / XLSX / HTML) : adaptateur Tk qui
 # glue les fonctions pures de `pil_render.py` / `export.py` aux
 # filedialogs et au logger applicatif.
+import app_actions
 import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
 from bareme import PORTS_ARBRE, classer_prbs
-from dialogs import edit_contrefort, edit_degradation, edit_sondage
 from geometry import (
     DIRECTION_LABELS,
     GRADES,
@@ -45,13 +45,9 @@ from geometry import (
 # Modèle de données : dataclasses sérialisables (Sondage, Arbre, …) avec
 # leur logique métier (extrapolation, PRBS, classification). Voir
 # model.py pour le détail. Sans dépendance Tk/PIL : couvert par les tests.
-from model import (
-    Arbre,
-    Chantier,
-    Contrefort,
-    DegradationExterne,
-    Sondage,
-)
+# Les classes hors `Arbre`/`Chantier` sont instanciées dans `app_actions.py`
+# (création d'un sondage / dégradation / contrefort vide depuis l'UI).
+from model import Arbre, Chantier
 
 # Palette partagée Tk ↔ PIL : couleurs UI et mapping classe → hex.
 # Les couleurs purement ttk-thème (Side, Accent_soft, Wood_dark) sont
@@ -1133,42 +1129,13 @@ class App(tk.Tk):
                                     s.compartimentation))
 
     def action_add_sondage(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        s = Sondage(numero=len(a.sondages) + 1, grade=0,
-                    bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
-        if edit_sondage(self, a, s):
-            a.sondages.append(s)
-            a.renumeroter_sondages()
-            self._refresh_sondages_table()
-            self._debounced_redraw()
+        app_actions.add_sondage(self)
 
     def action_edit_sondage(self) -> None:
-        sel = self.tbl.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        s = a.sondages[idx]
-        if edit_sondage(self, a, s):
-            self._refresh_sondages_table()
-            self._debounced_redraw()
+        app_actions.edit_sondage_selected(self)
 
     def action_del_sondage(self) -> None:
-        sel = self.tbl.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        del a.sondages[idx]
-        a.renumeroter_sondages()
-        self._refresh_sondages_table()
-        self._debounced_redraw()
+        app_actions.del_sondage(self)
 
     # ---- Dégradations externes -------------------------------------
 
@@ -1192,43 +1159,13 @@ class App(tk.Tk):
                         deg.commentaire))
 
     def action_add_degradation(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        deg = DegradationExterne(
-            numero=len(a.degradations_externes) + 1,
-            grade_debut=0, grade_fin=50, profondeur_cm=2.0)
-        if edit_degradation(self, a, deg):
-            a.degradations_externes.append(deg)
-            a.renumeroter_degradations()
-            self._refresh_degradations_table()
-            self._debounced_redraw()
+        app_actions.add_degradation(self)
 
     def action_edit_degradation(self) -> None:
-        sel = self.tbl_de.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        deg = a.degradations_externes[idx]
-        if edit_degradation(self, a, deg):
-            self._refresh_degradations_table()
-            self._debounced_redraw()
+        app_actions.edit_degradation_selected(self)
 
     def action_del_degradation(self) -> None:
-        sel = self.tbl_de.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        del a.degradations_externes[idx]
-        a.renumeroter_degradations()
-        self._refresh_degradations_table()
-        self._debounced_redraw()
+        app_actions.del_degradation(self)
 
     # --- Contreforts ---
     def _refresh_contreforts_table(self) -> None:
@@ -1252,42 +1189,13 @@ class App(tk.Tk):
                         c.commentaire))
 
     def action_add_contrefort(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        c = Contrefort(numero=len(a.contreforts) + 1,
-                       grade_centre=0, largeur_grades=75, longueur_cm=10.0)
-        if edit_contrefort(self, a, c):
-            a.contreforts.append(c)
-            a.renumeroter_contreforts()
-            self._refresh_contreforts_table()
-            self._debounced_redraw()
+        app_actions.add_contrefort(self)
 
     def action_edit_contrefort(self) -> None:
-        sel = self.tbl_cf.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        c = a.contreforts[idx]
-        if edit_contrefort(self, a, c):
-            self._refresh_contreforts_table()
-            self._debounced_redraw()
+        app_actions.edit_contrefort_selected(self)
 
     def action_del_contrefort(self) -> None:
-        sel = self.tbl_cf.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        a = self._current_arbre()
-        if not a:
-            return
-        del a.contreforts[idx]
-        a.renumeroter_contreforts()
-        self._refresh_contreforts_table()
-        self._debounced_redraw()
+        app_actions.del_contrefort(self)
 
     def _toggle_show_sondages(self) -> None:
         """Réagit au check/uncheck de la case 'emplacement des sondages'."""

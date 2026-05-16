@@ -16,7 +16,9 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-penetrometre.py        ← UI Tk + App + main (≈ 1480 lignes)
+penetrometre.py        ← UI Tk + App + main (≈ 1400 lignes)
+app_actions.py          ← actions Sondage/Dégradation/Contrefort
+                          (add/edit/del) — pendant de app_exports.py
 app_exports.py          ← actions d'export (PNG/PDF/CSV/XLSX/HTML)
                           — adaptateur Tk vers les rendus purs
 app_menu.py             ← barre de menu Tk (Fichier/Arbres/?, raccourcis)
@@ -55,7 +57,7 @@ model.py + palette.py
    ↑
 export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
-app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
+app_actions.py + app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
    ↑
 penetrometre.py  (Tk + main, classe App)
 ```
@@ -151,6 +153,19 @@ les tests :
   - `to_dict` écrit `format_version: FORMAT_VERSION` ; `from_dict`
     tolère son absence (anciens fichiers).
 
+### `app_actions.py` — actions Sondage/Dégradation/Contrefort
+
+Adaptateur Tk pour les 9 actions d'édition métier (add/edit/del × 3
+types). Chaque fonction reçoit `app` en premier argument (duck-typing
+sur `app._current_arbre()`, `app._refresh_*`, `app._debounced_redraw`
+et les trois tables Tk `tbl`, `tbl_de`, `tbl_cf`), ouvre le dialogue
+adéquat de `dialogs.py`, puis renumérote + rafraîchit + redraw en cas
+de succès.
+
+`App.action_add_sondage` / `_edit_sondage` / `_del_sondage` et leurs
+analogues dégradation/contrefort sont des thin wrappers d'une ligne.
+Aucune dépendance vers `penetrometre.py` (pas de cycle).
+
 ### `app_exports.py` — actions d'export Tk
 
 Adaptateur Tk pour les 5 actions d'export utilisateur (PNG, PDF, CSV
@@ -230,6 +245,8 @@ Organisé en sections séparées par des bandeaux de commentaires :
    ouverture / enregistrement, …). Délégations :
    - dialogues d'ajout/édition (Sondage, Dégradation, Contrefort) →
      `dialogs.py`.
+   - actions add/edit/del (Sondage, Dégradation, Contrefort) →
+     `app_actions.py`.
    - actions d'export (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
    - persistance JSON (open/save) → `Chantier.load_from` /
      `chantier.save_to` dans `model.py`.
