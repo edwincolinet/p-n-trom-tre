@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -173,14 +174,14 @@ class SectionCanvas(tk.Canvas):
         self.create_polygon(*flat, fill=COLOR_ROT, outline="")
 
     def redraw(self) -> None:
+        """Orchestre le rendu de la section. Chaque couche est déléguée à
+        un helper `_draw_*` ; l'ordre ci-dessous est l'ordre de
+        superposition (du fond vers le dessus). Voir CLAUDE.md → « Ordre
+        global des couches » pour la convention métier.
+        """
         self.delete("all")
         if not self.arbre or self.arbre.rayon_tronc_cm <= 0:
-            w = max(self.winfo_width(), 1)
-            h = max(self.winfo_height(), 1)
-            self.create_text(w/2, h/2,
-                             text="Renseignez le rayon du tronc\npour afficher la section",
-                             font=("Georgia", 14, "italic"),
-                             fill=COLOR_MUTED, justify="center")
+            self._draw_placeholder()
             return
 
         A = self.arbre
@@ -192,43 +193,74 @@ class SectionCanvas(tk.Canvas):
         expansion = ep + max((c.longueur_cm for c in A.contreforts),
                               default=0.0)
         cx, cy, scale = self._center_and_scale(R, expansion_cm=expansion)
+
+        self._draw_bois_sain(cx, cy, R, scale)
+        self._draw_cernes(cx, cy, R, scale)
+        self._draw_cavite(A, cx, cy, scale)
+        self._draw_ecorce(cx, cy, R, ep, scale)
+        # Contreforts : R_inner descend de 1 px sous R pour qu'aucun
+        # pixel de trou n'apparaisse entre polygone bois et disque.
+        self._draw_contreforts_canvas(cx, cy, scale, R, A.contreforts,
+                                       ep_cm=ep, R_inner=R - 1.0 / scale)
+        # Dégradations externes EN DERNIER (cf. CLAUDE.md).
+        for deg in A.degradations_externes:
+            self._draw_degradation_externe_canvas(cx, cy, scale, R, ep,
+                                                   A.contreforts, deg)
+        self._draw_ticks(cx, cy, R_ext, scale)
+        self._draw_cardinales(cx, cy, R_ext, scale)
+        if self.show_sondages:
+            self._draw_sondages(A, cx, cy, R, scale)
+
+        self._draw_regle(cx, cy, R, ep, R_ext, scale)
+        self._draw_titre(A, R)
+
+    # ------------------------------------------------------------------
+    # Helpers de dessin — un par couche logique
+    # ------------------------------------------------------------------
+
+    def _draw_placeholder(self) -> None:
         w = max(self.winfo_width(), 1)
         h = max(self.winfo_height(), 1)
-        radius_px = R * scale
-        radius_ext_px = R_ext * scale
+        self.create_text(w/2, h/2,
+                         text="Renseignez le rayon du tronc\npour afficher la section",
+                         font=("Georgia", 14, "italic"),
+                         fill=COLOR_MUTED, justify="center")
 
-        # 1. Disque bois sain
+    def _draw_bois_sain(self, cx, cy, R, scale) -> None:
+        radius_px = R * scale
         self.create_oval(cx - radius_px, cy - radius_px,
                          cx + radius_px, cy + radius_px,
                          fill=COLOR_WOOD, outline="", width=0)
 
-        # 2. Cernes de croissance — par-dessus le bois sain, en brun très
-        # foncé fin pour qu'ils soient bien visibles. Ils seront ensuite
-        # effacés naturellement dans la zone dégradée par la cavité.
+    def _draw_cernes(self, cx, cy, R, scale) -> None:
+        # Cernes par-dessus le bois sain, en brun foncé fin. Effacés
+        # naturellement dans la zone dégradée par la cavité dessinée
+        # juste après.
+        radius_px = R * scale
         for k in range(1, 9):
             rr = radius_px * k / 9
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
 
-        # 3. Cavité d'altération (spline) — efface les cernes dans sa zone
-        # Convention métier : bois_altéré = épaisseur d'altération mesurée
-        # au résistographe, qui correspond à une zone centrale de rayon
-        # égal à cette épaisseur. La couronne externe de bois sain fait
-        # donc (R - altéré) d'épaisseur.
+    def _draw_cavite(self, A, cx, cy, scale) -> None:
+        # bois_altéré = épaisseur d'altération mesurée au résistographe,
+        # qui correspond à une zone centrale de rayon égal à cette
+        # épaisseur. La couronne externe de bois sain fait (R - altéré).
         alt = A.compute_alteration_par_grade()
-        if any(a > 0 for a in alt):
-            smooth = cavity_polygon(alt, cx, cy, scale,
-                                     samples_per_segment=28)
-            flat = [c for p in smooth for c in p]
-            # Pas de contour : la couleur est uniforme avec les dégradations
-            # externes, ce qui permet la fusion visuelle quand elles se
-            # rejoignent (zone connectée écorce↔cavité).
-            self.create_polygon(*flat, fill=COLOR_ROT,
-                                outline="", smooth=False)
+        if not any(a > 0 for a in alt):
+            return
+        smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=28)
+        flat = [c for p in smooth for c in p]
+        # Pas de contour : couleur uniforme avec les dégradations
+        # externes, permettant la fusion visuelle écorce↔cavité quand
+        # elles se rejoignent.
+        self.create_polygon(*flat, fill=COLOR_ROT,
+                            outline="", smooth=False)
 
-        # 4. Écorce. Si une épaisseur est renseignée, on dessine un anneau
-        # brun épais entre R et R+ep (centré sur R+ep/2 avec width=ep_px).
-        # Sinon on garde le trait fin classique au bord du bois.
+    def _draw_ecorce(self, cx, cy, R, ep, scale) -> None:
+        # Si une épaisseur est renseignée, anneau brun épais entre R et
+        # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
+        # classique au bord du bois.
         if ep > 0:
             ep_px = max(1.0, ep * scale)
             mid_radius = (R + ep / 2) * scale
@@ -236,45 +268,31 @@ class SectionCanvas(tk.Canvas):
                              cx + mid_radius, cy + mid_radius,
                              outline=COLOR_BARK, width=ep_px)
         else:
+            radius_px = R * scale
             self.create_oval(cx - radius_px, cy - radius_px,
                              cx + radius_px, cy + radius_px,
                              outline=COLOR_BARK, width=3)
 
-        # 5. Contreforts (empattements à la base du tronc) — fusionnés
-        # par zones connectées : si plusieurs contreforts se chevauchent
-        # ou se touchent, ils sont rendus comme une seule cloche unifiée
-        # (max des hauteurs à chaque grade), évitant les encoches en V.
-        cf_inner = R - 1.0 / scale
-        self._draw_contreforts_canvas(cx, cy, scale, R, A.contreforts,
-                                       ep_cm=ep, R_inner=cf_inner)
-
-        # 6. Dégradations externes — dessinées EN DERNIER pour qu'elles
-        # creusent l'écorce ET les contreforts dans leur secteur. Le bord
-        # externe du polygone suit la surface réelle (R + ep + cloche),
-        # ce qui permet à une dégradation de mordre dans un contrefort
-        # qu'elle traverse.
-        for deg in A.degradations_externes:
-            self._draw_degradation_externe_canvas(cx, cy, scale, R, ep,
-                                                   A.contreforts, deg)
-
-        # 4. Graduations des 16 grades (tirets à l'extérieur de l'écorce)
+    def _draw_ticks(self, cx, cy, R_ext, scale) -> None:
+        # Graduations des 16 grades, tirets à l'extérieur de l'écorce.
         for i, g in enumerate(GRADES):
             x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
             tick_len_cm = 8 / scale
             x2, y2 = polar_idx_to_xy(cx, cy, scale,
-                                            R_ext + tick_len_cm, i)
+                                     R_ext + tick_len_cm, i)
             major = (g % 50 == 0)
             self.create_line(x1, y1, x2, y2,
                              fill=COLOR_BARK if major else COLOR_BARK_LIGHT,
                              width=2 if major else 1)
 
-        # 5. Lettres cardinales — à 25 px hors écorce, halo blanc
+    def _draw_cardinales(self, cx, cy, R_ext, scale) -> None:
+        # Lettres cardinales à 25 px hors écorce, halo blanc.
         for i, g in enumerate(GRADES):
             lbl = DIRECTION_LABELS.get(g, "")
             if not lbl:
                 continue
             lx, ly = polar_idx_to_xy(cx, cy, scale,
-                                            R_ext + 25/scale, i)
+                                     R_ext + 25/scale, i)
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
@@ -282,75 +300,67 @@ class SectionCanvas(tk.Canvas):
             self.create_text(lx, ly, text=lbl,
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
 
-        # 6. Sondages (flèches + pastilles) — affichage optionnel.
-        # Pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
-        if self.show_sondages:
-            port = A.port_arbre
-            meche = A.meche_cm if A.meche_cm > 0 else float("inf")
-            # Profondeur de dégradation externe par direction : la
-            # pastille est classée sur la PRBS AJUSTÉE (PRBS - dégrad.
-            # externe couvrant le grade) afin d'être cohérente avec le
-            # tableau Diagnostic et la fiche PDF.
-            deg_ext_par_grade = A.degradation_externe_par_grade()
-            for s in A.sondages:
-                if s.grade not in GRADES:
-                    continue
-                i = GRADES.index(s.grade)
-                penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
-                penetration = max(0.0, min(penetration, R))
-                end_radius = R - penetration
-                # Flèche : depuis 13 px sous l'écorce
-                x_ext, y_ext = polar_idx_to_xy(cx, cy, scale,
-                                                     R - 13/scale, i)
-                x_end, y_end = polar_idx_to_xy(cx, cy, scale,
-                                                     end_radius, i)
-                self.create_line(x_ext, y_ext, x_end, y_end,
-                                 fill=COLOR_SOND, width=2,
-                                 arrow=tk.LAST, arrowshape=(10, 12, 4))
+    def _draw_sondages(self, A, cx, cy, R, scale) -> None:
+        # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
+        # Pastille classée sur la PRBS AJUSTÉE (PRBS - dégradation
+        # externe couvrant le grade) pour être cohérente avec le tableau
+        # Diagnostic et la fiche PDF.
+        port = A.port_arbre
+        meche = A.meche_cm if A.meche_cm > 0 else float("inf")
+        deg_ext_par_grade = A.degradation_externe_par_grade()
+        for s in A.sondages:
+            if s.grade not in GRADES:
+                continue
+            i = GRADES.index(s.grade)
+            penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
+            penetration = max(0.0, min(penetration, R))
+            end_radius = R - penetration
+            # Flèche depuis 13 px sous l'écorce
+            x_ext, y_ext = polar_idx_to_xy(cx, cy, scale,
+                                           R - 13/scale, i)
+            x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+            self.create_line(x_ext, y_ext, x_end, y_end,
+                             fill=COLOR_SOND, width=2,
+                             arrow=tk.LAST, arrowshape=(10, 12, 4))
 
-                # Pastille à 13 px sous l'écorce, classée sur la PRBS
-                # ajustée (cohérence avec le tableau et la fiche PDF).
-                prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
-                ratio_adj = prbs_adj / R if R > 0 else 0.0
-                col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-                px, py = polar_idx_to_xy(cx, cy, scale,
-                                               R - 13/scale, i)
-                r_bul = 11
-                self.create_oval(px - r_bul - 2, py - r_bul - 2,
-                                 px + r_bul + 2, py + r_bul + 2,
-                                 fill="white", outline="")
-                self.create_oval(px - r_bul, py - r_bul,
-                                 px + r_bul, py + r_bul,
-                                 fill=col_class, outline="white", width=2)
-                self.create_text(px, py, text=str(s.numero),
-                                 font=("Helvetica", 10, "bold"), fill="white")
+            prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
+            ratio_adj = prbs_adj / R if R > 0 else 0.0
+            col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
+            px, py = polar_idx_to_xy(cx, cy, scale, R - 13/scale, i)
+            r_bul = 11
+            self.create_oval(px - r_bul - 2, py - r_bul - 2,
+                             px + r_bul + 2, py + r_bul + 2,
+                             fill="white", outline="")
+            self.create_oval(px - r_bul, py - r_bul,
+                             px + r_bul, py + r_bul,
+                             fill=col_class, outline="white", width=2)
+            self.create_text(px, py, text=str(s.numero),
+                             font=("Helvetica", 10, "bold"), fill="white")
 
-        # 7. RÈGLE GRADUÉE — placée SOUS la section, hors du tronc.
-        # Étendue jusqu'au rayon externe (R + ep). La portion bois
-        # ([-R, +R]) est en trait noir fin ; les portions écorce
-        # ([-R_ext, -R] et [+R, +R_ext]) sont des barres brun foncé
-        # épaisses qui évoquent l'écorce — l'œil peut ainsi mesurer
-        # bois et écorce sur la même règle.
+    def _draw_regle(self, cx, cy, R, ep, R_ext, scale) -> None:
+        # RÈGLE GRADUÉE sous la section. Portion bois [-R, +R] en trait
+        # noir fin ; portions écorce ([-R_ext, -R] et [+R, +R_ext]) en
+        # barres brun foncé épaisses — l'œil mesure bois et écorce sur
+        # la même règle.
+        h = max(self.winfo_height(), 1)
+        radius_ext_px = R_ext * scale
         step = 5 if R >= 15 else (2 if R >= 6 else 1)
-        # Position verticale : au bas du canvas, juste sous l'écorce
-        # (rayon externe) + lettres cardinales + petit padding.
-        y_axis = cy + radius_ext_px + 75
-        # Si on dépasse en bas du canvas, on remonte
-        y_axis = min(y_axis, h - 30)
-        # Demi-largeurs en pixels : portion bois et portion totale
+        # Position verticale : juste sous l'écorce + lettres cardinales
+        # + petit padding ; on remonte si on dépasse en bas du canvas.
+        y_axis = min(cy + radius_ext_px + 75, h - 30)
         wood_half_px = R * scale
         ext_half_px = R_ext * scale
         x_lw, x_rw = cx - wood_half_px, cx + wood_half_px
         x_le, x_re = cx - ext_half_px, cx + ext_half_px
 
-        # Bandeau blanc de fond pour bien détacher
+        # Bandeau blanc de fond
         self.create_rectangle(x_le - 8, y_axis - 14,
                               x_re + 35, y_axis + 24,
                               fill="white", outline="")
         # Trait bois (noir fin) au centre
         self.create_line(x_lw, y_axis, x_rw, y_axis,
                          fill=COLOR_INK, width=2)
-        # Barres écorce (brun foncé épais) aux extrémités
+        # Barres écorce aux extrémités
         if ep > 0:
             bar_h = 7
             self.create_rectangle(x_le, y_axis - bar_h/2,
@@ -371,8 +381,8 @@ class SectionCanvas(tk.Canvas):
                              fill=COLOR_INK, width=2)
             self.create_line(x_rw, y_axis - 6, x_rw, y_axis + 6,
                              fill=COLOR_INK, width=2)
-        # Graduations intermédiaires (bois) tous les `step` cm,
-        # exclues à la valeur R (déjà marquée par le tiret de transition).
+        # Graduations intermédiaires (bois) tous les `step` cm, exclues
+        # à la valeur R (déjà marquée par le tiret de transition).
         for r in range(step, int(R), step):
             rr = r * scale
             for sign in (-1, 1):
@@ -390,10 +400,7 @@ class SectionCanvas(tk.Canvas):
                                  anchor="center",
                                  font=("Helvetica", 8, "bold"),
                                  fill=COLOR_INK)
-        # Étiquette à R+ep (extrémité externe) en gras brun.
-        # Si l'écart bois/écorce est trop serré (ep_px < 25), on
-        # décale l'étiquette d'une ligne en dessous pour ne pas
-        # chevaucher l'étiquette R.
+        # Étiquette à R+ep — décalée d'une ligne si écart < 25 px.
         if ep > 0:
             label_ext = f"{R + ep:g}"
             ext_y = y_axis + (27 if ep * scale < 25 else 15)
@@ -410,12 +417,13 @@ class SectionCanvas(tk.Canvas):
                          font=("Helvetica", 9, "bold italic"),
                          fill=COLOR_INK)
 
-        # 8. Titre + méta — placés au-dessus de la zone du tronc
-        title = A.display_name
-        # Position : entre y=10 et la lettre N (à cy - radius_px - 25)
+    def _draw_titre(self, A, R) -> None:
+        # Titre + méta au-dessus du tronc (entre y=10 et la lettre N à
+        # cy - radius_px - 25). Stats globales : onglet Diagnostic.
+        w = max(self.winfo_width(), 1)
         title_y = 16
         sub_y = 38
-        self.create_text(w/2, title_y, text=title,
+        self.create_text(w/2, title_y, text=A.display_name,
                          font=("Georgia", 15, "bold"), fill=COLOR_ACCENT)
         sub_parts = [f"Rayon {R:g} cm"]
         if A.diametre_sous_ecorce_cm:
@@ -426,15 +434,6 @@ class SectionCanvas(tk.Canvas):
             sub_parts.append(f"Mèche {A.meche_cm:g} cm")
         self.create_text(w/2, sub_y, text="   •   ".join(sub_parts),
                          font=("Helvetica", 10, "italic"), fill=COLOR_MUTED)
-
-        # (Stats globales déplacées dans l'onglet Diagnostic)
-
-    @staticmethod
-    def _mix(c1: str, c2: str, t: float) -> str:
-        def h2r(c): return tuple(int(c[i:i+2], 16) for i in (1, 3, 5))
-        r1, g1, b1 = h2r(c1)
-        r2, g2, b2 = h2r(c2)
-        return f"#{int(r1+(r2-r1)*t):02x}{int(g1+(g2-g1)*t):02x}{int(b1+(b2-b1)*t):02x}"
 
 
 # ---------------------------------------------------------------------------
@@ -474,8 +473,15 @@ class App(tk.Tk):
         ttk.Label(left, text="  Expertise arboricole",
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
 
-        # Bloc droit : logo Silvavenir (si disponible)
+        # Bloc droit : logo Silvavenir (si disponible).
+        # PIL est requis pour les exports PNG/PDF — s'il est absent au
+        # démarrage, l'utilisateur l'apprend ici (log + fallback texte)
+        # plutôt qu'au moment d'un clic « Exporter PDF » qui échouerait
+        # silencieusement. Le diagnostic est distingué de l'échec de
+        # chargement du logo (fichier manquant, image corrompue), qui
+        # est bénin.
         self._logo_image = None
+        logo_loaded = False
         try:
             from PIL import Image as PILImage
             from PIL import ImageTk
@@ -489,10 +495,22 @@ class App(tk.Tk):
                     (int(pil.width * ratio), target_h),
                     PILImage.LANCZOS)
                 self._logo_image = ImageTk.PhotoImage(pil)
-                logo_lbl = ttk.Label(header, image=self._logo_image)
-                logo_lbl.pack(side="right")
+                ttk.Label(header, image=self._logo_image
+                          ).pack(side="right")
+                logo_loaded = True
+            else:
+                log.warning("Logo Silvavenir introuvable à %s",
+                            logo_path)
+        except ImportError as exc:
+            log.warning(
+                "Pillow indisponible (%s) — les exports PNG et PDF "
+                "ne pourront pas être générés. Installer Pillow via "
+                "`pip install -r requirements.txt`.", exc)
         except Exception:
-            # Fallback texte si PIL/logo indisponible
+            log.exception("Échec du chargement du logo")
+        if not logo_loaded:
+            # Fallback texte (Pillow absent, logo manquant ou
+            # image illisible)
             ttk.Label(header, text="SILVAVENIR",
                       style="Title.TLabel").pack(side="right")
 
@@ -874,6 +892,19 @@ class App(tk.Tk):
             return None
         return self.chantier.arbres[self.current_idx]
 
+    @contextmanager
+    def _suspend_sync_block(self):
+        """Suspend la synchro UI → modèle pendant un bloc d'écriture
+        dans les StringVar. Garantit la remise à l'état précédent même
+        si une exception survient à l'intérieur (un set/reset manuel
+        laissait l'UI gelée silencieusement en cas d'erreur)."""
+        prev = self._suspend_sync
+        self._suspend_sync = True
+        try:
+            yield
+        finally:
+            self._suspend_sync = prev
+
     def _sync_chantier_meta(self) -> None:
         if self._suspend_sync:
             return
@@ -902,7 +933,6 @@ class App(tk.Tk):
 
         diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
         rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
-        old_rayon = a.rayon_tronc_cm
 
         try:
             a.numero_arbre = self.var_num.get()
@@ -919,44 +949,27 @@ class App(tk.Tk):
             # - si l'utilisateur a édité le diamètre, on recalcule le rayon
             # - si l'utilisateur a édité le rayon, on laisse le diamètre tel quel
             #   (cas "j'ai mesuré directement sur le sondage")
+            # La règle métier "PRBS préservée, bois altéré recalculé"
+            # est portée par `Arbre.set_rayon` (modèle, testée).
             if diam_changed and not rayon_changed:
                 a.diametre_sous_ecorce_cm = new_diam
-                a.rayon_tronc_cm = new_diam / 2.0
+                ajustement = a.set_rayon(new_diam / 2.0)
                 # répercuter dans l'UI sans redéclencher la synchro
-                self._suspend_sync = True
-                self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-                self._suspend_sync = False
+                with self._suspend_sync_block():
+                    self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
             else:
                 a.diametre_sous_ecorce_cm = new_diam
-                a.rayon_tronc_cm = new_rayon
+                ajustement = a.set_rayon(new_rayon)
         except ValueError:
             return
 
-        # Si le rayon a changé, on conserve la PRBS (bois sain) qui est
-        # la mesure physique du pénétromètre, et on ajuste le bois altéré
-        # pour rester cohérent avec le nouveau rayon (sain + altéré = R).
-        # - rayon plus grand : altéré augmente
-        # - rayon plus petit : altéré diminue (et on borne sain à R)
-        # Idem pour la profondeur des dégradations externes : on la
-        # conserve telle quelle (mesure physique d'épaisseur d'écorce
-        # dégradée), elle ne dépend pas du rayon.
-        if old_rayon > 0 and abs(a.rayon_tronc_cm - old_rayon) > 1e-9:
-            R_new = a.rayon_tronc_cm
-            for s in a.sondages:
-                # Si le nouveau rayon est plus petit que la PRBS saisie,
-                # on borne la PRBS au nouveau rayon (pas physique sinon).
-                s.bois_sain_cm = min(s.bois_sain_cm, R_new)
-                s.bois_altere_cm = max(0.0, R_new - s.bois_sain_cm)
-            # Les profondeurs de dégradations externes sont des mesures
-            # physiques (épaisseur d'écorce dégradée) — on les borne juste
-            # au nouveau rayon par sécurité.
-            for deg in a.degradations_externes:
-                deg.profondeur_cm = min(deg.profondeur_cm, R_new)
-            # On rafraîchit les tableaux car les valeurs altéré/profondeur
-            # ont changé
+        if ajustement:
+            # Les valeurs altéré/profondeur des sondages et dégradations
+            # ont été recalculées par set_rayon — on rafraîchit les
+            # tableaux. La colonne "Largeur (cm)" des contreforts dépend
+            # elle aussi de R, donc on rafraîchit la table contreforts.
             self._refresh_sondages_table()
             self._refresh_degradations_table()
-            # La colonne "Largeur (cm)" des contreforts dépend de R
             self._refresh_contreforts_table()
 
         self._debounced_redraw()
@@ -970,19 +983,18 @@ class App(tk.Tk):
         a = self._current_arbre()
         if not a:
             return
-        self._suspend_sync = True
-        self.var_num.set(a.numero_arbre)
-        self.var_essence.set(a.essence)
-        self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-        self.var_h_s.set(f"{a.hauteur_sondage_cm:g}" if a.hauteur_sondage_cm else "")
-        self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}" if a.diametre_sous_ecorce_cm else "")
-        self.var_h_arb.set(f"{a.hauteur_arbre_m:g}" if a.hauteur_arbre_m else "")
-        self.var_meche.set(f"{a.meche_cm:g}" if a.meche_cm else "40")
-        self.var_ep_ecorce.set(f"{a.epaisseur_ecorce_cm:g}"
-                                if a.epaisseur_ecorce_cm else "0")
-        self.var_port.set(a.port_arbre)
-        self.var_comm.set(a.commentaire)
-        self._suspend_sync = False
+        with self._suspend_sync_block():
+            self.var_num.set(a.numero_arbre)
+            self.var_essence.set(a.essence)
+            self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+            self.var_h_s.set(f"{a.hauteur_sondage_cm:g}" if a.hauteur_sondage_cm else "")
+            self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}" if a.diametre_sous_ecorce_cm else "")
+            self.var_h_arb.set(f"{a.hauteur_arbre_m:g}" if a.hauteur_arbre_m else "")
+            self.var_meche.set(f"{a.meche_cm:g}" if a.meche_cm else "40")
+            self.var_ep_ecorce.set(f"{a.epaisseur_ecorce_cm:g}"
+                                    if a.epaisseur_ecorce_cm else "0")
+            self.var_port.set(a.port_arbre)
+            self.var_comm.set(a.commentaire)
         self._refresh_sondages_table()
         self._refresh_degradations_table()
         self._refresh_contreforts_table()
@@ -1340,12 +1352,11 @@ class App(tk.Tk):
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
         self.current_file = None
-        self._suspend_sync = True
-        self.var_ch_nom.set(self.chantier.nom)
-        self.var_ch_adr.set("")
-        self.var_ch_ope.set("")
-        self.var_ch_date.set(self.chantier.date_releve)
-        self._suspend_sync = False
+        with self._suspend_sync_block():
+            self.var_ch_nom.set(self.chantier.nom)
+            self.var_ch_adr.set("")
+            self.var_ch_ope.set("")
+            self.var_ch_date.set(self.chantier.date_releve)
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
 
@@ -1362,12 +1373,11 @@ class App(tk.Tk):
                 self.chantier.arbres.append(Arbre())
             self.current_idx = 0
             self.current_file = Path(p)
-            self._suspend_sync = True
-            self.var_ch_nom.set(self.chantier.nom)
-            self.var_ch_adr.set(self.chantier.adresse)
-            self.var_ch_ope.set(self.chantier.operateur)
-            self.var_ch_date.set(self.chantier.date_releve)
-            self._suspend_sync = False
+            with self._suspend_sync_block():
+                self.var_ch_nom.set(self.chantier.nom)
+                self.var_ch_adr.set(self.chantier.adresse)
+                self.var_ch_ope.set(self.chantier.operateur)
+                self.var_ch_date.set(self.chantier.date_releve)
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
         except Exception as e:
