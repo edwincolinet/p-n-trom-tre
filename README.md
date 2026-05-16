@@ -83,11 +83,16 @@ python -m tests.test_section_canvas --update
 ```
 mon-dossier/
 ├── penetrometre.py             ← le programme (UI Tk + main)
+├── app_actions.py              ← actions Sondage/Dégradation/Contrefort
+├── app_exports.py              ← actions d'export PNG/PDF/CSV/XLSX/HTML
+├── app_menu.py                 ← barre de menu Tk (Fichier/Arbres/?)
+├── app_style.py                ← thème ttk (couleurs, polices, padding)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage,
 │                                  Dégradation externe, Contrefort)
 ├── model.py                    ← dataclasses + logique métier
+├── bareme.py                   ← barème Silvavenir (classer_prbs)
+├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG + fiche PDF
-├── geometry.py                 ← géométrie pure + barème
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── assets/
@@ -155,6 +160,12 @@ PRBS de la direction concernée.
   écart angulaire maximal entre voisins : X gr » affichée dans le
   diagnostic Tk, la fiche PDF, l'export XLSX et l'export HTML. Permet
   de juger au coup d'œil la robustesse du diagnostic.
+- **Diagnostic non publié si n_sondages < 2** : avec 0 ou 1 sondage,
+  l'extrapolation par voisins n'a pas de sens (toutes les directions
+  héritent de la même valeur). Le t/R moyen et la classe globale sont
+  alors **supprimés** des exports (PDF, XLSX, HTML), remplacés par un
+  avertissement explicite ; saisir au moins 2 sondages dans des
+  directions différentes pour obtenir un diagnostic.
 
 ### Visualisation
 

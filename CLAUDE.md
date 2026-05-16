@@ -70,6 +70,10 @@ Module dédié à la règle métier de classification :
 - `classer_prbs(ratio_tR, port_arbre) -> str` — barème Silvavenir,
   renvoie un label `Vert | Orange | Rouge`. **Pas de couleur** : la
   couleur est une convention de présentation et vit dans `palette.py`.
+- `normaliser_port(value) -> str` — strip + lower puis vérifie
+  l'appartenance à `PORTS_ARBRE`. Renvoie `""` si valeur inconnue ;
+  utilisé par `Chantier.from_dict` pour valider `port_arbre` au
+  chargement JSON (faute de frappe → log + fallback `"libre"`).
 - Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
   `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
 
@@ -141,6 +145,18 @@ les tests :
   - `prbs_par_grade()`, `ratio_tR_par_grade()`,
     `repartition_classes()` — composent par-dessus
     `compute_alteration_par_grade()` + `degradation_externe_par_grade()`.
+    `repartition_classes()` expose `diagnostic_fiable` (= `n_sondees
+    >= 2`) : les exports XLSX/HTML/PDF affichent un avertissement
+    plutôt qu'un t/R moyen trompeur si `False`. Verrouillé par
+    `RepartitionClassesTests`.
+  - `set_rayon(new_R)` — **mutateur unique** pour changer le rayon
+    en conservant la PRBS (règle métier : « PRBS invariante,
+    `bois_altere` s'ajuste »). Synchronise aussi
+    `degradations_externes[i].profondeur_cm <= R`. Renvoie `True` si
+    le rayon a effectivement changé (l'UI doit alors rafraîchir
+    tables sondages, dégradations et contreforts). L'UI passe par ce
+    mutateur — ne jamais muter `rayon_tronc_cm` directement.
+    Verrouillé par `SetRayonTests` (9 tests).
   - `renumeroter_sondages()` / `renumeroter_degradations()` /
     `renumeroter_contreforts()` — mutateurs explicites appelés après
     ajout/suppression depuis l'UI pour recoller les numéros 1..N.
@@ -151,7 +167,10 @@ les tests :
     inconnues par `__dataclass_fields__` à chaque niveau).
   - `chantier.save_to(path)` écrit le fichier indenté UTF-8.
   - `to_dict` écrit `format_version: FORMAT_VERSION` ; `from_dict`
-    tolère son absence (anciens fichiers).
+    tolère son absence (anciens fichiers) **et** log un WARNING
+    (sans bloquer) si le fichier est d'un format plus récent que
+    celui que l'app sait lire — les champs inconnus sont alors
+    ignorés silencieusement par le filtre `__dataclass_fields__`.
 
 ### `app_actions.py` — actions Sondage/Dégradation/Contrefort
 
@@ -206,7 +225,7 @@ intermédiaire, les deux auraient un cycle d'import.
   côté UI affichent alors un message clair et n'appellent pas le
   rendu.
 
-**Tkinter (`resistographe.SectionCanvas`) et PIL partagent les
+**Tkinter (`penetrometre.SectionCanvas`) et PIL partagent les
 primitives géométriques** définies dans `geometry.py` (`polar_to_xy`,
 `cavity_polygon`, `contrefort_zone_outline`,
 `degradation_externe_outline`). La géométrie ne peut donc plus
@@ -270,6 +289,12 @@ Organisé en sections séparées par des bandeaux de commentaires :
 - **t/R** = PRBS / Rayon, ratio entre 0 et 1.
 - **Classe globale** = barème Silvavenir appliqué au **t/R moyen** sur
   les 16 directions (pas au minimum, ni au pourcentage de directions).
+- **Diagnostic non fiable si n_sondages < 2** : avec 0 ou 1 sondage,
+  l'extrapolation par voisins n'a pas de sens (toutes les 16 directions
+  héritent de la même valeur), ce qui donne un t/R moyen trompeur. Dans
+  ce cas `repartition_classes()` met `diagnostic_fiable=False` et les
+  exports (PDF, XLSX, HTML) **n'affichent pas** de t/R moyen ni de
+  classe globale — un avertissement explicite remplace ces champs.
 - Les **dégradations externes consomment** du bois sain :
   `PRBS_ajustée = bois_sain − profondeur_dégradation_externe`.
 - **Écorce du tronc** : épaisseur `epaisseur_ecorce_cm` ajoutée vers
@@ -441,7 +466,11 @@ au modèle, aux helpers géométriques ou aux exports.
    - **Couleurs partagées Tk/PIL** → `palette.py`.
    - **Exports tableau** (XLSX/HTML) → `export.py`.
    - **Dialogues Tk** (Sondage, Dégradation, Contrefort) → `dialogs.py`.
-   - **UI Tk principale + actions** → `penetrometre.py`.
+   - **Actions add/edit/del** (Sondage, Dégradation, Contrefort) →
+     `app_actions.py`.
+   - **Actions d'export** (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
+   - **UI Tk principale + orchestration** → `penetrometre.py` (App,
+     SectionCanvas).
 2. **Géométrie partagée** : si tu changes la géométrie d'un élément
    (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
    les deux renderers Tk et PIL héritent automatiquement. Pour les
