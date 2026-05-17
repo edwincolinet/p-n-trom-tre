@@ -737,8 +737,11 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     d.text((margin, y), "Diagnostic",
            font=f(22, "serif_bold"), fill=COLOR_ACCENT)
     y += 36
+    # `repartition_classes` porte ratios + extrapolation_text : pas
+    # besoin de rappeler `ratio_tR_par_grade` / `extrapolation_summary_text`
+    # ici (chacun repasse par la chaîne compute_alteration_par_grade).
     rep = arbre.repartition_classes()
-    ratios = arbre.ratio_tR_par_grade()
+    ratios = rep["ratios"]
     if R > 0 and not all(r >= 0.999 for r in ratios):
         # t/R moyen et classe globale ne sont écrits que si le
         # diagnostic est fiable (>= 2 sondages). Sinon on affiche
@@ -756,7 +759,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})",
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
-        extra_txt = arbre.extrapolation_summary_text()
+        extra_txt = rep["extrapolation_text"]
         if extra_txt:
             d.text((margin, y), extra_txt,
                    font=f(16, "sans"), fill=COLOR_MUTED)

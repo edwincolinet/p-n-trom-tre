@@ -358,6 +358,10 @@ class Arbre:
                     "sondages pour obtenir un résumé."]
 
         R = self.rayon_tronc_cm
+        # Un seul appel à repartition_classes : il porte aussi `ratios`
+        # et `extrapolation_text` pour qu'on n'ait pas à rejouer
+        # `ratio_tR_par_grade` ni `extrapolation_summary_text` (qui
+        # repassent par compute_alteration_par_grade et ses copains).
         rep = self.repartition_classes()
         lignes: List[str] = [
             f"« {self.display_name} »",
@@ -367,14 +371,13 @@ class Arbre:
             f"Port : {self.port_arbre}",
             "",
         ]
-        extra_txt = self.extrapolation_summary_text()
+        extra_txt = rep["extrapolation_text"]
         if extra_txt:
             lignes.append(extra_txt)
             lignes.append("")
 
         # Si rien de saisi (t/R == 1 partout, à l'epsilon près)
-        ratios = self.ratio_tR_par_grade()
-        if all(r >= 0.999 for r in ratios):
+        if all(r >= 0.999 for r in rep["ratios"]):
             lignes.append("Aucune altération saisie (interne ou externe).")
             return lignes
 
@@ -475,13 +478,22 @@ class Arbre:
             "Vert":   {"n": int, "grades": int, "pct": float},
             "Orange": {...},
             "Rouge":  {...},
+            "ratios": List[float],   # ratios t/R par direction (16)
             "tR_min": float,         # ratio t/R minimal sur les 16
             "tR_min_grade": int,     # grade où t/R est minimal
             "tR_min_dir": str,       # direction cardinale ou voisine
             "classe_globale": str,   # classe issue du t/R moyen
             "n_sondees": int,        # directions effectivement sondées
+            "extrapolation_text": str, # phrase prête à afficher
             "diagnostic_fiable": bool,
           }
+
+        Le dict est volontairement "self-contained" : il porte aussi
+        `ratios` et `extrapolation_text` pour que les callers (fiche
+        PDF, diagnostic Tk, XLSX/HTML) n'aient pas à rappeler
+        `ratio_tR_par_grade()` ni `extrapolation_summary_text()` après
+        — ce qui rejouait toute la chaîne `compute_alteration_par_grade`
+        une deuxième fois pour rien.
 
         `diagnostic_fiable` est True dès qu'au moins 2 directions sont
         sondées (seuil minimal pour que l'extrapolation linéaire ait un
@@ -549,6 +561,12 @@ class Arbre:
         n_sondees = self.extrapolation_summary()["n_sondees"]
         result["n_sondees"] = n_sondees
         result["diagnostic_fiable"] = n_sondees >= 2
+
+        # Snapshot self-contained : ratios + phrase d'extrapolation,
+        # pour que les callers n'aient pas à rappeler les méthodes
+        # séparées (qui rejoueraient la chaîne lourde).
+        result["ratios"] = ratios
+        result["extrapolation_text"] = self.extrapolation_summary_text()
         return result
 
 

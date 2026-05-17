@@ -147,8 +147,12 @@ def _format_prbs(row: dict) -> str:
 
 
 def _diagnostic_summary(arbre: Any, classer_prbs) -> dict:
-    """Renvoie {tR_moyen, classe_globale, repartition, diagnostic_fiable}
-    pour le pied de tableau."""
+    """Renvoie {tR_moyen, classe_globale, repartition, diagnostic_fiable,
+    extrapolation_text} pour le pied de tableau.
+
+    `extrapolation_text` est issu du même appel à `repartition_classes`
+    pour éviter un deuxième passage par la chaîne d'extrapolation.
+    """
     rep = arbre.repartition_classes()
     return {
         "tR_moyen": rep["tR_moyen"],
@@ -161,6 +165,7 @@ def _diagnostic_summary(arbre: Any, classer_prbs) -> dict:
         "rouge_pct": rep["Rouge"]["pct"],
         "diagnostic_fiable": rep["diagnostic_fiable"],
         "n_sondees": rep["n_sondees"],
+        "extrapolation_text": rep["extrapolation_text"],
     }
 
 
@@ -342,7 +347,7 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
         ws.merge_cells(start_row=row, start_column=2,
                        end_row=row, end_column=10)
         row += 1
-    extra_txt = arbre.extrapolation_summary_text()
+    extra_txt = diag["extrapolation_text"]
     if extra_txt:
         ws.cell(row=row, column=1,
                 value="Fiabilité extrapolation").font = META_LABEL_FONT
@@ -531,7 +536,7 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
     body_html = "\n".join(body_rows)
 
     # Diagnostic
-    extra_txt = arbre.extrapolation_summary_text()
+    extra_txt = diag["extrapolation_text"]
     extra_row_html = (
         f'      <div class="row">\n'
         f'        <span class="label">Fiabilité extrapolation</span>\n'
