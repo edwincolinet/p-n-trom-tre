@@ -144,8 +144,15 @@ class XlsxSmokeTests(unittest.TestCase):
 
             # Vérification structure : les 16 lignes de directions
             # sont écrites avec les bons grades.
+            #
+            # Note : on passe un file handle explicite à `load_workbook`
+            # plutôt que le chemin. Sur openpyxl, `Workbook.close()` ne
+            # ferme pas toujours le ZipFile sous-jacent en mode lecture
+            # normale → ResourceWarning à la GC. Avec un `with open(...)`,
+            # le BufferedReader est garanti fermé en sortie de bloc.
             import openpyxl
-            wb = openpyxl.load_workbook(path)
+            with open(path, "rb") as f:
+                wb = openpyxl.load_workbook(f)
             ws = wb.active
             # On cherche la ligne d'en-tête puis on lit les 16 suivantes.
             header_row = next(
