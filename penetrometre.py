@@ -30,6 +30,7 @@ import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
 from pane_contreforts import ContrefortsPane
+from pane_degradations import DegradationsPane
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
 from bareme import PORTS_ARBRE, classer_prbs
@@ -673,54 +674,10 @@ class App(tk.Tk):
                    command=self.action_del_sondage
                    ).pack(side="left", padx=(6, 0))
 
-        # Onglet Dégradations externes
-        t_de = ttk.Frame(nb, style="Panel.TFrame", padding=10)
-        nb.add(t_de, text="Dégrad. externes")
-
-        ttk.Label(t_de,
-                  text="Une dégradation externe = un arc continu sur l'écorce, "
-                       "défini par un grade de début, un grade de fin (sens "
-                       "horaire) et une profondeur radiale en cm.",
-                  style="Muted.TLabel", wraplength=400, justify="left"
-                  ).pack(anchor="w", pady=(0, 8))
-
-        de_frame = ttk.Frame(t_de, style="Panel.TFrame")
-        de_frame.pack(fill="both", expand=True)
-
-        cols_de = ("n", "debut", "fin", "largeur_gr", "largeur_cm",
-                   "profondeur", "comm")
-        self.tbl_de = ttk.Treeview(de_frame, columns=cols_de,
-                                    show="headings", height=10)
-        de_heads = [("n", "N°", 35),
-                    ("debut", "Début (gr)", 75),
-                    ("fin", "Fin (gr)", 75),
-                    ("largeur_gr", "Largeur (gr)", 85),
-                    ("largeur_cm", "Largeur (cm)", 85),
-                    ("profondeur", "Profondeur (cm)", 105),
-                    ("comm", "Commentaire", 100)]
-        for k, lbl, w in de_heads:
-            self.tbl_de.heading(k, text=lbl)
-            self.tbl_de.column(k, width=w, anchor="center")
-        self.tbl_de.pack(side="left", fill="both", expand=True)
-        sb_de = ttk.Scrollbar(de_frame, orient="vertical",
-                              command=self.tbl_de.yview)
-        sb_de.pack(side="right", fill="y")
-        self.tbl_de.configure(yscrollcommand=sb_de.set)
-        self.tbl_de.bind("<Double-1>",
-                          lambda e: self.action_edit_degradation())
-
-        tb_de = ttk.Frame(t_de, style="Panel.TFrame")
-        tb_de.pack(fill="x", pady=(10, 0))
-        ttk.Button(tb_de, text="＋ Ajouter dégradation",
-                   style="Accent.TButton",
-                   command=self.action_add_degradation
-                   ).pack(side="left")
-        ttk.Button(tb_de, text="Éditer", style="Ghost.TButton",
-                   command=self.action_edit_degradation
-                   ).pack(side="left", padx=(6, 0))
-        ttk.Button(tb_de, text="Supprimer", style="Ghost.TButton",
-                   command=self.action_del_degradation
-                   ).pack(side="left", padx=(6, 0))
+        # Onglet Dégradations externes — extrait dans son propre pane
+        # (cf. pane_degradations.py).
+        self.pane_de = DegradationsPane(nb, host=self)
+        nb.add(self.pane_de, text="Dégrad. externes")
 
         # Onglet Contreforts — extrait dans son propre pane (cf.
         # pane_contreforts.py) : le pane possède sa table, ses boutons,
@@ -1106,34 +1063,12 @@ class App(tk.Tk):
         app_actions.del_sondage(self)
 
     # ---- Dégradations externes -------------------------------------
-
+    # Le refresh et les actions vivent dans DegradationsPane (cf.
+    # pane_degradations.py). Thin wrapper pour les sites qui
+    # rafraîchissent en cascade.
     def _refresh_degradations_table(self) -> None:
-        if not hasattr(self, "tbl_de"):
-            return
-        self.tbl_de.delete(*self.tbl_de.get_children())
-        a = self._current_arbre()
-        if not a:
-            return
-        R = a.rayon_tronc_cm
-        for i, deg in enumerate(a.degradations_externes):
-            self.tbl_de.insert(
-                "", "end", iid=f"d{i}",
-                values=(deg.numero,
-                        f"{deg.grade_debut}",
-                        f"{deg.grade_fin}",
-                        f"{deg.largeur_grades()}",
-                        f"{deg.largeur_cm(R):.1f}",
-                        f"{deg.profondeur_cm:g}",
-                        deg.commentaire))
-
-    def action_add_degradation(self) -> None:
-        app_actions.add_degradation(self)
-
-    def action_edit_degradation(self) -> None:
-        app_actions.edit_degradation_selected(self)
-
-    def action_del_degradation(self) -> None:
-        app_actions.del_degradation(self)
+        if hasattr(self, "pane_de"):
+            self.pane_de.refresh()
 
     # --- Contreforts ---
     # Le refresh et les actions vivent maintenant dans ContrefortsPane

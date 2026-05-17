@@ -1,6 +1,5 @@
 """
-Actions « édition métier » de la fenêtre App : ajouter/éditer/supprimer
-un sondage, une dégradation externe, un contrefort.
+Actions « édition métier » de la fenêtre App pour les Sondages.
 
 Chaque fonction prend `app` (la fenêtre Tk) en premier argument et
 suit le même protocole :
@@ -12,10 +11,12 @@ suit le même protocole :
    demande un redraw du dessin.
 
 Aucune dépendance vers `penetrometre.py` (pas de cycle). Le contrat
-attendu de `app` est formalisé par le `AppHost` (Protocol) ci-dessous —
-c'est purement statique (aucun coût runtime), ça remplace le
-« duck-typing » historique qui n'attrapait les fautes de frappe qu'à
-l'exécution.
+attendu de `app` est formalisé par le `AppHost` (Protocol) ci-dessous.
+
+Note : les actions Dégradations et Contreforts ne sont plus ici — elles
+vivent dans `pane_degradations.DegradationsPane` et
+`pane_contreforts.ContrefortsPane` respectivement. Ce module sera à son
+tour absorbé dans un futur `SondagesPane`.
 
 L'analogue de ce module pour les actions d'export est `app_exports.py`.
 """
@@ -25,8 +26,8 @@ from __future__ import annotations
 from tkinter import ttk
 from typing import Optional, Protocol
 
-from dialogs import edit_degradation, edit_sondage
-from model import Arbre, DegradationExterne, Sondage
+from dialogs import edit_sondage
+from model import Arbre, Sondage
 
 
 class AppHost(Protocol):
@@ -38,11 +39,9 @@ class AppHost(Protocol):
     typing transparent.
     """
     tbl: ttk.Treeview
-    tbl_de: ttk.Treeview
 
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _refresh_sondages_table(self) -> None: ...
-    def _refresh_degradations_table(self) -> None: ...
     def _debounced_redraw(self) -> None: ...
 
 
@@ -91,51 +90,6 @@ def del_sondage(app: AppHost) -> None:
     app._debounced_redraw()
 
 
-# ----------------------------------------------------------------------
-# Dégradations externes
-# ----------------------------------------------------------------------
-
-def add_degradation(app: AppHost) -> None:
-    a = app._current_arbre()
-    if not a:
-        return
-    deg = DegradationExterne(
-        numero=len(a.degradations_externes) + 1,
-        grade_debut=0, grade_fin=50, profondeur_cm=2.0)
-    if edit_degradation(app, a, deg):
-        a.degradations_externes.append(deg)
-        a.renumeroter_degradations()
-        app._refresh_degradations_table()
-        app._debounced_redraw()
-
-
-def edit_degradation_selected(app: AppHost) -> None:
-    sel = app.tbl_de.selection()
-    if not sel:
-        return
-    idx = int(sel[0][1:])
-    a = app._current_arbre()
-    if not a:
-        return
-    deg = a.degradations_externes[idx]
-    if edit_degradation(app, a, deg):
-        app._refresh_degradations_table()
-        app._debounced_redraw()
-
-
-def del_degradation(app: AppHost) -> None:
-    sel = app.tbl_de.selection()
-    if not sel:
-        return
-    idx = int(sel[0][1:])
-    a = app._current_arbre()
-    if not a:
-        return
-    del a.degradations_externes[idx]
-    a.renumeroter_degradations()
-    app._refresh_degradations_table()
-    app._debounced_redraw()
-
-
-# Note : les actions Contreforts vivent maintenant dans `ContrefortsPane`
-# (pane_contreforts.py) avec le reste du onglet (table, boutons, refresh).
+# Note : les actions Dégradations et Contreforts vivent dans leurs
+# panes respectifs (pane_degradations.py et pane_contreforts.py),
+# avec le reste de l'onglet (table, boutons, refresh).
