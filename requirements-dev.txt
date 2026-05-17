@@ -1,0 +1,11 @@
+# Pénétromètre — dépendances de développement (lint, tests).
+#
+# Le runtime est dans `requirements.txt`. Ce fichier-ci ajoute les outils
+# que la CI et les développeurs utilisent localement, mais qui ne sont
+# PAS requis pour faire tourner l'app.
+#
+# Install :  pip install -r requirements-dev.txt
+
+# Linter / sorteur d'imports unifié. Configuration dans `ruff.toml`.
+# Plage 0.15+ : tolère le format `[lint]` séparé qu'on utilise.
+ruff>=0.15,<1

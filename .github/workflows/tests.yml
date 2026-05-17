@@ -35,13 +35,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff
+          pip install -r requirements-dev.txt
 
-      - name: Vérifier la syntaxe (py_compile)
+      - name: Vérifier la syntaxe (compileall)
+        # `compileall -l .` compile tout .py de la racine sans descendre
+        # dans les sous-dossiers — plus robuste qu'une liste codée en
+        # dur : tout nouveau pane_*.py est couvert automatiquement.
+        # `-q` ne log que les erreurs.
         run: |
-          python -m py_compile penetrometre.py model.py geometry.py \
-            palette.py export.py pil_render.py bareme.py dialogs.py \
-            app_exports.py app_menu.py app_style.py
+          python -m compileall -q -l .
 
       - name: Lint (ruff)
         run: ruff check .

@@ -548,10 +548,13 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
         # Avec n_sondees < 2, t/R moyen et classe globale sont
         # mécaniquement Verts → on les masque et on affiche un
         # avertissement à la place.
+        warn_msg = _h("⚠ Diagnostic global indisponible : il faut au "
+                       "moins 2 directions sondées pour extrapoler le "
+                       "pourtour.")
         diag_html = f"""
     <div class="diagnostic">
       <div class="row warning">
-        <span>{_h("⚠ Diagnostic global indisponible : il faut au moins 2 directions sondées pour extrapoler le pourtour.")}</span>
+        <span>{warn_msg}</span>
       </div>
 {extra_row_html}    </div>
     """

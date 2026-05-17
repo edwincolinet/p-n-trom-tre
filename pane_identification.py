@@ -21,11 +21,10 @@ d'appeler ce mutateur et de lire son retour.
 
 from __future__ import annotations
 
+import tkinter as tk
 from contextlib import contextmanager
 from tkinter import ttk
 from typing import Optional, Protocol
-
-import tkinter as tk
 
 from bareme import PORTS_ARBRE
 from model import Arbre

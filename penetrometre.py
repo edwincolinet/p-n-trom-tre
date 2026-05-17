@@ -28,11 +28,6 @@ from typing import Optional, Tuple
 import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
-from pane_contreforts import ContrefortsPane
-from pane_degradations import DegradationsPane
-from pane_diagnostic import DiagnosticPane
-from pane_identification import IdentificationPane
-from pane_sondages import SondagesPane
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
 from bareme import classer_prbs
@@ -71,6 +66,11 @@ from palette import (
     COLOR_WOOD,
     COULEUR_CLASSE,
 )
+from pane_contreforts import ContrefortsPane
+from pane_degradations import DegradationsPane
+from pane_diagnostic import DiagnosticPane
+from pane_identification import IdentificationPane
+from pane_sondages import SondagesPane
 
 __version__ = "3.3.0"
 

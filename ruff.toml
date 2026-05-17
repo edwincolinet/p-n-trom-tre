@@ -21,5 +21,10 @@ select = [
 ]
 
 [lint.isort]
-known-first-party = ["bareme", "dialogs", "export", "geometry",
-                     "model", "palette", "pil_render"]
+known-first-party = ["app_exports", "app_menu", "app_style",
+                     "bareme", "dialogs", "export", "geometry",
+                     "model", "palette",
+                     "pane_contreforts", "pane_degradations",
+                     "pane_diagnostic", "pane_identification",
+                     "pane_sondages",
+                     "pil_render"]
