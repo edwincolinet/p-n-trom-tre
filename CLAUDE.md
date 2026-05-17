@@ -16,9 +16,12 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-penetrometre.py        ← UI Tk + App + main (≈ 1400 lignes)
-app_actions.py          ← actions Sondage/Dégradation/Contrefort
-                          (add/edit/del) — pendant de app_exports.py
+penetrometre.py        ← App + SectionCanvas + main (≈ 970 lignes)
+pane_identification.py  ← onglet Identification (10 vars + sync Ø↔R)
+pane_sondages.py        ← onglet Sondages (table + add/edit/del)
+pane_degradations.py    ← onglet Dégradations externes (idem)
+pane_contreforts.py     ← onglet Contreforts (idem)
+pane_diagnostic.py      ← onglet Diagnostic (scroll + résumé + PRBS + exports)
 app_exports.py          ← actions d'export (PNG/PDF/CSV/XLSX/HTML)
                           — adaptateur Tk vers les rendus purs
 app_menu.py             ← barre de menu Tk (Fichier/Arbres/?, raccourcis)
@@ -57,10 +60,16 @@ model.py + palette.py
    ↑
 export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
-app_actions.py + app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
+pane_*.py + app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
    ↑
 penetrometre.py  (Tk + main, classe App)
 ```
+
+Chaque `pane_*.py` est un widget Tk autonome qui possède ses propres
+vars / table / boutons / refresh / actions, et ne tape sur l'`App` que
+via un `Protocol` (`_*Host`) déclaré en tête du module. C'est ce qui
+permet à `penetrometre.py` (la classe `App`) de tenir en ~970 lignes au
+lieu de ~1400 et d'éviter le god-module.
 
 ## Architecture
 
@@ -149,6 +158,15 @@ les tests :
     >= 2`) : les exports XLSX/HTML/PDF affichent un avertissement
     plutôt qu'un t/R moyen trompeur si `False`. Verrouillé par
     `RepartitionClassesTests`.
+    Le dict retourné est aussi **self-contained** : il porte `ratios`
+    (les 16 t/R) et `extrapolation_text` (phrase de fiabilité) en plus
+    des compteurs. Les callers (`diagnostic_summary_lines`, fiche PDF,
+    XLSX, HTML) doivent lire ces champs depuis le dict plutôt que de
+    rappeler `ratio_tR_par_grade()` / `extrapolation_summary_text()`
+    derrière — sinon on rejoue la chaîne `compute_alteration_par_grade`
+    une seconde fois pour rien.
+    `ratio_tR_par_grade()` clampe explicitement à `[0, 1]` (alignement
+    sur `Sondage.ratio_tR_brut`).
   - `set_rayon(new_R)` — **mutateur unique** pour changer le rayon
     en conservant la PRBS (règle métier : « PRBS invariante,
     `bois_altere` s'ajuste »). Synchronise aussi
@@ -172,18 +190,35 @@ les tests :
     celui que l'app sait lire — les champs inconnus sont alors
     ignorés silencieusement par le filtre `__dataclass_fields__`.
 
-### `app_actions.py` — actions Sondage/Dégradation/Contrefort
+### `pane_*.py` — onglets autonomes (Identification, Sondages, Dégrad., Contreforts, Diagnostic)
 
-Adaptateur Tk pour les 9 actions d'édition métier (add/edit/del × 3
-types). Chaque fonction reçoit `app` en premier argument (duck-typing
-sur `app._current_arbre()`, `app._refresh_*`, `app._debounced_redraw`
-et les trois tables Tk `tbl`, `tbl_de`, `tbl_cf`), ouvre le dialogue
-adéquat de `dialogs.py`, puis renumérote + rafraîchit + redraw en cas
-de succès.
+Cinq widgets Tk indépendants. Chaque pane :
 
-`App.action_add_sondage` / `_edit_sondage` / `_del_sondage` et leurs
-analogues dégradation/contrefort sont des thin wrappers d'une ligne.
-Aucune dépendance vers `penetrometre.py` (pas de cycle).
+- hérite de `ttk.Frame`, est ajouté au `ttk.Notebook` de l'`App` ;
+- **possède** ses propres widgets (`StringVar`, `Treeview`, boutons) ;
+- expose une méthode `refresh()` (ou `load_from_arbre()` pour
+  l'Identification) appelée par l'App quand l'arbre courant change
+  ou après un redraw debounce ;
+- déclare en tête du module un `Protocol` (`_*Host`) qui formalise la
+  surface attendue de l'App — typiquement `_current_arbre()` +
+  un callback `_debounced_redraw()` ou `on_*_changed(...)`.
+
+Tables `Treeview` (Sondages, Dégradations, Contreforts) : le pane
+inclut son propre cycle add/edit/del (boutons + double-clic → dialogue
+de `dialogs.py` → renumérotation → refresh → debounced redraw via le
+host). Plus de `app_actions.py` séparé.
+
+`IdentificationPane` est le plus chargé : il porte les 10 `StringVar`,
+la règle de cohérence Ø ↔ Rayon (`Arbre.set_rayon`), un
+`_suspend_sync` interne pour les chargements, et notifie l'App via
+`on_identification_changed(rayon_adjusted=...)` qui cascade le refresh
+des autres panes si le rayon a bougé.
+
+`DiagnosticPane` enveloppe son contenu dans un sous-`tk.Canvas`
+scrollable verticalement (5 boutons d'export, résumé textuel,
+checkbox `show_sondages`, table PRBS 16 directions). Les bindings
+molette sont locaux (`<Enter>`/`<Leave>`) — ils n'interfèrent pas avec
+le scroll des autres onglets.
 
 ### `app_exports.py` — actions d'export Tk
 
@@ -259,18 +294,22 @@ Organisé en sections séparées par des bandeaux de commentaires :
    cardinales, sondages, règle graduée, titre). L'ordre d'appel dans
    `redraw` est l'ordre de superposition (cf. « Ordre global des
    couches » plus bas).
-3. **Application** — `class App(tk.Tk)` : fenêtre principale,
-   onglets, sync UI ↔ modèle, actions (ajouter/dupliquer arbre,
-   ouverture / enregistrement, …). Délégations :
-   - dialogues d'ajout/édition (Sondage, Dégradation, Contrefort) →
-     `dialogs.py`.
-   - actions add/edit/del (Sondage, Dégradation, Contrefort) →
-     `app_actions.py`.
-   - actions d'export (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
+3. **Application** — `class App(tk.Tk)` : fenêtre principale, layout
+   3 colonnes, liste d'arbres, instanciation des panes, callbacks
+   communs (cascade quand le rayon change, toggle show_sondages,
+   maj de la ligne de tree_arbres), actions Fichier (new/open/save/
+   save_as) et export CSV mission. Délégations :
+   - onglets (Identification / Sondages / Dégradations / Contreforts /
+     Diagnostic) → `pane_*.py` (chaque pane possède ses widgets et
+     ses actions add/edit/del).
+   - dialogues d'ajout/édition → `dialogs.py` (appelés par les panes).
+   - actions d'export (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`,
+     déclenchées soit par le `DiagnosticPane`, soit par la barre de
+     menu (`app_menu.py`).
    - persistance JSON (open/save) → `Chantier.load_from` /
      `chantier.save_to` dans `model.py`.
    - renumérotation 1..N après ajout/suppression →
-     `Arbre.renumeroter_*()`.
+     `Arbre.renumeroter_*()` (appelée par les panes).
 4. **`main()`** — configure `_setup_logging()` puis lance
    `App().mainloop()`. Le logger écrit dans
    `~/.penetrometre/penetrometre.log` (RotatingFileHandler), ce qui
@@ -466,11 +505,12 @@ au modèle, aux helpers géométriques ou aux exports.
    - **Couleurs partagées Tk/PIL** → `palette.py`.
    - **Exports tableau** (XLSX/HTML) → `export.py`.
    - **Dialogues Tk** (Sondage, Dégradation, Contrefort) → `dialogs.py`.
-   - **Actions add/edit/del** (Sondage, Dégradation, Contrefort) →
-     `app_actions.py`.
+   - **Onglet** (widgets, refresh, actions add/edit/del) → le
+     `pane_*.py` correspondant. C'est presque toujours le bon endroit
+     pour un changement d'UI métier (table, boutons, sync UI ↔ modèle).
    - **Actions d'export** (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
-   - **UI Tk principale + orchestration** → `penetrometre.py` (App,
-     SectionCanvas).
+   - **UI Tk hors onglet + orchestration** → `penetrometre.py`
+     (`App`, `SectionCanvas`, callbacks `on_*_changed`).
 2. **Géométrie partagée** : si tu changes la géométrie d'un élément
    (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
    les deux renderers Tk et PIL héritent automatiquement. Pour les

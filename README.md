@@ -82,8 +82,12 @@ python -m tests.test_section_canvas --update
 
 ```
 mon-dossier/
-├── penetrometre.py             ← le programme (UI Tk + main)
-├── app_actions.py              ← actions Sondage/Dégradation/Contrefort
+├── penetrometre.py             ← App + SectionCanvas + main
+├── pane_identification.py      ← onglet Identification (form + sync Ø↔R)
+├── pane_sondages.py            ← onglet Sondages (table + add/edit/del)
+├── pane_degradations.py        ← onglet Dégradations externes
+├── pane_contreforts.py         ← onglet Contreforts
+├── pane_diagnostic.py          ← onglet Diagnostic (résumé + PRBS + exports)
 ├── app_exports.py              ← actions d'export PNG/PDF/CSV/XLSX/HTML
 ├── app_menu.py                 ← barre de menu Tk (Fichier/Arbres/?)
 ├── app_style.py                ← thème ttk (couleurs, polices, padding)
