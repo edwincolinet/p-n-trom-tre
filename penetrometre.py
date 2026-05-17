@@ -238,7 +238,29 @@ class SectionCanvas(tk.Canvas):
         self._draw_titre(A, R)
 
     # ------------------------------------------------------------------
-    # Helpers de dessin — un par couche logique
+    # Helpers de dessin — un par couche logique.
+    #
+    # **Pendants Tk ↔ PIL**. Chaque helper ci-dessous a un jumeau dans
+    # `pil_render.py` (préfixé `_pil_draw_`) qui dessine la même couche
+    # sur une `PIL.Image`. La géométrie est partagée via `geometry.py` ;
+    # seuls subsistent ici les paramètres visuels propres à Tk (polices,
+    # `outline+width` semantics, splines `smooth=True`, flèches natives
+    # de `create_line`). Toute modification d'une couche doit être
+    # répliquée dans les DEUX fichiers — cf. tableau dans CLAUDE.md
+    # « Pendants Tk ↔ PIL ».
+    #
+    #   _draw_placeholder              ↔ _pil_draw_placeholder
+    #   _draw_bois_sain                ↔ _pil_draw_bois_sain
+    #   _draw_cernes                   ↔ _pil_draw_cernes
+    #   _draw_cavite                   ↔ _pil_draw_cavite
+    #   _draw_ecorce                   ↔ _pil_draw_ecorce
+    #   _draw_contreforts_canvas       ↔ _pil_draw_contreforts
+    #   _draw_degradation_externe_…    ↔ _pil_draw_degradations
+    #   _draw_ticks                    ↔ _pil_draw_ticks
+    #   _draw_cardinales               ↔ _pil_draw_cardinales
+    #   _draw_sondages                 ↔ _pil_draw_sondages
+    #   _draw_regle                    ↔ _pil_draw_regle
+    #   _draw_titre                    ↔ _pil_draw_titre
     # ------------------------------------------------------------------
 
     def _draw_placeholder(self) -> None:

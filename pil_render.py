@@ -222,6 +222,33 @@ def render_arbre_to_pil_image(arbre: "Arbre",
 # Helpers PIL — un par couche logique (symétrique à SectionCanvas._draw_*)
 # ----------------------------------------------------------------------
 
+# ----------------------------------------------------------------------
+# Helpers de dessin — un par couche logique.
+#
+# **Pendants Tk ↔ PIL**. Chaque helper ci-dessous a un jumeau dans
+# `penetrometre.SectionCanvas` (préfixé `_draw_`) qui dessine la même
+# couche sur un `tk.Canvas`. La géométrie est partagée via
+# `geometry.py` ; seuls subsistent ici les paramètres visuels propres
+# à PIL (`ImageFont`, ellipse-outline-inside-bbox, polygones explicites
+# pour les flèches, anti-aliasing). Toute modification d'une couche
+# doit être répliquée dans les DEUX fichiers — cf. tableau dans
+# CLAUDE.md « Pendants Tk ↔ PIL ».
+#
+#   _pil_draw_placeholder        ↔ SectionCanvas._draw_placeholder
+#   _pil_draw_bois_sain          ↔ SectionCanvas._draw_bois_sain
+#   _pil_draw_cernes             ↔ SectionCanvas._draw_cernes
+#   _pil_draw_cavite             ↔ SectionCanvas._draw_cavite
+#   _pil_draw_ecorce             ↔ SectionCanvas._draw_ecorce
+#   _pil_draw_contreforts        ↔ SectionCanvas._draw_contreforts_canvas
+#   _pil_draw_degradations       ↔ SectionCanvas._draw_degradation_externe_canvas
+#   _pil_draw_ticks              ↔ SectionCanvas._draw_ticks
+#   _pil_draw_cardinales         ↔ SectionCanvas._draw_cardinales
+#   _pil_draw_sondages           ↔ SectionCanvas._draw_sondages
+#   _pil_draw_regle              ↔ SectionCanvas._draw_regle
+#   _pil_draw_titre              ↔ SectionCanvas._draw_titre
+# ----------------------------------------------------------------------
+
+
 def _pil_draw_placeholder(d, f, width, height) -> None:
     d.text((width/2, height/2),
            "Rayon non renseigné", fill=COLOR_MUTED,

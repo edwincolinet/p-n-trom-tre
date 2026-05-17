@@ -553,6 +553,39 @@ au modèle, aux helpers géométriques ou aux exports.
    les exceptions des actions d'export y sont consignées avec leur
    stack trace via `log.exception(...)`.
 
+## Pendants Tk ↔ PIL (helpers de rendu)
+
+Chaque couche de la section transversale a deux implémentations
+parallèles, une par moteur, à modifier ensemble. Le tableau ci-dessous
+est la source de vérité (rappelé en commentaire au-dessus des deux
+blocs de helpers).
+
+| Couche               | Tk (`SectionCanvas`)                  | PIL (`pil_render`)         |
+|----------------------|---------------------------------------|----------------------------|
+| placeholder          | `_draw_placeholder`                   | `_pil_draw_placeholder`    |
+| bois sain            | `_draw_bois_sain`                     | `_pil_draw_bois_sain`      |
+| cernes               | `_draw_cernes`                        | `_pil_draw_cernes`         |
+| cavité d'altération  | `_draw_cavite`                        | `_pil_draw_cavite`         |
+| écorce               | `_draw_ecorce`                        | `_pil_draw_ecorce`         |
+| contreforts          | `_draw_contreforts_canvas`            | `_pil_draw_contreforts`    |
+| dégradations ext.    | `_draw_degradation_externe_canvas`    | `_pil_draw_degradations`   |
+| ticks 16 grades      | `_draw_ticks`                         | `_pil_draw_ticks`          |
+| lettres cardinales   | `_draw_cardinales`                    | `_pil_draw_cardinales`     |
+| sondages (flèches+pastilles) | `_draw_sondages`              | `_pil_draw_sondages`       |
+| règle graduée        | `_draw_regle`                         | `_pil_draw_regle`          |
+| titre + méta         | `_draw_titre`                         | `_pil_draw_titre`          |
+
+Géométrie : partagée via `geometry.py` (`polar_to_xy`, `cavity_polygon`,
+`contrefort_zone_outline`, `degradation_externe_outline`). Constantes
+de layout (marges, offsets en px, nombre de cernes, échantillonnage du
+spline) : tunées indépendamment côté Tk (`SectionCanvas.*_PX`,
+`N_CERNES`, …) et côté PIL (constantes module-level), car les
+moteurs de dessin diffèrent (hinting, épaisseurs de trait, semantics
+d'`outline+width` sur ellipse).
+
+Cf. aussi le piège « différence Tkinter ↔ PIL pour `outline + width`
+sur ellipse » dans la section **Pièges connus** ci-dessous.
+
 ## Limites connues (non corrigées)
 
 - **Duplication de rendu Tk ↔ PIL au-delà de la géométrie**.
