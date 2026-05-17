@@ -453,11 +453,18 @@ class Arbre:
         return [max(0.0, R - alt_int[i] - deg_ext[i]) for i in range(16)]
 
     def ratio_tR_par_grade(self) -> List[float]:
-        """Pour chaque direction, ratio t/R = PRBS / Rayon (entre 0 et 1)."""
+        """Pour chaque direction, ratio t/R = PRBS / Rayon (entre 0 et 1).
+
+        Clamp défensif `min(1.0, …)` : `prbs_par_grade` borne déjà à
+        `[0, R]`, mais on aligne explicitement le contrat de sortie sur
+        `Sondage.ratio_tR_brut` (qui clampe aussi). Évite qu'un futur
+        changement de `prbs_par_grade` ne fasse silencieusement dériver
+        le ratio au-dessus de 1.
+        """
         R = self.rayon_tronc_cm
         if R <= 0:
             return [0.0] * 16
-        return [p / R for p in self.prbs_par_grade()]
+        return [min(1.0, p / R) for p in self.prbs_par_grade()]
 
     def repartition_classes(self) -> dict:
         """Répartition des 16 directions par classe (Vert/Orange/Rouge),
