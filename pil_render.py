@@ -69,6 +69,28 @@ if TYPE_CHECKING:
     from model import Arbre, Chantier  # noqa: F401
 
 
+# ----------------------------------------------------------------------
+# Constantes de layout — pixels hors-scale, tunées pour le rendu PIL.
+# Le rendu Tk a son propre jeu (cf. SectionCanvas.MARGIN_*, etc.) parce
+# que le moteur de dessin diffère (hinting, épaisseurs).
+# ----------------------------------------------------------------------
+
+# Nombre de cernes de croissance dessinés à l'intérieur du tronc.
+N_CERNES = 8
+
+# Décalages des éléments hors-tronc (cardinales, ticks, pastilles).
+# Stockés en px puis divisés par `scale` au point d'usage.
+SONDAGE_INSET_PX = 18         # début de flèche / centre pastille
+CARDINALES_OFFSET_PX = 45     # lettres N/NE/E/SE/S/SO/O/NO
+TICK_LEN_PX = 12              # tirets de graduation des 16 grades
+BULLET_RADIUS_PX = 22         # rayon de la pastille numérotée
+
+# Échantillonnage du polygone d'altération (segments Catmull-Rom).
+# Légèrement plus dense que côté Tk (28) pour absorber le hinting
+# anti-aliasing PIL sur les courbes.
+CAVITY_SAMPLES_PER_SEGMENT = 32
+
+
 def _pil_load_fonts():
     """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
 
@@ -216,8 +238,8 @@ def _pil_draw_cernes(d, cx, cy, R, scale) -> None:
     # Cernes par-dessus le bois, en brun foncé fin. Partiellement effacés
     # par la cavité qui suit — visibles uniquement dans le bois sain.
     radius_px = R * scale
-    for k in range(1, 9):
-        rr = radius_px * k / 9
+    for k in range(1, N_CERNES + 1):
+        rr = radius_px * k / (N_CERNES + 1)
         d.ellipse([cx-rr, cy-rr, cx+rr, cy+rr],
                   outline=COLOR_CERNE, width=1)
 
@@ -226,7 +248,8 @@ def _pil_draw_cavite(d, arbre, cx, cy, scale) -> None:
     alt = arbre.compute_alteration_par_grade()
     if not any(a > 0 for a in alt):
         return
-    smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=32)
+    smooth = cavity_polygon(alt, cx, cy, scale,
+                              samples_per_segment=CAVITY_SAMPLES_PER_SEGMENT)
     d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
 
@@ -277,9 +300,10 @@ def _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale) -> None:
 
 def _pil_draw_ticks(d, cx, cy, R_ext, scale) -> None:
     # 16 grades — tirets à l'extérieur de l'écorce.
+    tick_len_cm = TICK_LEN_PX / scale
     for i, g in enumerate(GRADES):
         x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
-        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + 12/scale, i)
+        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + tick_len_cm, i)
         maj = (g % 50 == 0)
         d.line([x1, y1, x2, y2],
                fill=COLOR_BARK if maj else COLOR_BARK_LIGHT,
@@ -287,12 +311,13 @@ def _pil_draw_ticks(d, cx, cy, R_ext, scale) -> None:
 
 
 def _pil_draw_cardinales(d, f, cx, cy, R_ext, scale) -> None:
-    # Lettres cardinales à 45/scale cm hors écorce, halo blanc épais.
+    # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
+    offset_cm = CARDINALES_OFFSET_PX / scale
     for i, g in enumerate(GRADES):
         lbl = DIRECTION_LABELS.get(g, "")
         if not lbl:
             continue
-        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + 45/scale, i)
+        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + offset_cm, i)
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
@@ -318,8 +343,9 @@ def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
         prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
         ratio_adj = prbs_adj / R if R > 0 else 0.0
         col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-        # Flèche depuis 18 px sous l'écorce jusqu'au fond de pénétration.
-        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - 18/scale, i)
+        # Flèche depuis `SONDAGE_INSET_PX` sous l'écorce jusqu'au fond.
+        inset_cm = SONDAGE_INSET_PX / scale
+        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
         x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
         d.line([x_ext, y_ext, x_end, y_end], fill=COLOR_SOND, width=4)
         ang = math.atan2(y_end-y_ext, x_end-x_ext)
@@ -329,9 +355,9 @@ def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
             (x_end - ah*math.cos(ang-0.5), y_end - ah*math.sin(ang-0.5)),
             (x_end - ah*math.cos(ang+0.5), y_end - ah*math.sin(ang+0.5)),
         ], fill=COLOR_SOND)
-        # Pastille à 18 px à l'INTÉRIEUR de l'écorce.
-        px, py = polar_idx_to_xy(cx, cy, scale, R - 18/scale, i)
-        r_b = 22
+        # Pastille au même décalage à l'INTÉRIEUR de l'écorce.
+        px, py = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
+        r_b = BULLET_RADIUS_PX
         d.ellipse([px-r_b-2, py-r_b-2, px+r_b+2, py+r_b+2],
                   fill="white")
         d.ellipse([px-r_b, py-r_b, px+r_b, py+r_b],

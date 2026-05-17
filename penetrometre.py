@@ -87,6 +87,31 @@ log = logging.getLogger("penetrometre")
 
 class SectionCanvas(tk.Canvas):
 
+    # ------------------------------------------------------------------
+    # Constantes de layout — pixels hors-scale, tunées pour le rendu Tk.
+    # Le rendu PIL a son propre jeu de constantes (cf. pil_render.py)
+    # parce que le moteur de dessin diffère (font hinting, épaisseurs).
+    # ------------------------------------------------------------------
+
+    # Marges autour du tronc (`_center_and_scale`).
+    MARGIN_TOP_PX = 70       # titre 24 + méta 44 + lettre N à 25 px
+    MARGIN_BOTTOM_PX = 105   # lettre S 25 + règle 30 + chiffres + label
+    MARGIN_SIDE_PX = 50
+
+    # Nombre de cernes de croissance dessinés à l'intérieur du tronc.
+    N_CERNES = 8
+
+    # Décalages des éléments hors-tronc (cardinales, ticks, pastilles).
+    # Stockés en px puis convertis à `px/scale` au point d'usage pour
+    # rester visuellement constants quel que soit le rayon.
+    SONDAGE_INSET_PX = 13         # début de flèche / centre pastille
+    CARDINALES_OFFSET_PX = 25     # lettres N/NE/E/SE/S/SO/O/NO
+    TICK_LEN_PX = 8               # tirets de graduation des 16 grades
+    BULLET_RADIUS_PX = 11         # rayon de la pastille numérotée
+
+    # Échantillonnage du polygone d'altération (segments Catmull-Rom).
+    CAVITY_SAMPLES_PER_SEGMENT = 28
+
     def __init__(self, master, **kw):
         super().__init__(master, bg=COLOR_PANEL, highlightthickness=0,
                          bd=0, **kw)
@@ -115,12 +140,9 @@ class SectionCanvas(tk.Canvas):
         w = max(self.winfo_width(), 1)
         h = max(self.winfo_height(), 1)
         cx = w / 2
-        # Marges :
-        # - haut : 70 px (titre 24 + méta 44 + 25 px pour lettre N hors écorce)
-        # - bas : 105 px (lettre S à 25 + règle graduée à ~30 + chiffres + label)
-        margin_top = 70
-        margin_bottom = 105
-        margin_side = 50
+        margin_top = self.MARGIN_TOP_PX
+        margin_bottom = self.MARGIN_BOTTOM_PX
+        margin_side = self.MARGIN_SIDE_PX
         available_v = h - margin_top - margin_bottom
         available_h = w - 2 * margin_side
         radius_px = min(available_h / 2, available_v / 2)
@@ -238,8 +260,9 @@ class SectionCanvas(tk.Canvas):
         # naturellement dans la zone dégradée par la cavité dessinée
         # juste après.
         radius_px = R * scale
-        for k in range(1, 9):
-            rr = radius_px * k / 9
+        n = self.N_CERNES
+        for k in range(1, n + 1):
+            rr = radius_px * k / (n + 1)
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
 
@@ -250,7 +273,8 @@ class SectionCanvas(tk.Canvas):
         alt = A.compute_alteration_par_grade()
         if not any(a > 0 for a in alt):
             return
-        smooth = cavity_polygon(alt, cx, cy, scale, samples_per_segment=28)
+        smooth = cavity_polygon(alt, cx, cy, scale,
+                                  samples_per_segment=self.CAVITY_SAMPLES_PER_SEGMENT)
         flat = [c for p in smooth for c in p]
         # Pas de contour : couleur uniforme avec les dégradations
         # externes, permettant la fusion visuelle écorce↔cavité quand
@@ -276,9 +300,9 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_ticks(self, cx, cy, R_ext, scale) -> None:
         # Graduations des 16 grades, tirets à l'extérieur de l'écorce.
+        tick_len_cm = self.TICK_LEN_PX / scale
         for i, g in enumerate(GRADES):
             x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
-            tick_len_cm = 8 / scale
             x2, y2 = polar_idx_to_xy(cx, cy, scale,
                                      R_ext + tick_len_cm, i)
             major = (g % 50 == 0)
@@ -287,13 +311,14 @@ class SectionCanvas(tk.Canvas):
                              width=2 if major else 1)
 
     def _draw_cardinales(self, cx, cy, R_ext, scale) -> None:
-        # Lettres cardinales à 25 px hors écorce, halo blanc.
+        # Lettres cardinales à `CARDINALES_OFFSET_PX` au-delà de l'écorce.
+        offset_cm = self.CARDINALES_OFFSET_PX / scale
         for i, g in enumerate(GRADES):
             lbl = DIRECTION_LABELS.get(g, "")
             if not lbl:
                 continue
             lx, ly = polar_idx_to_xy(cx, cy, scale,
-                                     R_ext + 25/scale, i)
+                                     R_ext + offset_cm, i)
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
@@ -309,6 +334,8 @@ class SectionCanvas(tk.Canvas):
         port = A.port_arbre
         meche = A.meche_cm if A.meche_cm > 0 else float("inf")
         deg_ext_par_grade = A.degradation_externe_par_grade()
+        inset_cm = self.SONDAGE_INSET_PX / scale
+        r_bul = self.BULLET_RADIUS_PX
         for s in A.sondages:
             if s.grade not in GRADES:
                 continue
@@ -316,9 +343,9 @@ class SectionCanvas(tk.Canvas):
             penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
             penetration = max(0.0, min(penetration, R))
             end_radius = R - penetration
-            # Flèche depuis 13 px sous l'écorce
+            # Flèche depuis `SONDAGE_INSET_PX` sous l'écorce.
             x_ext, y_ext = polar_idx_to_xy(cx, cy, scale,
-                                           R - 13/scale, i)
+                                           R - inset_cm, i)
             x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
             self.create_line(x_ext, y_ext, x_end, y_end,
                              fill=COLOR_SOND, width=2,
@@ -327,8 +354,7 @@ class SectionCanvas(tk.Canvas):
             prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
             ratio_adj = prbs_adj / R if R > 0 else 0.0
             col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-            px, py = polar_idx_to_xy(cx, cy, scale, R - 13/scale, i)
-            r_bul = 11
+            px, py = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
             self.create_oval(px - r_bul - 2, py - r_bul - 2,
                              px + r_bul + 2, py + r_bul + 2,
                              fill="white", outline="")
