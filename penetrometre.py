@@ -29,6 +29,7 @@ import app_actions
 import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
+from pane_contreforts import ContrefortsPane
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
 from bareme import PORTS_ARBRE, classer_prbs
@@ -721,55 +722,11 @@ class App(tk.Tk):
                    command=self.action_del_degradation
                    ).pack(side="left", padx=(6, 0))
 
-        # Onglet Contreforts (empattements à la base du tronc)
-        t_cf = ttk.Frame(nb, style="Panel.TFrame", padding=10)
-        nb.add(t_cf, text="Contreforts")
-
-        ttk.Label(t_cf,
-                  text="Un contrefort = empattement saillant à la base du "
-                       "tronc, défini par une orientation (grade central), "
-                       "une largeur en grades et une longueur radiale en cm "
-                       "vers l'extérieur. Élément descriptif (n'impacte pas "
-                       "le diagnostic).",
-                  style="Muted.TLabel", wraplength=420, justify="left"
-                  ).pack(anchor="w", pady=(0, 8))
-
-        cf_frame = ttk.Frame(t_cf, style="Panel.TFrame")
-        cf_frame.pack(fill="both", expand=True)
-
-        cols_cf = ("n", "centre", "largeur_gr", "largeur_cm",
-                   "longueur", "comm")
-        self.tbl_cf = ttk.Treeview(cf_frame, columns=cols_cf,
-                                    show="headings", height=10)
-        cf_heads = [("n", "N°", 35),
-                    ("centre", "Orientation (gr)", 120),
-                    ("largeur_gr", "Largeur (gr)", 90),
-                    ("largeur_cm", "Largeur (cm)", 90),
-                    ("longueur", "Longueur (cm)", 100),
-                    ("comm", "Commentaire", 120)]
-        for k, lbl, w in cf_heads:
-            self.tbl_cf.heading(k, text=lbl)
-            self.tbl_cf.column(k, width=w, anchor="center")
-        self.tbl_cf.pack(side="left", fill="both", expand=True)
-        sb_cf = ttk.Scrollbar(cf_frame, orient="vertical",
-                              command=self.tbl_cf.yview)
-        sb_cf.pack(side="right", fill="y")
-        self.tbl_cf.configure(yscrollcommand=sb_cf.set)
-        self.tbl_cf.bind("<Double-1>",
-                          lambda e: self.action_edit_contrefort())
-
-        tb_cf = ttk.Frame(t_cf, style="Panel.TFrame")
-        tb_cf.pack(fill="x", pady=(10, 0))
-        ttk.Button(tb_cf, text="＋ Ajouter contrefort",
-                   style="Accent.TButton",
-                   command=self.action_add_contrefort
-                   ).pack(side="left")
-        ttk.Button(tb_cf, text="Éditer", style="Ghost.TButton",
-                   command=self.action_edit_contrefort
-                   ).pack(side="left", padx=(6, 0))
-        ttk.Button(tb_cf, text="Supprimer", style="Ghost.TButton",
-                   command=self.action_del_contrefort
-                   ).pack(side="left", padx=(6, 0))
+        # Onglet Contreforts — extrait dans son propre pane (cf.
+        # pane_contreforts.py) : le pane possède sa table, ses boutons,
+        # son refresh et ses actions add/edit/del.
+        self.pane_cf = ContrefortsPane(nb, host=self)
+        nb.add(self.pane_cf, text="Contreforts")
 
         # Onglet Diagnostic — wrapper scrollable
         t3_outer = ttk.Frame(nb, style="Panel.TFrame")
@@ -1179,34 +1136,13 @@ class App(tk.Tk):
         app_actions.del_degradation(self)
 
     # --- Contreforts ---
+    # Le refresh et les actions vivent maintenant dans ContrefortsPane
+    # (cf. pane_contreforts.py). `_refresh_contreforts_table` reste
+    # comme thin wrapper pour les sites qui rafraîchissent en cascade
+    # (changement de rayon, chargement d'arbre).
     def _refresh_contreforts_table(self) -> None:
-        if not hasattr(self, "tbl_cf"):
-            return
-        self.tbl_cf.delete(*self.tbl_cf.get_children())
-        a = self._current_arbre()
-        if not a:
-            return
-        R = a.rayon_tronc_cm
-        for i, c in enumerate(a.contreforts):
-            lbl = DIRECTION_LABELS.get(c.grade_centre, "")
-            centre_txt = f"{c.grade_centre}" + (f" — {lbl}" if lbl else "")
-            self.tbl_cf.insert(
-                "", "end", iid=f"c{i}",
-                values=(c.numero,
-                        centre_txt,
-                        f"{c.largeur_grades}",
-                        f"{c.largeur_cm(R):.1f}",
-                        f"{c.longueur_cm:g}",
-                        c.commentaire))
-
-    def action_add_contrefort(self) -> None:
-        app_actions.add_contrefort(self)
-
-    def action_edit_contrefort(self) -> None:
-        app_actions.edit_contrefort_selected(self)
-
-    def action_del_contrefort(self) -> None:
-        app_actions.del_contrefort(self)
+        if hasattr(self, "pane_cf"):
+            self.pane_cf.refresh()
 
     def _toggle_show_sondages(self) -> None:
         """Réagit au check/uncheck de la case 'emplacement des sondages'."""
