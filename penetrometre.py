@@ -798,14 +798,25 @@ class App(tk.Tk):
         t3.bind("<Configure>", _on_configure_inner)
         diag_canvas.bind("<Configure>", _on_configure_outer)
 
-        # Molette de souris (Windows / Linux)
+        # Molette de souris (Windows / Linux). On n'active les bindings
+        # globaux QUE quand le pointeur survole le canvas Diagnostic —
+        # sinon la molette détourne le scroll des autres onglets
+        # (tables Sondages, Dégradations, Contreforts) qui ont leur
+        # propre scrollbar.
         def _on_mousewheel(event):
             diag_canvas.yview_scroll(int(-event.delta / 120), "units")
         def _on_mousewheel_linux(event):
             diag_canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
-        diag_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        diag_canvas.bind_all("<Button-4>", _on_mousewheel_linux)
-        diag_canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+        def _bind_wheel(_e):
+            diag_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            diag_canvas.bind_all("<Button-4>", _on_mousewheel_linux)
+            diag_canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+        def _unbind_wheel(_e):
+            diag_canvas.unbind_all("<MouseWheel>")
+            diag_canvas.unbind_all("<Button-4>")
+            diag_canvas.unbind_all("<Button-5>")
+        diag_canvas.bind("<Enter>", _bind_wheel)
+        diag_canvas.bind("<Leave>", _unbind_wheel)
 
         # --- Boutons d'export EN HAUT (toujours accessibles) ---
         btn_exp = ttk.Frame(t3, style="Panel.TFrame")
