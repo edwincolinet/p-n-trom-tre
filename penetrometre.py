@@ -30,6 +30,7 @@ from app_menu import build_menu
 from app_style import apply_ttk_styles
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
+from pane_diagnostic import DiagnosticPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 
@@ -602,120 +603,12 @@ class App(tk.Tk):
         self.pane_cf = ContrefortsPane(nb, host=self)
         nb.add(self.pane_cf, text="Contreforts")
 
-        # Onglet Diagnostic — wrapper scrollable
-        t3_outer = ttk.Frame(nb, style="Panel.TFrame")
-        nb.add(t3_outer, text="Diagnostic")
-
-        # Canvas pour scroll + scrollbar verticale
-        diag_canvas = tk.Canvas(t3_outer, bg=COLOR_PANEL,
-                                 highlightthickness=0, bd=0)
-        diag_scroll = ttk.Scrollbar(t3_outer, orient="vertical",
-                                     command=diag_canvas.yview)
-        diag_canvas.configure(yscrollcommand=diag_scroll.set)
-        diag_canvas.pack(side="left", fill="both", expand=True)
-        diag_scroll.pack(side="right", fill="y")
-
-        # Frame intérieur (le vrai conteneur du contenu)
-        t3 = ttk.Frame(diag_canvas, style="Panel.TFrame", padding=14)
-        t3_window = diag_canvas.create_window((0, 0), window=t3, anchor="nw")
-
-        # Mise à jour de la scrollregion à chaque changement de taille du
-        # contenu, et redimensionnement de la largeur du frame intérieur
-        # pour qu'il occupe toute la largeur visible.
-        def _on_configure_inner(event):
-            diag_canvas.configure(scrollregion=diag_canvas.bbox("all"))
-        def _on_configure_outer(event):
-            diag_canvas.itemconfigure(t3_window, width=event.width)
-        t3.bind("<Configure>", _on_configure_inner)
-        diag_canvas.bind("<Configure>", _on_configure_outer)
-
-        # Molette de souris (Windows / Linux). On n'active les bindings
-        # globaux QUE quand le pointeur survole le canvas Diagnostic —
-        # sinon la molette détourne le scroll des autres onglets
-        # (tables Sondages, Dégradations, Contreforts) qui ont leur
-        # propre scrollbar.
-        def _on_mousewheel(event):
-            diag_canvas.yview_scroll(int(-event.delta / 120), "units")
-        def _on_mousewheel_linux(event):
-            diag_canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
-        def _bind_wheel(_e):
-            diag_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            diag_canvas.bind_all("<Button-4>", _on_mousewheel_linux)
-            diag_canvas.bind_all("<Button-5>", _on_mousewheel_linux)
-        def _unbind_wheel(_e):
-            diag_canvas.unbind_all("<MouseWheel>")
-            diag_canvas.unbind_all("<Button-4>")
-            diag_canvas.unbind_all("<Button-5>")
-        diag_canvas.bind("<Enter>", _bind_wheel)
-        diag_canvas.bind("<Leave>", _unbind_wheel)
-
-        # --- Boutons d'export EN HAUT (toujours accessibles) ---
-        btn_exp = ttk.Frame(t3, style="Panel.TFrame")
-        btn_exp.pack(fill="x", pady=(0, 12))
-        ttk.Button(btn_exp, text="📄 Fiche PDF (arbre courant)",
-                   style="Accent.TButton",
-                   command=self.action_export_pdf_arbre
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="🖼 PNG du dessin", style="Ghost.TButton",
-                   command=self.action_export_png
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="📊 Tableau XLSX", style="Ghost.TButton",
-                   command=self.action_export_prbs_xlsx
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="🌐 Tableau HTML", style="Ghost.TButton",
-                   command=self.action_export_prbs_html
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="📋 CSV mission", style="Ghost.TButton",
-                   command=self.action_export_csv
-                   ).pack(side="left")
-
-        # --- Bloc résumé haut ---
-        ttk.Label(t3, text="Résumé de l'arbre courant",
-                  style="H.TLabel").pack(anchor="w", pady=(4, 4))
-        self.lbl_diag = ttk.Label(
-            t3, text="", style="Panel.TLabel",
-            wraplength=400, justify="left", font=("Helvetica", 10))
-        self.lbl_diag.pack(anchor="w", fill="x", pady=(0, 10))
-
-        # --- Case à cocher affichage des sondages ---
-        self.var_show_sondages = tk.BooleanVar(value=True)
-        cb = ttk.Checkbutton(
-            t3, text="Afficher l'emplacement des sondages sur le dessin",
-            variable=self.var_show_sondages,
-            command=self._toggle_show_sondages, style="TCheckbutton")
-        cb.pack(anchor="w", pady=(0, 10))
-
-        # --- Tableau PRBS par sondage ---
-        ttk.Label(t3, text="Paroi Résiduelle de Bois Sain par sondage",
-                  style="H.TLabel").pack(anchor="w", pady=(4, 4))
-        ttk.Label(t3,
-                  text="Classe colorée selon t/R et le port (barème "
-                       "Silvavenir).",
-                  style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
-
-        prbs_frame = ttk.Frame(t3, style="Panel.TFrame")
-        prbs_frame.pack(fill="x", pady=(0, 10))
-        cols_p = ("n", "dir", "prbs", "tR", "classe")
-        self.tbl_prbs = ttk.Treeview(prbs_frame, columns=cols_p,
-                                     show="headings", height=8)
-        self.tbl_prbs.heading("n", text="N°")
-        self.tbl_prbs.heading("dir", text="Direction")
-        self.tbl_prbs.heading("prbs", text="PRBS (cm)")
-        self.tbl_prbs.heading("tR", text="t/R (%)")
-        self.tbl_prbs.heading("classe", text="Classe")
-        self.tbl_prbs.column("n", width=35, anchor="center")
-        self.tbl_prbs.column("dir", width=80, anchor="center")
-        self.tbl_prbs.column("prbs", width=85, anchor="center")
-        self.tbl_prbs.column("tR", width=70, anchor="center")
-        self.tbl_prbs.column("classe", width=90, anchor="center")
-        self.tbl_prbs.pack(side="left", fill="x", expand=True)
-        # Tags colorés pour les 3 classes
-        self.tbl_prbs.tag_configure(
-            "vert",   background="#E3F1E6", foreground="#1A5A2A")
-        self.tbl_prbs.tag_configure(
-            "orange", background="#FDEBD5", foreground="#8A4A10")
-        self.tbl_prbs.tag_configure(
-            "rouge",  background="#FADBD8", foreground="#7B1B12")
+        # Onglet Diagnostic — extrait dans son propre pane (cf.
+        # pane_diagnostic.py). Le pane possède son sous-canvas
+        # scrollable, ses 5 boutons d'export, son résumé, la checkbox
+        # show_sondages et le tableau PRBS.
+        self.pane_diag = DiagnosticPane(nb, host=self)
+        nb.add(self.pane_diag, text="Diagnostic")
 
     def _build_right(self, parent) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
@@ -920,58 +813,16 @@ class App(tk.Tk):
         if hasattr(self, "pane_cf"):
             self.pane_cf.refresh()
 
-    def _toggle_show_sondages(self) -> None:
-        """Réagit au check/uncheck de la case 'emplacement des sondages'."""
-        self.section.set_show_sondages(self.var_show_sondages.get())
+    def on_show_sondages_toggled(self, show: bool) -> None:
+        """Callback du DiagnosticPane : répercute le toggle sur le
+        SectionCanvas (propriété de l'App)."""
+        self.section.set_show_sondages(show)
 
     def _refresh_diag(self) -> None:
-        a = self._current_arbre()
-
-        # --- Tableau PRBS par sondage ---
-        self.tbl_prbs.delete(*self.tbl_prbs.get_children())
-        if a and a.rayon_tronc_cm > 0:
-            R = a.rayon_tronc_cm
-            port = a.port_arbre
-            deg_ext_par_grade = a.degradation_externe_par_grade()
-            for s in a.sondages:
-                direction = DIRECTION_LABELS.get(s.grade, "")
-                if not direction and s.grade in GRADES:
-                    idx = GRADES.index(s.grade)
-                    for delta in (1, -1, 2, -2):
-                        g2 = GRADES[(idx + delta) % 16]
-                        if DIRECTION_LABELS.get(g2):
-                            direction = f"~{DIRECTION_LABELS[g2]}"
-                            break
-                # PRBS ajustée = bois sain mesuré - dégradation externe
-                # qui couvre cette direction
-                idx_grade = GRADES.index(s.grade) if s.grade in GRADES else 0
-                deg_ext = deg_ext_par_grade[idx_grade]
-                prbs_adj = max(0.0, s.prbs_cm - deg_ext)
-                ratio = prbs_adj / R if R > 0 else 0.0
-                classe = classer_prbs(ratio, port)
-                tag = classe.lower()
-                # Affichage : si dégradation ext. présente, on note
-                # la PRBS ajustée + le composant ext. en parenthèses
-                if deg_ext > 0:
-                    prbs_txt = f"{prbs_adj:g} (–{deg_ext:g} ext.)"
-                else:
-                    prbs_txt = f"{prbs_adj:g}"
-                self.tbl_prbs.insert(
-                    "", "end",
-                    values=(s.numero, f"{direction} ({s.grade} gr)",
-                            prbs_txt,
-                            f"{100*ratio:.1f}",
-                            classe),
-                    tags=(tag,))
-
-        # --- Texte de résumé enrichi ---
-        if not a:
-            self.lbl_diag.configure(
-                text="Renseignez le rayon du tronc et ajoutez des "
-                     "sondages pour obtenir un résumé.")
-            return
-        self.lbl_diag.configure(
-            text="\n".join(a.diagnostic_summary_lines()))
+        """Thin wrapper : le contenu du diagnostic vit dans
+        DiagnosticPane.refresh()."""
+        if hasattr(self, "pane_diag"):
+            self.pane_diag.refresh()
 
     # --- Fichier ----------------------------------------------------
 
