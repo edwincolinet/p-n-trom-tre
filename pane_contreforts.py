@@ -10,10 +10,10 @@ Contrat host (Protocol structural) :
 - `_current_arbre()` : renvoie l'arbre courant ou None.
 - `_debounced_redraw()` : déclenche un redraw du dessin de section.
 
-C'est le pendant `app_actions.add_contrefort` & co (logique d'action)
-+ le bout de `App._build_layout` qui construisait l'onglet (UI) +
-`App._refresh_contreforts_table` (refresh), réunis en un seul module
-cohérent.
+Réunit en un seul module la construction du widget, le refresh depuis
+l'arbre et les trois actions add/edit/del — autrefois éparpillés dans
+`App._build_layout`, `App._refresh_contreforts_table` et l'ancien
+`app_actions.py` (supprimé après l'extraction des trois panes).
 """
 
 from __future__ import annotations

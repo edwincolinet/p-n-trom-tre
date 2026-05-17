@@ -25,12 +25,12 @@ from typing import Optional, Tuple
 # Actions d'export (PNG / PDF / CSV / XLSX / HTML) : adaptateur Tk qui
 # glue les fonctions pures de `pil_render.py` / `export.py` aux
 # filedialogs et au logger applicatif.
-import app_actions
 import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
+from pane_sondages import SondagesPane
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
 from bareme import PORTS_ARBRE, classer_prbs
@@ -47,8 +47,9 @@ from geometry import (
 # Modèle de données : dataclasses sérialisables (Sondage, Arbre, …) avec
 # leur logique métier (extrapolation, PRBS, classification). Voir
 # model.py pour le détail. Sans dépendance Tk/PIL : couvert par les tests.
-# Les classes hors `Arbre`/`Chantier` sont instanciées dans `app_actions.py`
-# (création d'un sondage / dégradation / contrefort vide depuis l'UI).
+# Les classes Sondage/DegradationExterne/Contrefort sont instanciées
+# dans leurs panes respectifs (pane_sondages, pane_degradations,
+# pane_contreforts) au moment de la création depuis l'UI.
 from model import Arbre, Chantier
 
 # Palette partagée Tk ↔ PIL : couleurs UI et mapping classe → hex.
@@ -634,45 +635,10 @@ class App(tk.Tk):
                          sticky="we", pady=(6, 0))
         t1.columnconfigure(1, weight=1)
 
-        # Onglet Sondages
-        t2 = ttk.Frame(nb, style="Panel.TFrame", padding=10)
-        nb.add(t2, text="Sondages")
-        ttk.Label(t2,
-                  text="Chaque ligne = un sondage. Le dessin et les épaisseurs "
-                       "d'altération par direction sont recalculés automatiquement.",
-                  style="Muted.TLabel", wraplength=400, justify="left"
-                  ).pack(anchor="w", pady=(0, 8))
-
-        tbl_frame = ttk.Frame(t2, style="Panel.TFrame")
-        tbl_frame.pack(fill="both", expand=True)
-        cols = ("n", "grade", "dir", "sain", "altere", "comp")
-        self.tbl = ttk.Treeview(tbl_frame, columns=cols, show="headings",
-                                height=12)
-        heads = [("n", "N°", 40), ("grade", "Grade (gr)", 80),
-                 ("dir", "Direction", 80),
-                 ("sain", "Bois sain (cm)", 100),
-                 ("altere", "Altéré (cm)", 95),
-                 ("comp", "Compart.", 85)]
-        for k, lbl, w in heads:
-            self.tbl.heading(k, text=lbl)
-            self.tbl.column(k, width=w, anchor="center")
-        self.tbl.pack(side="left", fill="both", expand=True)
-        sb2 = ttk.Scrollbar(tbl_frame, orient="vertical",
-                            command=self.tbl.yview)
-        sb2.pack(side="right", fill="y")
-        self.tbl.configure(yscrollcommand=sb2.set)
-        self.tbl.bind("<Double-1>", lambda e: self.action_edit_sondage())
-
-        tb = ttk.Frame(t2, style="Panel.TFrame")
-        tb.pack(fill="x", pady=(10, 0))
-        ttk.Button(tb, text="＋ Ajouter sondage", style="Accent.TButton",
-                   command=self.action_add_sondage).pack(side="left")
-        ttk.Button(tb, text="Éditer", style="Ghost.TButton",
-                   command=self.action_edit_sondage
-                   ).pack(side="left", padx=(6, 0))
-        ttk.Button(tb, text="Supprimer", style="Ghost.TButton",
-                   command=self.action_del_sondage
-                   ).pack(side="left", padx=(6, 0))
+        # Onglet Sondages — extrait dans son propre pane (cf.
+        # pane_sondages.py).
+        self.pane_s = SondagesPane(nb, host=self)
+        nb.add(self.pane_s, text="Sondages")
 
         # Onglet Dégradations externes — extrait dans son propre pane
         # (cf. pane_degradations.py).
@@ -1032,35 +998,12 @@ class App(tk.Tk):
         self._refresh_tree_arbres()
 
     # --- Sondages ---------------------------------------------------
-
+    # Le refresh et les actions vivent dans SondagesPane
+    # (pane_sondages.py). Thin wrapper pour les sites qui rafraîchissent
+    # en cascade.
     def _refresh_sondages_table(self) -> None:
-        self.tbl.delete(*self.tbl.get_children())
-        a = self._current_arbre()
-        if not a:
-            return
-        for i, s in enumerate(a.sondages):
-            direction = DIRECTION_LABELS.get(s.grade, "")
-            if not direction and s.grade in GRADES:
-                idx = GRADES.index(s.grade)
-                for delta in (1, -1, 2, -2):
-                    g2 = GRADES[(idx + delta) % 16]
-                    if DIRECTION_LABELS.get(g2):
-                        direction = f"~{DIRECTION_LABELS[g2]}"
-                        break
-            self.tbl.insert("", "end", iid=f"s{i}",
-                            values=(s.numero, f"{s.grade}", direction,
-                                    f"{s.bois_sain_cm:g}",
-                                    f"{s.bois_altere_cm:g}",
-                                    s.compartimentation))
-
-    def action_add_sondage(self) -> None:
-        app_actions.add_sondage(self)
-
-    def action_edit_sondage(self) -> None:
-        app_actions.edit_sondage_selected(self)
-
-    def action_del_sondage(self) -> None:
-        app_actions.del_sondage(self)
+        if hasattr(self, "pane_s"):
+            self.pane_s.refresh()
 
     # ---- Dégradations externes -------------------------------------
     # Le refresh et les actions vivent dans DegradationsPane (cf.
