@@ -30,10 +30,11 @@ from app_menu import build_menu
 from app_style import apply_ttk_styles
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
+from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 
 # Helpers géométriques + barème (fonctions pures testées isolément).
-from bareme import PORTS_ARBRE, classer_prbs
+from bareme import classer_prbs
 from geometry import (
     DIRECTION_LABELS,
     GRADES,
@@ -579,61 +580,11 @@ class App(tk.Tk):
         nb = ttk.Notebook(frame)
         nb.pack(fill="both", expand=True)
 
-        # Onglet Identification
-        t1 = ttk.Frame(nb, style="Panel.TFrame", padding=12)
-        nb.add(t1, text="Identification")
-        self.var_num = tk.StringVar()
-        self.var_essence = tk.StringVar()
-        self.var_h_s = tk.StringVar()
-        self.var_diam = tk.StringVar()
-        self.var_h_arb = tk.StringVar()
-        self.var_port = tk.StringVar(value="libre")
-        self.var_rayon = tk.StringVar(value="20")
-        self.var_meche = tk.StringVar(value="40")
-        self.var_ep_ecorce = tk.StringVar(value="0")
-        self.var_comm = tk.StringVar()
-
-        rows = [
-            ("N° arbre",                  self.var_num, None),
-            ("Essence",                   self.var_essence, None),
-            ("Diamètre sous écorce (cm)", self.var_diam, None),
-            ("Rayon du tronc (cm)",       self.var_rayon, None),
-            ("Longueur de la mèche (cm)", self.var_meche, None),
-            ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
-            ("Hauteur du sondage (cm)",   self.var_h_s, None),
-            ("Hauteur de l'arbre (m)",    self.var_h_arb, None),
-            ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
-            ("Commentaire",               self.var_comm, None),
-        ]
-        for i, (lbl, var, choices) in enumerate(rows):
-            ttk.Label(t1, text=lbl, style="Panel.TLabel").grid(
-                row=i, column=0, sticky="w", pady=5, padx=(0, 10))
-            if choices:
-                w = ttk.Combobox(t1, textvariable=var, values=choices,
-                                 state="readonly", width=30)
-            else:
-                w = ttk.Entry(t1, textvariable=var, width=32)
-            w.grid(row=i, column=1, sticky="we", pady=5)
-            var.trace_add("write", lambda *a: self._sync_ui_to_model())
-
-        # Note d'aide sous les champs
-        ttk.Label(t1,
-                  text="ⓘ Saisir le diamètre sous écorce calcule le rayon "
-                       "automatiquement (÷ 2). Le rayon reste modifiable "
-                       "indépendamment si besoin.",
-                  style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(rows), column=0, columnspan=2,
-                         sticky="we", pady=(10, 0))
-        ttk.Label(t1,
-                  text="ⓘ Si vous corrigez le rayon après avoir saisi des "
-                       "sondages, la PRBS (bois sain) reste inchangée car "
-                       "elle correspond à la mesure physique du "
-                       "pénétromètre. Le bois altéré est recalculé "
-                       "automatiquement (= rayon − bois sain).",
-                  style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(rows)+1, column=0, columnspan=2,
-                         sticky="we", pady=(6, 0))
-        t1.columnconfigure(1, weight=1)
+        # Onglet Identification — extrait dans son propre pane (cf.
+        # pane_identification.py). Le pane possède ses 10 StringVars,
+        # la règle de cohérence Ø ↔ Rayon et la synchro UI ↔ modèle.
+        self.pane_id = IdentificationPane(nb, host=self)
+        nb.add(self.pane_id, text="Identification")
 
         # Onglet Sondages — extrait dans son propre pane (cf.
         # pane_sondages.py).
@@ -800,66 +751,22 @@ class App(tk.Tk):
         self.chantier.operateur = self.var_ch_ope.get()
         self.chantier.date_releve = self.var_ch_date.get()
 
-    def _sync_ui_to_model(self) -> None:
-        if self._suspend_sync:
-            return
-        a = self._current_arbre()
-        if not a:
-            return
-
-        # Détecter lequel des deux champs Ø / rayon vient d'être modifié
-        # pour répercuter automatiquement sur l'autre (sans boucle infinie).
-        try:
-            new_diam = float(self.var_diam.get() or 0)
-        except ValueError:
-            new_diam = a.diametre_sous_ecorce_cm
-        try:
-            new_rayon = float(self.var_rayon.get() or 0)
-        except ValueError:
-            new_rayon = a.rayon_tronc_cm
-
-        diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
-        rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
-
-        try:
-            a.numero_arbre = self.var_num.get()
-            a.essence = self.var_essence.get()
-            a.hauteur_sondage_cm = float(self.var_h_s.get() or 0)
-            a.hauteur_arbre_m = float(self.var_h_arb.get() or 0)
-            a.meche_cm = float(self.var_meche.get() or 0)
-            a.epaisseur_ecorce_cm = max(0.0,
-                float(self.var_ep_ecorce.get() or 0))
-            a.port_arbre = self.var_port.get()
-            a.commentaire = self.var_comm.get()
-
-            # Règle de cohérence Ø / rayon :
-            # - si l'utilisateur a édité le diamètre, on recalcule le rayon
-            # - si l'utilisateur a édité le rayon, on laisse le diamètre tel quel
-            #   (cas "j'ai mesuré directement sur le sondage")
-            # La règle métier "PRBS préservée, bois altéré recalculé"
-            # est portée par `Arbre.set_rayon` (modèle, testée).
-            if diam_changed and not rayon_changed:
-                a.diametre_sous_ecorce_cm = new_diam
-                ajustement = a.set_rayon(new_diam / 2.0)
-                # répercuter dans l'UI sans redéclencher la synchro
-                with self._suspend_sync_block():
-                    self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-            else:
-                a.diametre_sous_ecorce_cm = new_diam
-                ajustement = a.set_rayon(new_rayon)
-        except ValueError:
-            return
-
-        if ajustement:
-            # Les valeurs altéré/profondeur des sondages et dégradations
-            # ont été recalculées par set_rayon — on rafraîchit les
-            # tableaux. La colonne "Largeur (cm)" des contreforts dépend
-            # elle aussi de R, donc on rafraîchit la table contreforts.
+    def on_identification_changed(self, *, rayon_adjusted: bool) -> None:
+        """Callback appelé par `IdentificationPane` quand l'utilisateur
+        modifie un champ. Si le rayon a été ajusté, les sondages et
+        dégradations ont vu leur bois altéré / profondeur recalculés
+        par `set_rayon` : on rafraîchit les trois tables. Sinon on
+        redessine seulement et on met à jour la ligne de l'arbre dans
+        la liste de gauche (n°, essence).
+        """
+        if rayon_adjusted:
             self._refresh_sondages_table()
             self._refresh_degradations_table()
             self._refresh_contreforts_table()
-
         self._debounced_redraw()
+        a = self._current_arbre()
+        if not a:
+            return
         sel = self.tree_arbres.selection()
         if sel:
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
@@ -867,21 +774,9 @@ class App(tk.Tk):
                                   values=(a.essence,))
 
     def _load_arbre_to_ui(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        with self._suspend_sync_block():
-            self.var_num.set(a.numero_arbre)
-            self.var_essence.set(a.essence)
-            self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-            self.var_h_s.set(f"{a.hauteur_sondage_cm:g}" if a.hauteur_sondage_cm else "")
-            self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}" if a.diametre_sous_ecorce_cm else "")
-            self.var_h_arb.set(f"{a.hauteur_arbre_m:g}" if a.hauteur_arbre_m else "")
-            self.var_meche.set(f"{a.meche_cm:g}" if a.meche_cm else "40")
-            self.var_ep_ecorce.set(f"{a.epaisseur_ecorce_cm:g}"
-                                    if a.epaisseur_ecorce_cm else "0")
-            self.var_port.set(a.port_arbre)
-            self.var_comm.set(a.commentaire)
+        """Recharge l'UI complète depuis l'arbre courant : identification
+        + tables Sondages/Dégradations/Contreforts + redraw du dessin."""
+        self.pane_id.load_from_arbre()
         self._refresh_sondages_table()
         self._refresh_degradations_table()
         self._refresh_contreforts_table()
@@ -994,7 +889,10 @@ class App(tk.Tk):
             if not confirmer:
                 return
         a.numero_arbre = new
-        self.var_num.set(new)
+        # Pane recharge ses 10 vars depuis l'arbre (suspend interne) —
+        # plus simple que de toucher une var précise sans déclencher la
+        # trace.
+        self.pane_id.load_from_arbre()
         self._refresh_tree_arbres()
 
     # --- Sondages ---------------------------------------------------
