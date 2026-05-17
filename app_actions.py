@@ -11,25 +11,48 @@ suit le même protocole :
 4. en cas de succès : mute l'arbre, renumérote, rafraîchit la table et
    demande un redraw du dessin.
 
-Aucune dépendance vers `penetrometre.py` (pas de cycle). Les fonctions
-sont volontairement « duck-typées » sur `app` : elles n'accèdent qu'à
-`app._current_arbre()`, `app._refresh_*`, `app._debounced_redraw`, et
-aux trois tables Tk (`tbl`, `tbl_de`, `tbl_cf`).
+Aucune dépendance vers `penetrometre.py` (pas de cycle). Le contrat
+attendu de `app` est formalisé par le `AppHost` (Protocol) ci-dessous —
+c'est purement statique (aucun coût runtime), ça remplace le
+« duck-typing » historique qui n'attrapait les fautes de frappe qu'à
+l'exécution.
 
 L'analogue de ce module pour les actions d'export est `app_exports.py`.
 """
 
 from __future__ import annotations
 
+from tkinter import ttk
+from typing import Optional, Protocol
+
 from dialogs import edit_contrefort, edit_degradation, edit_sondage
-from model import Contrefort, DegradationExterne, Sondage
+from model import Arbre, Contrefort, DegradationExterne, Sondage
+
+
+class AppHost(Protocol):
+    """Surface minimale de la fenêtre `App` consommée par ce module.
+
+    `App` (dans `penetrometre.py`) satisfait ce Protocol par structure
+    (PEP 544) — aucun héritage à déclarer côté `App`. Les types-checkers
+    (Pyright/mypy) vérifient le contrat ; à l'exécution, c'est du duck-
+    typing transparent.
+    """
+    tbl: ttk.Treeview
+    tbl_de: ttk.Treeview
+    tbl_cf: ttk.Treeview
+
+    def _current_arbre(self) -> Optional[Arbre]: ...
+    def _refresh_sondages_table(self) -> None: ...
+    def _refresh_degradations_table(self) -> None: ...
+    def _refresh_contreforts_table(self) -> None: ...
+    def _debounced_redraw(self) -> None: ...
 
 
 # ----------------------------------------------------------------------
 # Sondages
 # ----------------------------------------------------------------------
 
-def add_sondage(app) -> None:
+def add_sondage(app: AppHost) -> None:
     a = app._current_arbre()
     if not a:
         return
@@ -42,7 +65,7 @@ def add_sondage(app) -> None:
         app._debounced_redraw()
 
 
-def edit_sondage_selected(app) -> None:
+def edit_sondage_selected(app: AppHost) -> None:
     sel = app.tbl.selection()
     if not sel:
         return
@@ -56,7 +79,7 @@ def edit_sondage_selected(app) -> None:
         app._debounced_redraw()
 
 
-def del_sondage(app) -> None:
+def del_sondage(app: AppHost) -> None:
     sel = app.tbl.selection()
     if not sel:
         return
@@ -74,7 +97,7 @@ def del_sondage(app) -> None:
 # Dégradations externes
 # ----------------------------------------------------------------------
 
-def add_degradation(app) -> None:
+def add_degradation(app: AppHost) -> None:
     a = app._current_arbre()
     if not a:
         return
@@ -88,7 +111,7 @@ def add_degradation(app) -> None:
         app._debounced_redraw()
 
 
-def edit_degradation_selected(app) -> None:
+def edit_degradation_selected(app: AppHost) -> None:
     sel = app.tbl_de.selection()
     if not sel:
         return
@@ -102,7 +125,7 @@ def edit_degradation_selected(app) -> None:
         app._debounced_redraw()
 
 
-def del_degradation(app) -> None:
+def del_degradation(app: AppHost) -> None:
     sel = app.tbl_de.selection()
     if not sel:
         return
@@ -120,7 +143,7 @@ def del_degradation(app) -> None:
 # Contreforts
 # ----------------------------------------------------------------------
 
-def add_contrefort(app) -> None:
+def add_contrefort(app: AppHost) -> None:
     a = app._current_arbre()
     if not a:
         return
@@ -133,7 +156,7 @@ def add_contrefort(app) -> None:
         app._debounced_redraw()
 
 
-def edit_contrefort_selected(app) -> None:
+def edit_contrefort_selected(app: AppHost) -> None:
     sel = app.tbl_cf.selection()
     if not sel:
         return
@@ -147,7 +170,7 @@ def edit_contrefort_selected(app) -> None:
         app._debounced_redraw()
 
 
-def del_contrefort(app) -> None:
+def del_contrefort(app: AppHost) -> None:
     sel = app.tbl_cf.selection()
     if not sel:
         return
