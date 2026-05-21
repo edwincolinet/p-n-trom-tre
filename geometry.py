@@ -298,3 +298,23 @@ def degradation_externe_outline(deg: Any,
         outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g))
         inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g))
     return outer_pts + list(reversed(inner_pts))
+
+
+# ----------------------------------------------------------------------
+# Règle graduée — pas adaptatif (présentation, partagé Tk ↔ PIL)
+# ----------------------------------------------------------------------
+
+def adaptive_ruler_step_cm(scale_px_per_cm: float,
+                           min_gap_px: float) -> int:
+    """Pas de graduation (en cm) tel que deux étiquettes consécutives
+    soient séparées d'au moins `min_gap_px` pixels.
+
+    On choisit dans la suite 1, 2, 5, 10, 20, 50, 100 — multiples
+    « naturels » pour qu'un œil humain reconnaisse vite la grille. Le
+    seuil `min_gap_px` dépend de la taille de la police du renderer
+    (Tk : police petite → ≈ 24 px ; PIL : police grande → ≈ 50 px).
+    """
+    for step in (1, 2, 5, 10, 20, 50, 100):
+        if step * scale_px_per_cm >= min_gap_px:
+            return step
+    return 100

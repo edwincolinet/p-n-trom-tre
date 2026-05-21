@@ -36,6 +36,7 @@ from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
 from geometry import (
     DIRECTION_LABELS,
     GRADES,
+    adaptive_ruler_step_cm,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
@@ -214,7 +215,9 @@ def render_arbre_to_pil_image(arbre: "Arbre",
         legend_y = y_axis + max(50, int(height * 0.045))
         _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
                                      width=width, height=height,
-                                     font_fn=f)
+                                     font_fn=f,
+                                     show_sondage_item=False,
+                                     show_classes=False)
     return img
 
 
@@ -395,61 +398,49 @@ def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
 
 def _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height) -> float:
     """Dessine la règle graduée sous la section et renvoie son ordonnée
-    `y_axis`. La portion bois [-R, +R] est en trait noir fin ; les
-    portions écorce ([-R_ext, -R] et [+R, +R_ext]) sont des barres brun
-    foncé épaisses qui évoquent l'écorce — l'œil mesure bois et écorce
-    sur la même règle.
+    `y_axis`. Demi-règle : 0 AU CENTRE de l'arbre, graduation seulement
+    vers la droite jusqu'à R (bord du bois). La portion bois est en
+    trait noir fin ; la barre écorce (si ep > 0) prolonge la règle
+    jusqu'à R+ep, sans label numérique.
     """
     radius_ext_px = R_ext * scale
-    step = 5 if R >= 15 else (2 if R >= 6 else 1)
+    # Pas adaptatif : on veut ~50 px mini entre deux étiquettes pour la
+    # police 18 pt de la fiche.
+    step = adaptive_ruler_step_cm(scale, min_gap_px=50)
     y_axis = min(cy + radius_ext_px + 105, height - 60)
     wood_half_px = R * scale
     ext_half_px = R_ext * scale
-    x_lw, x_rw = cx - wood_half_px, cx + wood_half_px
-    x_le, x_re = cx - ext_half_px, cx + ext_half_px
+    x_rw = cx + wood_half_px
+    x_re = cx + ext_half_px
 
-    # Trait bois (noir fin) au centre
-    d.line([x_lw, y_axis, x_rw, y_axis], fill=COLOR_INK, width=3)
-    # Barres écorce (brun foncé épais) aux extrémités
+    # Trait bois (noir fin) du centre au bord droit
+    d.line([cx, y_axis, x_rw, y_axis], fill=COLOR_INK, width=3)
+    # Barre écorce (brun foncé épais) à l'extrémité droite
     if ep > 0:
         bar_h = 10
-        d.rectangle([x_le, y_axis - bar_h/2,
-                     x_lw, y_axis + bar_h/2], fill=COLOR_BARK)
         d.rectangle([x_rw, y_axis - bar_h/2,
                      x_re, y_axis + bar_h/2], fill=COLOR_BARK)
-    # Tirets aux extrémités externes (R+ep)
+    # Tiret à l'extrémité externe (R+ep)
     end_color = COLOR_BARK if ep > 0 else COLOR_INK
-    d.line([x_le, y_axis-12, x_le, y_axis+12], fill=end_color, width=3)
     d.line([x_re, y_axis-12, x_re, y_axis+12], fill=end_color, width=3)
-    # Tirets à la transition bois/écorce (R)
+    # Tiret central (origine 0) et transition bois/écorce (R)
+    d.line([cx, y_axis-9, cx, y_axis+9], fill=COLOR_INK, width=3)
     if ep > 0:
-        d.line([x_lw, y_axis-9, x_lw, y_axis+9], fill=COLOR_INK, width=3)
         d.line([x_rw, y_axis-9, x_rw, y_axis+9], fill=COLOR_INK, width=3)
-    # Graduations intermédiaires (bois) tous les `step` cm, exclues à R
-    # (déjà marquée par le tiret de transition).
-    for r in range(step, int(R), step):
-        rr = r * scale
-        for sign in (-1, 1):
-            xg = cx + sign * rr
+    # Graduations intermédiaires (bois) tous les `step` cm depuis 0
+    # (centre) jusqu'à R (bord droit).
+    if R > 0:
+        for r in range(step, int(R), step):
+            xg = cx + r * scale
             d.line([xg, y_axis-7, xg, y_axis+7], fill=COLOR_INK, width=2)
             d.text((xg, y_axis+28), f"{r}",
                    font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Étiquette à R en gras
-    if R > 0:
-        label_R = f"{R:g}"
-        for xg in (x_lw, x_rw):
-            d.text((xg, y_axis+28), label_R,
-                   font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Étiquette à R+ep — décalée d'une ligne si ep_px < 45.
-    if ep > 0:
-        label_ext = f"{R + ep:g}"
-        ext_y = y_axis + (52 if ep * scale < 45 else 28)
-        for xg in (x_le, x_re):
-            d.text((xg, ext_y), label_ext,
-                   font=f(18, "sans_bold"), fill=COLOR_BARK, anchor="mm")
-    # Repère "0" au centre + label "cm" à droite
-    d.text((cx, y_axis+28), "0",
-           font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        # Étiquettes des deux extrémités : 0 au centre, R au bord
+        d.text((cx, y_axis+28), "0",
+               font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        d.text((x_rw, y_axis+28), f"{R:g}",
+               font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    # Label "cm" à droite
     d.text((x_re+35, y_axis), "cm",
            font=f(20, "sans_bold"), fill=COLOR_INK, anchor="lm")
     return y_axis
@@ -473,17 +464,22 @@ def _pil_draw_titre(d, f, arbre, R, width, height) -> None:
 
 
 def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
-                                font_fn) -> None:
+                                font_fn, *,
+                                show_sondage_item: bool = True,
+                                show_classes: bool = True) -> None:
     """Dessine la légende du dessin de section sur UNE LIGNE horizontale,
     centrée, sous la règle graduée.
 
     Légende adaptative : on n'affiche que les éléments effectivement
     présents sur le dessin (Bois dégradé seulement s'il y a des
     altérations ou dégradations externes ; Écorce seulement si une
-    épaisseur > 0 a été renseignée ; etc.). Les classes du sondage
-    (Vert/Orange/Rouge) sont toujours affichées si l'arbre a au moins
-    un sondage — elles documentent la signification des pastilles
-    colorées sur le dessin.
+    épaisseur > 0 a été renseignée ; etc.).
+
+    `show_sondage_item` / `show_classes` permettent à l'appelant de
+    réduire la légende : l'export PNG la veut minimaliste (bois sain /
+    bois dégradé / écorce), la fiche PDF garde la flèche « Sondage »
+    mais retire le bloc « Classe du sondage » (les pastilles colorées
+    sont déjà explicitées par le tableau PRBS).
     """
     ep = max(0.0, arbre.epaisseur_ecorce_cm)
     has_decay = (
@@ -506,13 +502,13 @@ def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
         items.append(("rot", "Bois dégradé"))
     if has_bark:
         items.append(("bark", "Écorce"))
-    if has_sondages:
+    if has_sondages and show_sondage_item:
         items.append(("arrow", "Sondage"))
 
     classes = tuple(
         (label, COULEUR_CLASSE[label])
         for label in (CLASSE_VERT, CLASSE_ORANGE, CLASSE_ROUGE)
-    ) if has_sondages else ()
+    ) if (has_sondages and show_classes) else ()
     classes_prefix = "Classe du sondage :"
 
     # Pré-calcul des largeurs pour centrer le bloc complet.
@@ -716,7 +712,8 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # pour donner des polices ≈ 16 pt et des pastilles bien lisibles.
     if R > 0:
         _draw_horizontal_legend_pil(d, arbre, y_top=y,
-                                     width=W, height=900, font_fn=f)
+                                     width=W, height=900, font_fn=f,
+                                     show_classes=False)
         y += est_legend_h
 
     # --- Tableau PRBS ajustée par sondage ---
@@ -734,7 +731,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         for w in col_widths:
             cols_x.append(cols_x[-1] + w)
         # cols_x = [60, 130, 350, 620, 750, 910, 1180]
-        headers = ["N°", "Direction", "PRBS ajustée (cm)", "t/R (%)",
+        headers = ["N°", "Direction", "PRBS (cm)", "t/R (%)",
                    "Classe", "Compart."]
         # Alignement : N° et nombres à droite ; texte à gauche.
         right_align = {0, 3}            # N°, t/R (%)

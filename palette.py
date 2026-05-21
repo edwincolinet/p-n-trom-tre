@@ -57,8 +57,10 @@ COLOR_CERNE      = "#2A1F10"   # cernes : brun très foncé presque noir
 # COLOR_ROT distinct de COLOR_BARK : la dégradation (cavité interne et
 # dégradation externe) doit se voir comme un brun NETTEMENT plus foncé
 # que l'écorce intacte, pour que la « plaie » soit lisible quand elle
-# traverse la couche d'écorce.
-COLOR_ROT        = "#3E2510"   # brun très foncé : bois dégradé
+# traverse la couche d'écorce. On vise un contraste fort en restant sur
+# une teinte chaude (pas du gris) — l'œil doit lire « plaie profonde »
+# vs « écorce intacte ».
+COLOR_ROT        = "#140804"   # quasi-noir chaud : bois dégradé
 COLOR_SOND       = "#1F3A8A"
 
 

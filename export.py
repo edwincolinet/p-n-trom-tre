@@ -3,16 +3,20 @@ Exports stylés du tableau PRBS d'un arbre.
 
 Deux formats au choix :
 - `export_prbs_xlsx`  : fichier .xlsx avec mise en forme (en-têtes
-  colorés, cellules de classe color-codées, bordures, gel de lignes,
+  colorés, cellule t/R color-codée par classe, bordures, gel de lignes,
   largeurs ajustées). Nécessite openpyxl.
 - `export_prbs_html`  : fichier .html autonome (CSS embarqué). Aucune
   dépendance — ouvrable dans n'importe quel navigateur, imprimable en
   PDF via le navigateur.
 
-Le tableau exporté contient une ligne par direction (16 grades, 0 à 375
-par pas de 25), pas une ligne par sondage : les directions extrapolées
-(non directement sondées) sont incluses, ce qui complète l'image que
-voit l'utilisateur dans le dessin.
+Le tableau exporté est calqué sur la fiche Excel d'origine du cabinet
+Silvavenir (`docs/tableau souhaité.png`) :
+- Une ligne d'en-tête « méta arbre » (N° arbre, Hauteur sondage,
+  Diamètre sous écorce, Hauteur de l'arbre).
+- L'en-tête des colonnes.
+- UNE LIGNE PAR SONDAGE (Sondage, Zone sondée, Rayon, Bois sain, Bois
+  altéré, Compartimentation ✓/✗, t/R coloré).
+- Une ligne de légende ✓ = Compartimentation active, ✗ = absente.
 
 Les fonctions reçoivent les objets `arbre` / `chantier` en duck-typing
 (pour ne pas créer de dépendance circulaire avec penetrometre.py) et
@@ -23,9 +27,9 @@ from __future__ import annotations
 
 import html as html_lib
 from datetime import datetime
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Tuple
 
-from geometry import DIRECTION_LABELS, GRADES
+from geometry import GRADES
 
 try:
     from openpyxl import Workbook
@@ -37,146 +41,117 @@ except ImportError:
 
 
 # ----------------------------------------------------------------------
-# Données : une ligne par direction (16 lignes)
+# Données : une ligne par sondage
 # ----------------------------------------------------------------------
-#
-# `GRADES` et `DIRECTION_LABELS` sont importés depuis `geometry.py`
-# (source unique).
 
-
-def prbs_table_rows(arbre: Any, classer_prbs) -> List[dict]:
-    """Construit la liste des 16 entrées prêtes à être rendues.
+def prbs_table_rows_par_sondage(arbre: Any, classer_prbs) -> List[dict]:
+    """Construit la liste des entrées prêtes à être rendues, une par
+    sondage, triées par numéro de sondage (ordre de saisie).
 
     `classer_prbs` est passée en paramètre pour éviter d'importer
-    geometry.py ici (export.py reste autonome).
+    bareme.py ici (export.py reste autonome).
 
     Chaque entrée :
+    - `numero` (int)
     - `grade` (int 0..375)
-    - `direction` (str, "" pour les inter-cardinales)
-    - `sonde` (bool)
-    - `sondage_numeros` (list[int])
-    - `alteration_cm` (float)
-    - `deg_ext_cm` (float)
-    - `prbs_cm` (float)
-    - `ratio_tR` (float, 0..1)
+    - `rayon_cm` (float, identique pour toutes les lignes)
+    - `prbs_cm` (float, PRBS brute mesurée par le sondage)
+    - `bois_altere_cm` (float)
+    - `compartimentation` (str: "active" | "absente" | "-")
+    - `ratio_tR` (float, 0..1, ajusté de la dégradation externe →
+      cohérent avec la pastille colorée sur le dessin)
     - `classe` (str: Vert/Orange/Rouge)
-    - `compartimentation` (str, "—" si extrapolé)
     - `commentaire` (str)
     """
     R = arbre.rayon_tronc_cm
-    prbs = arbre.prbs_par_grade()       # déjà ajusté (interne + externe)
-    deg_ext = arbre.degradation_externe_par_grade()
-    # Altération interne : seule API exposée par le modèle (pure).
-    alt = arbre.compute_alteration_par_grade()
-
-    # Index sondages par grade
-    sondages_par_grade: dict = {}
-    for s in arbre.sondages:
-        sondages_par_grade.setdefault(s.grade, []).append(s)
-
+    # `ratio_tR_par_grade()` retire la dégradation externe avant le
+    # ratio → on prend la même valeur que celle affichée par la
+    # pastille du sondage sur le dessin (cf. CLAUDE.md « Pastille du
+    # sondage = PRBS ajustée »).
+    ratios_par_grade = arbre.ratio_tR_par_grade()
     rows: List[dict] = []
-    for i, g in enumerate(GRADES):
-        sondages = sondages_par_grade.get(g, [])
-        sonde = bool(sondages)
-        ratio = (prbs[i] / R) if R > 0 else 0.0
-        compartim = "—"
-        commentaire = ""
-        sondage_nums: List[int] = []
-        if sonde:
-            sondage_nums = [s.numero for s in sondages]
-            # On agrège les compartimentations distinctes, et on
-            # concatène les commentaires non vides.
-            comparts = sorted({s.compartimentation for s in sondages
-                               if s.compartimentation})
-            compartim = " / ".join(comparts) if comparts else "—"
-            comments = [s.commentaire for s in sondages if s.commentaire]
-            commentaire = " ; ".join(comments)
+    for s in sorted(arbre.sondages, key=lambda x: x.numero):
+        try:
+            idx = GRADES.index(s.grade)
+            ratio = ratios_par_grade[idx]
+        except ValueError:
+            ratio = 0.0
         rows.append({
-            "grade": g,
-            "direction": DIRECTION_LABELS.get(g, ""),
-            "sonde": sonde,
-            "sondage_numeros": sondage_nums,
-            "alteration_cm": alt[i],
-            "deg_ext_cm": deg_ext[i],
-            "prbs_cm": prbs[i],
+            "numero": s.numero,
+            "grade": s.grade,
+            "rayon_cm": R,
+            "prbs_cm": s.prbs_cm,
+            "bois_altere_cm": s.bois_altere_cm,
+            "compartimentation": s.compartimentation or "-",
             "ratio_tR": ratio,
             "classe": classer_prbs(ratio, arbre.port_arbre),
-            "compartimentation": compartim,
-            "commentaire": commentaire,
+            "commentaire": s.commentaire,
         })
     return rows
 
 
 # ----------------------------------------------------------------------
-# Helpers communs
+# Helpers présentation
 # ----------------------------------------------------------------------
 
-def _arbre_meta(arbre: Any) -> List[tuple]:
-    """Liste de (label, valeur) pour l'en-tête identité de l'arbre."""
-    meta = [
-        ("N° arbre", str(arbre.numero_arbre or "—")),
-        ("Essence", arbre.essence or "—"),
-        ("Rayon du tronc", f"{arbre.rayon_tronc_cm:g} cm"),
-        ("Port de l'arbre", arbre.port_arbre or "—"),
-    ]
-    if arbre.diametre_sous_ecorce_cm:
-        meta.append(("Ø sous écorce",
-                     f"{arbre.diametre_sous_ecorce_cm:g} cm"))
-    if arbre.epaisseur_ecorce_cm:
-        meta.append(("Épaisseur d'écorce",
-                     f"{arbre.epaisseur_ecorce_cm:g} cm"))
-    if arbre.hauteur_sondage_cm:
-        meta.append(("Hauteur du sondage",
-                     f"{arbre.hauteur_sondage_cm:g} cm"))
-    if arbre.hauteur_arbre_m:
-        meta.append(("Hauteur de l'arbre",
-                     f"{arbre.hauteur_arbre_m:g} m"))
-    if arbre.meche_cm:
-        meta.append(("Longueur de mèche",
-                     f"{arbre.meche_cm:g} cm"))
-    return meta
+# Glyphes & couleurs pour la colonne « Compartimentation »
+_COMPART_GLYPH = {
+    "active":  ("✓", "2D7A3E"),
+    "absente": ("✗", "C0392B"),
+}
+_COMPART_NEUTRE = ("—", "6E7B73")
 
 
-def _format_prbs(row: dict) -> str:
-    """Formate la PRBS avec, si applicable, le détail de la dégradation
-    externe consommée. Arrondi à 2 décimales pour un affichage propre."""
-    prbs = round(row["prbs_cm"], 2)
-    if row["deg_ext_cm"] > 0:
-        return f"{prbs:g} (–{round(row['deg_ext_cm'], 2):g} ext.)"
-    return f"{prbs:g}"
+def _compart_visual(value: str) -> Tuple[str, str]:
+    """(glyphe, couleur_hex_sans_diese) selon la valeur saisie."""
+    return _COMPART_GLYPH.get((value or "").lower().strip(),
+                              _COMPART_NEUTRE)
 
 
-def _diagnostic_summary(arbre: Any, classer_prbs) -> dict:
-    """Renvoie {tR_moyen, classe_globale, repartition, diagnostic_fiable,
-    extrapolation_text} pour le pied de tableau.
+def _value_or_dash(value: Any, unit: str = "") -> str:
+    """Formate une valeur métier en remplaçant le vide/0 par « — »."""
+    if value in (None, "", 0, 0.0):
+        return "—"
+    if isinstance(value, (int, float)):
+        return f"{value:g}{(' ' + unit) if unit else ''}"
+    return str(value) + ((" " + unit) if unit else "")
 
-    `extrapolation_text` est issu du même appel à `repartition_classes`
-    pour éviter un deuxième passage par la chaîne d'extrapolation.
+
+def _meta_fields(arbre: Any) -> List[Tuple[str, str]]:
+    """4 (label, valeur) de la ligne méta-arbre au-dessus du tableau.
+
+    Calqué sur la fiche Excel d'origine : N° arbre / Hauteur sondage /
+    Diamètre sondage sous écorce / Hauteur de l'arbre.
     """
-    rep = arbre.repartition_classes()
-    return {
-        "tR_moyen": rep["tR_moyen"],
-        "classe_globale": rep["classe_globale"],
-        "vert_n": rep["Vert"]["n"],
-        "orange_n": rep["Orange"]["n"],
-        "rouge_n": rep["Rouge"]["n"],
-        "vert_pct": rep["Vert"]["pct"],
-        "orange_pct": rep["Orange"]["pct"],
-        "rouge_pct": rep["Rouge"]["pct"],
-        "diagnostic_fiable": rep["diagnostic_fiable"],
-        "n_sondees": rep["n_sondees"],
-        "extrapolation_text": rep["extrapolation_text"],
-    }
+    return [
+        ("N° arbre", _value_or_dash(arbre.numero_arbre)),
+        ("Hauteur sondage", _value_or_dash(arbre.hauteur_sondage_cm, "cm")),
+        ("Diamètre sondage sous écorce",
+         _value_or_dash(arbre.diametre_sous_ecorce_cm, "cm")),
+        ("Hauteur", _value_or_dash(arbre.hauteur_arbre_m, "m")),
+    ]
 
 
 # ----------------------------------------------------------------------
 # Export XLSX
 # ----------------------------------------------------------------------
 
-# En-têtes du tableau (ordre des colonnes)
-_HEADERS = ["Grade (gr)", "Direction", "Sondé", "Altération (cm)",
-            "Dégrad. ext. (cm)", "PRBS ajustée (cm)", "t/R (%)",
-            "Classe", "Compartimentation", "Commentaire"]
+# En-têtes du tableau (ordre des colonnes), calqués sur la fiche Excel
+# d'origine du cabinet Silvavenir.
+_HEADERS = [
+    "Sondage",
+    "Zone sondée\n(Grades)",
+    "Rayon du tronc\nsous écorce (cm)",
+    "Épaisseur bois sain\n(cm)",
+    "Épaisseur bois altéré\n(cm)",
+    "Compartimentation",
+    "Proportion de bois sain\nsur le rayon (%)",
+]
+_NCOLS = len(_HEADERS)
+
+# Découpe en colonnes de la ligne méta (chaque méta couvre 1 ou 2
+# colonnes du tableau, total = 7).
+_META_SPANS = [1, 2, 2, 2]
 
 
 def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
@@ -193,60 +168,71 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
     ws = wb.active
     ws.title = "PRBS"
 
-    # Styles ré-utilisés
     BORDER = Border(
-        left=Side(style="thin", color="CCCCCC"),
-        right=Side(style="thin", color="CCCCCC"),
-        top=Side(style="thin", color="CCCCCC"),
-        bottom=Side(style="thin", color="CCCCCC"),
+        left=Side(style="thin", color="999999"),
+        right=Side(style="thin", color="999999"),
+        top=Side(style="thin", color="999999"),
+        bottom=Side(style="thin", color="999999"),
     )
-    HEADER_FILL = PatternFill("solid", fgColor="2D7A3E")
-    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    HEADER_FILL = PatternFill("solid", fgColor="EFEFEF")
+    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="1A2E22")
+    META_FONT = Font(name="Calibri", size=11, color="1A2E22")
     TITLE_FONT = Font(name="Calibri", size=16, bold=True, color="2D7A3E")
-    META_LABEL_FONT = Font(name="Calibri", size=10, bold=True,
-                           color="6E7B73")
-    META_VALUE_FONT = Font(name="Calibri", size=10, color="1A2E22")
-    ROW_FONT = Font(name="Calibri", size=10, color="1A2E22")
-    ROW_ALT_FILL = PatternFill("solid", fgColor="F7F3EA")
+    SUBTITLE_FONT = Font(name="Calibri", size=10, color="6E7B73")
+    ROW_FONT = Font(name="Calibri", size=11, color="1A2E22")
+    LEGEND_FONT = Font(name="Calibri", size=10, italic=True,
+                       color="6E7B73")
 
     LEFT = Alignment(horizontal="left", vertical="center",
                      wrap_text=True, indent=1)
     RIGHT = Alignment(horizontal="right", vertical="center", indent=1)
-    CENTER = Alignment(horizontal="center", vertical="center")
+    CENTER = Alignment(horizontal="center", vertical="center",
+                       wrap_text=True)
 
-    # --- Titre + méta-mission ---
-    ws["A1"] = f"Pénétromètre — {chantier.nom or 'Mission'}"
-    ws["A1"].font = TITLE_FONT
-    ws.merge_cells("A1:J1")
+    last = _NCOLS
 
-    ws["A2"] = ((f"{chantier.adresse} • " if chantier.adresse else "")
-                + (f"Opérateur : {chantier.operateur} • "
-                   if chantier.operateur else "")
-                + f"Relevé du {chantier.date_releve or '—'}")
-    ws["A2"].font = META_VALUE_FONT
-    ws.merge_cells("A2:J2")
-
-    # --- Identité arbre (deux colonnes label / valeur) ---
-    row = 4
-    ws.cell(row=row, column=1, value="Identification de l'arbre").font = \
-        Font(name="Calibri", size=12, bold=True, color="2D7A3E")
+    # --- Titre + sous-titre mission ---
+    row = 1
+    ws.cell(row=row, column=1,
+            value=f"Pénétromètre — {chantier.nom or 'Mission'}").font = \
+        TITLE_FONT
     ws.merge_cells(start_row=row, start_column=1,
-                   end_row=row, end_column=10)
+                   end_row=row, end_column=last)
     row += 1
-    for label, value in _arbre_meta(arbre):
-        ws.cell(row=row, column=1, value=label).font = META_LABEL_FONT
-        ws.cell(row=row, column=2, value=value).font = META_VALUE_FONT
-        row += 1
-    if arbre.commentaire:
-        ws.cell(row=row, column=1, value="Commentaire").font = \
-            META_LABEL_FONT
-        c = ws.cell(row=row, column=2, value=arbre.commentaire)
-        c.font = META_VALUE_FONT
+    subtitle_parts = []
+    if chantier.adresse:
+        subtitle_parts.append(chantier.adresse)
+    if chantier.operateur:
+        subtitle_parts.append(f"Opérateur : {chantier.operateur}")
+    subtitle_parts.append(f"Relevé du {chantier.date_releve or '—'}")
+    if arbre.essence:
+        subtitle_parts.append(f"Essence : {arbre.essence}")
+    if arbre.port_arbre:
+        subtitle_parts.append(f"Port : {arbre.port_arbre}")
+    ws.cell(row=row, column=1,
+            value=" • ".join(subtitle_parts)).font = SUBTITLE_FONT
+    ws.merge_cells(start_row=row, start_column=1,
+                   end_row=row, end_column=last)
+    row += 2  # ligne vide
+
+    # --- Ligne méta arbre (4 cellules réparties sur 7 colonnes) ---
+    meta_row = row
+    col = 1
+    for (label, value), span in zip(_meta_fields(arbre), _META_SPANS):
+        c = ws.cell(row=meta_row, column=col,
+                    value=f"{label} :  {value}")
+        c.font = META_FONT
         c.alignment = LEFT
-        ws.merge_cells(start_row=row, start_column=2,
-                       end_row=row, end_column=10)
-        row += 1
-    row += 1  # ligne vide
+        c.border = BORDER
+        if span > 1:
+            ws.merge_cells(start_row=meta_row, start_column=col,
+                           end_row=meta_row, end_column=col + span - 1)
+            # Bordure visible sur toutes les cellules fusionnées
+            for k in range(span):
+                ws.cell(row=meta_row, column=col + k).border = BORDER
+        col += span
+    ws.row_dimensions[meta_row].height = 26
+    row += 1
 
     # --- En-tête tableau ---
     header_row = row
@@ -256,125 +242,99 @@ def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
         c.fill = HEADER_FILL
         c.alignment = CENTER
         c.border = BORDER
-    ws.row_dimensions[header_row].height = 24
+    ws.row_dimensions[header_row].height = 44
     row += 1
 
-    # --- 16 lignes de données ---
-    rows_data = prbs_table_rows(arbre, classer_prbs)
-    for k, r in enumerate(rows_data):
-        sonde_txt = ", ".join(f"#{n}" for n in r["sondage_numeros"]) \
-            if r["sonde"] else "—"
+    # --- Une ligne par sondage ---
+    rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
+    if not rows_data:
+        c_empty = ws.cell(row=row, column=1,
+                          value="Aucun sondage enregistré.")
+        c_empty.font = Font(name="Calibri", size=10, italic=True,
+                            color="6E7B73")
+        c_empty.alignment = LEFT
+        c_empty.border = BORDER
+        ws.merge_cells(start_row=row, start_column=1,
+                       end_row=row, end_column=last)
+        for k in range(last):
+            ws.cell(row=row, column=k + 1).border = BORDER
+        row += 1
+    classe_col = _NCOLS  # colonne t/R = fond coloré par classe
+    compart_col = 6      # colonne Compartimentation = glyphe coloré
+    for r in rows_data:
         values = [
+            r["numero"],
             r["grade"],
-            r["direction"] or "—",
-            sonde_txt,
-            round(r["alteration_cm"], 2),
-            round(r["deg_ext_cm"], 2) if r["deg_ext_cm"] > 0 else "",
+            round(r["rayon_cm"], 2),
             round(r["prbs_cm"], 2),
+            round(r["bois_altere_cm"], 2),
+            None,                          # rempli ci-dessous
             round(100 * r["ratio_tR"], 1),
-            r["classe"],
-            r["compartimentation"],
-            r["commentaire"],
         ]
-        is_alt = (k % 2 == 1)
         classe_hex = couleur_classe.get(r["classe"], "CCCCCC").lstrip("#")
+        glyph, glyph_hex = _compart_visual(r["compartimentation"])
         for i, v in enumerate(values, start=1):
-            c = ws.cell(row=row, column=i, value=v)
+            c = ws.cell(row=row, column=i)
             c.border = BORDER
             c.font = ROW_FONT
-            if i in (1, 7):       # grade et t/R alignés à droite
-                c.alignment = RIGHT
-            elif i in (2, 3, 8):  # direction, sondé, classe centrés
-                c.alignment = CENTER
-            else:
-                c.alignment = LEFT
-            if i == 8:            # cellule classe : fond coloré
+            c.alignment = CENTER
+            if i == compart_col:
+                c.value = glyph
+                c.font = Font(name="Calibri", size=14, bold=True,
+                              color=glyph_hex)
+            elif i == classe_col:
+                c.value = v
                 c.fill = PatternFill("solid", fgColor=classe_hex)
-                c.font = Font(name="Calibri", size=10, bold=True,
+                c.font = Font(name="Calibri", size=11, bold=True,
                               color="FFFFFF")
-            elif is_alt:
-                c.fill = ROW_ALT_FILL
-        ws.row_dimensions[row].height = 20
+            else:
+                c.value = v
+        ws.row_dimensions[row].height = 24
         row += 1
 
-    # --- Pied : diagnostic global ---
-    diag = _diagnostic_summary(arbre, classer_prbs)
+    # --- Ligne légende sous le tableau ---
     row += 1
-    ws.cell(row=row, column=1, value="Diagnostic global").font = \
-        Font(name="Calibri", size=12, bold=True, color="2D7A3E")
-    ws.merge_cells(start_row=row, start_column=1,
-                   end_row=row, end_column=10)
-    row += 1
-    if not diag["diagnostic_fiable"]:
-        # Avec n_sondees < 2, t/R moyen et classe globale sont
-        # mécaniquement Verts (15 directions à 0). On ne les écrit
-        # pas dans le fichier — un avertissement les remplace.
-        cell_w = ws.cell(
-            row=row, column=1,
-            value=("⚠ Diagnostic global indisponible : il faut au moins "
-                   "2 directions sondées pour extrapoler le pourtour."))
-        cell_w.font = Font(name="Calibri", size=11, bold=True,
-                            color="B00020")
-        cell_w.alignment = LEFT
-        ws.merge_cells(start_row=row, start_column=1,
-                       end_row=row, end_column=10)
-        row += 1
-    else:
-        ws.cell(row=row, column=1,
-                value="t/R moyen (16 directions)").font = META_LABEL_FONT
-        ws.cell(row=row, column=2,
-                value=f"{100*diag['tR_moyen']:.1f} %").font = META_VALUE_FONT
-        row += 1
-        ws.cell(row=row, column=1,
-                value="Classe globale").font = META_LABEL_FONT
-        classe_g = diag["classe_globale"]
-        cell_g = ws.cell(row=row, column=2, value=classe_g)
-        cell_g.font = Font(name="Calibri", size=10, bold=True,
-                            color="FFFFFF")
-        cell_g.fill = PatternFill(
-            "solid",
-            fgColor=couleur_classe.get(classe_g, "CCCCCC").lstrip("#"))
-        cell_g.alignment = CENTER
-        row += 1
-        ws.cell(row=row, column=1,
-                value="Répartition Vert/Orange/Rouge").font = META_LABEL_FONT
-        ws.cell(
-            row=row, column=2,
-            value=(f"{diag['vert_n']}/16  ({diag['vert_pct']:.0f} %) • "
-                   f"{diag['orange_n']}/16  ({diag['orange_pct']:.0f} %) • "
-                   f"{diag['rouge_n']}/16  ({diag['rouge_pct']:.0f} %)")
-        ).font = META_VALUE_FONT
-        ws.merge_cells(start_row=row, start_column=2,
-                       end_row=row, end_column=10)
-        row += 1
-    extra_txt = diag["extrapolation_text"]
-    if extra_txt:
-        ws.cell(row=row, column=1,
-                value="Fiabilité extrapolation").font = META_LABEL_FONT
-        c_extra = ws.cell(row=row, column=2, value=extra_txt)
-        c_extra.font = META_VALUE_FONT
-        c_extra.alignment = LEFT
-        ws.merge_cells(start_row=row, start_column=2,
-                       end_row=row, end_column=10)
-        row += 1
+    legend_row = row
+    # Légende : | "Légende :" | ✓ | "Compartimentation active" | ✗ |
+    # "Pas de compartimentation" | (rien) | (rien) |
+    legend_cells = [
+        ("Légende :", LEGEND_FONT, None),
+        ("✓", Font(name="Calibri", size=14, bold=True,
+                    color=_COMPART_GLYPH["active"][1]), None),
+        ("Compartimentation active", LEGEND_FONT, None),
+        ("✗", Font(name="Calibri", size=14, bold=True,
+                    color=_COMPART_GLYPH["absente"][1]), None),
+        ("Pas de compartimentation", LEGEND_FONT, None),
+    ]
+    for i, (value, font, _) in enumerate(legend_cells, start=1):
+        c = ws.cell(row=legend_row, column=i, value=value)
+        c.font = font
+        c.alignment = CENTER if value in ("✓", "✗") else LEFT
+        c.border = BORDER
+    # Bordures sur les colonnes 6-7 même si vides
+    for k in (6, 7):
+        ws.cell(row=legend_row, column=k).border = BORDER
+    ws.row_dimensions[legend_row].height = 24
     row += 2
+
+    # --- Pied : édition + signature ---
     ws.cell(row=row, column=1,
             value=f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
                   "— Pénétromètre, Silvavenir Foresterie urbaine").font = \
         Font(name="Calibri", size=9, italic=True, color="6E7B73")
     ws.merge_cells(start_row=row, start_column=1,
-                   end_row=row, end_column=10)
+                   end_row=row, end_column=last)
 
-    # --- Largeurs de colonnes ajustées ---
+    # --- Largeurs de colonnes ---
     # NB : on n'utilise PAS `ws.cell(row=1, column=i).column_letter` ici,
-    # car la ligne 1 contient une cellule fusionnée A1:J1 et toutes les
+    # car la ligne 1 contient une cellule fusionnée et toutes les
     # cellules au-delà de A1 sont des `MergedCell` qui n'ont pas
     # `column_letter`. `get_column_letter` est la bonne API.
-    widths = [10, 11, 10, 14, 16, 18, 9, 10, 22, 36]
+    widths = [11, 14, 16, 16, 16, 18, 18]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
-    # --- Gel : tout l'en-tête (titre + identité + en-tête tableau) ---
+    # Gel : tout l'en-tête (titre + méta + en-tête tableau)
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
 
     wb.save(path)
@@ -394,75 +354,48 @@ body {
     padding: 28px 36px;
 }
 h1 { font-size: 22px; color: #2D7A3E; margin: 0 0 4px 0; }
-.meta-mission { color: #6E7B73; font-size: 13px; margin-bottom: 24px; }
-h2 { font-size: 16px; color: #2D7A3E; margin: 18px 0 8px 0; }
-.identity {
-    display: grid;
-    grid-template-columns: max-content 1fr max-content 1fr;
-    gap: 4px 18px;
-    background: #FFFFFF;
-    border: 1px solid #EAE5D8;
-    border-radius: 6px;
-    padding: 14px 18px;
-    font-size: 13px;
-}
-.identity .label {
-    color: #6E7B73; font-weight: 600; text-transform: uppercase;
-    font-size: 11px; letter-spacing: 0.04em;
-}
-.identity .value { color: #1A2E22; }
-.identity .commentaire {
-    grid-column: 1 / -1; margin-top: 6px;
-    color: #1A2E22; font-style: italic;
-}
+.meta-mission { color: #6E7B73; font-size: 13px; margin-bottom: 18px; }
 table {
     border-collapse: collapse; width: 100%; margin-top: 6px;
     background: #FFFFFF; font-size: 13px;
-    border: 1px solid #EAE5D8;
+    border: 1px solid #999999;
 }
+table th, table td {
+    border: 1px solid #999999;
+    padding: 6px 10px;
+}
+.meta-cell {
+    background: #FFFFFF;
+    font-weight: 600;
+    text-align: left;
+}
+.meta-cell .meta-label { color: #6E7B73; font-weight: 600; }
+.meta-cell .meta-value { color: #1A2E22; font-weight: 700;
+                          margin-left: 4px; }
 thead th {
-    background: #2D7A3E; color: white; padding: 10px 12px;
-    text-align: left; font-weight: 600; font-size: 12px;
-    letter-spacing: 0.02em;
+    background: #EFEFEF; color: #1A2E22;
+    text-align: center; font-weight: 700; font-size: 12px;
+    line-height: 1.2;
 }
-thead th.num, thead th.center { text-align: center; }
-tbody td { padding: 8px 12px; border-top: 1px solid #EAE5D8; }
-tbody tr:nth-child(even) { background: #F7F3EA; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.center { text-align: center; }
-td.classe {
-    text-align: center; font-weight: 700; color: white;
+tbody td { text-align: center; font-variant-numeric: tabular-nums; }
+td.tR {
+    font-weight: 700; color: white;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
 }
-td.muted { color: #6E7B73; }
-.diagnostic {
-    margin-top: 24px;
-    background: #FFFFFF;
-    border: 1px solid #EAE5D8;
-    border-radius: 6px;
-    padding: 16px 20px;
-}
-.diagnostic .row { display: flex; align-items: center; gap: 12px;
-                   margin: 6px 0; font-size: 13px; }
-.diagnostic .row .label {
-    color: #6E7B73; font-weight: 600; text-transform: uppercase;
-    font-size: 11px; letter-spacing: 0.04em; min-width: 220px;
-}
-.diagnostic .badge {
-    display: inline-block; padding: 4px 14px; border-radius: 4px;
-    color: white; font-weight: 700;
-}
-.diagnostic .row.warning {
-    color: #B00020; font-weight: 600; font-size: 14px;
-}
+td.compart-active { color: #2D7A3E; font-size: 18px; font-weight: 700; }
+td.compart-absente { color: #C0392B; font-size: 18px; font-weight: 700; }
+td.compart-neutre { color: #6E7B73; }
+.legend-cell { background: #FFFFFF; text-align: center; }
+.legend-label { font-style: italic; color: #6E7B73; text-align: left; }
+.empty-row td { color: #6E7B73; font-style: italic; text-align: left; }
 footer {
     margin-top: 28px; color: #6E7B73; font-size: 11px;
     font-style: italic;
 }
 @media print {
     body { background: white; padding: 12mm; }
-    .identity, table, .diagnostic { box-shadow: none; }
-    thead { display: table-header-group; }  /* répète l'en-tête */
+    table { box-shadow: none; }
+    thead { display: table-header-group; }
 }
 """
 
@@ -477,9 +410,9 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
                      classer_prbs) -> None:
     """Écrit le tableau PRBS dans `path` (.html). Aucun fichier externe :
     le CSS est embarqué."""
-    rows_data = prbs_table_rows(arbre, classer_prbs)
-    diag = _diagnostic_summary(arbre, classer_prbs)
-    title = f"Pénétromètre — {chantier.nom or 'Mission'} — {arbre.numero_arbre or ''}"
+    rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
+    title = (f"Pénétromètre — {chantier.nom or 'Mission'} — "
+             f"{arbre.numero_arbre or ''}")
 
     # En-tête mission
     meta_chunks = []
@@ -488,105 +421,65 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
     if chantier.operateur:
         meta_chunks.append(f"Opérateur : {_h(chantier.operateur)}")
     meta_chunks.append(f"Relevé du {_h(chantier.date_releve or '—')}")
+    if arbre.essence:
+        meta_chunks.append(f"Essence : {_h(arbre.essence)}")
+    if arbre.port_arbre:
+        meta_chunks.append(f"Port : {_h(arbre.port_arbre)}")
     meta_html = " • ".join(meta_chunks)
 
-    # Identité arbre
-    identity_pairs = _arbre_meta(arbre)
-    identity_html = "\n".join(
-        f'<div class="label">{_h(k)}</div>'
-        f'<div class="value">{_h(v)}</div>'
-        for k, v in identity_pairs)
-    if arbre.commentaire:
-        identity_html += (
-            f'\n<div class="commentaire">« {_h(arbre.commentaire)} »</div>')
-
-    # Lignes du tableau
-    body_rows = []
-    for r in rows_data:
-        classe_color = couleur_classe.get(r["classe"], "#CCCCCC")
-        sonde = (", ".join(f"#{n}" for n in r["sondage_numeros"])
-                 if r["sonde"] else "—")
-        sonde_class = "" if r["sonde"] else "muted"
-        deg_ext_cell = (f'{round(r["deg_ext_cm"], 2):g}'
-                        if r["deg_ext_cm"] > 0
-                        else '<span class="muted">—</span>')
-        prbs_cell = _format_prbs(r)
-        compart_cell = (_h(r["compartimentation"])
-                        if r["compartimentation"] != "—"
-                        else '<span class="muted">—</span>')
-        comment_cell = (_h(r["commentaire"]) if r["commentaire"]
-                        else '<span class="muted"></span>')
-        direction_cell = (_h(r["direction"]) if r["direction"]
-                          else '<span class="muted">—</span>')
-        body_rows.append(
-            "<tr>"
-            f'<td class="num">{r["grade"]}</td>'
-            f'<td class="center">{direction_cell}</td>'
-            f'<td class="center {sonde_class}">{_h(sonde)}</td>'
-            f'<td class="num">{round(r["alteration_cm"], 2):g}</td>'
-            f'<td class="num">{deg_ext_cell}</td>'
-            f'<td class="num">{_h(prbs_cell)}</td>'
-            f'<td class="num">{100*r["ratio_tR"]:.1f}</td>'
-            f'<td class="classe" style="background:{classe_color}">'
-            f'{_h(r["classe"])}</td>'
-            f'<td>{compart_cell}</td>'
-            f'<td>{comment_cell}</td>'
-            "</tr>"
-        )
-    body_html = "\n".join(body_rows)
-
-    # Diagnostic
-    extra_txt = diag["extrapolation_text"]
-    extra_row_html = (
-        f'      <div class="row">\n'
-        f'        <span class="label">Fiabilité extrapolation</span>\n'
-        f'        <span>{_h(extra_txt)}</span>\n'
-        f'      </div>\n'
-        if extra_txt else ""
-    )
-    if not diag["diagnostic_fiable"]:
-        # Avec n_sondees < 2, t/R moyen et classe globale sont
-        # mécaniquement Verts → on les masque et on affiche un
-        # avertissement à la place.
-        warn_msg = _h("⚠ Diagnostic global indisponible : il faut au "
-                       "moins 2 directions sondées pour extrapoler le "
-                       "pourtour.")
-        diag_html = f"""
-    <div class="diagnostic">
-      <div class="row warning">
-        <span>{warn_msg}</span>
-      </div>
-{extra_row_html}    </div>
-    """
-    else:
-        classe_g = diag["classe_globale"]
-        classe_g_color = couleur_classe.get(classe_g, "#CCCCCC")
-        diag_html = f"""
-    <div class="diagnostic">
-      <div class="row">
-        <span class="label">t/R moyen (16 directions)</span>
-        <span>{100*diag['tR_moyen']:.1f} %</span>
-      </div>
-      <div class="row">
-        <span class="label">Classe globale</span>
-        <span class="badge" style="background:{classe_g_color}">{_h(classe_g)}</span>
-      </div>
-      <div class="row">
-        <span class="label">Répartition Vert/Orange/Rouge</span>
-        <span>
-          {diag['vert_n']}/16 ({diag['vert_pct']:.0f} %) •
-          {diag['orange_n']}/16 ({diag['orange_pct']:.0f} %) •
-          {diag['rouge_n']}/16 ({diag['rouge_pct']:.0f} %)
-        </span>
-      </div>
-{extra_row_html}    </div>
-    """
+    # Ligne méta arbre (4 cellules, colspans 1/2/2/2)
+    meta_cells_html = "".join(
+        f'<td class="meta-cell" colspan="{span}">'
+        f'<span class="meta-label">{_h(label)} :</span>'
+        f'<span class="meta-value">{_h(value)}</span>'
+        f'</td>'
+        for (label, value), span in zip(_meta_fields(arbre), _META_SPANS))
 
     headers_html = "".join(
-        f'<th class="{cls}">{_h(h)}</th>'
-        for h, cls in zip(_HEADERS, ["num", "center", "center", "num",
-                                       "num", "num", "num", "center",
-                                       "", ""]))
+        f'<th>{_h(h).replace(chr(10), "<br>")}</th>' for h in _HEADERS)
+
+    # Données
+    if not rows_data:
+        body_html = (
+            f'<tr class="empty-row"><td colspan="{_NCOLS}">'
+            'Aucun sondage enregistré.</td></tr>')
+    else:
+        body_rows = []
+        for r in rows_data:
+            classe_color = couleur_classe.get(r["classe"], "#CCCCCC")
+            comp = (r["compartimentation"] or "").lower().strip()
+            if comp == "active":
+                comp_html = '<td class="compart-active">✓</td>'
+            elif comp == "absente":
+                comp_html = '<td class="compart-absente">✗</td>'
+            else:
+                comp_html = '<td class="compart-neutre">—</td>'
+            body_rows.append(
+                "<tr>"
+                f'<td>{r["numero"]}</td>'
+                f'<td>{r["grade"]}</td>'
+                f'<td>{round(r["rayon_cm"], 2):g}</td>'
+                f'<td>{round(r["prbs_cm"], 2):g}</td>'
+                f'<td>{round(r["bois_altere_cm"], 2):g}</td>'
+                f'{comp_html}'
+                f'<td class="tR" style="background:{classe_color}">'
+                f'{100*r["ratio_tR"]:.1f}</td>'
+                "</tr>"
+            )
+        body_html = "\n".join(body_rows)
+
+    # Légende sous le tableau (mêmes colonnes que le tableau)
+    legend_html = (
+        '<tr>'
+        '<td class="legend-label">Légende :</td>'
+        '<td class="legend-cell compart-active">✓</td>'
+        '<td class="legend-cell legend-label" colspan="2">'
+        'Compartimentation active</td>'
+        '<td class="legend-cell compart-absente">✗</td>'
+        '<td class="legend-cell legend-label" colspan="2">'
+        'Pas de compartimentation</td>'
+        '</tr>'
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="fr">
@@ -599,21 +492,16 @@ def export_prbs_html(arbre: Any, chantier: Any, path: str,
 <h1>{_h('Pénétromètre — ' + (chantier.nom or 'Mission'))}</h1>
 <div class="meta-mission">{meta_html}</div>
 
-<h2>Identification de l'arbre</h2>
-<div class="identity">
-{identity_html}
-</div>
-
-<h2>Paroi Résiduelle de Bois Sain — toutes directions</h2>
 <table>
-<thead><tr>{headers_html}</tr></thead>
+<thead>
+<tr>{meta_cells_html}</tr>
+<tr>{headers_html}</tr>
+</thead>
 <tbody>
 {body_html}
+{legend_html}
 </tbody>
 </table>
-
-<h2>Diagnostic global</h2>
-{diag_html}
 
 <footer>
 Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre, Silvavenir Foresterie urbaine.

@@ -34,6 +34,7 @@ from bareme import classer_prbs
 from geometry import (
     DIRECTION_LABELS,
     GRADES,
+    adaptive_ruler_step_cm,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
@@ -387,80 +388,67 @@ class SectionCanvas(tk.Canvas):
                              font=("Helvetica", 10, "bold"), fill="white")
 
     def _draw_regle(self, cx, cy, R, ep, R_ext, scale) -> None:
-        # RÈGLE GRADUÉE sous la section. Portion bois [-R, +R] en trait
-        # noir fin ; portions écorce ([-R_ext, -R] et [+R, +R_ext]) en
-        # barres brun foncé épaisses — l'œil mesure bois et écorce sur
-        # la même règle.
+        # RÈGLE GRADUÉE sous la section, DEMI-RÈGLE : 0 au centre de
+        # l'arbre, graduation seulement vers la droite jusqu'à R (bord
+        # du bois). La barre écorce (si ep > 0) prolonge la règle sans
+        # label numérique — l'épaisseur d'écorce reste lisible via
+        # l'onglet Diagnostic.
         h = max(self.winfo_height(), 1)
         radius_ext_px = R_ext * scale
-        step = 5 if R >= 15 else (2 if R >= 6 else 1)
+        # Pas adaptatif : on veut ~24 px mini entre deux étiquettes pour
+        # la police 8 pt du canvas.
+        step = adaptive_ruler_step_cm(scale, min_gap_px=24)
         # Position verticale : juste sous l'écorce + lettres cardinales
         # + petit padding ; on remonte si on dépasse en bas du canvas.
         y_axis = min(cy + radius_ext_px + 75, h - 30)
         wood_half_px = R * scale
         ext_half_px = R_ext * scale
-        x_lw, x_rw = cx - wood_half_px, cx + wood_half_px
-        x_le, x_re = cx - ext_half_px, cx + ext_half_px
+        x_rw = cx + wood_half_px
+        x_re = cx + ext_half_px
 
-        # Bandeau blanc de fond
-        self.create_rectangle(x_le - 8, y_axis - 14,
+        # Bandeau blanc de fond (centré sur la demi-règle)
+        self.create_rectangle(cx - 8, y_axis - 14,
                               x_re + 35, y_axis + 24,
                               fill="white", outline="")
-        # Trait bois (noir fin) au centre
-        self.create_line(x_lw, y_axis, x_rw, y_axis,
+        # Trait bois (noir fin) du centre au bord droit
+        self.create_line(cx, y_axis, x_rw, y_axis,
                          fill=COLOR_INK, width=2)
-        # Barres écorce aux extrémités
+        # Barre écorce à l'extrémité droite
         if ep > 0:
             bar_h = 7
-            self.create_rectangle(x_le, y_axis - bar_h/2,
-                                  x_lw, y_axis + bar_h/2,
-                                  fill=COLOR_BARK, outline="")
             self.create_rectangle(x_rw, y_axis - bar_h/2,
                                   x_re, y_axis + bar_h/2,
                                   fill=COLOR_BARK, outline="")
-        # Tirets aux extrémités externes (R+ep)
+        # Tiret à l'extrémité externe (R+ep)
         end_color = COLOR_BARK if ep > 0 else COLOR_INK
-        self.create_line(x_le, y_axis - 8, x_le, y_axis + 8,
-                         fill=end_color, width=2)
         self.create_line(x_re, y_axis - 8, x_re, y_axis + 8,
                          fill=end_color, width=2)
-        # Tirets à la transition bois/écorce (R)
+        # Tiret central (origine 0) et transition bois/écorce (R)
+        self.create_line(cx, y_axis - 6, cx, y_axis + 6,
+                         fill=COLOR_INK, width=2)
         if ep > 0:
-            self.create_line(x_lw, y_axis - 6, x_lw, y_axis + 6,
-                             fill=COLOR_INK, width=2)
             self.create_line(x_rw, y_axis - 6, x_rw, y_axis + 6,
                              fill=COLOR_INK, width=2)
-        # Graduations intermédiaires (bois) tous les `step` cm, exclues
-        # à la valeur R (déjà marquée par le tiret de transition).
-        for r in range(step, int(R), step):
-            rr = r * scale
-            for sign in (-1, 1):
-                xg = cx + sign * rr
+        # Graduations intermédiaires (bois) tous les `step` cm depuis 0
+        # (centre) jusqu'à R (bord droit).
+        if R > 0:
+            for r in range(step, int(R), step):
+                xg = cx + r * scale
                 self.create_line(xg, y_axis - 4, xg, y_axis + 4,
                                  fill=COLOR_INK, width=1)
                 self.create_text(xg, y_axis + 15, text=f"{r}",
                                  anchor="center",
                                  font=("Helvetica", 8), fill=COLOR_INK)
-        # Étiquette à R (bord bois/écorce) en gras
-        if R > 0:
-            label_R = f"{R:g}"
-            for xg in (x_lw, x_rw):
-                self.create_text(xg, y_axis + 15, text=label_R,
-                                 anchor="center",
-                                 font=("Helvetica", 8, "bold"),
-                                 fill=COLOR_INK)
-        # Étiquette à R+ep — décalée d'une ligne si écart < 25 px.
-        if ep > 0:
-            label_ext = f"{R + ep:g}"
-            ext_y = y_axis + (27 if ep * scale < 25 else 15)
-            for xg in (x_le, x_re):
-                self.create_text(xg, ext_y, text=label_ext,
-                                 anchor="center",
-                                 font=("Helvetica", 8, "bold"),
-                                 fill=COLOR_BARK)
-        # Repère "0" au centre + label "cm" à droite
-        self.create_text(cx, y_axis + 15, text="0", anchor="center",
-                         font=("Helvetica", 8, "bold"), fill=COLOR_INK)
+            # Étiquettes des deux extrémités : 0 au centre, R au bord
+            self.create_text(cx, y_axis + 15, text="0",
+                             anchor="center",
+                             font=("Helvetica", 8, "bold"),
+                             fill=COLOR_INK)
+            self.create_text(x_rw, y_axis + 15, text=f"{R:g}",
+                             anchor="center",
+                             font=("Helvetica", 8, "bold"),
+                             fill=COLOR_INK)
+        # Label "cm" à droite
         self.create_text(x_re + 18, y_axis, text="cm",
                          anchor="w",
                          font=("Helvetica", 9, "bold italic"),

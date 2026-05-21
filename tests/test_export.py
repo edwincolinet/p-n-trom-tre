@@ -1,9 +1,9 @@
 """Tests de la construction des données du tableau PRBS d'un arbre.
 
-On teste uniquement la fonction pure `prbs_table_rows` (export.py). Les
-exports XLSX et HTML eux-mêmes sont vérifiés en smoke-test manuel : ce
-qui peut casser silencieusement, c'est la mauvaise donnée envoyée au
-formateur, pas le formateur lui-même.
+On teste uniquement la fonction pure `prbs_table_rows_par_sondage`
+(export.py). Les exports XLSX et HTML eux-mêmes sont vérifiés en
+smoke-test : ce qui peut casser silencieusement, c'est la mauvaise
+donnée envoyée au formateur, pas le formateur lui-même.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import unittest
 
 from bareme import classer_prbs
-from export import prbs_table_rows
+from export import prbs_table_rows_par_sondage
 from model import (
     Arbre,
     DegradationExterne,
@@ -19,62 +19,73 @@ from model import (
 )
 
 
-class PrbsTableRowsTests(unittest.TestCase):
+class PrbsTableRowsParSondageTests(unittest.TestCase):
 
-    def test_seize_lignes_meme_sans_sondage(self):
+    def test_aucun_sondage_renvoie_liste_vide(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rows = prbs_table_rows(a, classer_prbs)
-        self.assertEqual(len(rows), 16)
-        # Sans sondages : aucune direction n'est marquée sondée.
-        self.assertTrue(all(not r["sonde"] for r in rows))
-        # PRBS = R partout.
-        self.assertTrue(all(abs(r["prbs_cm"] - 20.0) < 1e-9 for r in rows))
+        rows = prbs_table_rows_par_sondage(a, classer_prbs)
+        self.assertEqual(rows, [])
 
-    def test_grades_dans_l_ordre(self):
+    def test_une_ligne_par_sondage_triee_par_numero(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rows = prbs_table_rows(a, classer_prbs)
-        self.assertEqual([r["grade"] for r in rows],
-                         [i * 25 for i in range(16)])
+        a.sondages.append(Sondage(numero=2, grade=100,
+                                    bois_sain_cm=15.0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(numero=1, grade=0,
+                                    bois_sain_cm=14.0, bois_altere_cm=6.0))
+        rows = prbs_table_rows_par_sondage(a, classer_prbs)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([r["numero"] for r in rows], [1, 2])
 
-    def test_directions_cardinales_uniquement(self):
-        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rows = prbs_table_rows(a, classer_prbs)
-        # Cardinales aux multiples de 50 (N, NE, E, SE, S, SO, O, NO).
-        cardinales = {r["grade"]: r["direction"]
-                      for r in rows if r["direction"]}
-        self.assertEqual(cardinales,
-                         {0: "N", 50: "NE", 100: "E", 150: "SE",
-                          200: "S", 250: "SO", 300: "O", 350: "NO"})
-
-    def test_sondage_direct_marque_la_direction(self):
+    def test_colonnes_fondamentales_par_sondage(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(numero=7, grade=100,
                                     bois_sain_cm=15.0, bois_altere_cm=5.0,
                                     compartimentation="active"))
-        # Au moins 2 sondages requis pour l'extrapolation, mais on teste
-        # seulement la ligne du sondage direct ici, pas l'extrapolation.
         a.sondages.append(Sondage(numero=8, grade=300,
                                     bois_sain_cm=14.0, bois_altere_cm=6.0))
-        rows = prbs_table_rows(a, classer_prbs)
-        ligne_E = next(r for r in rows if r["grade"] == 100)
-        self.assertTrue(ligne_E["sonde"])
-        self.assertEqual(ligne_E["sondage_numeros"], [7])
-        self.assertEqual(ligne_E["compartimentation"], "active")
+        rows = prbs_table_rows_par_sondage(a, classer_prbs)
+        ligne_7 = next(r for r in rows if r["numero"] == 7)
+        self.assertEqual(ligne_7["grade"], 100)
+        self.assertEqual(ligne_7["rayon_cm"], 20.0)
+        self.assertEqual(ligne_7["prbs_cm"], 15.0)
+        self.assertEqual(ligne_7["bois_altere_cm"], 5.0)
+        self.assertEqual(ligne_7["compartimentation"], "active")
+        # t/R doit être compatible avec PRBS / Rayon en l'absence de
+        # dégradation externe (= 15/20 = 0.75).
+        self.assertAlmostEqual(ligne_7["ratio_tR"], 0.75, places=3)
 
-    def test_degradation_externe_reflete_dans_la_ligne(self):
+    def test_ratio_tR_ajuste_de_la_degradation_externe(self):
+        # Sans dégradation externe : t/R = PRBS/R = 15/20 = 0.75.
+        # Avec dégradation externe profondeur 3 cm sur ce grade :
+        # t/R ajusté = (15-3)/20 = 0.60.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        a.sondages.append(Sondage(numero=1, grade=0, bois_altere_cm=2.0))
-        a.sondages.append(Sondage(numero=2, grade=200, bois_altere_cm=2.0))
+        a.sondages.append(Sondage(numero=1, grade=100,
+                                    bois_sain_cm=15.0, bois_altere_cm=5.0))
+        # 2e sondage requis pour rendre le diagnostic « fiable ».
+        a.sondages.append(Sondage(numero=2, grade=300,
+                                    bois_sain_cm=14.0, bois_altere_cm=6.0))
         a.degradations_externes.append(
             DegradationExterne(grade_debut=100, grade_fin=100,
                                 profondeur_cm=3.0))
-        rows = prbs_table_rows(a, classer_prbs)
-        ligne_E = next(r for r in rows if r["grade"] == 100)
-        # PRBS au grade 100 = R - alt(extrapolée) - 3 (dégradation ext.)
-        # alt ext. au grade 100 = 3
-        self.assertAlmostEqual(ligne_E["deg_ext_cm"], 3.0)
-        # PRBS = 20 - alt_int - 3
-        self.assertLess(ligne_E["prbs_cm"], 20.0 - 3.0)
+        rows = prbs_table_rows_par_sondage(a, classer_prbs)
+        ligne = next(r for r in rows if r["numero"] == 1)
+        # PRBS brute reste 15 (mesure directe du sondage).
+        self.assertEqual(ligne["prbs_cm"], 15.0)
+        # t/R, lui, est ajusté.
+        self.assertAlmostEqual(ligne["ratio_tR"], 0.60, places=3)
+
+    def test_classe_assignee_par_le_bareme(self):
+        # Port libre : Vert > 0.30, Orange [0.15, 0.30], Rouge < 0.15.
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(numero=1, grade=0,
+                                    bois_sain_cm=15.0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(numero=2, grade=200,
+                                    bois_sain_cm=2.0, bois_altere_cm=18.0))
+        rows = prbs_table_rows_par_sondage(a, classer_prbs)
+        ligne_1 = next(r for r in rows if r["numero"] == 1)
+        ligne_2 = next(r for r in rows if r["numero"] == 2)
+        self.assertEqual(ligne_1["classe"], "Vert")    # 0.75
+        self.assertEqual(ligne_2["classe"], "Rouge")   # 0.10
 
 
 class XlsxAvailabilityTests(unittest.TestCase):
@@ -142,8 +153,8 @@ class XlsxSmokeTests(unittest.TestCase):
                               classer_prbs=classer_prbs)
             self.assertGreater(os.path.getsize(path), 1000)
 
-            # Vérification structure : les 16 lignes de directions
-            # sont écrites avec les bons grades.
+            # Vérification structure : on retrouve l'en-tête du
+            # tableau et autant de lignes que de sondages.
             #
             # Note : on passe un file handle explicite à `load_workbook`
             # plutôt que le chemin. Sur openpyxl, `Workbook.close()` ne
@@ -154,19 +165,19 @@ class XlsxSmokeTests(unittest.TestCase):
             with open(path, "rb") as f:
                 wb = openpyxl.load_workbook(f)
             ws = wb.active
-            # On cherche la ligne d'en-tête puis on lit les 16 suivantes.
             header_row = next(
                 row for row in range(1, 30)
-                if ws.cell(row=row, column=1).value == "Grade (gr)")
-            grades = [ws.cell(row=header_row + 1 + k, column=1).value
-                      for k in range(16)]
-            self.assertEqual(grades, [i * 25 for i in range(16)])
+                if ws.cell(row=row, column=1).value == "Sondage")
+            # 2 sondages → 2 lignes de données, numéros 1 et 2.
+            numeros = [ws.cell(row=header_row + 1 + k, column=1).value
+                       for k in range(2)]
+            self.assertEqual(numeros, [1, 2])
 
             # Largeurs de colonnes appliquées correctement (régression
             # historique : MergedCell sur la ligne 1 cassait la boucle
             # `ws.column_dimensions[...].width = ...`).
             self.assertGreater(ws.column_dimensions["A"].width, 0)
-            self.assertGreater(ws.column_dimensions["J"].width, 0)
+            self.assertGreater(ws.column_dimensions["G"].width, 0)
         finally:
             if os.path.exists(path):
                 os.unlink(path)
