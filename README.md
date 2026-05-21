@@ -47,7 +47,7 @@ python -m unittest discover tests
 xvfb-run -a python -m unittest discover tests
 ```
 
-134 tests unitaires couvrent :
+135 tests unitaires couvrent :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au
@@ -121,7 +121,7 @@ Liste à gauche, ajout / duplication / suppression d'arbres en un clic.
 - Diamètre sous écorce ↔ rayon (lien automatique : Ø ÷ 2 = rayon)
 - Hauteur du sondage, hauteur de l'arbre
 - Longueur de mèche du pénétromètre (limite la profondeur des flèches)
-- Port de l'arbre : libre / semi-libre / architecturé / traumatique
+- Port de l'arbre : libre / semi-libre / délaissé / architecturé / traumatique
 
 ### Sondages
 
@@ -162,14 +162,16 @@ PRBS de la direction concernée.
   sur les 16 directions
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr » affichée dans le
-  diagnostic Tk, la fiche PDF, l'export XLSX et l'export HTML. Permet
-  de juger au coup d'œil la robustesse du diagnostic.
+  diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la
+  robustesse du diagnostic. Les exports XLSX/HTML, calqués sur la
+  fiche Excel d'origine, ne reprennent pas ce bloc — il reste
+  consultable dans l'onglet Diagnostic et sur la fiche PDF.
 - **Diagnostic non publié si n_sondages < 2** : avec 0 ou 1 sondage,
   l'extrapolation par voisins n'a pas de sens (toutes les directions
   héritent de la même valeur). Le t/R moyen et la classe globale sont
-  alors **supprimés** des exports (PDF, XLSX, HTML), remplacés par un
-  avertissement explicite ; saisir au moins 2 sondages dans des
-  directions différentes pour obtenir un diagnostic.
+  alors **supprimés** de la fiche PDF, remplacés par un avertissement
+  explicite ; saisir au moins 2 sondages dans des directions
+  différentes pour obtenir un diagnostic.
 
 ### Visualisation
 
@@ -179,7 +181,9 @@ PRBS de la direction concernée.
 - Pastilles colorées (Vert / Orange / Rouge) à l'intérieur du tronc,
   juste sous l'écorce, indiquant la classe de chaque sondage
 - Lettres cardinales (N, NE, E, SE, S, SO, O, NO) à l'extérieur
-- Règle graduée sous le tronc, symétrique de −R à +R cm
+- Règle graduée sous le tronc : demi-règle 0 (centre) → R (bord), pas
+  adaptatif selon la taille du dessin pour que les nombres ne se
+  chevauchent jamais
 - Section ronde (interpolation Catmull-Rom des points de sondage)
 
 ### Exports
@@ -188,9 +192,11 @@ PRBS de la direction concernée.
   identité de l'arbre, dessin annoté, tableau PRBS coloré, diagnostic
   avec barre de répartition Vert / Orange / Rouge
 - **PNG** : dessin haute résolution
-- **XLSX** : tableau PRBS d'un arbre, une ligne par direction (16 grades,
-  sondées + extrapolées), classes color-codées, diagnostic en pied.
-  Nécessite [openpyxl](https://pypi.org/project/openpyxl/)
+- **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**
+  (calqué sur la fiche Excel d'origine du cabinet), ligne méta
+  arbre, compartimentation ✓ / ✗ colorée, colonne t/R color-codée
+  par classe, légende sous le tableau. Nécessite
+  [openpyxl](https://pypi.org/project/openpyxl/)
   (`pip install -r requirements.txt`).
 - **HTML** autonome : même tableau, en page imprimable. CSS embarqué,
   ouvrable dans n'importe quel navigateur, aucune dépendance.
@@ -207,7 +213,7 @@ Application du barème selon le port de l'arbre :
 
 | Port de l'arbre | Vert | Orange | Rouge |
 |---|---|---|---|
-| libre / semi-libre | t/R > 30% | 15–30% | < 15% |
+| libre / semi-libre / délaissé | t/R > 30% | 15–30% | < 15% |
 | architecturé / traumatique | t/R > 20% | 10–20% | < 10% |
 
 ## Format de fichier

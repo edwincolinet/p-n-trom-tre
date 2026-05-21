@@ -13,12 +13,13 @@ from __future__ import annotations
 # Ports d'arbre + groupes de barème
 # ----------------------------------------------------------------------
 
-PORTS_ARBRE = ["libre", "semi-libre", "architecturé", "traumatique"]
+PORTS_ARBRE = ["libre", "semi-libre", "délaissé",
+               "architecturé", "traumatique"]
 
 # Groupes de barèmes PRBS (Silvavenir) :
-#   - libre + semi-libre :        Vert > 30 %, Orange 15-30 %, Rouge < 15 %
-#   - architecturé + traumatique : Vert > 20 %, Orange 10-20 %, Rouge < 10 %
-PORTS_GROUPE_LIBRE = ("libre", "semi-libre")
+#   - libre + semi-libre + délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %
+#   - architecturé + traumatique :    Vert > 20 %, Orange 10-20 %, Rouge < 10 %
+PORTS_GROUPE_LIBRE = ("libre", "semi-libre", "délaissé")
 PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
 
 
@@ -62,8 +63,8 @@ def classer_prbs(ratio_tR: float, port_arbre: str) -> str:
     """Classe un sondage selon son ratio t/R et le port de l'arbre.
 
     Seuils Silvavenir :
-    - libre / semi-libre :         Vert > 30 %, Orange 15-30 %, Rouge < 15 %
-    - architecturé / traumatique : Vert > 20 %, Orange 10-20 %, Rouge < 10 %
+    - libre / semi-libre / délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %
+    - architecturé / traumatique :    Vert > 20 %, Orange 10-20 %, Rouge < 10 %
 
     Convention de bornes : seuil haut strict (`>`), seuil bas inclusif
     (`>=`). Donc pile 30 % en port libre est Orange, pile 15 % est

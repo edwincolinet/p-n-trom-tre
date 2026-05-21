@@ -60,7 +60,8 @@ class FromDictTests(unittest.TestCase):
         self.assertEqual(c.arbres[0].port_arbre, "architecturé")
 
     def test_port_recent_preserve(self):
-        for port in ("libre", "semi-libre", "architecturé", "traumatique"):
+        for port in ("libre", "semi-libre", "délaissé",
+                     "architecturé", "traumatique"):
             with self.subTest(port=port):
                 d = {"arbres": [{"numero_arbre": "1", "port_arbre": port}]}
                 c = Chantier.from_dict(d)

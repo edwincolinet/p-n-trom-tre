@@ -34,7 +34,7 @@ bareme.py               ← barème métier Silvavenir (classer_prbs, ports, cla
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (134 tests dont 4 golden-images
+tests/                  ← suite unittest (135 tests dont 4 golden-images
                           PIL et 4 golden-dumps Tk)
 tests/_fixtures.py      ← scénarios d'arbre partagés (PIL + Tk)
 tests/fixtures/         ← PNG (golden PIL) + JSON (golden dump Tk)
@@ -83,8 +83,11 @@ Module dédié à la règle métier de classification :
   l'appartenance à `PORTS_ARBRE`. Renvoie `""` si valeur inconnue ;
   utilisé par `Chantier.from_dict` pour valider `port_arbre` au
   chargement JSON (faute de frappe → log + fallback `"libre"`).
-- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
-  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+- Constantes : `PORTS_ARBRE` (`libre`, `semi-libre`, `délaissé`,
+  `architecturé`, `traumatique`), `PORTS_GROUPE_LIBRE`,
+  `PORTS_GROUPE_STRICT`, `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+  Le port `délaissé` est rangé dans `PORTS_GROUPE_LIBRE` (mêmes seuils
+  30 % / 15 % que `libre`).
 
 Séparé de `geometry.py` pour que le rôle de chaque module soit
 mono-préoccupation : `geometry.py` = géométrie pure, `bareme.py` =
@@ -118,15 +121,35 @@ points `(x, y)` en coordonnées écran, prêtes à passer à
 - `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy,
   scale)` — polygone d'une dégradation externe (bord externe qui suit
   `R+ep+cloche`, bord interne à `outer-profondeur`).
+- `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de
+  graduation (en cm) tel que deux étiquettes consécutives soient
+  séparées d'au moins `min_gap_px` pixels. Choisit dans
+  `(1, 2, 5, 10, 20, 50, 100)`. Utilisé par les deux renderers (Tk
+  `min_gap_px=24`, PIL `min_gap_px=50`) pour que les nombres de la
+  règle ne se chevauchent plus sur les gros troncs.
 
 ### `export.py` — exports tableau PRBS
 
-Module dédié aux deux exports stylés du tableau PRBS d'un arbre :
-- `prbs_table_rows(arbre, classer_prbs)` — pure : 16 dicts (un par
-  direction), inclut sondées + extrapolées + dégradation externe.
+Module dédié aux deux exports stylés du tableau PRBS d'un arbre.
+Le tableau est calqué sur la fiche Excel d'origine du cabinet
+(`docs/tableau souhaité.png`) : **une ligne par sondage** (pas une
+ligne par direction), triée par numéro de saisie, avec une ligne méta
+arbre au-dessus (N° arbre / Hauteur sondage / Ø sondage sous écorce /
+Hauteur de l'arbre) et une ligne de légende ✓/✗ sous le tableau.
+
+- `prbs_table_rows_par_sondage(arbre, classer_prbs)` — pure : un dict
+  par sondage (`numero`, `grade`, `rayon_cm`, `prbs_cm`,
+  `bois_altere_cm`, `compartimentation`, `ratio_tR` ajusté, `classe`,
+  `commentaire`). Le `ratio_tR` retourné est ajusté de la dégradation
+  externe — cohérent avec la pastille colorée du dessin (cf. piège
+  « Pastille du sondage = PRBS ajustée » dans la section **Pièges
+  connus**).
 - `export_prbs_xlsx(arbre, chantier, path, couleur_classe,
   classer_prbs)` — fichier Excel stylé. Nécessite openpyxl (dégradé
   proprement avec `RuntimeError` clair sinon — `HAS_OPENPYXL` flag).
+  Colonne « Compartimentation » : glyphe ✓ vert si active, ✗ rouge si
+  absente, — gris sinon. Colonne « Proportion de bois sain sur le
+  rayon (%) » (= t/R) : fond coloré par classe.
 - `export_prbs_html(arbre, chantier, path, couleur_classe,
   classer_prbs)` — fichier HTML autonome (CSS embarqué, imprimable
   en PDF via le navigateur). Aucune dépendance.
@@ -353,15 +376,22 @@ Organisé en sections séparées par des bandeaux de commentaires :
   surface réelle de l'arbre — son bord externe est à `R + ep + cloche`
   et son bord interne à `outer − profondeur`. Une dégradation qui
   traverse un contrefort y mord à concurrence de sa profondeur.
-- **Règle graduée** sous la section : étendue de `-R_ext` à `+R_ext`.
-  La portion bois `[-R, +R]` est en trait noir fin ; les portions
-  écorce sont des barres brun foncé épaisses.
+- **Règle graduée** sous la section : **demi-règle asymétrique**, `0`
+  au centre de l'arbre, graduation seulement vers la droite jusqu'à
+  `R` (bord du bois). La portion bois est en trait noir fin ; la barre
+  écorce (si `ep > 0`) prolonge la règle jusqu'à `R+ep`, **sans label
+  numérique** (l'épaisseur d'écorce reste lisible dans l'onglet
+  Diagnostic). Le pas de graduation est calculé par
+  `geometry.adaptive_ruler_step_cm(scale, min_gap_px)` pour que deux
+  étiquettes consécutives soient toujours séparées d'au moins
+  `min_gap_px` pixels — empêche les nombres de se chevaucher sur les
+  gros troncs.
 - **Couleurs `BARK` et `ROT` distinctes** : `COLOR_BARK = #5C3A1E`
-  (écorce intacte) ≠ `COLOR_ROT = #3E2510` (bois dégradé, bien plus
-  foncé). C'est essentiel pour que la « plaie » d'une dégradation soit
-  lisible quand elle traverse l'écorce. **Ne jamais réunifier les deux
-  couleurs** — la légende des exports les présente comme deux entrées
-  distinctes (« Bois dégradé » vs « Écorce »).
+  (écorce intacte) ≠ `COLOR_ROT = #140804` (quasi-noir chaud). Le
+  contraste est volontairement fort : la « plaie » d'une dégradation
+  doit être lisible quand elle traverse l'écorce. **Ne jamais
+  réunifier les deux couleurs** — la légende des exports les présente
+  comme deux entrées distinctes (« Bois dégradé » vs « Écorce »).
 
 ## Conventions de code
 
@@ -414,7 +444,7 @@ La suite couvre les fonctions pures à risque métier : barème
 (`polar_to_xy`, `cavity_polygon`, `contrefort_zone_outline`,
 `degradation_externe_outline`), extrapolation de l'altération,
 calcul PRBS, migration JSON et données du tableau exporté
-(`prbs_table_rows`). Un smoke test XLSX est exécuté si openpyxl est
+(`prbs_table_rows_par_sondage`). Un smoke test XLSX est exécuté si openpyxl est
 installé (skip sinon). Lancer la suite avant tout commit qui touche
 au modèle, aux helpers géométriques ou aux exports.
 
@@ -523,7 +553,7 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   134 tests) avant tout commit qui touche au modèle, à la géométrie
+   135 tests) avant tout commit qui touche au modèle, à la géométrie
    ou aux exports. Deux familles de golden-tests :
    - **PIL** (`tests/test_render.py`, 4 scénarios) — régénération :
      `python -m tests.test_render --update` (commit les `.png`).

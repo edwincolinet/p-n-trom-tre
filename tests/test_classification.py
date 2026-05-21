@@ -1,8 +1,8 @@
 """Tests du barème Silvavenir (`classer_prbs`).
 
 Seuils documentés (CLAUDE.md) :
-- libre / semi-libre :         Vert > 30 %, Orange 15-30 %, Rouge < 15 %
-- architecturé / traumatique : Vert > 20 %, Orange 10-20 %, Rouge < 10 %
+- libre / semi-libre / délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %
+- architecturé / traumatique :    Vert > 20 %, Orange 10-20 %, Rouge < 10 %
 
 Les seuils en code sont stricts : `>` pour Vert, `>=` pour Orange.
 """
@@ -44,6 +44,13 @@ class ClasserPrbsLibreTests(unittest.TestCase):
         for tR, attendu in [(0.31, "Vert"), (0.20, "Orange"), (0.10, "Rouge")]:
             with self.subTest(tR=tR):
                 self.assertEqual(classer_prbs(tR, "semi-libre"), attendu)
+
+    def test_delaisse_meme_baremes_que_libre(self):
+        # « Délaissé » = arbre laissé en libre développement après
+        # arrêt d'entretien : seuils du groupe libre.
+        for tR, attendu in [(0.31, "Vert"), (0.20, "Orange"), (0.10, "Rouge")]:
+            with self.subTest(tR=tR):
+                self.assertEqual(classer_prbs(tR, "délaissé"), attendu)
 
 
 class ClasserPrbsStrictTests(unittest.TestCase):
