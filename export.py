@@ -18,16 +18,20 @@ Silvavenir (`docs/tableau souhaité.png`) :
   altéré, Compartimentation ✓/✗, t/R coloré).
 - Une ligne de légende ✓ = Compartimentation active, ✗ = absente.
 
-Les fonctions reçoivent les objets `arbre` / `chantier` en duck-typing
-(pour ne pas créer de dépendance circulaire avec penetrometre.py) et
-le dict `couleur_classe` (label → hex) injecté depuis l'UI.
+Les fonctions reçoivent les objets `arbre` / `chantier` via des
+`Protocol` structurels (`ArbreLike`, `ChantierLike`, `SondageLike`)
+plutôt que par import direct depuis `model.py` : ça garde le module
+autonome (utile pour le tester avec des stubs) tout en donnant à
+mypy la surface attendue. Le dict `couleur_classe` (label → hex) et
+la fonction `classer_prbs` sont injectés depuis l'UI (palette /
+bareme), eux aussi par paramètre pour éviter une dépendance forte.
 """
 
 from __future__ import annotations
 
 import html as html_lib
 from datetime import datetime
-from typing import Any, List, Mapping, Tuple
+from typing import Any, Callable, List, Mapping, Protocol, Tuple
 
 from geometry import GRADES
 
@@ -41,10 +45,56 @@ except ImportError:
 
 
 # ----------------------------------------------------------------------
+# Protocols : surface attendue des objets métier passés en paramètre.
+# Évite un import direct vers `model.py` (qui marcherait, mais qui
+# rendrait `export.py` dépendant du modèle Silvavenir ; les protocols
+# le rendent réutilisable avec n'importe quel objet qui exposerait la
+# même surface, et donnent à mypy le contrat à vérifier côté caller).
+# ----------------------------------------------------------------------
+
+class SondageLike(Protocol):
+    numero: int
+    grade: int
+    bois_altere_cm: float
+    compartimentation: str
+    commentaire: str
+
+    @property
+    def prbs_cm(self) -> float: ...
+
+
+class ArbreLike(Protocol):
+    rayon_tronc_cm: float
+    port_arbre: str
+    numero_arbre: str
+    essence: str
+    hauteur_sondage_cm: float
+    diametre_sous_ecorce_cm: float
+    hauteur_arbre_m: float
+    sondages: List[SondageLike]
+
+    def ratio_tR_par_grade(self) -> List[float]: ...
+
+
+class ChantierLike(Protocol):
+    nom: str
+    adresse: str
+    operateur: str
+    date_releve: str
+
+
+# Signature attendue de `classer_prbs` (cf. bareme.py). Injectée par
+# l'appelant pour éviter d'importer bareme.py ici.
+ClasserPrbs = Callable[[float, str], str]
+
+
+# ----------------------------------------------------------------------
 # Données : une ligne par sondage
 # ----------------------------------------------------------------------
 
-def prbs_table_rows_par_sondage(arbre: Any, classer_prbs) -> List[dict]:
+def prbs_table_rows_par_sondage(arbre: ArbreLike,
+                                 classer_prbs: ClasserPrbs
+                                 ) -> List[dict]:
     """Construit la liste des entrées prêtes à être rendues, une par
     sondage, triées par numéro de sondage (ordre de saisie).
 
@@ -117,7 +167,7 @@ def _value_or_dash(value: Any, unit: str = "") -> str:
     return str(value) + ((" " + unit) if unit else "")
 
 
-def _meta_fields(arbre: Any) -> List[Tuple[str, str]]:
+def _meta_fields(arbre: ArbreLike) -> List[Tuple[str, str]]:
     """4 (label, valeur) de la ligne méta-arbre au-dessus du tableau.
 
     Calqué sur la fiche Excel d'origine : N° arbre / Hauteur sondage /
@@ -154,9 +204,9 @@ _NCOLS = len(_HEADERS)
 _META_SPANS = [1, 2, 2, 2]
 
 
-def export_prbs_xlsx(arbre: Any, chantier: Any, path: str,
+def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                      couleur_classe: Mapping[str, str],
-                     classer_prbs) -> None:
+                     classer_prbs: ClasserPrbs) -> None:
     """Écrit le tableau PRBS dans `path` (.xlsx). `couleur_classe` est
     le dict label → hex injecté depuis la couche UI."""
     if not HAS_OPENPYXL:
@@ -400,14 +450,14 @@ footer {
 """
 
 
-def _h(s) -> str:
+def _h(s: object) -> str:
     """Échappe pour HTML."""
     return html_lib.escape(str(s), quote=True)
 
 
-def export_prbs_html(arbre: Any, chantier: Any, path: str,
+def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
                      couleur_classe: Mapping[str, str],
-                     classer_prbs) -> None:
+                     classer_prbs: ClasserPrbs) -> None:
     """Écrit le tableau PRBS dans `path` (.html). Aucun fichier externe :
     le CSS est embarqué."""
     rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)

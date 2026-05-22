@@ -472,7 +472,7 @@ python -m unittest discover tests
 # fichiers. Toute évolution du modèle / barème / géométrie doit
 # laisser mypy vert.
 ruff check .
-python -m mypy bareme.py geometry.py palette.py model.py persistence.py
+python -m mypy bareme.py geometry.py palette.py model.py persistence.py export.py
 ```
 
 La suite couvre les fonctions pures à risque métier : barème
