@@ -213,7 +213,8 @@ def contrefort_zone_outline(zone: Tuple[float, float],
                             contreforts: List[Any],
                             R: float, ep_cm: float,
                             cx: float, cy: float, scale: float,
-                            R_inner: Any = None) -> dict:
+                            R_inner: Any = None
+                            ) -> Dict[str, List[Tuple[float, float]]]:
     """Pour une zone fusionnée `(a, b)` renvoyée par `contrefort_zones`,
     échantillonne la cloche cosinus² fusionnée et renvoie les listes de
     points qui composent les polygones à dessiner.

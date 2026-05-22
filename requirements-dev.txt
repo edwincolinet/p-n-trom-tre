@@ -9,3 +9,10 @@
 # Linter / sorteur d'imports unifié. Configuration dans `ruff.toml`.
 # Plage 0.15+ : tolère le format `[lint]` séparé qu'on utilise.
 ruff>=0.15,<1
+
+# Vérificateur de types statique. Configuré dans `mypy.ini` : strict
+# uniquement sur le cœur pur (bareme/geometry/palette/model). Les
+# modules Tk/PIL (section_canvas, pil_render, panes) restent non
+# annotés — leur correction visuelle est verrouillée par les
+# golden-tests Tk et PIL.
+mypy>=1.10,<2

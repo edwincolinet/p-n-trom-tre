@@ -48,6 +48,12 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Vérification de types (mypy, cœur pur uniquement)
+        # Configuré dans mypy.ini : strict sur bareme, geometry,
+        # palette, model. Les modules Tk/PIL restent hors périmètre
+        # (golden-tests font foi pour leur correction visuelle).
+        run: python -m mypy bareme.py geometry.py palette.py model.py
+
       - name: Suite de tests (unittest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk
         # (test_section_canvas) s'exécutent au lieu de skipper.

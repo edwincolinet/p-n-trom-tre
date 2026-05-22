@@ -23,7 +23,7 @@ PORTS_GROUPE_LIBRE = ("libre", "semi-libre", "délaissé")
 PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
 
 
-def normaliser_port(value) -> str:
+def normaliser_port(value: object) -> str:
     """Normalise une valeur de port en sa forme canonique.
 
     - Strip + lower sur la chaîne d'entrée.

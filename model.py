@@ -25,7 +25,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from bareme import classer_prbs, normaliser_port
 from geometry import DIRECTION_LABELS, GRADES
@@ -356,7 +356,7 @@ class Arbre:
                                + measured[prev_idx] * w_prev)
         return new_vals
 
-    def extrapolation_summary(self) -> dict:
+    def extrapolation_summary(self) -> Dict[str, int]:
         """Indicateurs bruts de fiabilité de l'extrapolation.
 
         Renvoie un dict :
@@ -628,7 +628,7 @@ class Chantier:
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))
     arbres: List[Arbre] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {"format_version": FORMAT_VERSION,
                 "nom": self.nom, "adresse": self.adresse,
                 "operateur": self.operateur, "date_releve": self.date_releve,
@@ -655,7 +655,7 @@ class Chantier:
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Chantier":
+    def from_dict(cls, d: Dict[str, Any]) -> "Chantier":
         # Compatibilité descendante : un fichier produit par une version
         # plus récente porte un format_version supérieur. Les clés
         # inconnues sont déjà filtrées par dataclass plus bas, mais on
