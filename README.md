@@ -82,7 +82,8 @@ python -m tests.test_section_canvas --update
 
 ```
 mon-dossier/
-├── penetrometre.py             ← App + SectionCanvas + main
+├── penetrometre.py             ← App + main (orchestration Tk)
+├── section_canvas.py           ← SectionCanvas (rendu Tk de la section)
 ├── pane_identification.py      ← onglet Identification (form + sync Ø↔R)
 ├── pane_sondages.py            ← onglet Sondages (table + add/edit/del)
 ├── pane_degradations.py        ← onglet Dégradations externes

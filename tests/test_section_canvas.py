@@ -97,7 +97,7 @@ def _canvas_dump(canvas) -> list:
 def _render_canvas(scenario: str) -> list:
     """Crée une `SectionCanvas`, y charge l'arbre du scénario, et
     retourne le dump des items dessinés."""
-    from penetrometre import SectionCanvas
+    from section_canvas import SectionCanvas
 
     root = tk.Tk()
     # Fenêtre dimensionnée explicitement pour que `winfo_width()`

@@ -229,7 +229,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
 # Helpers de dessin — un par couche logique.
 #
 # **Pendants Tk ↔ PIL**. Chaque helper ci-dessous a un jumeau dans
-# `penetrometre.SectionCanvas` (préfixé `_draw_`) qui dessine la même
+# `section_canvas.SectionCanvas` (préfixé `_draw_`) qui dessine la même
 # couche sur un `tk.Canvas`. La géométrie est partagée via
 # `geometry.py` ; seuls subsistent ici les paramètres visuels propres
 # à PIL (`ImageFont`, ellipse-outline-inside-bbox, polygones explicites

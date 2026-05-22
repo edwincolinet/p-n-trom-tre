@@ -16,7 +16,8 @@ Aucun framework, aucun build system. C'est volontaire : l'app doit pouvoir
 ## Structure
 
 ```
-penetrometre.py        ← App + SectionCanvas + main (≈ 970 lignes)
+penetrometre.py        ← App + main (≈ 590 lignes — orchestration Tk)
+section_canvas.py      ← SectionCanvas (rendu Tk de la section, ≈ 430 l.)
 pane_identification.py  ← onglet Identification (10 vars + sync Ø↔R)
 pane_sondages.py        ← onglet Sondages (table + add/edit/del)
 pane_degradations.py    ← onglet Dégradations externes (idem)
@@ -60,7 +61,7 @@ model.py + palette.py
    ↑
 export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
-pane_*.py + app_exports.py + app_menu.py + app_style.py   (Tk, sans App)
+section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
 penetrometre.py  (Tk + main, classe App)
 ```
@@ -68,8 +69,10 @@ penetrometre.py  (Tk + main, classe App)
 Chaque `pane_*.py` est un widget Tk autonome qui possède ses propres
 vars / table / boutons / refresh / actions, et ne tape sur l'`App` que
 via un `Protocol` (`_*Host`) déclaré en tête du module. C'est ce qui
-permet à `penetrometre.py` (la classe `App`) de tenir en ~970 lignes au
-lieu de ~1400 et d'éviter le god-module.
+permet à `penetrometre.py` (la classe `App`) de tenir en ~590 lignes au
+lieu de ~1400 et d'éviter le god-module. Le rendu Tk de la section a
+lui aussi été extrait dans `section_canvas.py` pour rester symétrique
+à `pil_render.py`.
 
 ## Architecture
 
@@ -283,7 +286,7 @@ intermédiaire, les deux auraient un cycle d'import.
   côté UI affichent alors un message clair et n'appellent pas le
   rendu.
 
-**Tkinter (`penetrometre.SectionCanvas`) et PIL partagent les
+**Tkinter (`section_canvas.SectionCanvas`) et PIL partagent les
 primitives géométriques** définies dans `geometry.py` (`polar_to_xy`,
 `cavity_polygon`, `contrefort_zone_outline`,
 `degradation_externe_outline`). La géométrie ne peut donc plus
@@ -304,20 +307,28 @@ Trois fonctions de niveau module, indépendantes de la classe `App` :
 `_round_to_25` (factorisation des liens automatiques largeur ↔ grade,
 bois sain ↔ altéré).
 
+### `section_canvas.py` — rendu Tkinter de la section
+
+- `class SectionCanvas(tk.Canvas)` : dessine la section transversale
+  en temps réel dans la fenêtre. `redraw()` est un orchestrateur d'une
+  quarantaine de lignes qui enchaîne les helpers `_draw_*` (un par
+  couche logique : bois sain, cernes, cavité, écorce, contreforts,
+  dégradations, ticks, lettres cardinales, sondages, règle graduée,
+  titre). L'ordre d'appel dans `redraw` est l'ordre de superposition
+  (cf. « Ordre global des couches » plus bas).
+- Pendant non-PIL de `pil_render.render_arbre_to_pil_image` :
+  géométrie partagée via `geometry.py`, seuls subsistent ici les
+  paramètres visuels propres à Tk (polices, `outline+width` semantics,
+  splines `smooth=True`, flèches natives de `create_line`). Toute
+  modification d'une couche se fait dans LES DEUX fichiers
+  (cf. tableau « Pendants Tk ↔ PIL »).
+
 ### `penetrometre.py` — application Tk + main
 
-Organisé en sections séparées par des bandeaux de commentaires :
+Organisé en deux sections séparées par des bandeaux de commentaires :
 
 1. **Imports + logger applicatif** (`logging.getLogger("penetrometre")`).
-2. **Rendu Tkinter** — `class SectionCanvas(tk.Canvas)` : dessine la
-   section transversale en temps réel dans la fenêtre.
-   `redraw()` est un orchestrateur d'une quarantaine de lignes qui
-   enchaîne les helpers `_draw_*` (un par couche logique : bois sain,
-   cernes, cavité, écorce, contreforts, dégradations, ticks, lettres
-   cardinales, sondages, règle graduée, titre). L'ordre d'appel dans
-   `redraw` est l'ordre de superposition (cf. « Ordre global des
-   couches » plus bas).
-3. **Application** — `class App(tk.Tk)` : fenêtre principale, layout
+2. **Application** — `class App(tk.Tk)` : fenêtre principale, layout
    3 colonnes, liste d'arbres, instanciation des panes, callbacks
    communs (cascade quand le rayon change, toggle show_sondages,
    maj de la ligne de tree_arbres), actions Fichier (new/open/save/
@@ -333,7 +344,7 @@ Organisé en sections séparées par des bandeaux de commentaires :
      `chantier.save_to` dans `model.py`.
    - renumérotation 1..N après ajout/suppression →
      `Arbre.renumeroter_*()` (appelée par les panes).
-4. **`main()`** — configure `_setup_logging()` puis lance
+3. **`main()`** — configure `_setup_logging()` puis lance
    `App().mainloop()`. Le logger écrit dans
    `~/.penetrometre/penetrometre.log` (RotatingFileHandler), ce qui
    rend les exceptions visibles même en double-clic Windows. Toutes
@@ -539,8 +550,10 @@ au modèle, aux helpers géométriques ou aux exports.
      `pane_*.py` correspondant. C'est presque toujours le bon endroit
      pour un changement d'UI métier (table, boutons, sync UI ↔ modèle).
    - **Actions d'export** (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`.
+   - **Rendu Tk de la section transversale** (cavité, contreforts,
+     règle, pastilles…) → `section_canvas.py`.
    - **UI Tk hors onglet + orchestration** → `penetrometre.py`
-     (`App`, `SectionCanvas`, callbacks `on_*_changed`).
+     (`App`, callbacks `on_*_changed`).
 2. **Géométrie partagée** : si tu changes la géométrie d'un élément
    (cavité, contreforts, dégradation), modifie `geometry.py` une fois ;
    les deux renderers Tk et PIL héritent automatiquement. Pour les
