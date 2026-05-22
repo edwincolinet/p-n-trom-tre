@@ -417,6 +417,29 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertEqual(snap.n_sondees, 0)
         self.assertFalse(snap.diagnostic_fiable)
 
+    def test_diagnostic_global_none_si_non_fiable(self):
+        # Verrouille la règle : tant que <2 directions sondées,
+        # diagnostic_global doit renvoyer None pour que les exports
+        # (PDF, XLSX, HTML, Tk) n'aient qu'un seul point d'entrée à
+        # respecter au lieu de tester diagnostic_fiable à la main.
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
+        snap = a.repartition_classes()
+        self.assertIsNone(snap.diagnostic_global)
+
+    def test_diagnostic_global_tuple_si_fiable(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=2.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
+        snap = a.repartition_classes()
+        diag = snap.diagnostic_global
+        self.assertIsNotNone(diag)
+        # Décomposition tuple — le contrat est (tR_moyen, classe_globale)
+        assert diag is not None
+        tR_moyen, classe_globale = diag
+        self.assertAlmostEqual(tR_moyen, snap.tR_moyen)
+        self.assertEqual(classe_globale, snap.classe_globale)
+
 
 class ExtrapolationSummaryTests(unittest.TestCase):
     """Indicateurs de fiabilité de l'extrapolation (`Arbre.extrapolation_summary`)."""

@@ -35,7 +35,7 @@ bareme.py               ← barème métier Silvavenir (classer_prbs, ports, cla
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (135 tests dont 4 golden-images
+tests/                  ← suite unittest (137 tests dont 4 golden-images
                           PIL et 4 golden-dumps Tk)
 tests/_fixtures.py      ← scénarios d'arbre partagés (PIL + Tk)
 tests/fixtures/         ← PNG (golden PIL) + JSON (golden dump Tk)
@@ -197,7 +197,12 @@ les tests :
     de garder les boucles `for cls in (...)` héritées du code dict.
     `diagnostic_fiable` est `True` dès `n_sondees >= 2` : les exports
     XLSX/HTML/PDF affichent un avertissement plutôt qu'un t/R moyen
-    trompeur si `False`.
+    trompeur si `False`. **Tous les exports doivent passer par la
+    propriété `snap.diagnostic_global`** qui renvoie
+    `Optional[Tuple[float, str]]` (`(tR_moyen, classe_globale)` ou
+    `None`) — un seul point d'entrée pour la règle de publication, au
+    lieu de tester `diagnostic_fiable` puis de lire les champs à la
+    main. Verrouillé par `test_diagnostic_global_*`.
     `ratio_tR_par_grade()` clampe explicitement à `[0, 1]` (alignement
     sur `Sondage.ratio_tR_brut`).
   - `set_rayon(new_R)` — **mutateur unique** pour changer le rayon
@@ -593,7 +598,7 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   135 tests) avant tout commit qui touche au modèle, à la géométrie
+   137 tests) avant tout commit qui touche au modèle, à la géométrie
    ou aux exports. Deux familles de golden-tests :
    - **PIL** (`tests/test_render.py`, 4 scénarios) — régénération :
      `python -m tests.test_render --update` (commit les `.png`).

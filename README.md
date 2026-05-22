@@ -47,7 +47,7 @@ python -m unittest discover tests
 xvfb-run -a python -m unittest discover tests
 ```
 
-135 tests unitaires couvrent :
+137 tests unitaires couvrent :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au

@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from bareme import classer_prbs
 from geometry import DIRECTION_LABELS, GRADES
@@ -89,6 +89,31 @@ class DiagnosticSnapshot:
         return {"Vert": self.vert,
                 "Orange": self.orange,
                 "Rouge": self.rouge}[classe]
+
+    @property
+    def diagnostic_global(self) -> Optional[Tuple[float, str]]:
+        """`(tR_moyen, classe_globale)` si publiable, `None` sinon.
+
+        Encapsule la règle « pas de diagnostic global si <2 sondages » :
+        chaque consommateur (fiche PDF, XLSX, HTML, diagnostic Tk) doit
+        appeler cette propriété plutôt que de lire `tR_moyen` /
+        `classe_globale` puis tester `diagnostic_fiable` à la main —
+        sinon le prochain export à arriver oubliera le masquage et
+        affichera un Vert trompeur sur un arbre avec 1 sondage.
+
+        Renvoyer un tuple plutôt qu'un objet permet le destructuring
+        idiomatique :
+        ```
+        if (g := snap.diagnostic_global) is not None:
+            tR_moyen, classe = g
+            # … afficher t/R moyen et classe
+        else:
+            # … afficher l'avertissement
+        ```
+        """
+        if not self.diagnostic_fiable:
+            return None
+        return (self.tR_moyen, self.classe_globale)
 
 
 @dataclass
@@ -447,13 +472,17 @@ class Arbre:
         # Avec un seul sondage, l'extrapolation linéaire est désactivée
         # (cf. compute_alteration_par_grade) : 15 des 16 directions sont
         # alors supposées saines, ce qui ferait afficher faussement Vert
-        # pour t/R moyen et classe globale. On masque ces deux chiffres
-        # et on affiche un avertissement explicite à la place.
-        if not snap.diagnostic_fiable:
+        # pour t/R moyen et classe globale. La propriété
+        # `diagnostic_global` retourne `None` dans ce cas — un seul
+        # point d'entrée à respecter (par tous les exports) au lieu de
+        # tester `diagnostic_fiable` à la main.
+        diag = snap.diagnostic_global
+        if diag is None:
             lignes.append(
                 "⚠ Diagnostic global indisponible : il faut au moins "
                 "2 directions sondées pour extrapoler le pourtour.")
             return lignes
+        tR_moyen, classe_globale = diag
 
         lignes.append("Répartition sur le pourtour (16 directions) :")
         for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"),
@@ -465,8 +494,8 @@ class Arbre:
                     f"({r.grades} gr / {r.pct:.0f} % du pourtour)")
         lignes.append("")
         lignes.append(
-            f"t/R moyen sur le pourtour : {100*snap.tR_moyen:.1f} %")
-        lignes.append(f"→ Classe globale : {snap.classe_globale}")
+            f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %")
+        lignes.append(f"→ Classe globale : {classe_globale}")
         return lignes
 
     def extrapolation_summary_text(self) -> str:

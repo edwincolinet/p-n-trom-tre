@@ -792,15 +792,18 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # `ratio_tR_par_grade` / `extrapolation_summary_text` ici (chacun
     # repasse par la chaîne compute_alteration_par_grade).
     snap = arbre.repartition_classes()
+    # Propriété diagnostic_global : encapsule la règle « publiable
+    # seulement si >= 2 sondages ». Tous les exports passent par là.
+    diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         # t/R moyen et classe globale ne sont écrits que si le
         # diagnostic est fiable (>= 2 sondages). Sinon on affiche
-        # l'avertissement et on saute la barre / l'encadré final —
-        # cf. Arbre.repartition_classes / diagnostic_fiable.
-        if snap.diagnostic_fiable:
+        # l'avertissement et on saute la barre / l'encadré final.
+        if diag is not None:
+            tR_moyen_diag, _ = diag
             d.text((margin, y),
                    f"t/R moyen sur le pourtour : "
-                   f"{100*snap.tR_moyen:.1f} %",
+                   f"{100*tR_moyen_diag:.1f} %",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
             y += 28
         d.text((margin, y),
@@ -814,7 +817,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             y += 28
         else:
             y += 4
-        if not snap.diagnostic_fiable:
+        if diag is None:
             # Avertissement en rouge sombre, en lieu et place de la
             # barre de répartition et de l'encadré classe globale.
             d.text((margin, y),
@@ -898,8 +901,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             y += 10
             # Gros marqueur coloré pour la classe globale (basée sur
             # t/R moyen). Boîte plus large et plus haute pour rester
-            # proportionnée aux autres éléments de la page.
-            classe_g = snap.classe_globale
+            # proportionnée aux autres éléments de la page. On est
+            # dans le `else` d'un `if diag is None` ; donc diag est
+            # non-None.
+            _, classe_g = diag
             col_g = COULEUR_CLASSE[classe_g]
             box_w, box_h = 460, 60
             d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
