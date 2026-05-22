@@ -35,7 +35,7 @@ bareme.py               ← barème métier Silvavenir (classer_prbs, ports, cla
 pil_render.py           ← rendu PNG + fiche PDF A4
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
-tests/                  ← suite unittest (137 tests dont 4 golden-images
+tests/                  ← suite unittest (146 tests dont 4 golden-images
                           PIL et 4 golden-dumps Tk)
 tests/_fixtures.py      ← scénarios d'arbre partagés (PIL + Tk)
 tests/fixtures/         ← PNG (golden PIL) + JSON (golden dump Tk)
@@ -130,6 +130,16 @@ points `(x, y)` en coordonnées écran, prêtes à passer à
   `(1, 2, 5, 10, 20, 50, 100)`. Utilisé par les deux renderers (Tk
   `min_gap_px=24`, PIL `min_gap_px=50`) pour que les nombres de la
   règle ne se chevauchent plus sur les gros troncs.
+- `tick_endpoints(cx, cy, scale, R_ext, tick_len_cm)` — positions des
+  16 tirets de graduation autour du tronc. Renvoie
+  `[(x1, y1, x2, y2, is_major), …]` — le renderer choisit
+  couleur/épaisseur selon `is_major` (= grade multiple de 50).
+- `cardinal_label_positions(cx, cy, scale, R_ext, offset_cm)` — positions
+  des 8 lettres cardinales (N, NE, E, …). Filtre déjà les inter-quadrants
+  (25/75/125/…) sans libellé. Renvoie `[(x, y, label), …]`.
+- `ruler_graduation_positions(cx, scale, R, step_cm)` — positions des
+  graduations intermédiaires de la demi-règle (entre 0 exclu et R exclu).
+  Renvoie `[(x, label), …]`.
 
 ### `export.py` — exports tableau PRBS
 
@@ -600,7 +610,7 @@ au modèle, aux helpers géométriques ou aux exports.
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.
 4. **Lancer la suite de tests** (`python -m unittest discover tests`,
-   137 tests) avant tout commit qui touche au modèle, à la géométrie
+   146 tests) avant tout commit qui touche au modèle, à la géométrie
    ou aux exports. Deux familles de golden-tests :
    - **PIL** (`tests/test_render.py`, 4 scénarios) — régénération :
      `python -m tests.test_render --update` (commit les `.png`).

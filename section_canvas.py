@@ -23,14 +23,16 @@ from typing import Optional, Tuple
 
 from bareme import classer_prbs
 from geometry import (
-    DIRECTION_LABELS,
     GRADES,
     adaptive_ruler_step_cm,
+    cardinal_label_positions,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
     polar_idx_to_xy,
+    ruler_graduation_positions,
+    tick_endpoints,
 )
 from model import Arbre
 from palette import (
@@ -286,11 +288,8 @@ class SectionCanvas(tk.Canvas):
     def _draw_ticks(self, cx, cy, R_ext, scale) -> None:
         # Graduations des 16 grades, tirets à l'extérieur de l'écorce.
         tick_len_cm = self.TICK_LEN_PX / scale
-        for i, g in enumerate(GRADES):
-            x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
-            x2, y2 = polar_idx_to_xy(cx, cy, scale,
-                                     R_ext + tick_len_cm, i)
-            major = (g % 50 == 0)
+        for x1, y1, x2, y2, major in tick_endpoints(
+                cx, cy, scale, R_ext, tick_len_cm):
             self.create_line(x1, y1, x2, y2,
                              fill=COLOR_BARK if major else COLOR_BARK_LIGHT,
                              width=2 if major else 1)
@@ -298,12 +297,8 @@ class SectionCanvas(tk.Canvas):
     def _draw_cardinales(self, cx, cy, R_ext, scale) -> None:
         # Lettres cardinales à `CARDINALES_OFFSET_PX` au-delà de l'écorce.
         offset_cm = self.CARDINALES_OFFSET_PX / scale
-        for i, g in enumerate(GRADES):
-            lbl = DIRECTION_LABELS.get(g, "")
-            if not lbl:
-                continue
-            lx, ly = polar_idx_to_xy(cx, cy, scale,
-                                     R_ext + offset_cm, i)
+        for lx, ly, lbl in cardinal_label_positions(
+                cx, cy, scale, R_ext, offset_cm):
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
@@ -394,11 +389,10 @@ class SectionCanvas(tk.Canvas):
         # Graduations intermédiaires (bois) tous les `step` cm depuis 0
         # (centre) jusqu'à R (bord droit).
         if R > 0:
-            for r in range(step, int(R), step):
-                xg = cx + r * scale
+            for xg, label in ruler_graduation_positions(cx, scale, R, step):
                 self.create_line(xg, y_axis - 4, xg, y_axis + 4,
                                  fill=COLOR_INK, width=1)
-                self.create_text(xg, y_axis + 15, text=f"{r}",
+                self.create_text(xg, y_axis + 15, text=label,
                                  anchor="center",
                                  font=("Helvetica", 8), fill=COLOR_INK)
             # Étiquettes des deux extrémités : 0 au centre, R au bord

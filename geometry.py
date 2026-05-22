@@ -319,3 +319,66 @@ def adaptive_ruler_step_cm(scale_px_per_cm: float,
         if step * scale_px_per_cm >= min_gap_px:
             return step
     return 100
+
+
+# ----------------------------------------------------------------------
+# Positions partagées Tk ↔ PIL : ticks, lettres cardinales, graduations
+# ----------------------------------------------------------------------
+#
+# Les renderers Tk et PIL itèrent sur les 16 grades pour dessiner les
+# mêmes éléments hors-tronc (tirets de graduation, lettres cardinales,
+# règle). Les helpers ci-dessous centralisent les calculs de POSITION
+# (en pixels écran), pour qu'une seule source soit modifiée si la règle
+# évolue (par ex. quel grade est « majeur »). Les appels de dessin
+# eux-mêmes (`create_line` / `d.line`) restent dans chaque renderer.
+
+def tick_endpoints(cx: float, cy: float, scale: float,
+                   R_ext: float, tick_len_cm: float
+                   ) -> List[Tuple[float, float, float, float, bool]]:
+    """Positions des 16 tirets de graduation autour du tronc.
+
+    Renvoie `[(x1, y1, x2, y2, is_major), ...]` : segment du tick et
+    si c'est un tick majeur (grade multiple de 50). Le renderer choisit
+    couleur/épaisseur selon `is_major`.
+    """
+    out: List[Tuple[float, float, float, float, bool]] = []
+    for i, g in enumerate(GRADES):
+        x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
+        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + tick_len_cm, i)
+        out.append((x1, y1, x2, y2, g % 50 == 0))
+    return out
+
+
+def cardinal_label_positions(cx: float, cy: float, scale: float,
+                              R_ext: float, offset_cm: float
+                              ) -> List[Tuple[float, float, str]]:
+    """Positions des lettres cardinales (N, NE, E, …) autour du tronc.
+
+    Renvoie `[(x, y, label), ...]` : ne contient QUE les grades qui ont
+    un libellé non vide (les inter-quadrants 25/75/125/… sont absents).
+    """
+    out: List[Tuple[float, float, str]] = []
+    for i, g in enumerate(GRADES):
+        lbl = DIRECTION_LABELS.get(g, "")
+        if not lbl:
+            continue
+        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + offset_cm, i)
+        out.append((lx, ly, lbl))
+    return out
+
+
+def ruler_graduation_positions(cx: float, scale: float,
+                                R: float, step_cm: int
+                                ) -> List[Tuple[float, str]]:
+    """Positions des graduations intermédiaires de la demi-règle.
+
+    Renvoie `[(x, label), ...]` pour les marques entre 0 (centre, exclu)
+    et R (bord du bois, exclu), espacées de `step_cm` cm. Les extrémités
+    (0 et R) restent dessinées séparément par le renderer.
+    """
+    out: List[Tuple[float, str]] = []
+    if R <= 0 or step_cm <= 0:
+        return out
+    for r in range(step_cm, int(R), step_cm):
+        out.append((cx + r * scale, str(r)))
+    return out

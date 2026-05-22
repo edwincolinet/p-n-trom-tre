@@ -13,6 +13,7 @@ import unittest
 
 from geometry import (
     bell_max_at_grade,
+    cardinal_label_positions,
     catmull_rom_closed,
     cavity_polygon,
     contrefort_zone_outline,
@@ -20,6 +21,8 @@ from geometry import (
     degradation_externe_outline,
     polar_idx_to_xy,
     polar_to_xy,
+    ruler_graduation_positions,
+    tick_endpoints,
 )
 from model import Contrefort, DegradationExterne
 
@@ -273,6 +276,79 @@ class DegradationExterneOutlineTests(unittest.TestCase):
                                             cx=0, cy=0, scale=1)
         self.assertGreater(len(pts), 0)
         self.assertEqual(len(pts) % 2, 0)
+
+
+class TickEndpointsTests(unittest.TestCase):
+
+    def test_renvoie_16_tirets(self):
+        ticks = tick_endpoints(cx=100, cy=100, scale=10,
+                                R_ext=10.0, tick_len_cm=1.0)
+        self.assertEqual(len(ticks), 16)
+
+    def test_majeurs_aux_multiples_de_50_grades(self):
+        # 8 grades majeurs : 0, 50, 100, 150, 200, 250, 300, 350.
+        ticks = tick_endpoints(cx=0, cy=0, scale=1, R_ext=10, tick_len_cm=1)
+        majors = [t for t in ticks if t[4]]
+        self.assertEqual(len(majors), 8)
+
+    def test_premier_tick_pointe_vers_le_nord(self):
+        # Grade 0 = Nord = (cx, cy - r * scale).
+        ticks = tick_endpoints(cx=100, cy=100, scale=10,
+                                R_ext=5.0, tick_len_cm=1.0)
+        x1, y1, x2, y2, major = ticks[0]
+        self.assertAlmostEqual(x1, 100.0)
+        self.assertAlmostEqual(y1, 100 - 5 * 10)         # R_ext
+        self.assertAlmostEqual(x2, 100.0)
+        self.assertAlmostEqual(y2, 100 - 6 * 10)         # R_ext + tick
+        self.assertTrue(major)
+
+
+class CardinalLabelPositionsTests(unittest.TestCase):
+
+    def test_8_lettres_seulement(self):
+        # N, NE, E, SE, S, SO, O, NO — pas d'inter-quadrants.
+        pos = cardinal_label_positions(cx=0, cy=0, scale=1,
+                                        R_ext=10, offset_cm=1)
+        self.assertEqual(len(pos), 8)
+        labels = [lbl for _, _, lbl in pos]
+        self.assertEqual(labels, ["N", "NE", "E", "SE",
+                                   "S", "SO", "O", "NO"])
+
+    def test_label_N_au_dessus_du_centre(self):
+        pos = cardinal_label_positions(cx=200, cy=200, scale=10,
+                                        R_ext=8.0, offset_cm=2.0)
+        x_n, y_n, lbl = pos[0]
+        self.assertEqual(lbl, "N")
+        self.assertAlmostEqual(x_n, 200.0)
+        # y = cy - (R_ext + offset) * scale = 200 - 100
+        self.assertAlmostEqual(y_n, 100.0)
+
+
+class RulerGraduationPositionsTests(unittest.TestCase):
+
+    def test_renvoie_liste_vide_si_R_zero(self):
+        self.assertEqual(
+            ruler_graduation_positions(cx=0, scale=1, R=0, step_cm=5),
+            [])
+
+    def test_renvoie_liste_vide_si_step_zero(self):
+        self.assertEqual(
+            ruler_graduation_positions(cx=0, scale=1, R=20, step_cm=0),
+            [])
+
+    def test_exclut_le_centre_et_le_bord(self):
+        # R=20, step=5 → graduations à 5, 10, 15 (pas 0, pas 20).
+        pos = ruler_graduation_positions(cx=100, scale=10,
+                                          R=20, step_cm=5)
+        labels = [lbl for _, lbl in pos]
+        self.assertEqual(labels, ["5", "10", "15"])
+
+    def test_positions_x_en_pixels(self):
+        # cx=100, scale=10, step=5 → x = 100+50, 100+100, 100+150.
+        pos = ruler_graduation_positions(cx=100, scale=10,
+                                          R=20, step_cm=5)
+        xs = [x for x, _ in pos]
+        self.assertEqual(xs, [150.0, 200.0, 250.0])
 
 
 if __name__ == "__main__":

@@ -37,11 +37,14 @@ from geometry import (
     DIRECTION_LABELS,
     GRADES,
     adaptive_ruler_step_cm,
+    cardinal_label_positions,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
     polar_idx_to_xy,
+    ruler_graduation_positions,
+    tick_endpoints,
 )
 from palette import (
     COLOR_ACCENT,
@@ -355,10 +358,8 @@ def _pil_draw_ticks(d: "ImageDraw.ImageDraw",
                     R_ext: float, scale: float) -> None:
     # 16 grades — tirets à l'extérieur de l'écorce.
     tick_len_cm = TICK_LEN_PX / scale
-    for i, g in enumerate(GRADES):
-        x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
-        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + tick_len_cm, i)
-        maj = (g % 50 == 0)
+    for x1, y1, x2, y2, maj in tick_endpoints(
+            cx, cy, scale, R_ext, tick_len_cm):
         d.line([x1, y1, x2, y2],
                fill=COLOR_BARK if maj else COLOR_BARK_LIGHT,
                width=3 if maj else 1)
@@ -369,11 +370,8 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
                          R_ext: float, scale: float) -> None:
     # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
     offset_cm = CARDINALES_OFFSET_PX / scale
-    for i, g in enumerate(GRADES):
-        lbl = DIRECTION_LABELS.get(g, "")
-        if not lbl:
-            continue
-        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + offset_cm, i)
+    for lx, ly, lbl in cardinal_label_positions(
+            cx, cy, scale, R_ext, offset_cm):
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
@@ -461,10 +459,9 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
     # Graduations intermédiaires (bois) tous les `step` cm depuis 0
     # (centre) jusqu'à R (bord droit).
     if R > 0:
-        for r in range(step, int(R), step):
-            xg = cx + r * scale
+        for xg, label in ruler_graduation_positions(cx, scale, R, step):
             d.line([xg, y_axis-7, xg, y_axis+7], fill=COLOR_INK, width=2)
-            d.text((xg, y_axis+28), f"{r}",
+            d.text((xg, y_axis+28), label,
                    font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
         # Étiquettes des deux extrémités : 0 au centre, R au bord
         d.text((cx, y_axis+28), "0",
