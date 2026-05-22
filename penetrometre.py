@@ -22,35 +22,17 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Optional
 
-# Actions d'export (PNG / PDF / CSV / XLSX / HTML) : adaptateur Tk qui
-# glue les fonctions pures de `pil_render.py` / `export.py` aux
-# filedialogs et au logger applicatif.
 import app_exports
 from app_menu import build_menu
 from app_style import apply_ttk_styles
-
-# Modèle de données : dataclasses sérialisables (Sondage, Arbre, …) avec
-# leur logique métier (extrapolation, PRBS, classification). Voir
-# model.py pour le détail. Sans dépendance Tk/PIL : couvert par les tests.
-# Les classes Sondage/DegradationExterne/Contrefort sont instanciées
-# dans leurs panes respectifs (pane_sondages, pane_degradations,
-# pane_contreforts) au moment de la création depuis l'UI.
 from model import Arbre, Chantier
-from persistence import load_chantier, save_chantier
-
-# Palette : on n'utilise plus que la couleur de fond globale ici. Toutes
-# les couleurs métier (tronc, écorce, cernes, classes) vivent désormais
-# avec le rendu, dans `section_canvas.py`.
 from palette import COLOR_BG
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
-
-# Rendu Tk de la section transversale : extrait dans son propre module
-# pour rester symétrique à `pil_render.py` (rendu PNG/PDF). Voir
-# CLAUDE.md → « Pendants Tk ↔ PIL » pour la convention.
+from persistence import load_chantier, save_chantier
 from section_canvas import SectionCanvas
 
 __version__ = "3.3.0"

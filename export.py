@@ -235,7 +235,6 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
 
     LEFT = Alignment(horizontal="left", vertical="center",
                      wrap_text=True, indent=1)
-    RIGHT = Alignment(horizontal="right", vertical="center", indent=1)
     CENTER = Alignment(horizontal="center", vertical="center",
                        wrap_text=True)
 
