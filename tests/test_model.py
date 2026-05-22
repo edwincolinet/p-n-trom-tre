@@ -348,13 +348,13 @@ class RepartitionClassesTests(unittest.TestCase):
 
     def test_arbre_sain_tout_vert(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rep = a.repartition_classes()
-        self.assertEqual(rep["Vert"]["n"], 16)
-        self.assertEqual(rep["Orange"]["n"], 0)
-        self.assertEqual(rep["Rouge"]["n"], 0)
-        self.assertEqual(rep["classe_globale"], "Vert")
-        self.assertEqual(rep["Vert"]["grades"], 400)
-        self.assertAlmostEqual(rep["Vert"]["pct"], 100.0)
+        snap = a.repartition_classes()
+        self.assertEqual(snap.vert.n, 16)
+        self.assertEqual(snap.orange.n, 0)
+        self.assertEqual(snap.rouge.n, 0)
+        self.assertEqual(snap.classe_globale, "Vert")
+        self.assertEqual(snap.vert.grades, 400)
+        self.assertAlmostEqual(snap.vert.pct, 100.0)
 
     def test_classe_globale_basee_sur_le_tR_moyen(self):
         # On crée 2 sondages opposés très altérés : le t/R moyen tombe
@@ -363,12 +363,12 @@ class RepartitionClassesTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=18.0))
-        rep = a.repartition_classes()
+        snap = a.repartition_classes()
         # PRBS partout = 20 - 18 = 2 (extrapolé identique partout)
         # t/R = 0.10 < 0.15 → Rouge sur tout le pourtour
-        self.assertEqual(rep["Rouge"]["n"], 16)
-        self.assertEqual(rep["classe_globale"], "Rouge")
-        self.assertAlmostEqual(rep["tR_moyen"], 0.10)
+        self.assertEqual(snap.rouge.n, 16)
+        self.assertEqual(snap.classe_globale, "Rouge")
+        self.assertAlmostEqual(snap.tR_moyen, 0.10)
 
     def test_tR_min_localise_sur_la_pire_direction(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
@@ -376,15 +376,18 @@ class RepartitionClassesTests(unittest.TestCase):
         a.sondages.append(Sondage(grade=0, bois_altere_cm=2.0))
         a.sondages.append(Sondage(grade=100, bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
-        rep = a.repartition_classes()
-        self.assertEqual(rep["tR_min_grade"], 100)
+        snap = a.repartition_classes()
+        self.assertEqual(snap.tR_min_grade, 100)
 
     def test_pct_grades_n_coherent(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rep = a.repartition_classes()
-        total_n = sum(rep[c]["n"] for c in ("Vert", "Orange", "Rouge"))
-        total_grades = sum(rep[c]["grades"] for c in ("Vert", "Orange", "Rouge"))
-        total_pct = sum(rep[c]["pct"] for c in ("Vert", "Orange", "Rouge"))
+        snap = a.repartition_classes()
+        total_n = sum(snap.par_classe(c).n
+                      for c in ("Vert", "Orange", "Rouge"))
+        total_grades = sum(snap.par_classe(c).grades
+                           for c in ("Vert", "Orange", "Rouge"))
+        total_pct = sum(snap.par_classe(c).pct
+                        for c in ("Vert", "Orange", "Rouge"))
         self.assertEqual(total_n, 16)
         self.assertEqual(total_grades, 400)
         self.assertAlmostEqual(total_pct, 100.0)
@@ -394,9 +397,9 @@ class RepartitionClassesTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
-        rep = a.repartition_classes()
-        self.assertEqual(rep["n_sondees"], 2)
-        self.assertTrue(rep["diagnostic_fiable"])
+        snap = a.repartition_classes()
+        self.assertEqual(snap.n_sondees, 2)
+        self.assertTrue(snap.diagnostic_fiable)
 
     def test_diagnostic_non_fiable_avec_un_seul_sondage(self):
         # n_sondees == 1 → l'extrapolation est désactivée (15 directions
@@ -404,15 +407,15 @@ class RepartitionClassesTests(unittest.TestCase):
         # Le flag protège les consommateurs (UI, PDF, XLSX, HTML).
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
-        rep = a.repartition_classes()
-        self.assertEqual(rep["n_sondees"], 1)
-        self.assertFalse(rep["diagnostic_fiable"])
+        snap = a.repartition_classes()
+        self.assertEqual(snap.n_sondees, 1)
+        self.assertFalse(snap.diagnostic_fiable)
 
     def test_diagnostic_non_fiable_sans_sondage(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        rep = a.repartition_classes()
-        self.assertEqual(rep["n_sondees"], 0)
-        self.assertFalse(rep["diagnostic_fiable"])
+        snap = a.repartition_classes()
+        self.assertEqual(snap.n_sondees, 0)
+        self.assertFalse(snap.diagnostic_fiable)
 
 
 class ExtrapolationSummaryTests(unittest.TestCase):

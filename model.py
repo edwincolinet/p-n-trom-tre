@@ -33,6 +33,65 @@ from geometry import DIRECTION_LABELS, GRADES
 _log = logging.getLogger("penetrometre")
 
 
+@dataclass(frozen=True)
+class ClasseRepartition:
+    """Une ligne du diagnostic : nombre de directions, étendue angulaire,
+    et pourcentage du périmètre pour une classe (Vert, Orange ou Rouge).
+    """
+    n: int          # nb de directions sur 16 dans cette classe
+    grades: int     # étendue angulaire cumulée (gr) — chaque direction = 25 gr
+    pct: float      # % du périmètre (= grades / 400)
+
+
+@dataclass(frozen=True)
+class DiagnosticSnapshot:
+    """Snapshot self-contained du diagnostic d'un arbre, produit par
+    `Arbre.repartition_classes()`. Remplace l'ancien dict fourre-tout
+    (`{"Vert": {...}, "ratios": [...], "tR_min": ..., …}`) par un type
+    explicite, qui rend le contrat lisible et typable côté consommateurs.
+
+    Le snapshot porte volontairement :
+    - la répartition par classe (`vert`/`orange`/`rouge`) ;
+    - la liste brute des `ratios` (16 t/R) ;
+    - les indicateurs de direction critique (`tR_min*`) ;
+    - la classe globale calculée sur le `tR_moyen` ;
+    - la classe ponctuelle la plus défavorable (`classe_pire`) ;
+    - l'état de l'extrapolation (`n_sondees`, `diagnostic_fiable`,
+      `extrapolation_text`).
+
+    `diagnostic_fiable` est True dès qu'au moins 2 directions sont
+    sondées — seuil minimal pour que l'extrapolation linéaire ait un
+    sens. En-dessous, `classe_globale` et `tR_moyen` sont calculés sur
+    des valeurs majoritairement nulles et donnent un résultat
+    faussement Vert : les consommateurs (UI, fiche PDF, XLSX, HTML)
+    doivent masquer ces deux champs et signaler l'indisponibilité.
+    """
+    vert: ClasseRepartition
+    orange: ClasseRepartition
+    rouge: ClasseRepartition
+    ratios: List[float]
+    tR_min: float
+    tR_min_grade: int
+    tR_min_dir: str
+    tR_moyen: float
+    classe_globale: str
+    classe_pire: str
+    n_sondees: int
+    diagnostic_fiable: bool
+    extrapolation_text: str
+
+    def par_classe(self, classe: str) -> ClasseRepartition:
+        """Accès indexé par label (`"Vert"`, `"Orange"`, `"Rouge"`).
+
+        Pratique pour les consommateurs qui itèrent
+        `for cls in ("Vert", "Orange", "Rouge"):` sans dupliquer la
+        gestion par attribut.
+        """
+        return {"Vert": self.vert,
+                "Orange": self.orange,
+                "Rouge": self.rouge}[classe]
+
+
 @dataclass
 class Sondage:
     numero: int = 1
@@ -358,11 +417,12 @@ class Arbre:
                     "sondages pour obtenir un résumé."]
 
         R = self.rayon_tronc_cm
-        # Un seul appel à repartition_classes : il porte aussi `ratios`
-        # et `extrapolation_text` pour qu'on n'ait pas à rejouer
-        # `ratio_tR_par_grade` ni `extrapolation_summary_text` (qui
-        # repassent par compute_alteration_par_grade et ses copains).
-        rep = self.repartition_classes()
+        # Un seul appel à repartition_classes : le snapshot porte aussi
+        # `ratios` et `extrapolation_text` pour qu'on n'ait pas à
+        # rejouer `ratio_tR_par_grade` ni `extrapolation_summary_text`
+        # (qui repassent par compute_alteration_par_grade et ses
+        # copains).
+        snap = self.repartition_classes()
         lignes: List[str] = [
             f"« {self.display_name} »",
             f"Rayon : {R:g} cm   •   Sondages : {len(self.sondages)}"
@@ -371,19 +431,18 @@ class Arbre:
             f"Port : {self.port_arbre}",
             "",
         ]
-        extra_txt = rep["extrapolation_text"]
-        if extra_txt:
-            lignes.append(extra_txt)
+        if snap.extrapolation_text:
+            lignes.append(snap.extrapolation_text)
             lignes.append("")
 
         # Si rien de saisi (t/R == 1 partout, à l'epsilon près)
-        if all(r >= 0.999 for r in rep["ratios"]):
+        if all(r >= 0.999 for r in snap.ratios):
             lignes.append("Aucune altération saisie (interne ou externe).")
             return lignes
 
         lignes.append(
-            f"t/R minimal : {100*rep['tR_min']:.1f} %  "
-            f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})")
+            f"t/R minimal : {100*snap.tR_min:.1f} %  "
+            f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
         lignes.append("")
 
         # Avec un seul sondage, l'extrapolation linéaire est désactivée
@@ -391,7 +450,7 @@ class Arbre:
         # alors supposées saines, ce qui ferait afficher faussement Vert
         # pour t/R moyen et classe globale. On masque ces deux chiffres
         # et on affiche un avertissement explicite à la place.
-        if not rep["diagnostic_fiable"]:
+        if not snap.diagnostic_fiable:
             lignes.append(
                 "⚠ Diagnostic global indisponible : il faut au moins "
                 "2 directions sondées pour extrapoler le pourtour.")
@@ -400,17 +459,15 @@ class Arbre:
         lignes.append("Répartition sur le pourtour (16 directions) :")
         for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"),
                              ("Rouge", "🔴")):
-            n = rep[cls]["n"]
-            pct = rep[cls]["pct"]
-            grades = rep[cls]["grades"]
-            if n > 0:
+            r = snap.par_classe(cls)
+            if r.n > 0:
                 lignes.append(
-                    f"  {symbol} {cls:<7} : {n}/16 directions  "
-                    f"({grades} gr / {pct:.0f} % du pourtour)")
+                    f"  {symbol} {cls:<7} : {r.n}/16 directions  "
+                    f"({r.grades} gr / {r.pct:.0f} % du pourtour)")
         lignes.append("")
         lignes.append(
-            f"t/R moyen sur le pourtour : {100*rep['tR_moyen']:.1f} %")
-        lignes.append(f"→ Classe globale : {rep['classe_globale']}")
+            f"t/R moyen sur le pourtour : {100*snap.tR_moyen:.1f} %")
+        lignes.append(f"→ Classe globale : {snap.classe_globale}")
         return lignes
 
     def extrapolation_summary_text(self) -> str:
@@ -469,52 +526,35 @@ class Arbre:
             return [0.0] * 16
         return [min(1.0, p / R) for p in self.prbs_par_grade()]
 
-    def repartition_classes(self) -> dict:
-        """Répartition des 16 directions par classe (Vert/Orange/Rouge),
-        avec étendue angulaire en grades et en pourcentage du périmètre.
+    def repartition_classes(self) -> DiagnosticSnapshot:
+        """Construit un `DiagnosticSnapshot` self-contained pour
+        l'arbre courant.
 
-        Retourne un dict :
-          {
-            "Vert":   {"n": int, "grades": int, "pct": float},
-            "Orange": {...},
-            "Rouge":  {...},
-            "ratios": List[float],   # ratios t/R par direction (16)
-            "tR_min": float,         # ratio t/R minimal sur les 16
-            "tR_min_grade": int,     # grade où t/R est minimal
-            "tR_min_dir": str,       # direction cardinale ou voisine
-            "classe_globale": str,   # classe issue du t/R moyen
-            "n_sondees": int,        # directions effectivement sondées
-            "extrapolation_text": str, # phrase prête à afficher
-            "diagnostic_fiable": bool,
-          }
-
-        Le dict est volontairement "self-contained" : il porte aussi
-        `ratios` et `extrapolation_text` pour que les callers (fiche
-        PDF, diagnostic Tk, XLSX/HTML) n'aient pas à rappeler
-        `ratio_tR_par_grade()` ni `extrapolation_summary_text()` après
-        — ce qui rejouait toute la chaîne `compute_alteration_par_grade`
+        Snapshot self-contained : la dataclass porte aussi `ratios` et
+        `extrapolation_text` pour que les callers (fiche PDF,
+        diagnostic Tk, XLSX/HTML) n'aient pas à rappeler
+        `ratio_tR_par_grade()` ni `extrapolation_summary_text()` après —
+        ce qui rejouait toute la chaîne `compute_alteration_par_grade`
         une deuxième fois pour rien.
 
-        `diagnostic_fiable` est True dès qu'au moins 2 directions sont
-        sondées (seuil minimal pour que l'extrapolation linéaire ait un
-        sens). En-dessous, `classe_globale` et `tR_moyen` sont calculés
-        sur des valeurs majoritairement nulles et donnent un résultat
-        faussement Vert : les consommateurs (UI, fiche PDF, XLSX, HTML)
-        doivent masquer ces deux champs et signaler l'indisponibilité.
+        Voir `DiagnosticSnapshot` pour le détail du contrat (en
+        particulier `diagnostic_fiable`).
         """
         ratios = self.ratio_tR_par_grade()
-        result = {
-            "Vert":   {"n": 0, "grades": 0, "pct": 0.0},
-            "Orange": {"n": 0, "grades": 0, "pct": 0.0},
-            "Rouge":  {"n": 0, "grades": 0, "pct": 0.0},
+        # Compteurs par classe, construits localement puis figés dans
+        # le dataclass à la fin.
+        n_par_classe = {"Vert": 0, "Orange": 0, "Rouge": 0}
+        for r in ratios:
+            n_par_classe[classer_prbs(r, self.port_arbre)] += 1
+        # Chaque secteur = 25 gr ; pourcentage du périmètre = grades/400.
+        repartitions = {
+            cls: ClasseRepartition(
+                n=n_par_classe[cls],
+                grades=n_par_classe[cls] * 25,
+                pct=100.0 * n_par_classe[cls] * 25 / 400.0,
+            )
+            for cls in ("Vert", "Orange", "Rouge")
         }
-        for i, r in enumerate(ratios):
-            classe = classer_prbs(r, self.port_arbre)
-            result[classe]["n"] += 1
-            result[classe]["grades"] += 25  # chaque secteur fait 25 gr
-        # Pourcentage du périmètre (16 secteurs = 400 gr)
-        for cls in ("Vert", "Orange", "Rouge"):
-            result[cls]["pct"] = 100.0 * result[cls]["grades"] / 400.0
 
         # Direction critique (t/R minimal — info conservée)
         tR_min = min(ratios)
@@ -528,9 +568,6 @@ class Arbre:
                 if lbl:
                     dir_crit = f"~{lbl}"
                     break
-        result["tR_min"] = tR_min
-        result["tR_min_grade"] = grade_crit
-        result["tR_min_dir"] = dir_crit
 
         # Classe globale = barème Silvavenir appliqué au t/R MOYEN
         # sur les 16 directions du pourtour.
@@ -542,16 +579,14 @@ class Arbre:
         # On conserve aussi t/R minimal et la pire classe ponctuelle
         # comme indicateurs complémentaires d'alerte locale.
         tR_moyen = sum(ratios) / len(ratios) if ratios else 1.0
-        result["tR_moyen"] = tR_moyen
-        result["classe_globale"] = classer_prbs(tR_moyen,
-                                                 self.port_arbre)
+        classe_globale = classer_prbs(tR_moyen, self.port_arbre)
         # Pire classe ponctuelle (info complémentaire)
-        if result["Rouge"]["n"] > 0:
-            result["classe_pire"] = "Rouge"
-        elif result["Orange"]["n"] > 0:
-            result["classe_pire"] = "Orange"
+        if repartitions["Rouge"].n > 0:
+            classe_pire = "Rouge"
+        elif repartitions["Orange"].n > 0:
+            classe_pire = "Orange"
         else:
-            result["classe_pire"] = "Vert"
+            classe_pire = "Vert"
 
         # Fiabilité : il faut au moins 2 directions sondées pour que
         # l'extrapolation linéaire (`compute_alteration_par_grade`)
@@ -559,15 +594,22 @@ class Arbre:
         # sondé. À n=1, les 15 autres directions sont supposées saines,
         # ce qui tire artificiellement le t/R moyen vers Vert.
         n_sondees = self.extrapolation_summary()["n_sondees"]
-        result["n_sondees"] = n_sondees
-        result["diagnostic_fiable"] = n_sondees >= 2
 
-        # Snapshot self-contained : ratios + phrase d'extrapolation,
-        # pour que les callers n'aient pas à rappeler les méthodes
-        # séparées (qui rejoueraient la chaîne lourde).
-        result["ratios"] = ratios
-        result["extrapolation_text"] = self.extrapolation_summary_text()
-        return result
+        return DiagnosticSnapshot(
+            vert=repartitions["Vert"],
+            orange=repartitions["Orange"],
+            rouge=repartitions["Rouge"],
+            ratios=ratios,
+            tR_min=tR_min,
+            tR_min_grade=grade_crit,
+            tR_min_dir=dir_crit,
+            tR_moyen=tR_moyen,
+            classe_globale=classe_globale,
+            classe_pire=classe_pire,
+            n_sondees=n_sondees,
+            diagnostic_fiable=n_sondees >= 2,
+            extrapolation_text=self.extrapolation_summary_text(),
+        )
 
 
 # Version du format JSON écrit par `Chantier.to_dict`. Incrémenter

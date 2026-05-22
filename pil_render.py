@@ -787,36 +787,34 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     d.text((margin, y), "Diagnostic",
            font=f(22, "serif_bold"), fill=COLOR_ACCENT)
     y += 36
-    # `repartition_classes` porte ratios + extrapolation_text : pas
-    # besoin de rappeler `ratio_tR_par_grade` / `extrapolation_summary_text`
-    # ici (chacun repasse par la chaîne compute_alteration_par_grade).
-    rep = arbre.repartition_classes()
-    ratios = rep["ratios"]
-    if R > 0 and not all(r >= 0.999 for r in ratios):
+    # `repartition_classes` renvoie un DiagnosticSnapshot self-contained
+    # (ratios + extrapolation_text inclus) : pas besoin de rappeler
+    # `ratio_tR_par_grade` / `extrapolation_summary_text` ici (chacun
+    # repasse par la chaîne compute_alteration_par_grade).
+    snap = arbre.repartition_classes()
+    if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         # t/R moyen et classe globale ne sont écrits que si le
         # diagnostic est fiable (>= 2 sondages). Sinon on affiche
         # l'avertissement et on saute la barre / l'encadré final —
         # cf. Arbre.repartition_classes / diagnostic_fiable.
-        fiable = rep["diagnostic_fiable"]
-        if fiable:
+        if snap.diagnostic_fiable:
             d.text((margin, y),
                    f"t/R moyen sur le pourtour : "
-                   f"{100*rep['tR_moyen']:.1f} %",
+                   f"{100*snap.tR_moyen:.1f} %",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
             y += 28
         d.text((margin, y),
-               f"t/R minimal : {100*rep['tR_min']:.1f} %  "
-               f"(grade {rep['tR_min_grade']} gr — {rep['tR_min_dir']})",
+               f"t/R minimal : {100*snap.tR_min:.1f} %  "
+               f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
-        extra_txt = rep["extrapolation_text"]
-        if extra_txt:
-            d.text((margin, y), extra_txt,
+        if snap.extrapolation_text:
+            d.text((margin, y), snap.extrapolation_text,
                    font=f(16, "sans"), fill=COLOR_MUTED)
             y += 28
         else:
             y += 4
-        if not fiable:
+        if not snap.diagnostic_fiable:
             # Avertissement en rouge sombre, en lieu et place de la
             # barre de répartition et de l'encadré classe globale.
             d.text((margin, y),
@@ -842,7 +840,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             # pour porter leur texte à l'intérieur.
             outside_labels = []
             for cls in ("Vert", "Orange", "Rouge"):
-                seg_pct = rep[cls]["pct"]
+                seg_pct = snap.par_classe(cls).pct
                 seg_w = bar_w * seg_pct / 100.0
                 if seg_w > 0:
                     col = COULEUR_CLASSE[cls]
@@ -876,12 +874,11 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             # sa classe.
             chunks = []
             for cls in ("Vert", "Orange", "Rouge"):
-                n = rep[cls]["n"]
-                if n > 0:
-                    grades = rep[cls]["grades"]
+                r = snap.par_classe(cls)
+                if r.n > 0:
                     col = COULEUR_CLASSE[cls]
                     chunks.append(
-                        (f"{cls} {n}/16 ({grades} gr)", col))
+                        (f"{cls} {r.n}/16 ({r.grades} gr)", col))
             if chunks:
                 font_chunk = f(17, "sans")
                 font_sep = f(17, "sans")
@@ -902,7 +899,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             # Gros marqueur coloré pour la classe globale (basée sur
             # t/R moyen). Boîte plus large et plus haute pour rester
             # proportionnée aux autres éléments de la page.
-            classe_g = rep["classe_globale"]
+            classe_g = snap.classe_globale
             col_g = COULEUR_CLASSE[classe_g]
             box_w, box_h = 460, 60
             d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)

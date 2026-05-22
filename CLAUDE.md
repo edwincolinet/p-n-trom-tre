@@ -180,17 +180,24 @@ les tests :
   - `prbs_par_grade()`, `ratio_tR_par_grade()`,
     `repartition_classes()` — composent par-dessus
     `compute_alteration_par_grade()` + `degradation_externe_par_grade()`.
-    `repartition_classes()` expose `diagnostic_fiable` (= `n_sondees
-    >= 2`) : les exports XLSX/HTML/PDF affichent un avertissement
-    plutôt qu'un t/R moyen trompeur si `False`. Verrouillé par
-    `RepartitionClassesTests`.
-    Le dict retourné est aussi **self-contained** : il porte `ratios`
-    (les 16 t/R) et `extrapolation_text` (phrase de fiabilité) en plus
-    des compteurs. Les callers (`diagnostic_summary_lines`, fiche PDF,
-    XLSX, HTML) doivent lire ces champs depuis le dict plutôt que de
-    rappeler `ratio_tR_par_grade()` / `extrapolation_summary_text()`
-    derrière — sinon on rejoue la chaîne `compute_alteration_par_grade`
-    une seconde fois pour rien.
+    `repartition_classes()` renvoie un **`DiagnosticSnapshot`** (et non
+    un dict) : dataclass typée qui porte la répartition par classe
+    (`vert`/`orange`/`rouge` : `ClasseRepartition(n, grades, pct)`),
+    les ratios bruts, la direction critique, le t/R moyen, la classe
+    globale, et l'état de fiabilité (`n_sondees`, `diagnostic_fiable`,
+    `extrapolation_text`). Verrouillé par `RepartitionClassesTests`.
+    Le snapshot est **self-contained** : il porte `ratios` (les 16
+    t/R) et `extrapolation_text` (phrase de fiabilité) pour que les
+    callers (`diagnostic_summary_lines`, fiche PDF, XLSX, HTML) n'aient
+    pas à rappeler `ratio_tR_par_grade()` ni
+    `extrapolation_summary_text()` derrière — sinon on rejoue la
+    chaîne `compute_alteration_par_grade` une seconde fois pour rien.
+    Pour itérer par label (Vert/Orange/Rouge), utiliser
+    `snap.par_classe(cls)` plutôt que les attributs directs — ça permet
+    de garder les boucles `for cls in (...)` héritées du code dict.
+    `diagnostic_fiable` est `True` dès `n_sondees >= 2` : les exports
+    XLSX/HTML/PDF affichent un avertissement plutôt qu'un t/R moyen
+    trompeur si `False`.
     `ratio_tR_par_grade()` clampe explicitement à `[0, 1]` (alignement
     sur `Sondage.ratio_tR_brut`).
   - `set_rayon(new_R)` — **mutateur unique** pour changer le rayon
