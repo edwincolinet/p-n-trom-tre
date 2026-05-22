@@ -23,12 +23,14 @@ from __future__ import annotations
 
 import csv
 import logging
+import tkinter as tk
 from tkinter import filedialog, messagebox
-from typing import Any, Optional
+from typing import Optional
 
 from bareme import classer_prbs
 from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
 from geometry import DIRECTION_LABELS, GRADES
+from model import Arbre, Chantier
 from palette import COULEUR_CLASSE
 from pil_render import (
     HAS_PIL,
@@ -51,7 +53,7 @@ def _need_pil(format_label: str) -> bool:
     return False
 
 
-def export_png(parent: Any, arbre: Optional[Any],
+def export_png(parent: tk.Misc, arbre: Optional[Arbre],
                show_sondages: bool) -> None:
     if not _need_pil("PNG"):
         return
@@ -74,8 +76,8 @@ def export_png(parent: Any, arbre: Optional[Any],
         messagebox.showerror("Erreur d'export", str(e))
 
 
-def export_pdf_arbre(parent: Any, arbre: Optional[Any],
-                     chantier: Any) -> None:
+def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
+                     chantier: Chantier) -> None:
     """Exporte une fiche PDF (dessin + tableau + diagnostic) pour
     l'arbre courant. Utilise uniquement Pillow (multi-pages via save)."""
     if not _need_pil("PDF"):
@@ -100,7 +102,7 @@ def export_pdf_arbre(parent: Any, arbre: Optional[Any],
         messagebox.showerror("Erreur d'export PDF", str(e))
 
 
-def export_csv_mission(parent: Any, chantier: Any) -> None:
+def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
     """CSV de tous les sondages de la mission. Séparateur `;`,
     encodage UTF-8 avec BOM (compatible Excel). Colonnes brutes
     (PRBS, Bois altéré, t/R) ET ajustées (Dégrad. ext., PRBS ajustée,
@@ -155,8 +157,8 @@ def export_csv_mission(parent: Any, chantier: Any) -> None:
         messagebox.showerror("Erreur", str(e))
 
 
-def export_xlsx_arbre(parent: Any, arbre: Optional[Any],
-                      chantier: Any) -> None:
+def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
+                      chantier: Chantier) -> None:
     if not arbre:
         return
     if not HAS_OPENPYXL:
@@ -190,8 +192,8 @@ def export_xlsx_arbre(parent: Any, arbre: Optional[Any],
         messagebox.showerror("Erreur", str(e))
 
 
-def export_html_arbre(parent: Any, arbre: Optional[Any],
-                      chantier: Any) -> None:
+def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
+                      chantier: Chantier) -> None:
     if not arbre:
         return
     if arbre.rayon_tronc_cm <= 0:

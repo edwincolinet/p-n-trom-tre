@@ -6,34 +6,64 @@ ce sont ~50 lignes de plomberie déclarative (entrées de menu, raccourcis
 clavier) qui n'ont pas leur place dans le corps de la classe `App`.
 
 `build_menu(app)` attache la barre de menu à `app` et bind les
-accélérateurs globaux. Les commandes pointent vers les méthodes
-`action_*` de `app` — on les appelle dynamiquement via `getattr`-style
-accès (`app.action_new`, etc.), donc l'agencement est resté simple :
-ce module reste un pur agencement de widgets Tk.
+accélérateurs globaux. Le `Protocol AppLike` ci-dessous formalise la
+surface attendue de l'`App` Tk (méthodes d'action + plomberie Tk
+nécessaire) — symétrique au pattern `_*Host` des panes et aux
+Protocols `ArbreLike`/`ChantierLike` de `export.py`.
 """
 
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Any
+from typing import Any, Callable, Protocol, cast
 
 
-def build_menu(app: Any) -> None:
+class AppLike(Protocol):
+    """Surface attendue de l'`App` par la barre de menu.
+
+    Couvre :
+    - les méthodes `action_*` câblées aux entrées de menu et aux
+      raccourcis clavier ;
+    - les méthodes Tk dont `build_menu` se sert directement (config
+      du menu, bind_all, destroy).
+    """
+
+    # Plomberie Tk
+    def config(self, **kwargs: Any) -> Any: ...
+    def bind_all(self, sequence: str,
+                 func: Callable[..., Any]) -> str: ...
+    def destroy(self) -> None: ...
+
+    # Actions Fichier
+    def action_new(self) -> None: ...
+    def action_open(self) -> None: ...
+    def action_save(self) -> None: ...
+    def action_save_as(self) -> None: ...
+    def action_export_png(self) -> None: ...
+    def action_export_pdf_arbre(self) -> None: ...
+    def action_export_prbs_xlsx(self) -> None: ...
+    def action_export_prbs_html(self) -> None: ...
+    def action_export_csv(self) -> None: ...
+
+    # Actions Arbres
+    def action_add_arbre(self) -> None: ...
+    def action_dup_arbre(self) -> None: ...
+    def action_rename_arbre(self) -> None: ...
+    def action_del_arbre(self) -> None: ...
+
+    # Aide
+    def action_about(self) -> None: ...
+
+
+def build_menu(app: AppLike) -> None:
     """Construit et attache la barre de menu de `app` (Tk root).
-
-    `app` doit exposer les méthodes :
-    - `action_new`, `action_open`, `action_save`, `action_save_as`,
-      `action_export_png`, `action_export_pdf_arbre`,
-      `action_export_prbs_xlsx`, `action_export_prbs_html`,
-      `action_export_csv`,
-    - `action_add_arbre`, `action_dup_arbre`,
-      `action_rename_arbre`, `action_del_arbre`,
-    - `action_about`,
-    - `destroy` (héritée de Tk).
 
     Les raccourcis globaux (Ctrl+N/O/S/T) sont également câblés ici.
     """
-    m = tk.Menu(app)
+    # `tk.Menu(parent)` exige un `tk.Misc` concret ; `AppLike` est un
+    # Protocol structurel qui n'hérite pas de `Misc`. Le cast est sûr :
+    # à l'usage `app` est toujours une instance de `tk.Tk` (l'App).
+    m = tk.Menu(cast(tk.Misc, app))
     app.config(menu=m)
 
     # Fichier

@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import html as html_lib
 from datetime import datetime
-from typing import Any, Callable, List, Mapping, Protocol, Tuple
+from typing import Any, Callable, List, Mapping, Protocol, Sequence, Tuple
 
 from geometry import GRADES
 
@@ -71,7 +71,14 @@ class ArbreLike(Protocol):
     hauteur_sondage_cm: float
     diametre_sous_ecorce_cm: float
     hauteur_arbre_m: float
-    sondages: List[SondageLike]
+
+    # `sondages` est exposé en lecture seule via `@property` pour autoriser
+    # la covariance : un `Arbre` concret avec `sondages: List[Sondage]`
+    # satisfait alors le Protocol sans warning de variance (un attribut
+    # mutable obligerait `Sondage` et `SondageLike` à être strictement
+    # le même type).
+    @property
+    def sondages(self) -> Sequence[SondageLike]: ...
 
     def ratio_tR_par_grade(self) -> List[float]: ...
 

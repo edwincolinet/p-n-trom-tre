@@ -472,13 +472,14 @@ python penetrometre.py
 python -m unittest discover tests
 
 # Lint + vérif de types (nécessite `pip install -r requirements-dev.txt`).
-# Ruff couvre tous les .py ; mypy ne vérifie que le cœur métier + le
-# rendu PIL — la config par-module dans `mypy.ini` est en mode strict
-# pour ces 7 fichiers (bareme, geometry, palette, model, persistence,
-# export, pil_render). Toute évolution du modèle / barème / géométrie /
-# rendu PNG-PDF doit laisser mypy vert.
+# Ruff couvre tous les .py ; mypy couvre le cœur métier + le rendu PIL
+# (7 modules en strict : bareme, geometry, palette, model, persistence,
+# export, pil_render) et la frontière Tk (2 modules en config souple :
+# app_exports, app_menu — utilisent un Protocol `AppLike`). Le rendu
+# Tk (section_canvas, panes, dialogs) reste hors périmètre — les
+# golden-tests Tk font foi pour leur correction visuelle.
 ruff check .
-python -m mypy bareme.py geometry.py palette.py model.py persistence.py export.py pil_render.py
+python -m mypy bareme.py geometry.py palette.py model.py persistence.py export.py pil_render.py app_exports.py app_menu.py
 ```
 
 La suite couvre les fonctions pures à risque métier : barème
