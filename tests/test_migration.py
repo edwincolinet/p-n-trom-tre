@@ -2,8 +2,9 @@
 
 Le CLAUDE.md le dit explicitement : « l'app doit toujours pouvoir ouvrir
 les anciens fichiers ». La migration silencieuse est dans
-`Chantier.from_dict`. Si un de ces tests casse, c'est qu'on a perdu la
-compatibilité avec un format de mission déjà enregistré sur le terrain.
+`persistence.chantier_from_dict`. Si un de ces tests casse, c'est
+qu'on a perdu la compatibilité avec un format de mission déjà
+enregistré sur le terrain.
 """
 
 from __future__ import annotations
@@ -11,19 +12,23 @@ from __future__ import annotations
 import unittest
 
 from model import (
-    FORMAT_VERSION,
     Arbre,
     Chantier,
     Contrefort,
     DegradationExterne,
     Sondage,
 )
+from persistence import (
+    FORMAT_VERSION,
+    chantier_from_dict,
+    chantier_to_dict,
+)
 
 
 class FromDictTests(unittest.TestCase):
 
     def test_dict_minimal(self):
-        c = Chantier.from_dict({})
+        c = chantier_from_dict({})
         self.assertEqual(c.nom, "")
         self.assertEqual(c.adresse, "")
         self.assertEqual(c.arbres, [])
@@ -32,13 +37,13 @@ class FromDictTests(unittest.TestCase):
         # Format antérieur à v3.3 : pas de clé "contreforts" dans l'arbre.
         # L'app actuelle doit l'ouvrir et créer une liste vide.
         d = {"arbres": [{"numero_arbre": "A1", "rayon_tronc_cm": 18.0}]}
-        c = Chantier.from_dict(d)
+        c = chantier_from_dict(d)
         self.assertEqual(len(c.arbres), 1)
         self.assertEqual(c.arbres[0].contreforts, [])
 
     def test_arbre_sans_degradations_externes(self):
         d = {"arbres": [{"numero_arbre": "B2", "rayon_tronc_cm": 18.0}]}
-        c = Chantier.from_dict(d)
+        c = chantier_from_dict(d)
         self.assertEqual(c.arbres[0].degradations_externes, [])
 
     def test_port_legacy_libre_semi_libre_traumatique(self):
@@ -48,7 +53,7 @@ class FromDictTests(unittest.TestCase):
             "numero_arbre": "1",
             "port_arbre": "Libre, semi-libre ou traumatique",
         }]}
-        c = Chantier.from_dict(d)
+        c = chantier_from_dict(d)
         self.assertEqual(c.arbres[0].port_arbre, "libre")
 
     def test_port_legacy_architecture_traumatique(self):
@@ -56,7 +61,7 @@ class FromDictTests(unittest.TestCase):
             "numero_arbre": "1",
             "port_arbre": "Architecturé ou traumatique",
         }]}
-        c = Chantier.from_dict(d)
+        c = chantier_from_dict(d)
         self.assertEqual(c.arbres[0].port_arbre, "architecturé")
 
     def test_port_recent_preserve(self):
@@ -64,7 +69,7 @@ class FromDictTests(unittest.TestCase):
                      "architecturé", "traumatique"):
             with self.subTest(port=port):
                 d = {"arbres": [{"numero_arbre": "1", "port_arbre": port}]}
-                c = Chantier.from_dict(d)
+                c = chantier_from_dict(d)
                 self.assertEqual(c.arbres[0].port_arbre, port)
 
     def test_port_normalise_casse_et_espaces(self):
@@ -75,7 +80,7 @@ class FromDictTests(unittest.TestCase):
                               ("Semi-Libre", "semi-libre")):
             with self.subTest(raw=raw):
                 d = {"arbres": [{"numero_arbre": "1", "port_arbre": raw}]}
-                c = Chantier.from_dict(d)
+                c = chantier_from_dict(d)
                 self.assertEqual(c.arbres[0].port_arbre, expected)
 
     def test_port_inconnu_fallback_libre(self):
@@ -87,14 +92,14 @@ class FromDictTests(unittest.TestCase):
         # connaissance.
         d = {"arbres": [{"numero_arbre": "1", "port_arbre": "libbre"}]}
         with self.assertLogs("penetrometre", level="WARNING") as cm:
-            c = Chantier.from_dict(d)
+            c = chantier_from_dict(d)
         self.assertEqual(c.arbres[0].port_arbre, "libre")
         self.assertTrue(any("libbre" in m for m in cm.output))
 
     def test_port_vide_fallback_libre(self):
         d = {"arbres": [{"numero_arbre": "1", "port_arbre": ""}]}
         with self.assertLogs("penetrometre", level="WARNING"):
-            c = Chantier.from_dict(d)
+            c = chantier_from_dict(d)
         self.assertEqual(c.arbres[0].port_arbre, "libre")
 
     def test_json_sans_format_version_est_lisible(self):
@@ -103,7 +108,7 @@ class FromDictTests(unittest.TestCase):
         d = {"nom": "Ancien", "arbres": [
             {"numero_arbre": "1", "rayon_tronc_cm": 20.0}]}
         self.assertNotIn("format_version", d)
-        c = Chantier.from_dict(d)
+        c = chantier_from_dict(d)
         self.assertEqual(c.nom, "Ancien")
         self.assertEqual(len(c.arbres), 1)
 
@@ -113,7 +118,7 @@ class FormatVersionTests(unittest.TestCase):
 
     def test_to_dict_inclut_format_version(self):
         c = Chantier(nom="X")
-        d = c.to_dict()
+        d = chantier_to_dict(c)
         self.assertEqual(d.get("format_version"), FORMAT_VERSION)
 
     def test_format_futur_log_warning(self):
@@ -124,7 +129,7 @@ class FormatVersionTests(unittest.TestCase):
         d = {"format_version": FORMAT_VERSION + 5, "nom": "futur",
              "arbres": []}
         with self.assertLogs("penetrometre", level="WARNING") as cm:
-            c = Chantier.from_dict(d)
+            c = chantier_from_dict(d)
         self.assertEqual(c.nom, "futur")
         self.assertTrue(any("format" in m.lower() for m in cm.output))
 
@@ -140,7 +145,7 @@ class FormatVersionTests(unittest.TestCase):
             # On émet un warning factice pour que le context manager
             # ne lève pas, puis on vérifie qu'aucun de nos messages
             # n'est dans le buffer.
-            c = Chantier.from_dict(d)
+            c = chantier_from_dict(d)
             logger.warning("sentinel")
         self.assertEqual(c.nom, "present")
         self.assertFalse(any("Fichier au format" in m for m in cm.output))
@@ -167,8 +172,8 @@ class RoundTripTests(unittest.TestCase):
                         largeur_grades=75, longueur_cm=12.0))
         c.arbres.append(a)
 
-        d = c.to_dict()
-        c2 = Chantier.from_dict(d)
+        d = chantier_to_dict(c)
+        c2 = chantier_from_dict(d)
 
         self.assertEqual(c2.nom, c.nom)
         self.assertEqual(c2.adresse, c.adresse)
@@ -202,7 +207,7 @@ class RoundTripTests(unittest.TestCase):
         c.arbres.append(Arbre(numero_arbre="A", rayon_tronc_cm=15.0))
         c.arbres.append(Arbre(numero_arbre="B", rayon_tronc_cm=22.0))
         c.arbres.append(Arbre(numero_arbre="C", rayon_tronc_cm=30.0))
-        c2 = Chantier.from_dict(c.to_dict())
+        c2 = chantier_from_dict(chantier_to_dict(c))
         self.assertEqual([a.numero_arbre for a in c2.arbres],
                          ["A", "B", "C"])
         self.assertAlmostEqual(c2.arbres[1].rayon_tronc_cm, 22.0)
@@ -230,7 +235,7 @@ class RoundTripTests(unittest.TestCase):
             }],
         }
         snapshot = copy.deepcopy(d)
-        Chantier.from_dict(d)
+        chantier_from_dict(d)
         self.assertEqual(d, snapshot)
 
     def test_champs_inconnus_ignores(self):
@@ -262,7 +267,7 @@ class RoundTripTests(unittest.TestCase):
                 }],
             }],
         }
-        c = Chantier.from_dict(d)  # ne doit PAS lever
+        c = chantier_from_dict(d)  # ne doit PAS lever
         self.assertEqual(c.nom, "Future")
         self.assertEqual(len(c.arbres), 1)
         a = c.arbres[0]

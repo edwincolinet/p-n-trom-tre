@@ -36,6 +36,7 @@ from app_style import apply_ttk_styles
 # dans leurs panes respectifs (pane_sondages, pane_degradations,
 # pane_contreforts) au moment de la création depuis l'UI.
 from model import Arbre, Chantier
+from persistence import load_chantier, save_chantier
 
 # Palette : on n'utilise plus que la couleur de fond globale ici. Toutes
 # les couleurs métier (tronc, écorce, cernes, classes) vivent désormais
@@ -474,7 +475,7 @@ class App(tk.Tk):
         if not p:
             return
         try:
-            self.chantier = Chantier.load_from(p)
+            self.chantier = load_chantier(p)
             if not self.chantier.arbres:
                 self.chantier.arbres.append(Arbre())
             self.current_idx = 0
@@ -494,7 +495,7 @@ class App(tk.Tk):
         if not self.current_file:
             return self.action_save_as()
         try:
-            self.chantier.save_to(self.current_file)
+            save_chantier(self.chantier, self.current_file)
             self.title(f"Pénétromètre — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")

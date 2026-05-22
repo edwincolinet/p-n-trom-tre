@@ -29,7 +29,7 @@ app_menu.py             ← barre de menu Tk (Fichier/Arbres/?, raccourcis)
 app_style.py            ← thème ttk (couleurs, polices, padding)
 dialogs.py              ← 3 dialogues Tk (Sondage, Dégradation, Contrefort)
 model.py                ← dataclasses (Sondage, Arbre, …) + logique métier
-                          + persistance JSON (Chantier.load_from/save_to)
+persistence.py          ← I/O JSON des missions (save/load + migration)
 geometry.py             ← briques pures (spline, contreforts, polaire)
 bareme.py               ← barème métier Silvavenir (classer_prbs, ports, classes)
 pil_render.py           ← rendu PNG + fiche PDF A4
@@ -59,7 +59,7 @@ geometry.py + bareme.py   (stdlib)
    ↑
 model.py + palette.py
    ↑
-export.py + pil_render.py + dialogs.py   (dialogs.py est Tk-only)
+export.py + pil_render.py + persistence.py + dialogs.py   (dialogs.py est Tk-only)
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
@@ -211,17 +211,28 @@ les tests :
   - `renumeroter_sondages()` / `renumeroter_degradations()` /
     `renumeroter_contreforts()` — mutateurs explicites appelés après
     ajout/suppression depuis l'UI pour recoller les numéros 1..N.
-- `Chantier` — mission qui regroupe plusieurs arbres. Persistance JSON :
-  - `Chantier.load_from(path)` (classmethod) ouvre un fichier et
-    reconstruit le chantier. Tolère les anciens formats (migration
-    des libellés de port) et un format futur (filtre des clés
-    inconnues par `__dataclass_fields__` à chaque niveau).
-  - `chantier.save_to(path)` écrit le fichier indenté UTF-8.
-  - `to_dict` écrit `format_version: FORMAT_VERSION` ; `from_dict`
-    tolère son absence (anciens fichiers) **et** log un WARNING
-    (sans bloquer) si le fichier est d'un format plus récent que
-    celui que l'app sait lire — les champs inconnus sont alors
-    ignorés silencieusement par le filtre `__dataclass_fields__`.
+- `Chantier` — pure dataclass : nom, adresse, opérateur, date, et
+  liste d'arbres. La persistance JSON (chargement, sauvegarde,
+  migration) vit dans **`persistence.py`** pour garder le modèle métier
+  focalisé sur ses dataclasses et sa logique d'extrapolation.
+
+### `persistence.py` — I/O JSON des missions
+
+- `chantier_to_dict(chantier)` / `chantier_from_dict(d)` —
+  sérialisation symétrique. `chantier_to_dict` écrit
+  `format_version: FORMAT_VERSION` ; `chantier_from_dict` tolère son
+  absence (anciens fichiers) **et** log un WARNING (sans bloquer) si
+  le fichier est d'un format plus récent que celui que l'app sait
+  lire — les champs inconnus sont alors ignorés silencieusement par
+  le filtre `__dataclass_fields__`.
+- `save_chantier(chantier, path)` / `load_chantier(path)` — wrappers
+  fichier indenté UTF-8.
+- Migration ascendante : `chantier_from_dict` mappe les anciens
+  libellés de port (v3.1 → v3.2) et retombe sur `"libre"` si le port
+  est inconnu (faute de frappe dans un JSON édité à la main).
+- Migration descendante : filtre chaque dict d'entrée par
+  `Class.__dataclass_fields__` avant `Class(**kwargs)` à tous les
+  niveaux (`Arbre`, `Sondage`, `DegradationExterne`, `Contrefort`).
 
 ### `pane_*.py` — onglets autonomes (Identification, Sondages, Dégrad., Contreforts, Diagnostic)
 
@@ -347,8 +358,8 @@ Organisé en deux sections séparées par des bandeaux de commentaires :
    - actions d'export (PNG/PDF/CSV/XLSX/HTML) → `app_exports.py`,
      déclenchées soit par le `DiagnosticPane`, soit par la barre de
      menu (`app_menu.py`).
-   - persistance JSON (open/save) → `Chantier.load_from` /
-     `chantier.save_to` dans `model.py`.
+   - persistance JSON (open/save) → `load_chantier` /
+     `save_chantier` dans `persistence.py`.
    - renumérotation 1..N après ajout/suppression →
      `Arbre.renumeroter_*()` (appelée par les panes).
 3. **`main()`** — configure `_setup_logging()` puis lance
@@ -433,11 +444,11 @@ ouvrir les anciens fichiers** (compat ascendante) ET un fichier produit
 par une version plus récente avec des champs qu'on ne connaît pas
 encore (compat descendante).
 
-- Ascendante : migration silencieuse dans `Chantier.from_dict` (par ex.
-  mapping des anciens libellés de port
+- Ascendante : migration silencieuse dans `chantier_from_dict`
+  (`persistence.py` — par ex. mapping des anciens libellés de port
   `"Libre, semi-libre ou traumatique"` → `"libre"`). **Ne jamais
   casser cette compat sans ajouter une migration.**
-- Descendante : `from_dict` filtre chaque dict d'entrée par
+- Descendante : `chantier_from_dict` filtre chaque dict d'entrée par
   `Class.__dataclass_fields__` avant `Class(**kwargs)`. Les clés JSON
   inconnues sont ignorées silencieusement à tous les niveaux
   (`Chantier`, `Arbre`, `Sondage`, `DegradationExterne`, `Contrefort`).
@@ -461,7 +472,7 @@ python -m unittest discover tests
 # fichiers. Toute évolution du modèle / barème / géométrie doit
 # laisser mypy vert.
 ruff check .
-python -m mypy bareme.py geometry.py palette.py model.py
+python -m mypy bareme.py geometry.py palette.py model.py persistence.py
 ```
 
 La suite couvre les fonctions pures à risque métier : barème
@@ -576,7 +587,8 @@ au modèle, aux helpers géométriques ou aux exports.
    typographie, règle graduée, lettres cardinales), modifie côté Tk
    **et** côté PIL.
 3. Pour les changements de modèle : penser à la migration JSON
-   (`Chantier.from_dict`). Si tu **ajoutes** un champ dataclass, les
+   (`persistence.chantier_from_dict`). Si tu **ajoutes** un champ
+   dataclass, les
    anciens JSON le verront avec sa valeur par défaut (OK). Si tu
    **renommes** ou **supprimes** un champ, ajouter une migration
    ascendante explicite.

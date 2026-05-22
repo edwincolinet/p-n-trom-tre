@@ -15,22 +15,21 @@ Dataclasses sérialisables qui forment le cœur métier de l'application :
 Module sans dépendance externe (stdlib + `geometry`). Volontairement
 isolé de Tkinter, de PIL et de la couche d'export, ce qui permet à la
 suite de tests unittest de couvrir la logique sans embarquer l'UI.
+
+La persistance JSON (chargement, sauvegarde, migration de format) vit
+dans `persistence.py` pour garder le modèle métier focalisé sur ses
+dataclasses et sa logique d'extrapolation.
 """
 
 from __future__ import annotations
 
-import json
-import logging
 import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Dict, List
 
-from bareme import classer_prbs, normaliser_port
+from bareme import classer_prbs
 from geometry import DIRECTION_LABELS, GRADES
-
-_log = logging.getLogger("penetrometre")
 
 
 @dataclass(frozen=True)
@@ -612,121 +611,17 @@ class Arbre:
         )
 
 
-# Version du format JSON écrit par `Chantier.to_dict`. Incrémenter
-# (et ajouter une branche dans `from_dict`) quand une migration non
-# triviale est nécessaire. La lecture tolère son absence (anciens
-# fichiers pré-versionnés → traités comme v1).
-FORMAT_VERSION = 1
-
-
 @dataclass
 class Chantier:
+    """Mission : groupe plusieurs arbres dans une même expertise.
+
+    Pure dataclass : la sérialisation JSON, le chargement et la
+    migration de format vivent dans `persistence.py` pour rester hors
+    du modèle métier.
+    """
     nom: str = "Nouvelle mission"
     adresse: str = ""
     operateur: str = ""
     date_releve: str = field(
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))
     arbres: List[Arbre] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {"format_version": FORMAT_VERSION,
-                "nom": self.nom, "adresse": self.adresse,
-                "operateur": self.operateur, "date_releve": self.date_releve,
-                "arbres": [asdict(a) for a in self.arbres]}
-
-    def save_to(self, path: Union[str, Path]) -> None:
-        """Sauvegarde la mission au format JSON indenté UTF-8.
-
-        Le format est versionné via `format_version` (cf. `to_dict`).
-        L'app garantit de pouvoir relire les anciens fichiers (cf.
-        `from_dict` qui ignore les clés inconnues et migre les ports
-        renommés)."""
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
-
-    @classmethod
-    def load_from(cls, path: Union[str, Path]) -> "Chantier":
-        """Lit un fichier JSON de mission et reconstruit le Chantier
-        correspondant. Délègue le filtrage / la migration à
-        `from_dict` : robuste aux clés inconnues d'un format futur et
-        aux anciens libellés de port."""
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return cls.from_dict(data)
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "Chantier":
-        # Compatibilité descendante : un fichier produit par une version
-        # plus récente porte un format_version supérieur. Les clés
-        # inconnues sont déjà filtrées par dataclass plus bas, mais on
-        # journalise pour qu'un opérateur qui charge un fichier "trop
-        # récent" puisse comprendre si quelque chose semble manquer.
-        # L'absence de format_version (anciens fichiers pré-versionnés)
-        # est traitée silencieusement comme v1.
-        version = d.get("format_version", 1)
-        if isinstance(version, int) and version > FORMAT_VERSION:
-            _log.warning(
-                "Fichier au format v%d — cette version de l'app gère "
-                "jusqu'au v%d. Les champs récents seront ignorés.",
-                version, FORMAT_VERSION)
-        # Mapping de migration des anciens libellés de port (v3.1 → v3.2)
-        port_legacy = {
-            "Libre, semi-libre ou traumatique": "libre",
-            "Architecturé ou traumatique": "architecturé",
-        }
-        # Champs connus de chaque dataclass : permet d'ignorer
-        # silencieusement un champ inconnu dans un JSON futur (ascendance
-        # garantie même si on ajoute un champ côté code et qu'on revient
-        # à une ancienne version de l'app, ou inversement). Sans ce
-        # filtre, `Arbre(**a)` lèverait TypeError sur clé inattendue.
-        arbre_fields = set(Arbre.__dataclass_fields__)
-        sondage_fields = set(Sondage.__dataclass_fields__)
-        deg_fields = set(DegradationExterne.__dataclass_fields__)
-        cf_fields = set(Contrefort.__dataclass_fields__)
-
-        arbres = []
-        for a in d.get("arbres", []):
-            # Lecture non destructive : `get`, pas `pop`. Le filtre par
-            # `__dataclass_fields__` plus bas exclut de toute façon ces
-            # clés du dict passé à `Arbre(**...)`, et le caller conserve
-            # son dict d'origine intact (pas d'effet de bord).
-            sondages = [Sondage(**{k: v for k, v in s.items()
-                                    if k in sondage_fields})
-                        for s in a.get("sondages", [])]
-            degs = [DegradationExterne(**{k: v for k, v in dg.items()
-                                           if k in deg_fields})
-                    for dg in a.get("degradations_externes", [])]
-            # Contreforts : ajout v3.3 — anciens fichiers → liste vide
-            contreforts = [Contrefort(**{k: v for k, v in c.items()
-                                          if k in cf_fields})
-                           for c in a.get("contreforts", [])]
-            # Migration du port si ancien format. On copie le dict pour
-            # appliquer la migration sans toucher à l'entrée du caller.
-            a_norm = dict(a)
-            if "port_arbre" in a_norm:
-                raw_port = a_norm["port_arbre"]
-                migrated = port_legacy.get(raw_port, raw_port)
-                normalized = normaliser_port(migrated)
-                if not normalized:
-                    # Port inconnu (faute de frappe dans un JSON édité
-                    # à la main, ancien libellé non couvert par la
-                    # migration). On retombe sur "libre" — c'est le
-                    # défaut le moins permissif (seuils plus tolérants
-                    # que strict, donc moins de faux Vert).
-                    _log.warning(
-                        "Arbre n°%s : port_arbre inconnu %r — "
-                        "remplacé par 'libre'.",
-                        a_norm.get("numero_arbre", "?"), raw_port)
-                    normalized = "libre"
-                a_norm["port_arbre"] = normalized
-            arb = Arbre(**{k: v for k, v in a_norm.items()
-                           if k in arbre_fields})
-            arb.sondages = sondages
-            arb.degradations_externes = degs
-            arb.contreforts = contreforts
-            arbres.append(arb)
-        c = cls(nom=d.get("nom", ""), adresse=d.get("adresse", ""),
-                operateur=d.get("operateur", ""),
-                date_releve=d.get("date_releve", ""))
-        c.arbres = arbres
-        return c

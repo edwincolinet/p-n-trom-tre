@@ -27,4 +27,5 @@ known-first-party = ["app_exports", "app_menu", "app_style",
                      "pane_contreforts", "pane_degradations",
                      "pane_diagnostic", "pane_identification",
                      "pane_sondages",
-                     "pil_render"]
+                     "persistence",
+                     "pil_render", "section_canvas"]

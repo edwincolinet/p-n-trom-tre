@@ -95,6 +95,7 @@ mon-dossier/
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage,
 │                                  Dégradation externe, Contrefort)
 ├── model.py                    ← dataclasses + logique métier
+├── persistence.py              ← I/O JSON des missions (save/load + migration)
 ├── bareme.py                   ← barème Silvavenir (classer_prbs)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG + fiche PDF

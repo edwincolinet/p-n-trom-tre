@@ -52,7 +52,7 @@ jobs:
         # Configuré dans mypy.ini : strict sur bareme, geometry,
         # palette, model. Les modules Tk/PIL restent hors périmètre
         # (golden-tests font foi pour leur correction visuelle).
-        run: python -m mypy bareme.py geometry.py palette.py model.py
+        run: python -m mypy bareme.py geometry.py palette.py model.py persistence.py
 
       - name: Suite de tests (unittest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk
