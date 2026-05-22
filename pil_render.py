@@ -30,7 +30,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
 from geometry import (
@@ -65,9 +65,14 @@ except ImportError:
     HAS_PIL = False
 
 if TYPE_CHECKING:
+    from PIL import ImageDraw, ImageFont  # noqa: F401
     from PIL.Image import Image as PILImage  # noqa: F401
 
     from model import Arbre, Chantier  # noqa: F401
+
+# Type alias pour la factory de polices retournée par `_pil_load_fonts`.
+# Signature côté appel : `f(size, variant="sans" | "sans_bold" | "serif_bold")`.
+FontFn = Callable[..., Any]
 
 
 # ----------------------------------------------------------------------
@@ -92,7 +97,7 @@ BULLET_RADIUS_PX = 22         # rayon de la pastille numérotée
 CAVITY_SAMPLES_PER_SEGMENT = 32
 
 
-def _pil_load_fonts():
+def _pil_load_fonts() -> FontFn:
     """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
 
     Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
@@ -101,9 +106,11 @@ def _pil_load_fonts():
     Priorité 2 : polices système connues (Linux/Windows/macOS), pour
     rester compatible avec une installation où `assets/fonts/` aurait
     été retiré.
+
+    Appelé uniquement depuis les fonctions `render_*` qui importent
+    `PIL.Image` en premier — si Pillow n'est pas installé, l'import
+    aura déjà levé `ImportError` avant qu'on n'arrive ici.
     """
-    if not HAS_PIL:
-        return None
     from PIL import ImageFont
     embedded = Path(__file__).parent / "assets" / "fonts"
     candidates = [
@@ -123,7 +130,8 @@ def _pil_load_fonts():
         "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
         "/Library/Fonts/Arial.ttf",
     ]
-    paths = {"serif_bold": None, "sans": None, "sans_bold": None}
+    paths: Dict[str, Optional[str]] = {
+        "serif_bold": None, "sans": None, "sans_bold": None}
     for c in candidates:
         try:
             ImageFont.truetype(c, 12)
@@ -136,7 +144,8 @@ def _pil_load_fonts():
                 paths["sans"] = c
         except Exception:
             continue
-    def f(size, variant="sans"):
+
+    def f(size: int, variant: str = "sans") -> Any:
         path = paths.get(variant) or paths.get("sans") or paths.get("serif_bold")
         try:
             return ImageFont.truetype(path, size) if path \
@@ -252,19 +261,24 @@ def render_arbre_to_pil_image(arbre: "Arbre",
 # ----------------------------------------------------------------------
 
 
-def _pil_draw_placeholder(d, f, width, height) -> None:
+def _pil_draw_placeholder(d: "ImageDraw.ImageDraw", f: FontFn,
+                          width: int, height: int) -> None:
     d.text((width/2, height/2),
            "Rayon non renseigné", fill=COLOR_MUTED,
            font=f(28, "sans"), anchor="mm")
 
 
-def _pil_draw_bois_sain(d, cx, cy, R, scale) -> None:
+def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw",
+                        cx: float, cy: float,
+                        R: float, scale: float) -> None:
     radius_px = R * scale
     d.ellipse([cx-radius_px, cy-radius_px, cx+radius_px, cy+radius_px],
               fill=COLOR_WOOD)
 
 
-def _pil_draw_cernes(d, cx, cy, R, scale) -> None:
+def _pil_draw_cernes(d: "ImageDraw.ImageDraw",
+                     cx: float, cy: float,
+                     R: float, scale: float) -> None:
     # Cernes par-dessus le bois, en brun foncé fin. Partiellement effacés
     # par la cavité qui suit — visibles uniquement dans le bois sain.
     radius_px = R * scale
@@ -274,7 +288,8 @@ def _pil_draw_cernes(d, cx, cy, R, scale) -> None:
                   outline=COLOR_CERNE, width=1)
 
 
-def _pil_draw_cavite(d, arbre, cx, cy, scale) -> None:
+def _pil_draw_cavite(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+                     cx: float, cy: float, scale: float) -> None:
     alt = arbre.compute_alteration_par_grade()
     if not any(a > 0 for a in alt):
         return
@@ -283,7 +298,10 @@ def _pil_draw_cavite(d, arbre, cx, cy, scale) -> None:
     d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
 
-def _pil_draw_ecorce(d, cx, cy, R, ep, R_ext, scale) -> None:
+def _pil_draw_ecorce(d: "ImageDraw.ImageDraw",
+                     cx: float, cy: float,
+                     R: float, ep: float, R_ext: float,
+                     scale: float) -> None:
     # Note PIL : `d.ellipse(outline, width)` trace l'outline À L'INTÉRIEUR
     # du bounding box (pas centré sur la frontière comme Tkinter). Avec
     # bbox de rayon R_ext et width=ep_px, l'outline va de R_ext-ep à
@@ -301,7 +319,9 @@ def _pil_draw_ecorce(d, cx, cy, R, ep, R_ext, scale) -> None:
                   outline=COLOR_BARK, width=4)
 
 
-def _pil_draw_contreforts(d, arbre, cx, cy, R, ep, scale) -> None:
+def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+                          cx: float, cy: float,
+                          R: float, ep: float, scale: float) -> None:
     # Fusionnés par zones connectées : plusieurs contreforts qui se
     # touchent sont rendus comme une seule cloche unifiée (max des
     # hauteurs), ce qui évite l'encoche en V.
@@ -317,7 +337,9 @@ def _pil_draw_contreforts(d, arbre, cx, cy, R, ep, scale) -> None:
             d.line(wood_outer, fill=COLOR_BARK, width=4, joint="curve")
 
 
-def _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale) -> None:
+def _pil_draw_degradations(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+                           cx: float, cy: float,
+                           R: float, ep: float, scale: float) -> None:
     # Le bord externe du polygone suit la surface réelle (R + ep + cloche).
     # Une dégradation qui passe sur un contrefort y mord à concurrence
     # de sa profondeur.
@@ -328,7 +350,9 @@ def _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale) -> None:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
 
 
-def _pil_draw_ticks(d, cx, cy, R_ext, scale) -> None:
+def _pil_draw_ticks(d: "ImageDraw.ImageDraw",
+                    cx: float, cy: float,
+                    R_ext: float, scale: float) -> None:
     # 16 grades — tirets à l'extérieur de l'écorce.
     tick_len_cm = TICK_LEN_PX / scale
     for i, g in enumerate(GRADES):
@@ -340,7 +364,9 @@ def _pil_draw_ticks(d, cx, cy, R_ext, scale) -> None:
                width=3 if maj else 1)
 
 
-def _pil_draw_cardinales(d, f, cx, cy, R_ext, scale) -> None:
+def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
+                         cx: float, cy: float,
+                         R_ext: float, scale: float) -> None:
     # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
     offset_cm = CARDINALES_OFFSET_PX / scale
     for i, g in enumerate(GRADES):
@@ -357,7 +383,9 @@ def _pil_draw_cardinales(d, f, cx, cy, R_ext, scale) -> None:
                fill=COLOR_INK, anchor="mm")
 
 
-def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
+def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
+                       cx: float, cy: float,
+                       R: float, scale: float) -> None:
     # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
     # Pastille classée sur la PRBS AJUSTÉE (cohérence Diagnostic + PDF).
     port = arbre.port_arbre
@@ -396,7 +424,10 @@ def _pil_draw_sondages(d, f, arbre, cx, cy, R, scale) -> None:
                fill="white", anchor="mm")
 
 
-def _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height) -> float:
+def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
+                    cx: float, cy: float,
+                    R: float, ep: float, R_ext: float, scale: float,
+                    height: int) -> float:
     """Dessine la règle graduée sous la section et renvoie son ordonnée
     `y_axis`. Demi-règle : 0 AU CENTRE de l'arbre, graduation seulement
     vers la droite jusqu'à R (bord du bois). La portion bois est en
@@ -446,7 +477,8 @@ def _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height) -> float:
     return y_axis
 
 
-def _pil_draw_titre(d, f, arbre, R, width, height) -> None:
+def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
+                    R: float, width: int, height: int) -> None:
     # Titre + méta — positions proportionnelles à la hauteur.
     title_y = max(45, int(height * 0.045))
     sub_y = title_y + 52
@@ -463,8 +495,9 @@ def _pil_draw_titre(d, f, arbre, R, width, height) -> None:
            font=f(24, "sans"), fill=COLOR_MUTED, anchor="mm")
 
 
-def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
-                                font_fn, *,
+def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+                                y_top: float, width: int, height: int,
+                                font_fn: FontFn, *,
                                 show_sondage_item: bool = True,
                                 show_classes: bool = True) -> None:
     """Dessine la légende du dessin de section sur UNE LIGNE horizontale,
@@ -512,13 +545,13 @@ def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
     classes_prefix = "Classe du sondage :"
 
     # Pré-calcul des largeurs pour centrer le bloc complet.
-    def text_w(txt, font):
+    def text_w(txt: str, font: Any) -> float:
         bbox = d.textbbox((0, 0), txt, font=font)
         return bbox[2] - bbox[0]
 
     item_widths = [swatch_w + 8 + text_w(label, item_font)
                    for _, label in items]
-    classes_w = 0
+    classes_w: float = 0.0
     if classes:
         classes_w = text_w(classes_prefix, bold_font) + 12
         for label, _ in classes:
@@ -576,7 +609,8 @@ def _draw_horizontal_legend_pil(d, arbre, y_top, width, height,
             x_cur += text_w(label, item_font) + 14
 
 
-def _fit_text(text: str, font, max_width: float, draw) -> str:
+def _fit_text(text: str, font: Any, max_width: float,
+              draw: "ImageDraw.ImageDraw") -> str:
     """Tronque `text` avec une ellipsis « … » si sa largeur dépasse
     `max_width`. Évite que les valeurs débordent de leur colonne."""
     if not text:
@@ -625,7 +659,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             ratio = target_h / logo.height
             logo = logo.resize(
                 (int(logo.width * ratio), target_h),
-                Image.LANCZOS)
+                Image.Resampling.LANCZOS)
             # Fond blanc derrière le logo pour le détacher du vert
             logo_bg = Image.new("RGB", logo.size, "white")
             logo_bg.paste(logo, (0, 0), logo if logo.mode == "RGBA" else None)
@@ -838,7 +872,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             # étroits.
             bar_w = W - 2*margin
             bar_h = 36
-            x_cur = margin
+            x_cur: float = margin
             # Petites étiquettes hors-barre pour les segments trop étroits
             # pour porter leur texte à l'intérieur.
             outside_labels = []
@@ -887,7 +921,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 font_sep = f(17, "sans")
                 sep = "   •   "
                 sep_w = d.textbbox((0, 0), sep, font=font_sep)[2]
-                x_chunk = margin
+                x_chunk: float = margin
                 for i, (txt, col) in enumerate(chunks):
                     if i > 0:
                         d.text((x_chunk, y), sep,
