@@ -28,15 +28,13 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from bareme import classer_prbs
+from diagnostic import degradation_externe_par_grade
 from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
+from fiche_pdf import render_fiche_arbre_to_pdf_page
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre, Chantier
 from palette import COULEUR_CLASSE
-from pil_render import (
-    HAS_PIL,
-    render_arbre_to_pil_image,
-    render_fiche_arbre_to_pdf_page,
-)
+from pil_render import HAS_PIL, render_arbre_to_pil_image
 
 log = logging.getLogger("penetrometre")
 
@@ -129,7 +127,7 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                         "Compartimentation", "Commentaire"])
             for a in chantier.arbres:
                 R = a.rayon_tronc_cm
-                deg_ext_par_grade = a.degradation_externe_par_grade()
+                deg_ext_par_grade = degradation_externe_par_grade(a)
                 for s in a.sondages:
                     d = DIRECTION_LABELS.get(s.grade, "")
                     tR_pct = f"{100*s.ratio_tR_brut(R):.1f}"

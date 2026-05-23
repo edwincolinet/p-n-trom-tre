@@ -55,7 +55,7 @@ jobs:
         # (app_exports, app_menu). Le rendu Tk (section_canvas, panes,
         # dialogs) reste hors périmètre — les golden-tests Tk font foi
         # pour leur correction visuelle.
-        run: python -m mypy bareme.py geometry.py palette.py model.py persistence.py export.py pil_render.py app_exports.py app_menu.py
+        run: python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py
 
       - name: Suite de tests (unittest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk

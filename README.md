@@ -80,7 +80,7 @@ python -m tests.test_section_canvas --update
 
 ## Fichiers à conserver ensemble
 
-```
+```text
 mon-dossier/
 ├── penetrometre.py             ← App + main (orchestration Tk)
 ├── section_canvas.py           ← SectionCanvas (rendu Tk de la section)
@@ -94,11 +94,14 @@ mon-dossier/
 ├── app_style.py                ← thème ttk (couleurs, polices, padding)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage,
 │                                  Dégradation externe, Contrefort)
-├── model.py                    ← dataclasses + logique métier
+├── model.py                    ← dataclasses + mutateurs de cohérence
+├── diagnostic.py               ← calculs purs (extrapolation, PRBS, t/R,
+│                                  DiagnosticSnapshot, résumé textuel)
 ├── persistence.py              ← I/O JSON des missions (save/load + migration)
 ├── bareme.py                   ← barème Silvavenir (classer_prbs)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
-├── pil_render.py               ← rendu PNG + fiche PDF
+├── pil_render.py               ← rendu PNG de la section
+├── fiche_pdf.py                ← layout de la fiche d'expertise PDF A4
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── assets/
@@ -145,6 +148,7 @@ Pour les directions non sondées, le bois altéré est estimé par
 ### Dégradations externes
 
 Une dégradation externe est un arc continu sur l'écorce, défini par :
+
 - un grade de début et un grade de fin (sens horaire) ;
 - une profondeur radiale en cm depuis l'écorce.
 
@@ -213,10 +217,10 @@ PRBS de la direction concernée.
 
 Application du barème selon le port de l'arbre :
 
-| Port de l'arbre | Vert | Orange | Rouge |
-|---|---|---|---|
-| libre / semi-libre / délaissé | t/R > 30% | 15–30% | < 15% |
-| architecturé / traumatique | t/R > 20% | 10–20% | < 10% |
+| Port de l'arbre                | Vert      | Orange  | Rouge  |
+| ------------------------------ | --------- | ------- | ------ |
+| libre / semi-libre / délaissé  | t/R > 30% | 15–30%  | < 15%  |
+| architecturé / traumatique     | t/R > 20% | 10–20%  | < 10%  |
 
 ## Format de fichier
 
@@ -236,7 +240,7 @@ Toutes les exceptions (échec d'export PDF/PNG/XLSX/HTML, problème
 d'ouverture de mission, etc.) sont journalisées avec leur stack
 trace complète dans :
 
-```
+```text
 ~/.penetrometre/penetrometre.log
 ```
 

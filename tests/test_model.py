@@ -1,21 +1,36 @@
-"""Tests des dataclasses métier et des méthodes calculées sur `Arbre`.
+"""Tests des dataclasses métier et des fonctions de diagnostic.
 
 Couvre :
 - `Sondage.ratio_tR_brut` (cap, rayon nul).
 - `DegradationExterne.largeur_grades` / `couvre_grade` (cas normal,
   wrap-around, début == fin).
 - `Contrefort.grade_debut` / `grade_fin` (wrap au grade 0).
-- `Arbre.compute_alteration_par_grade` (extrapolation pondérée,
+- `diagnostic.compute_alteration_par_grade` (extrapolation pondérée,
   cas 0/1/N, doublons → max).
-- `Arbre.degradation_externe_par_grade` (max sur recouvrements).
-- `Arbre.prbs_par_grade` (combinaison interne + externe + cap à 0).
-- `Arbre.repartition_classes` (compteurs, t/R minimal, classe globale).
+- `diagnostic.degradation_externe_par_grade` (max sur recouvrements).
+- `diagnostic.prbs_par_grade` (combinaison interne + externe + cap à 0).
+- `diagnostic.repartition_classes` (compteurs, t/R minimal, classe
+  globale).
+
+Note : les fonctions de diagnostic vivent dans `diagnostic.py` depuis
+le refactor de mai 2026 — auparavant méthodes sur `Arbre`, désormais
+fonctions pures `f(arbre)`. Le fichier garde son nom `test_model.py`
+parce qu'il couvre aussi les dataclasses (`Sondage`, `Contrefort`,
+`DegradationExterne`) et que le diagnostic dépend du modèle.
 """
 
 from __future__ import annotations
 
 import unittest
 
+from diagnostic import (
+    compute_alteration_par_grade,
+    degradation_externe_par_grade,
+    diagnostic_summary_lines,
+    extrapolation_summary,
+    prbs_par_grade,
+    repartition_classes,
+)
 from geometry import GRADES
 from model import (
     Arbre,
@@ -123,7 +138,7 @@ class ComputeAlterationTests(unittest.TestCase):
 
     def test_aucun_sondage_donne_zeros(self):
         a = self._new_arbre()
-        self.assertEqual(a.compute_alteration_par_grade(), [0.0] * 16)
+        self.assertEqual(compute_alteration_par_grade(a), [0.0] * 16)
 
     def test_un_seul_sondage_pas_d_extrapolation(self):
         # Documenté : moins de 2 sondages → on garde la mesure ponctuelle
@@ -131,7 +146,7 @@ class ComputeAlterationTests(unittest.TestCase):
         a = self._new_arbre()
         a.sondages.append(Sondage(grade=0, bois_sain_cm=15.0,
                                    bois_altere_cm=5.0))
-        alt = a.compute_alteration_par_grade()
+        alt = compute_alteration_par_grade(a)
         self.assertEqual(alt[0], 5.0)
         self.assertEqual(sum(alt[1:]), 0.0)
 
@@ -142,7 +157,7 @@ class ComputeAlterationTests(unittest.TestCase):
         a = self._new_arbre()
         a.sondages.append(Sondage(grade=0, bois_altere_cm=4.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=8.0))
-        alt = a.compute_alteration_par_grade()
+        alt = compute_alteration_par_grade(a)
         self.assertAlmostEqual(alt[0], 4.0)
         self.assertAlmostEqual(alt[8], 8.0)
         # Milieu (idx 4) entre idx 0 et idx 8 : (4+8)/2 = 6
@@ -157,7 +172,7 @@ class ComputeAlterationTests(unittest.TestCase):
         a.sondages.append(Sondage(grade=0, bois_altere_cm=3.0))
         a.sondages.append(Sondage(grade=0, bois_altere_cm=7.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
-        alt = a.compute_alteration_par_grade()
+        alt = compute_alteration_par_grade(a)
         self.assertAlmostEqual(alt[0], 7.0)
 
 
@@ -165,14 +180,14 @@ class DegradationExterneParGradeTests(unittest.TestCase):
 
     def test_aucune_degradation_donne_zeros(self):
         a = Arbre(rayon_tronc_cm=20.0)
-        self.assertEqual(a.degradation_externe_par_grade(), [0.0] * 16)
+        self.assertEqual(degradation_externe_par_grade(a), [0.0] * 16)
 
     def test_une_degradation_couvre_les_grades_attendus(self):
         a = Arbre(rayon_tronc_cm=20.0)
         a.degradations_externes.append(
             DegradationExterne(grade_debut=50, grade_fin=100,
                                 profondeur_cm=2.0))
-        out = a.degradation_externe_par_grade()
+        out = degradation_externe_par_grade(a)
         # 50, 75, 100 → couverts ; ailleurs → 0
         self.assertAlmostEqual(out[GRADES.index(50)], 2.0)
         self.assertAlmostEqual(out[GRADES.index(75)], 2.0)
@@ -188,7 +203,7 @@ class DegradationExterneParGradeTests(unittest.TestCase):
         a.degradations_externes.append(
             DegradationExterne(grade_debut=50, grade_fin=150,
                                 profondeur_cm=3.0))
-        out = a.degradation_externe_par_grade()
+        out = degradation_externe_par_grade(a)
         # Recouvrement à 50, 75, 100 → max(1, 3) = 3
         for g in (50, 75, 100):
             self.assertAlmostEqual(out[GRADES.index(g)], 3.0)
@@ -201,13 +216,13 @@ class PrbsParGradeTests(unittest.TestCase):
 
     def test_arbre_sans_alteration_ni_degradation(self):
         a = Arbre(rayon_tronc_cm=20.0)
-        self.assertEqual(a.prbs_par_grade(), [20.0] * 16)
+        self.assertEqual(prbs_par_grade(a), [20.0] * 16)
 
     def test_alteration_interne_seule(self):
         a = Arbre(rayon_tronc_cm=20.0)
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
-        out = a.prbs_par_grade()
+        out = prbs_par_grade(a)
         # Aux deux directions sondées : 20 - 5 = 15
         self.assertAlmostEqual(out[0], 15.0)
         self.assertAlmostEqual(out[8], 15.0)
@@ -217,7 +232,7 @@ class PrbsParGradeTests(unittest.TestCase):
         a.degradations_externes.append(
             DegradationExterne(grade_debut=0, grade_fin=0,
                                 profondeur_cm=2.0))
-        out = a.prbs_par_grade()
+        out = prbs_par_grade(a)
         self.assertAlmostEqual(out[0], 18.0)
 
     def test_alteration_et_degradation_se_cumulent(self):
@@ -227,7 +242,7 @@ class PrbsParGradeTests(unittest.TestCase):
         a.degradations_externes.append(
             DegradationExterne(grade_debut=0, grade_fin=0,
                                 profondeur_cm=2.0))
-        out = a.prbs_par_grade()
+        out = prbs_par_grade(a)
         # 20 - 5 (interne) - 2 (externe) = 13 au grade 0
         self.assertAlmostEqual(out[0], 13.0)
 
@@ -240,12 +255,12 @@ class PrbsParGradeTests(unittest.TestCase):
         a.degradations_externes.append(
             DegradationExterne(grade_debut=0, grade_fin=0,
                                 profondeur_cm=5.0))
-        out = a.prbs_par_grade()
+        out = prbs_par_grade(a)
         self.assertEqual(out[0], 0.0)
 
     def test_rayon_zero_donne_zeros(self):
         a = Arbre(rayon_tronc_cm=0.0)
-        self.assertEqual(a.prbs_par_grade(), [0.0] * 16)
+        self.assertEqual(prbs_par_grade(a), [0.0] * 16)
 
     def test_arbre_n_expose_plus_de_cache_alteration(self):
         # Verrou : le cache `alteration_par_grade` a été retiré. Toute
@@ -348,7 +363,7 @@ class RepartitionClassesTests(unittest.TestCase):
 
     def test_arbre_sain_tout_vert(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertEqual(snap.vert.n, 16)
         self.assertEqual(snap.orange.n, 0)
         self.assertEqual(snap.rouge.n, 0)
@@ -363,7 +378,7 @@ class RepartitionClassesTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=18.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         # PRBS partout = 20 - 18 = 2 (extrapolé identique partout)
         # t/R = 0.10 < 0.15 → Rouge sur tout le pourtour
         self.assertEqual(snap.rouge.n, 16)
@@ -376,12 +391,12 @@ class RepartitionClassesTests(unittest.TestCase):
         a.sondages.append(Sondage(grade=0, bois_altere_cm=2.0))
         a.sondages.append(Sondage(grade=100, bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertEqual(snap.tR_min_grade, 100)
 
     def test_pct_grades_n_coherent(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         total_n = sum(snap.par_classe(c).n
                       for c in ("Vert", "Orange", "Rouge"))
         total_grades = sum(snap.par_classe(c).grades
@@ -397,7 +412,7 @@ class RepartitionClassesTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertEqual(snap.n_sondees, 2)
         self.assertTrue(snap.diagnostic_fiable)
 
@@ -407,13 +422,13 @@ class RepartitionClassesTests(unittest.TestCase):
         # Le flag protège les consommateurs (UI, PDF, XLSX, HTML).
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertEqual(snap.n_sondees, 1)
         self.assertFalse(snap.diagnostic_fiable)
 
     def test_diagnostic_non_fiable_sans_sondage(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertEqual(snap.n_sondees, 0)
         self.assertFalse(snap.diagnostic_fiable)
 
@@ -424,14 +439,14 @@ class RepartitionClassesTests(unittest.TestCase):
         # respecter au lieu de tester diagnostic_fiable à la main.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         self.assertIsNone(snap.diagnostic_global)
 
     def test_diagnostic_global_tuple_si_fiable(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=2.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
-        snap = a.repartition_classes()
+        snap = repartition_classes(a)
         diag = snap.diagnostic_global
         self.assertIsNotNone(diag)
         # Décomposition tuple — le contrat est (tR_moyen, classe_globale)
@@ -446,7 +461,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
 
     def test_aucun_sondage(self):
         a = Arbre(rayon_tronc_cm=20.0)
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 0)
         self.assertEqual(s["n_extrapolees"], 16)
         self.assertEqual(s["ecart_max_grades"], 0)
@@ -456,7 +471,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         # tour complet (400 gr). Convention : ecart_max == 400.
         a = Arbre(rayon_tronc_cm=20.0)
         a.sondages.append(Sondage(grade=0))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 1)
         self.assertEqual(s["n_extrapolees"], 15)
         self.assertEqual(s["ecart_max_grades"], 400)
@@ -467,7 +482,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0)
         a.sondages.append(Sondage(grade=0))
         a.sondages.append(Sondage(grade=200))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 2)
         self.assertEqual(s["ecart_max_grades"], 200)
 
@@ -476,7 +491,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0)
         for g in (0, 100, 200, 300):
             a.sondages.append(Sondage(grade=g))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 4)
         self.assertEqual(s["ecart_max_grades"], 100)
 
@@ -485,7 +500,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0)
         for g in GRADES:
             a.sondages.append(Sondage(grade=g))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 16)
         self.assertEqual(s["n_extrapolees"], 0)
         self.assertEqual(s["ecart_max_grades"], 25)
@@ -497,7 +512,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         a.sondages.append(Sondage(grade=0))
         a.sondages.append(Sondage(grade=0))
         a.sondages.append(Sondage(grade=200))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 2)
         self.assertEqual(s["ecart_max_grades"], 200)
 
@@ -507,7 +522,7 @@ class ExtrapolationSummaryTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0)
         for g in (0, 25, 50):
             a.sondages.append(Sondage(grade=g))
-        s = a.extrapolation_summary()
+        s = extrapolation_summary(a)
         self.assertEqual(s["n_sondees"], 3)
         self.assertEqual(s["ecart_max_grades"], 350)
 
@@ -518,13 +533,13 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
 
     def test_rayon_nul_renvoie_message_d_aide(self):
         a = Arbre(rayon_tronc_cm=0.0)
-        lines = a.diagnostic_summary_lines()
+        lines = diagnostic_summary_lines(a)
         self.assertEqual(len(lines), 1)
         self.assertIn("rayon", lines[0].lower())
 
     def test_sans_sondage_signale_aucune_alteration(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
-        lines = a.diagnostic_summary_lines()
+        lines = diagnostic_summary_lines(a)
         joined = "\n".join(lines)
         self.assertIn("Aucune altération", joined)
         # Pas de répartition Vert/Orange/Rouge dans ce cas
@@ -536,7 +551,7 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
                                     bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_sain_cm=2.0,
                                     bois_altere_cm=18.0))
-        lines = a.diagnostic_summary_lines()
+        lines = diagnostic_summary_lines(a)
         joined = "\n".join(lines)
         # En-tête présent
         self.assertIn("Rayon : 20", joined)
@@ -552,7 +567,7 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
-        lines = a.diagnostic_summary_lines()
+        lines = diagnostic_summary_lines(a)
         joined = "\n".join(lines)
         # 2/16 directions sondées → la ligne d'extrapolation apparaît
         self.assertIn("2/16", joined)
@@ -564,7 +579,7 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         # PAS affichés et qu'un avertissement explicite les remplace.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
-        lines = a.diagnostic_summary_lines()
+        lines = diagnostic_summary_lines(a)
         joined = "\n".join(lines)
         self.assertNotIn("t/R moyen", joined)
         self.assertNotIn("Classe globale", joined)

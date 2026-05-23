@@ -22,6 +22,10 @@ import tkinter as tk
 from typing import Optional, Tuple
 
 from bareme import classer_prbs
+from diagnostic import (
+    compute_alteration_par_grade,
+    degradation_externe_par_grade,
+)
 from geometry import (
     GRADES,
     adaptive_ruler_step_cm,
@@ -257,7 +261,7 @@ class SectionCanvas(tk.Canvas):
         # bois_altéré = épaisseur d'altération mesurée au résistographe,
         # qui correspond à une zone centrale de rayon égal à cette
         # épaisseur. La couronne externe de bois sain fait (R - altéré).
-        alt = A.compute_alteration_par_grade()
+        alt = compute_alteration_par_grade(A)
         if not any(a > 0 for a in alt):
             return
         smooth = cavity_polygon(alt, cx, cy, scale,
@@ -313,7 +317,7 @@ class SectionCanvas(tk.Canvas):
         # Diagnostic et la fiche PDF.
         port = A.port_arbre
         meche = A.meche_cm if A.meche_cm > 0 else float("inf")
-        deg_ext_par_grade = A.degradation_externe_par_grade()
+        deg_ext_par_grade = degradation_externe_par_grade(A)
         inset_cm = self.SONDAGE_INSET_PX / scale
         r_bul = self.BULLET_RADIUS_PX
         for s in A.sondages:

@@ -28,11 +28,14 @@ app_exports.py          ← actions d'export (PNG/PDF/CSV/XLSX/HTML)
 app_menu.py             ← barre de menu Tk (Fichier/Arbres/?, raccourcis)
 app_style.py            ← thème ttk (couleurs, polices, padding)
 dialogs.py              ← 3 dialogues Tk (Sondage, Dégradation, Contrefort)
-model.py                ← dataclasses (Sondage, Arbre, …) + logique métier
+model.py                ← dataclasses (Sondage, Arbre, …) + mutateurs cohérence
+diagnostic.py           ← fonctions pures de diagnostic (extrapolation,
+                          PRBS, t/R, DiagnosticSnapshot, résumé textuel)
 persistence.py          ← I/O JSON des missions (save/load + migration)
 geometry.py             ← briques pures (spline, contreforts, polaire)
 bareme.py               ← barème métier Silvavenir (classer_prbs, ports, classes)
-pil_render.py           ← rendu PNG + fiche PDF A4
+pil_render.py           ← rendu PNG de la section transversale
+fiche_pdf.py            ← layout de la fiche d'expertise PDF (page A4)
 palette.py              ← couleurs partagées Tk ↔ PIL (COLOR_*, COULEUR_CLASSE)
 export.py               ← exports XLSX/HTML du tableau PRBS d'un arbre
 tests/                  ← suite unittest (146 tests dont 4 golden-images
@@ -59,7 +62,11 @@ geometry.py + bareme.py   (stdlib)
    ↑
 model.py + palette.py
    ↑
+diagnostic.py   (calculs purs sur Arbre)
+   ↑
 export.py + pil_render.py + persistence.py + dialogs.py   (dialogs.py est Tk-only)
+   ↑
+fiche_pdf.py   (consomme pil_render + bareme/geometry/palette + modèle)
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
@@ -171,50 +178,21 @@ Hauteur de l'arbre) et une ligne de légende ✓/✗ sous le tableau.
 pour ne pas créer de cycle d'import (export.py n'importe pas
 penetrometre.py). Les arbres et chantiers sont reçus en duck-typing.
 
-### `model.py` — dataclasses + logique métier
+### `model.py` — dataclasses + mutateurs de cohérence
 
 Module sans dépendance Tk ni PIL (stdlib + `geometry`), couvert par
 les tests :
 
-- `Sondage` — une mesure ponctuelle dans une direction.
+- `Sondage` — une mesure ponctuelle dans une direction. Propriété
+  `prbs_cm` (alias métier de `bois_sain_cm`) et `ratio_tR_brut(R)`
+  (utilisé uniquement par l'export CSV pour conserver une colonne
+  « brut » à côté de la colonne ajustée).
 - `DegradationExterne` — un arc d'écorce dégradée.
 - `Contrefort` — empattement à la base (cloche cosinus²).
-- `Arbre` — sondages, dégradations, contreforts. Méthodes calculées
-  **pures** (aucune ne mute l'arbre) :
-  - `compute_alteration_par_grade()` — extrapolation par moyenne
-    pondérée linéaire entre voisins. **Unique** point d'accès à
-    l'altération extrapolée : pas de cache stocké sur l'arbre. Les
-    appelants (renderers, exports, diagnostic) stockent le résultat
-    dans une variable locale au moment où ils en ont besoin.
-    Verrouillé par `test_arbre_n_expose_plus_de_cache_alteration`.
-  - `prbs_par_grade()`, `ratio_tR_par_grade()`,
-    `repartition_classes()` — composent par-dessus
-    `compute_alteration_par_grade()` + `degradation_externe_par_grade()`.
-    `repartition_classes()` renvoie un **`DiagnosticSnapshot`** (et non
-    un dict) : dataclass typée qui porte la répartition par classe
-    (`vert`/`orange`/`rouge` : `ClasseRepartition(n, grades, pct)`),
-    les ratios bruts, la direction critique, le t/R moyen, la classe
-    globale, et l'état de fiabilité (`n_sondees`, `diagnostic_fiable`,
-    `extrapolation_text`). Verrouillé par `RepartitionClassesTests`.
-    Le snapshot est **self-contained** : il porte `ratios` (les 16
-    t/R) et `extrapolation_text` (phrase de fiabilité) pour que les
-    callers (`diagnostic_summary_lines`, fiche PDF, XLSX, HTML) n'aient
-    pas à rappeler `ratio_tR_par_grade()` ni
-    `extrapolation_summary_text()` derrière — sinon on rejoue la
-    chaîne `compute_alteration_par_grade` une seconde fois pour rien.
-    Pour itérer par label (Vert/Orange/Rouge), utiliser
-    `snap.par_classe(cls)` plutôt que les attributs directs — ça permet
-    de garder les boucles `for cls in (...)` héritées du code dict.
-    `diagnostic_fiable` est `True` dès `n_sondees >= 2` : les exports
-    XLSX/HTML/PDF affichent un avertissement plutôt qu'un t/R moyen
-    trompeur si `False`. **Tous les exports doivent passer par la
-    propriété `snap.diagnostic_global`** qui renvoie
-    `Optional[Tuple[float, str]]` (`(tR_moyen, classe_globale)` ou
-    `None`) — un seul point d'entrée pour la règle de publication, au
-    lieu de tester `diagnostic_fiable` puis de lire les champs à la
-    main. Verrouillé par `test_diagnostic_global_*`.
-    `ratio_tR_par_grade()` clampe explicitement à `[0, 1]` (alignement
-    sur `Sondage.ratio_tR_brut`).
+- `Arbre` — sondages, dégradations, contreforts. La logique de
+  diagnostic vit dans `diagnostic.py` (fonctions pures) ; `Arbre` ne
+  porte plus que les **mutateurs de cohérence** et la propriété
+  d'identité :
   - `set_rayon(new_R)` — **mutateur unique** pour changer le rayon
     en conservant la PRBS (règle métier : « PRBS invariante,
     `bois_altere` s'ajuste »). Synchronise aussi
@@ -226,10 +204,64 @@ les tests :
   - `renumeroter_sondages()` / `renumeroter_degradations()` /
     `renumeroter_contreforts()` — mutateurs explicites appelés après
     ajout/suppression depuis l'UI pour recoller les numéros 1..N.
+  - `display_name` — propriété d'identité (`"Arbre n°X — Essence"`).
 - `Chantier` — pure dataclass : nom, adresse, opérateur, date, et
   liste d'arbres. La persistance JSON (chargement, sauvegarde,
   migration) vit dans **`persistence.py`** pour garder le modèle métier
-  focalisé sur ses dataclasses et sa logique d'extrapolation.
+  focalisé sur ses dataclasses.
+
+### `diagnostic.py` — calculs de diagnostic (fonctions pures sur Arbre)
+
+Module sans dépendance Tk ni PIL (stdlib + `bareme` + `geometry` +
+`model` en TYPE_CHECKING). Toutes les fonctions exposées sont **pures**
+(ne mutent rien) et reçoivent l'arbre en paramètre. Aucun cache n'est
+stocké sur l'arbre — chaque appelant (renderers, exports, onglet
+Diagnostic) qui a besoin du résultat le stocke dans une variable
+locale au point d'usage.
+
+- `compute_alteration_par_grade(arbre)` — extrapolation par moyenne
+  pondérée linéaire entre voisins. **Unique** point d'accès à
+  l'altération extrapolée. Verrouillé par
+  `test_arbre_n_expose_plus_de_cache_alteration`.
+- `degradation_externe_par_grade(arbre)` — profondeur maximale par
+  direction.
+- `prbs_par_grade(arbre)`, `ratio_tR_par_grade(arbre)` — composent
+  par-dessus les deux précédents. `ratio_tR_par_grade` clampe
+  explicitement à `[0, 1]` (alignement sur `Sondage.ratio_tR_brut`).
+- `repartition_classes(arbre)` — renvoie un **`DiagnosticSnapshot`**
+  (et non un dict) : dataclass typée qui porte la répartition par
+  classe (`vert`/`orange`/`rouge` : `ClasseRepartition(n, grades,
+  pct)`), les ratios bruts, la direction critique, le t/R moyen, la
+  classe globale, et l'état de fiabilité (`n_sondees`,
+  `diagnostic_fiable`, `extrapolation_text`). Verrouillé par
+  `RepartitionClassesTests`. Le snapshot est **self-contained** : il
+  porte `ratios` (les 16 t/R) et `extrapolation_text` (phrase de
+  fiabilité) pour que les callers (`diagnostic_summary_lines`, fiche
+  PDF, XLSX, HTML) n'aient pas à rappeler `ratio_tR_par_grade()` ni
+  `extrapolation_summary_text()` derrière — sinon on rejoue la chaîne
+  `compute_alteration_par_grade` une seconde fois pour rien. Pour
+  itérer par label (Vert/Orange/Rouge), utiliser `snap.par_classe(cls)`
+  plutôt que les attributs directs — ça permet de garder les boucles
+  `for cls in (...)` héritées du code dict. `diagnostic_fiable` est
+  `True` dès `n_sondees >= 2` : les exports XLSX/HTML/PDF affichent un
+  avertissement plutôt qu'un t/R moyen trompeur si `False`. **Tous les
+  exports doivent passer par la propriété `snap.diagnostic_global`**
+  qui renvoie `Optional[Tuple[float, str]]` (`(tR_moyen,
+  classe_globale)` ou `None`) — un seul point d'entrée pour la règle
+  de publication, au lieu de tester `diagnostic_fiable` puis de lire
+  les champs à la main. Verrouillé par `test_diagnostic_global_*`.
+- `extrapolation_summary(arbre)` / `extrapolation_summary_text(arbre)`
+  — indicateurs bruts + phrase prête à afficher.
+- `diagnostic_summary_lines(arbre)` — lignes textuelles du résumé
+  diagnostic, jointes par `"\n".join(...)` pour le widget Label Tk de
+  l'onglet Diagnostic et la fiche PDF.
+
+**Convention métier confirmée par Silvavenir (mai 2026) : la classe
+globale publiée est celle du t/R MOYEN sur les 16 directions** (et non
+la pire classe ponctuelle). C'est la règle utilisée par
+`repartition_classes` ; toute modification doit revalider avec
+l'utilisateur métier — la fiche PDF, XLSX et HTML s'alignent toutes
+sur ce choix.
 
 ### `persistence.py` — I/O JSON des missions
 
@@ -301,7 +333,7 @@ bois, écorce, cernes, dégradation, sondage) et le dict
 `penetrometre.py` (Tk) et `pil_render.py` (PIL). Sans ce module
 intermédiaire, les deux auraient un cycle d'import.
 
-### `pil_render.py` — rendu PNG + fiche PDF A4
+### `pil_render.py` — rendu PNG de la section transversale
 
 - `render_arbre_to_pil_image(arbre, …)` — section transversale
   identique à celle du `SectionCanvas` Tk, mais sur une `PIL.Image`.
@@ -310,14 +342,36 @@ intermédiaire, les deux auraient un cycle d'import.
   écorce, contreforts, dégradations, ticks, lettres cardinales,
   sondages, règle, titre). Structure symétrique aux `_draw_*` de
   `SectionCanvas` : modifier le helper concerné, pas l'orchestrateur.
-- `render_fiche_arbre_to_pdf_page(arbre, chantier)` — page A4
-  150 DPI complète : en-tête mission + logo, identité de l'arbre,
-  dessin, légende horizontale, tableau PRBS ajustée, diagnostic.
-- Helpers : `_pil_load_fonts()` (multi-OS avec fallback),
-  `_fit_text()` (troncature ellipsis), `_draw_horizontal_legend_pil()`.
+- Helpers exposés (consommés aussi par `fiche_pdf.py`) :
+  `_pil_load_fonts()` (factory de polices multi-OS avec fallback),
+  `_draw_horizontal_legend_pil()` (légende horizontale adaptative).
 - `HAS_PIL` exposé : `False` si Pillow absent ; les actions d'export
   côté UI affichent alors un message clair et n'appellent pas le
   rendu.
+
+Le **layout de la fiche d'expertise PDF** (page A4 complète) vit dans
+`fiche_pdf.py`, qui consomme `render_arbre_to_pil_image` pour le dessin
+du tronc et compose autour l'en-tête mission, le tableau PRBS et le
+diagnostic. Ce découpage tient `pil_render.py` autour de 600 lignes
+focalisées sur la section transversale.
+
+### `fiche_pdf.py` — layout de la fiche d'expertise PDF
+
+- `render_fiche_arbre_to_pdf_page(arbre, chantier)` — page A4 portrait
+  150 DPI (1240 × 1754 px). Assemble l'en-tête mission + logo
+  Silvavenir, l'identité de l'arbre, le dessin de section (rendu par
+  `pil_render.render_arbre_to_pil_image`), la légende horizontale, le
+  tableau PRBS ajustée et le diagnostic enrichi (t/R moyen + min,
+  barre de répartition Vert/Orange/Rouge, classe globale).
+- Helper local : `_fit_text(...)` (troncature ellipsis pour respecter
+  une largeur de colonne donnée).
+- Renvoie une `PIL.Image`. La conversion en fichier PDF
+  (`page.save(p, "PDF", resolution=150.0)`) reste à la charge de
+  l'appelant (`app_exports.export_pdf_arbre`).
+- Ne contient AUCUNE géométrie nouvelle : tout le rendu de la section
+  est délégué à `pil_render`. Ce module est purement du **layout** —
+  tailles de police, marges, largeurs de colonnes, dimensionnement
+  adaptatif du dessin selon le nombre de sondages.
 
 **Tkinter (`section_canvas.SectionCanvas`) et PIL partagent les
 primitives géométriques** définies dans `geometry.py` (`polar_to_xy`,
@@ -482,14 +536,15 @@ python penetrometre.py
 python -m unittest discover tests
 
 # Lint + vérif de types (nécessite `pip install -r requirements-dev.txt`).
-# Ruff couvre tous les .py ; mypy couvre le cœur métier + le rendu PIL
-# (7 modules en strict : bareme, geometry, palette, model, persistence,
-# export, pil_render) et la frontière Tk (2 modules en config souple :
-# app_exports, app_menu — utilisent un Protocol `AppLike`). Le rendu
-# Tk (section_canvas, panes, dialogs) reste hors périmètre — les
-# golden-tests Tk font foi pour leur correction visuelle.
+# Ruff couvre tous les .py ; mypy couvre le cœur métier + le rendu PIL +
+# le layout PDF (9 modules en strict : bareme, geometry, palette, model,
+# diagnostic, persistence, export, pil_render, fiche_pdf) et la frontière
+# Tk (2 modules en config souple : app_exports, app_menu — utilisent un
+# Protocol `AppLike`). Le rendu Tk (section_canvas, panes, dialogs) reste
+# hors périmètre — les golden-tests Tk font foi pour leur correction
+# visuelle.
 ruff check .
-python -m mypy bareme.py geometry.py palette.py model.py persistence.py export.py pil_render.py app_exports.py app_menu.py
+python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py
 ```
 
 La suite couvre les fonctions pures à risque métier : barème
@@ -583,9 +638,19 @@ au modèle, aux helpers géométriques ou aux exports.
    - **Barème métier** (`classer_prbs`, ports, classes) → `bareme.py`.
    - **Géométrie pure** (spline, contreforts, primitives polaires) →
      `geometry.py`.
-   - **Modèle** (dataclasses, extrapolation, calcul PRBS, migration
-     JSON) → `model.py`.
-   - **Rendu PNG/PDF** → `pil_render.py`.
+   - **Modèle** (dataclasses, mutateurs de cohérence comme
+     `set_rayon`, `renumeroter_*`) → `model.py`. **Migration JSON** →
+     `persistence.py`.
+   - **Calcul de diagnostic** (extrapolation, PRBS par grade, t/R,
+     répartition par classe, `DiagnosticSnapshot`, lignes de résumé)
+     → `diagnostic.py`. Toutes ces fonctions sont **pures** : prennent
+     un `Arbre` en paramètre, ne mutent rien. Aucun cache stocké sur
+     l'arbre.
+   - **Rendu PNG de la section** → `pil_render.py`.
+   - **Layout de la fiche PDF A4** (en-tête, tableau, diagnostic) →
+     `fiche_pdf.py`. Si tu touches au dessin de la section (couches,
+     règle, pastilles), c'est `pil_render.py` qui change ; `fiche_pdf.py`
+     ne contient que du layout de page.
    - **Couleurs partagées Tk/PIL** → `palette.py`.
    - **Exports tableau** (XLSX/HTML) → `export.py`.
    - **Dialogues Tk** (Sondage, Dégradation, Contrefort) → `dialogs.py`.

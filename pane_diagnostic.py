@@ -25,6 +25,10 @@ from tkinter import ttk
 from typing import Optional, Protocol
 
 from bareme import classer_prbs
+from diagnostic import (
+    degradation_externe_par_grade,
+    diagnostic_summary_lines,
+)
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre
 from palette import COLOR_PANEL
@@ -175,7 +179,7 @@ class DiagnosticPane(ttk.Frame):
         if a and a.rayon_tronc_cm > 0:
             R = a.rayon_tronc_cm
             port = a.port_arbre
-            deg_ext_par_grade = a.degradation_externe_par_grade()
+            deg_ext_par_grade = degradation_externe_par_grade(a)
             for s in a.sondages:
                 direction = DIRECTION_LABELS.get(s.grade, "")
                 if not direction and s.grade in GRADES:
@@ -212,4 +216,4 @@ class DiagnosticPane(ttk.Frame):
                      "sondages pour obtenir un résumé.")
             return
         self.lbl_diag.configure(
-            text="\n".join(a.diagnostic_summary_lines()))
+            text="\n".join(diagnostic_summary_lines(a)))

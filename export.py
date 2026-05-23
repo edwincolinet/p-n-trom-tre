@@ -31,9 +31,23 @@ from __future__ import annotations
 
 import html as html_lib
 from datetime import datetime
-from typing import Any, Callable, List, Mapping, Protocol, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    List,
+    Mapping,
+    Protocol,
+    Sequence,
+    Tuple,
+    cast,
+)
 
+from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from geometry import GRADES
+
+if TYPE_CHECKING:
+    from model import Arbre  # noqa: F401  (forward-ref pour `cast()`)
 
 try:
     from openpyxl import Workbook
@@ -80,7 +94,11 @@ class ArbreLike(Protocol):
     @property
     def sondages(self) -> Sequence[SondageLike]: ...
 
-    def ratio_tR_par_grade(self) -> List[float]: ...
+    # `ratio_tR_par_grade` n'est plus une méthode d'`Arbre` (extraite
+    # dans `diagnostic.py` sous forme de fonction pure). Le Protocol
+    # local n'expose plus que les champs accédés directement par
+    # `export.py` ; la fonction passe par `_diag_ratio_tR_par_grade`
+    # avec un `cast()` au point d'appel pour bridger ArbreLike → Arbre.
 
 
 class ChantierLike(Protocol):
@@ -121,11 +139,15 @@ def prbs_table_rows_par_sondage(arbre: ArbreLike,
     - `commentaire` (str)
     """
     R = arbre.rayon_tronc_cm
-    # `ratio_tR_par_grade()` retire la dégradation externe avant le
-    # ratio → on prend la même valeur que celle affichée par la
-    # pastille du sondage sur le dessin (cf. CLAUDE.md « Pastille du
-    # sondage = PRBS ajustée »).
-    ratios_par_grade = arbre.ratio_tR_par_grade()
+    # `diagnostic.ratio_tR_par_grade` retire la dégradation externe
+    # avant le ratio → on prend la même valeur que celle affichée par
+    # la pastille du sondage sur le dessin (cf. CLAUDE.md « Pastille du
+    # sondage = PRBS ajustée »). Le `cast` bridge structurellement
+    # `ArbreLike` → `Arbre` au point d'entrée du module diagnostic :
+    # en pratique tous les callers d'`export.py` passent un `Arbre`
+    # concret, l'abstraction Protocol reste utile pour la documentation
+    # de la surface attendue.
+    ratios_par_grade = _diag_ratio_tR_par_grade(cast("Arbre", arbre))
     rows: List[dict] = []
     for s in sorted(arbre.sondages, key=lambda x: x.numero):
         try:
