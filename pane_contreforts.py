@@ -30,6 +30,7 @@ from model import Arbre, Contrefort
 class _ContrefortsHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _debounced_redraw(self) -> None: ...
+    def push_undo(self) -> None: ...
 
 
 class ContrefortsPane(ttk.Frame):
@@ -116,6 +117,7 @@ class ContrefortsPane(ttk.Frame):
         c = Contrefort(numero=len(a.contreforts) + 1,
                        grade_centre=0, largeur_grades=75, longueur_cm=10.0)
         if edit_contrefort(self, a, c):
+            self._host.push_undo()
             a.contreforts.append(c)
             a.renumeroter_contreforts()
             self.refresh()
@@ -129,6 +131,7 @@ class ContrefortsPane(ttk.Frame):
         if not a:
             return
         c = a.contreforts[idx]
+        self._host.push_undo()
         if edit_contrefort(self, a, c):
             self.refresh()
             self._host._debounced_redraw()
@@ -140,6 +143,7 @@ class ContrefortsPane(ttk.Frame):
         a = self._host._current_arbre()
         if not a:
             return
+        self._host.push_undo()
         del a.contreforts[idx]
         a.renumeroter_contreforts()
         self.refresh()

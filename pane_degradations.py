@@ -23,6 +23,7 @@ from model import Arbre, DegradationExterne
 class _DegradationsHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _debounced_redraw(self) -> None: ...
+    def push_undo(self) -> None: ...
 
 
 class DegradationsPane(ttk.Frame):
@@ -108,6 +109,7 @@ class DegradationsPane(ttk.Frame):
             numero=len(a.degradations_externes) + 1,
             grade_debut=0, grade_fin=50, profondeur_cm=2.0)
         if edit_degradation(self, a, deg):
+            self._host.push_undo()
             a.degradations_externes.append(deg)
             a.renumeroter_degradations()
             self.refresh()
@@ -121,6 +123,7 @@ class DegradationsPane(ttk.Frame):
         if not a:
             return
         deg = a.degradations_externes[idx]
+        self._host.push_undo()
         if edit_degradation(self, a, deg):
             self.refresh()
             self._host._debounced_redraw()
@@ -132,6 +135,7 @@ class DegradationsPane(ttk.Frame):
         a = self._host._current_arbre()
         if not a:
             return
+        self._host.push_undo()
         del a.degradations_externes[idx]
         a.renumeroter_degradations()
         self.refresh()

@@ -23,6 +23,7 @@ from model import Arbre, Sondage
 class _SondagesHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _debounced_redraw(self) -> None: ...
+    def push_undo(self) -> None: ...
 
 
 class SondagesPane(ttk.Frame):
@@ -104,6 +105,7 @@ class SondagesPane(ttk.Frame):
         s = Sondage(numero=len(a.sondages) + 1, grade=0,
                     bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
         if edit_sondage(self, a, s):
+            self._host.push_undo()
             a.sondages.append(s)
             a.renumeroter_sondages()
             self.refresh()
@@ -117,6 +119,7 @@ class SondagesPane(ttk.Frame):
         if not a:
             return
         s = a.sondages[idx]
+        self._host.push_undo()
         if edit_sondage(self, a, s):
             self.refresh()
             self._host._debounced_redraw()
@@ -128,6 +131,7 @@ class SondagesPane(ttk.Frame):
         a = self._host._current_arbre()
         if not a:
             return
+        self._host.push_undo()
         del a.sondages[idx]
         a.renumeroter_sondages()
         self.refresh()

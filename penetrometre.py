@@ -32,8 +32,9 @@ from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
-from persistence import load_chantier, save_chantier
+from persistence import chantier_from_dict, chantier_to_dict, load_chantier, save_chantier
 from section_canvas import SectionCanvas
+from undo import UndoStack
 
 __version__ = "3.3.0"
 
@@ -62,12 +63,17 @@ class App(tk.Tk):
         self.current_idx = 0
         self.current_file: Optional[Path] = None
         self._suspend_sync = False
+        self._undo_stack = UndoStack()
 
         apply_ttk_styles(self)
         build_menu(self)
         self._build_layout()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
+
+        self.bind_all("<Control-z>", lambda e: self._perform_undo())
+        self.bind_all("<Control-y>", lambda e: self._perform_redo())
+        self.bind_all("<Control-Z>", lambda e: self._perform_redo())
 
     def _build_layout(self) -> None:
         header = ttk.Frame(self)
@@ -223,6 +229,38 @@ class App(tk.Tk):
         self.section = SectionCanvas(frame, width=550, height=550)
         self.section.pack(fill="both", expand=True)
 
+    # --- Undo / redo --------------------------------------------------
+
+    def push_undo(self) -> None:
+        """Sauvegarde l'état courant avant une mutation discrète."""
+        self._undo_stack.push(chantier_to_dict(self.chantier))
+
+    def _perform_undo(self) -> None:
+        snapshot = self._undo_stack.undo(chantier_to_dict(self.chantier))
+        if snapshot is None:
+            return
+        self._restore_snapshot(snapshot)
+
+    def _perform_redo(self) -> None:
+        snapshot = self._undo_stack.redo()
+        if snapshot is None:
+            return
+        self._restore_snapshot(snapshot)
+
+    def _restore_snapshot(self, snapshot: dict) -> None:
+        self.chantier = chantier_from_dict(snapshot)
+        if not self.chantier.arbres:
+            self.chantier.arbres.append(Arbre(numero_arbre="1"))
+        self.current_idx = min(self.current_idx,
+                               len(self.chantier.arbres) - 1)
+        with self._suspend_sync_block():
+            self.var_ch_nom.set(self.chantier.nom)
+            self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_ope.set(self.chantier.operateur)
+            self.var_ch_date.set(self.chantier.date_releve)
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+
     # --- Synchro -----------------------------------------------------
 
     def _current_arbre(self) -> Optional[Arbre]:
@@ -318,7 +356,7 @@ class App(tk.Tk):
         self._load_arbre_to_ui()
 
     def action_add_arbre(self) -> None:
-        # Numéro = plus grand numéro numérique existant + 1, ou len + 1
+        self.push_undo()
         max_num = 0
         for arb in self.chantier.arbres:
             try:
@@ -335,6 +373,7 @@ class App(tk.Tk):
         a = self._current_arbre()
         if not a:
             return
+        self.push_undo()
         import copy
         new = copy.deepcopy(a)
         # Nouveau numéro = numéro existant + suffixe 'bis', 'ter', etc.
@@ -361,6 +400,7 @@ class App(tk.Tk):
         if not messagebox.askyesno("Supprimer",
                                    f"Supprimer définitivement « {a.display_name} » ?"):
             return
+        self.push_undo()
         del self.chantier.arbres[self.current_idx]
         self.current_idx = max(0, self.current_idx - 1)
         self._refresh_tree_arbres()
@@ -388,10 +428,8 @@ class App(tk.Tk):
                 "Continuer quand même ?")
             if not confirmer:
                 return
+        self.push_undo()
         a.numero_arbre = new
-        # Pane recharge ses 10 vars depuis l'arbre (suspend interne) —
-        # plus simple que de toucher une var précise sans déclencher la
-        # trace.
         self.pane_id.load_from_arbre()
         self._refresh_tree_arbres()
 
@@ -437,6 +475,7 @@ class App(tk.Tk):
         if not messagebox.askyesno("Nouvelle mission",
                                    "Perdre les données non enregistrées ?"):
             return
+        self._undo_stack.clear()
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
@@ -457,6 +496,7 @@ class App(tk.Tk):
         if not p:
             return
         try:
+            self._undo_stack.clear()
             self.chantier = load_chantier(p)
             if not self.chantier.arbres:
                 self.chantier.arbres.append(Arbre())
