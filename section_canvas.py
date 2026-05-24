@@ -29,6 +29,7 @@ from geometry import (
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
+    cerne_radii_px,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -245,13 +246,7 @@ class SectionCanvas(tk.Canvas):
                          fill=COLOR_WOOD, outline="", width=0)
 
     def _draw_cernes(self, cx: float, cy: float, R: float, scale: float) -> None:
-        # Cernes par-dessus le bois sain, en brun foncé fin. Effacés
-        # naturellement dans la zone dégradée par la cavité dessinée
-        # juste après.
-        radius_px = R * scale
-        n = self.N_CERNES
-        for k in range(1, n + 1):
-            rr = radius_px * k / (n + 1)
+        for rr in cerne_radii_px(R, scale, self.N_CERNES):
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
 

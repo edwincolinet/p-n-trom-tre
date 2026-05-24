@@ -367,6 +367,18 @@ def cardinal_label_positions(cx: float, cy: float, scale: float,
     return out
 
 
+def cerne_radii_px(R: float, scale: float, n_cernes: int) -> List[float]:
+    """Rayons en pixels des N cernes concentriques à l'intérieur du tronc.
+
+    Régulièrement espacés entre le centre et R (exclus). Partagé entre
+    les deux renderers (Tk et PIL) pour éviter de dupliquer le calcul.
+    """
+    radius_px = R * scale
+    if radius_px <= 0 or n_cernes <= 0:
+        return []
+    return [radius_px * k / (n_cernes + 1) for k in range(1, n_cernes + 1)]
+
+
 def ruler_graduation_positions(cx: float, scale: float,
                                 R: float, step_cm: int
                                 ) -> List[Tuple[float, str]]:

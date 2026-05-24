@@ -39,6 +39,7 @@ from geometry import (
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
+    cerne_radii_px,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -280,11 +281,7 @@ def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw",
 def _pil_draw_cernes(d: "ImageDraw.ImageDraw",
                      cx: float, cy: float,
                      R: float, scale: float) -> None:
-    # Cernes par-dessus le bois, en brun foncé fin. Partiellement effacés
-    # par la cavité qui suit — visibles uniquement dans le bois sain.
-    radius_px = R * scale
-    for k in range(1, N_CERNES + 1):
-        rr = radius_px * k / (N_CERNES + 1)
+    for rr in cerne_radii_px(R, scale, N_CERNES):
         d.ellipse([cx-rr, cy-rr, cx+rr, cy+rr],
                   outline=COLOR_CERNE, width=1)
 
