@@ -48,6 +48,13 @@ class Sondage:
     compartimentation: str = "-"
     commentaire: str = ""
 
+    def __post_init__(self) -> None:
+        if self.grade not in GRADES:
+            raise ValueError(
+                f"grade={self.grade} invalide (attendu: multiple de 25, 0–375)")
+        self.bois_sain_cm = max(0.0, float(self.bois_sain_cm))
+        self.bois_altere_cm = max(0.0, float(self.bois_altere_cm))
+
     @property
     def prbs_cm(self) -> float:
         """Paroi Résiduelle de Bois Sain (alias métier de bois_sain_cm).
@@ -89,6 +96,15 @@ class DegradationExterne:
     grade_fin: int = 25        # 0 à 375 gr (inclus), sens horaire
     profondeur_cm: float = 1.0 # épaisseur radiale depuis l'écorce
     commentaire: str = ""
+
+    def __post_init__(self) -> None:
+        if self.grade_debut not in GRADES:
+            raise ValueError(
+                f"grade_debut={self.grade_debut} invalide (multiple de 25, 0–375)")
+        if self.grade_fin not in GRADES:
+            raise ValueError(
+                f"grade_fin={self.grade_fin} invalide (multiple de 25, 0–375)")
+        self.profondeur_cm = max(0.0, float(self.profondeur_cm))
 
     def largeur_grades(self) -> int:
         """Étendue angulaire en grades (sens horaire), de 25 à 400."""
@@ -138,6 +154,15 @@ class Contrefort:
     largeur_grades: int = 50   # étendue angulaire (multiple de 25)
     longueur_cm: float = 10.0  # saillie radiale vers l'extérieur (cm)
     commentaire: str = ""
+
+    def __post_init__(self) -> None:
+        if not (0 <= self.grade_centre <= 375):
+            raise ValueError(
+                f"grade_centre={self.grade_centre} invalide (attendu: 0–375)")
+        if self.largeur_grades < 0:
+            raise ValueError(
+                f"largeur_grades={self.largeur_grades} invalide (attendu: >= 0)")
+        self.longueur_cm = max(0.0, float(self.longueur_cm))
 
     def grade_debut(self) -> int:
         """Grade de début de l'arc couvert par le contrefort (sens horaire)."""

@@ -47,7 +47,11 @@ _log = logging.getLogger("penetrometre")
 # (et ajouter une branche dans `chantier_from_dict`) quand une
 # migration non triviale est nécessaire. La lecture tolère son absence
 # (anciens fichiers pré-versionnés → traités comme v1).
-FORMAT_VERSION = 1
+#
+# Historique :
+#   1 — format initial (sondages + dégradations externes)
+#   2 — ajout contreforts + port normalisé (v3.3)
+FORMAT_VERSION = 2
 
 
 def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:

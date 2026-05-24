@@ -131,6 +131,47 @@ class ContrefortTests(unittest.TestCase):
         self.assertAlmostEqual(c.largeur_cm(10.0), 10.0 * 3.141592653589793)
 
 
+class ValidationTests(unittest.TestCase):
+    """Vérifie que __post_init__ rejette les valeurs incohérentes."""
+
+    def test_sondage_grade_invalide(self):
+        with self.assertRaises(ValueError):
+            Sondage(grade=30)  # pas multiple de 25
+        with self.assertRaises(ValueError):
+            Sondage(grade=400)  # hors plage
+        with self.assertRaises(ValueError):
+            Sondage(grade=-25)
+
+    def test_sondage_clamp_negatifs(self):
+        s = Sondage(bois_sain_cm=-5.0, bois_altere_cm=-2.0)
+        self.assertEqual(s.bois_sain_cm, 0.0)
+        self.assertEqual(s.bois_altere_cm, 0.0)
+
+    def test_degradation_grade_invalide(self):
+        with self.assertRaises(ValueError):
+            DegradationExterne(grade_debut=30, grade_fin=100)
+        with self.assertRaises(ValueError):
+            DegradationExterne(grade_debut=0, grade_fin=401)
+
+    def test_degradation_profondeur_clampee(self):
+        deg = DegradationExterne(profondeur_cm=-3.0)
+        self.assertEqual(deg.profondeur_cm, 0.0)
+
+    def test_contrefort_grade_centre_hors_plage(self):
+        with self.assertRaises(ValueError):
+            Contrefort(grade_centre=400)
+        with self.assertRaises(ValueError):
+            Contrefort(grade_centre=-1)
+
+    def test_contrefort_largeur_negative(self):
+        with self.assertRaises(ValueError):
+            Contrefort(largeur_grades=-25)
+
+    def test_contrefort_longueur_clampee(self):
+        c = Contrefort(longueur_cm=-5.0)
+        self.assertEqual(c.longueur_cm, 0.0)
+
+
 class ComputeAlterationTests(unittest.TestCase):
 
     def _new_arbre(self) -> Arbre:
