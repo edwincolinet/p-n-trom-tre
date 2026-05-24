@@ -82,7 +82,9 @@ python penetrometre.py                      # Lancer l'app
 python -m unittest discover tests           # 146 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
-  persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py
+  persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  pane_identification.py pane_sondages.py pane_degradations.py \
+  pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py
 ```
 
 Golden-tests :

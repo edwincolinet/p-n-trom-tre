@@ -19,7 +19,7 @@ fichiers (Tk + PIL).
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from bareme import classer_prbs
 from diagnostic import (
@@ -81,7 +81,7 @@ class SectionCanvas(tk.Canvas):
     # Échantillonnage du polygone d'altération (segments Catmull-Rom).
     CAVITY_SAMPLES_PER_SEGMENT = 28
 
-    def __init__(self, master, **kw):
+    def __init__(self, master: tk.Misc, **kw: Any) -> None:
         super().__init__(master, bg=COLOR_PANEL, highlightthickness=0,
                          bd=0, **kw)
         self.arbre: Optional[Arbre] = None
@@ -120,8 +120,8 @@ class SectionCanvas(tk.Canvas):
         scale = radius_px / R_eff if R_eff > 0 else 1.0
         return cx, cy, scale
 
-    def _draw_contreforts_canvas(self, cx, cy, scale, R,
-                                  contreforts,
+    def _draw_contreforts_canvas(self, cx: float, cy: float, scale: float,
+                                  R: float, contreforts: Any,
                                   ep_cm: float = 0.0,
                                   R_inner: Optional[float] = None) -> None:
         """Dessine TOUS les contreforts en utilisant les polygones fusionnés
@@ -152,8 +152,9 @@ class SectionCanvas(tk.Canvas):
                 self.create_line(*flat_outer, fill=COLOR_BARK, width=3,
                                  smooth=True)
 
-    def _draw_degradation_externe_canvas(self, cx, cy, scale, R, ep_cm,
-                                          contreforts, deg) -> None:
+    def _draw_degradation_externe_canvas(self, cx: float, cy: float,
+                                          scale: float, R: float, ep_cm: float,
+                                          contreforts: Any, deg: Any) -> None:
         """Dessine une dégradation externe sur le canvas Tkinter à partir
         des points renvoyés par `degradation_externe_outline` (cf.
         geometry.py)."""
@@ -240,13 +241,13 @@ class SectionCanvas(tk.Canvas):
                          font=("Georgia", 14, "italic"),
                          fill=COLOR_MUTED, justify="center")
 
-    def _draw_bois_sain(self, cx, cy, R, scale) -> None:
+    def _draw_bois_sain(self, cx: float, cy: float, R: float, scale: float) -> None:
         radius_px = R * scale
         self.create_oval(cx - radius_px, cy - radius_px,
                          cx + radius_px, cy + radius_px,
                          fill=COLOR_WOOD, outline="", width=0)
 
-    def _draw_cernes(self, cx, cy, R, scale) -> None:
+    def _draw_cernes(self, cx: float, cy: float, R: float, scale: float) -> None:
         # Cernes par-dessus le bois sain, en brun foncé fin. Effacés
         # naturellement dans la zone dégradée par la cavité dessinée
         # juste après.
@@ -257,7 +258,7 @@ class SectionCanvas(tk.Canvas):
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
 
-    def _draw_cavite(self, A, cx, cy, scale) -> None:
+    def _draw_cavite(self, A: Arbre, cx: float, cy: float, scale: float) -> None:
         # bois_altéré = épaisseur d'altération mesurée au résistographe,
         # qui correspond à une zone centrale de rayon égal à cette
         # épaisseur. La couronne externe de bois sain fait (R - altéré).
@@ -273,7 +274,7 @@ class SectionCanvas(tk.Canvas):
         self.create_polygon(*flat, fill=COLOR_ROT,
                             outline="", smooth=False)
 
-    def _draw_ecorce(self, cx, cy, R, ep, scale) -> None:
+    def _draw_ecorce(self, cx: float, cy: float, R: float, ep: float, scale: float) -> None:
         # Si une épaisseur est renseignée, anneau brun épais entre R et
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
@@ -289,7 +290,7 @@ class SectionCanvas(tk.Canvas):
                              cx + radius_px, cy + radius_px,
                              outline=COLOR_BARK, width=3)
 
-    def _draw_ticks(self, cx, cy, R_ext, scale) -> None:
+    def _draw_ticks(self, cx: float, cy: float, R_ext: float, scale: float) -> None:
         # Graduations des 16 grades, tirets à l'extérieur de l'écorce.
         tick_len_cm = self.TICK_LEN_PX / scale
         for x1, y1, x2, y2, major in tick_endpoints(
@@ -298,7 +299,7 @@ class SectionCanvas(tk.Canvas):
                              fill=COLOR_BARK if major else COLOR_BARK_LIGHT,
                              width=2 if major else 1)
 
-    def _draw_cardinales(self, cx, cy, R_ext, scale) -> None:
+    def _draw_cardinales(self, cx: float, cy: float, R_ext: float, scale: float) -> None:
         # Lettres cardinales à `CARDINALES_OFFSET_PX` au-delà de l'écorce.
         offset_cm = self.CARDINALES_OFFSET_PX / scale
         for lx, ly, lbl in cardinal_label_positions(
@@ -310,7 +311,7 @@ class SectionCanvas(tk.Canvas):
             self.create_text(lx, ly, text=lbl,
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
 
-    def _draw_sondages(self, A, cx, cy, R, scale) -> None:
+    def _draw_sondages(self, A: Arbre, cx: float, cy: float, R: float, scale: float) -> None:
         # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
         # Pastille classée sur la PRBS AJUSTÉE (PRBS - dégradation
         # externe couvrant le grade) pour être cohérente avec le tableau
@@ -348,7 +349,7 @@ class SectionCanvas(tk.Canvas):
             self.create_text(px, py, text=str(s.numero),
                              font=("Helvetica", 10, "bold"), fill="white")
 
-    def _draw_regle(self, cx, cy, R, ep, R_ext, scale) -> None:
+    def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:
         # RÈGLE GRADUÉE sous la section, DEMI-RÈGLE : 0 au centre de
         # l'arbre, graduation seulement vers la droite jusqu'à R (bord
         # du bois). La barre écorce (si ep > 0) prolonge la règle sans
@@ -414,7 +415,7 @@ class SectionCanvas(tk.Canvas):
                          font=("Helvetica", 9, "bold italic"),
                          fill=COLOR_INK)
 
-    def _draw_titre(self, A, R) -> None:
+    def _draw_titre(self, A: Arbre, R: float) -> None:
         # Titre + méta au-dessus du tronc (entre y=10 et la lettre N à
         # cy - radius_px - 25). Stats globales : onglet Diagnostic.
         w = max(self.winfo_width(), 1)

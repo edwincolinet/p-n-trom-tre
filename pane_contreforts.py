@@ -18,8 +18,9 @@ l'arbre et les trois actions add/edit/del — autrefois éparpillés dans
 
 from __future__ import annotations
 
+import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from dialogs import edit_contrefort
 from geometry import DIRECTION_LABELS
@@ -34,7 +35,7 @@ class _ContrefortsHost(Protocol):
 class ContrefortsPane(ttk.Frame):
     """Pane Tk autonome : possède sa table, ses boutons et ses actions."""
 
-    def __init__(self, master, host: _ContrefortsHost, **kw) -> None:
+    def __init__(self, master: tk.Misc, host: _ContrefortsHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", padding=10, **kw)
         self._host = host
         self._build()

@@ -12,8 +12,9 @@ Contrat host (Protocol structural) :
 
 from __future__ import annotations
 
+import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from dialogs import edit_degradation
 from model import Arbre, DegradationExterne
@@ -27,7 +28,7 @@ class _DegradationsHost(Protocol):
 class DegradationsPane(ttk.Frame):
     """Pane Tk autonome : possède sa table, ses boutons et ses actions."""
 
-    def __init__(self, master, host: _DegradationsHost, **kw) -> None:
+    def __init__(self, master: tk.Misc, host: _DegradationsHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", padding=10, **kw)
         self._host = host
         self._build()

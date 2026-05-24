@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from bareme import classer_prbs
 from diagnostic import (
@@ -47,7 +47,7 @@ class _DiagnosticHost(Protocol):
 class DiagnosticPane(ttk.Frame):
     """Pane Tk : enveloppe le contenu dans un canvas vertical scrollable."""
 
-    def __init__(self, master, host: _DiagnosticHost, **kw) -> None:
+    def __init__(self, master: tk.Misc, host: _DiagnosticHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", **kw)
         self._host = host
         self.var_show_sondages = tk.BooleanVar(value=True)

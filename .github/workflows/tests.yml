@@ -49,13 +49,16 @@ jobs:
         run: ruff check .
 
       - name: Vérification de types (mypy)
-        # Configuré dans mypy.ini : strict sur cœur pur + rendu PIL
-        # (bareme, geometry, palette, model, persistence, export,
-        # pil_render) ; un cran plus souple sur la frontière Tk
-        # (app_exports, app_menu). Le rendu Tk (section_canvas, panes,
-        # dialogs) reste hors périmètre — les golden-tests Tk font foi
-        # pour leur correction visuelle.
-        run: python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py
+        # Configuré dans mypy.ini : strict sur cœur pur + rendu PIL ;
+        # souple sur la couche Tk (panes, dialogs, section_canvas).
+        run: >-
+          python -m mypy
+          bareme.py geometry.py palette.py model.py diagnostic.py
+          persistence.py export.py pil_render.py fiche_pdf.py
+          app_exports.py app_menu.py
+          pane_identification.py pane_sondages.py pane_degradations.py
+          pane_contreforts.py pane_diagnostic.py
+          dialogs.py section_canvas.py
 
       - name: Suite de tests (unittest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk

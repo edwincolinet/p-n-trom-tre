@@ -25,7 +25,7 @@ import logging
 import tkinter as tk
 from contextlib import contextmanager
 from tkinter import ttk
-from typing import Dict, Optional, Protocol
+from typing import Any, Dict, Optional, Protocol
 
 from bareme import PORTS_ARBRE
 from model import Arbre
@@ -44,7 +44,7 @@ class IdentificationPane(ttk.Frame):
     _COLOR_FIELD_OK = "#FFFFFF"
     _COLOR_FIELD_ERR = "#FDDEDE"
 
-    def __init__(self, master, host: _IdentificationHost, **kw) -> None:
+    def __init__(self, master: tk.Misc, host: _IdentificationHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", padding=12, **kw)
         self._host = host
         self._suspend_sync = False
@@ -80,12 +80,13 @@ class IdentificationPane(ttk.Frame):
             ttk.Label(self, text=lbl, style="Panel.TLabel").grid(
                 row=i, column=0, sticky="w", pady=5, padx=(0, 10))
             if choices:
-                w = ttk.Combobox(self, textvariable=var, values=choices,
-                                  state="readonly", width=30)
+                widget: tk.Widget = ttk.Combobox(
+                    self, textvariable=var, values=choices,
+                    state="readonly", width=30)
             else:
-                w = ttk.Entry(self, textvariable=var, width=32)
-            w.grid(row=i, column=1, sticky="we", pady=5)
-            self._entry_widgets[str(var)] = w
+                widget = ttk.Entry(self, textvariable=var, width=32)
+            widget.grid(row=i, column=1, sticky="we", pady=5)
+            self._entry_widgets[str(var)] = widget
             var.trace_add("write", lambda *a: self._sync_to_model())
 
         ttk.Label(self,
@@ -192,10 +193,12 @@ class IdentificationPane(ttk.Frame):
             if any(v is None for v in (h_s, h_arb, meche, ep)):
                 return
 
-            a.hauteur_sondage_cm = h_s  # type: ignore[assignment]
-            a.hauteur_arbre_m = h_arb  # type: ignore[assignment]
-            a.meche_cm = meche  # type: ignore[assignment]
-            a.epaisseur_ecorce_cm = max(0.0, ep)  # type: ignore[arg-type]
+            assert h_s is not None and h_arb is not None
+            assert meche is not None and ep is not None
+            a.hauteur_sondage_cm = h_s
+            a.hauteur_arbre_m = h_arb
+            a.meche_cm = meche
+            a.epaisseur_ecorce_cm = max(0.0, ep)
             a.port_arbre = self.var_port.get()
             a.commentaire = self.var_comm.get()
 
