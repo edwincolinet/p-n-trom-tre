@@ -103,3 +103,28 @@ spécifiques (polices, outline+width, smooth, flèches).
 
 `edit_sondage`, `edit_degradation`, `edit_contrefort` : reçoivent
 `(parent, arbre, obj)`, mutent en place, renvoient `True/False`.
+
+## `undo.py` — pile undo/redo
+
+- `UndoStack` (dataclass) : pile de snapshots `Dict[str, Any]` (dicts
+  JSON via `chantier_to_dict`), curseur, profondeur max 50.
+- `push(snapshot)` — sauvegarde avant mutation, tronque le futur.
+- `undo(current)` → dict à restaurer (ou `None`).
+- `redo()` → dict à restaurer (ou `None`).
+- `clear()` — vidée sur new/open.
+- `can_undo` / `can_redo` — propriétés booléennes.
+
+Intégré dans `App` via `push_undo()` (appelé par les panes avant
+chaque mutation discrète). Bindings : Ctrl+Z (undo), Ctrl+Y ou
+Ctrl+Shift+Z (redo).
+
+## `penetrometre.py` — application Tk + main
+
+`App(tk.Tk)` — fenêtre principale, 44 méthodes. Layout 3 colonnes,
+instanciation des panes, callbacks communs. Porte :
+- **Dirty flag** (`_dirty`) : tracké sur toute mutation, reset au
+  save/open/new. Titre dynamique avec `•` si modifié.
+- **WM_DELETE_WINDOW** : confirme la fermeture si dirty.
+- **Undo/redo** : `push_undo()` + `_perform_undo/redo()` via
+  `UndoStack` + `chantier_to_dict`/`chantier_from_dict`.
+- **Meta mission** : push undo sur FocusOut (pas à chaque frappe).

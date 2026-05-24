@@ -12,8 +12,8 @@ troncs au pénétromètre). Utilisé en interne par le cabinet Silvavenir.
 ## Structure
 
 ```text
-penetrometre.py        ← App Tk + main (~580 l.)
-section_canvas.py      ← SectionCanvas (rendu Tk section, ~430 l.)
+penetrometre.py        ← App Tk + main (~670 l.)
+section_canvas.py      ← SectionCanvas (rendu Tk section, ~410 l.)
 pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
@@ -23,16 +23,17 @@ app_exports.py         ← actions d'export (adaptateur Tk)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
 dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort)
-model.py               ← dataclasses + mutateurs de cohérence
-diagnostic.py          ← fonctions pures de diagnostic
+model.py               ← dataclasses + mutateurs + __post_init__ validation
+diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
 persistence.py         ← I/O JSON (save/load + migration)
-geometry.py            ← briques géométriques pures (spline, polaire)
+geometry.py            ← briques géométriques pures (spline, polaire, cernes)
 bareme.py              ← barème métier (classer_prbs, ports)
 pil_render.py          ← rendu PNG de la section transversale
 fiche_pdf.py           ← layout fiche expertise PDF (page A4)
 palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS
-tests/                 ← 146 tests (golden PIL + golden Tk)
+undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
+tests/                 ← 170 tests (intégration, golden PIL + Tk, undo)
 ```
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
@@ -50,7 +51,7 @@ fiche_pdf.py
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
-penetrometre.py  (Tk + main)
+penetrometre.py  (Tk + main) ← undo.py
 ```
 
 ## Conventions métier
@@ -79,12 +80,13 @@ penetrometre.py  (Tk + main)
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 146 tests
+python -m unittest discover tests           # 170 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
-  pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py
+  pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
+  undo.py penetrometre.py
 ```
 
 Golden-tests :

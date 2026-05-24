@@ -59,6 +59,7 @@ jobs:
           pane_identification.py pane_sondages.py pane_degradations.py
           pane_contreforts.py pane_diagnostic.py
           dialogs.py section_canvas.py
+          undo.py penetrometre.py
 
       - name: Suite de tests (unittest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk

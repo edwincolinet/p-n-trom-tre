@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
-from typing import Optional
+from typing import Iterator, Optional
 
 import app_exports
 from app_menu import build_menu
@@ -64,10 +64,15 @@ class App(tk.Tk):
         self.current_file: Optional[Path] = None
         self._dirty = False
         self._suspend_sync = False
+        self._redraw_id: Optional[str] = None
         self._undo_stack = UndoStack()
+        self.pane_s: Optional[SondagesPane] = None
+        self.pane_de: Optional[DegradationsPane] = None
+        self.pane_cf: Optional[ContrefortsPane] = None
+        self.pane_diag: Optional[DiagnosticPane] = None
 
         apply_ttk_styles(self)
-        build_menu(self)
+        build_menu(self)  # type: ignore[arg-type]
         self._build_layout()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
@@ -108,9 +113,9 @@ class App(tk.Tk):
                 # Redimensionner à 60 px de haut en gardant le ratio
                 target_h = 56
                 ratio = target_h / pil.height
-                pil = pil.resize(
+                pil = pil.resize(  # type: ignore[assignment]
                     (int(pil.width * ratio), target_h),
-                    PILImage.LANCZOS)
+                    PILImage.LANCZOS)  # type: ignore[attr-defined]
                 self._logo_image = ImageTk.PhotoImage(pil)
                 ttk.Label(header, image=self._logo_image
                           ).pack(side="right")
@@ -159,7 +164,7 @@ class App(tk.Tk):
         self._build_center(body)
         self._build_right(body)
 
-    def _build_left(self, parent) -> None:
+    def _build_left(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
@@ -194,7 +199,7 @@ class App(tk.Tk):
                    command=self.action_del_arbre
                    ).pack(side="left", padx=(6, 0))
 
-    def _build_center(self, parent) -> None:
+    def _build_center(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
         nb = ttk.Notebook(frame)
@@ -229,7 +234,7 @@ class App(tk.Tk):
         self.pane_diag = DiagnosticPane(nb, host=self)
         nb.add(self.pane_diag, text="Diagnostic")
 
-    def _build_right(self, parent) -> None:
+    def _build_right(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
         frame.grid(row=0, column=2, sticky="nsew")
         self.section = SectionCanvas(frame, width=550, height=550)
@@ -297,7 +302,7 @@ class App(tk.Tk):
         return self.chantier.arbres[self.current_idx]
 
     @contextmanager
-    def _suspend_sync_block(self):
+    def _suspend_sync_block(self) -> Iterator[None]:
         """Suspend la synchro UI → modèle pendant un bloc d'écriture
         dans les StringVar. Garantit la remise à l'état précédent même
         si une exception survient à l'intérieur (un set/reset manuel
@@ -359,7 +364,7 @@ class App(tk.Tk):
         self._debounced_redraw()
 
     def _debounced_redraw(self) -> None:
-        if getattr(self, "_redraw_id", None):
+        if self._redraw_id is not None:
             self.after_cancel(self._redraw_id)
         self._redraw_id = self.after(80, self._redraw_all)
 
@@ -383,7 +388,7 @@ class App(tk.Tk):
                 self.tree_arbres.selection_set(target)
                 self.tree_arbres.focus(target)
 
-    def _on_select_arbre(self, event: Optional[tk.Event] = None) -> None:  # type: ignore[type-arg]
+    def _on_select_arbre(self, event: Optional["tk.Event[tk.Misc]"] = None) -> None:
         sel = self.tree_arbres.selection()
         if not sel:
             return
@@ -434,6 +439,8 @@ class App(tk.Tk):
                                 "La mission doit contenir au moins un arbre.")
             return
         a = self._current_arbre()
+        if a is None:
+            return
         if not messagebox.askyesno("Supprimer",
                                    f"Supprimer définitivement « {a.display_name} » ?"):
             return
@@ -475,7 +482,7 @@ class App(tk.Tk):
     # (pane_sondages.py). Thin wrapper pour les sites qui rafraîchissent
     # en cascade.
     def _refresh_sondages_table(self) -> None:
-        if hasattr(self, "pane_s"):
+        if self.pane_s is not None:
             self.pane_s.refresh()
 
     # ---- Dégradations externes -------------------------------------
@@ -483,7 +490,7 @@ class App(tk.Tk):
     # pane_degradations.py). Thin wrapper pour les sites qui
     # rafraîchissent en cascade.
     def _refresh_degradations_table(self) -> None:
-        if hasattr(self, "pane_de"):
+        if self.pane_de is not None:
             self.pane_de.refresh()
 
     # --- Contreforts ---
@@ -492,7 +499,7 @@ class App(tk.Tk):
     # comme thin wrapper pour les sites qui rafraîchissent en cascade
     # (changement de rayon, chargement d'arbre).
     def _refresh_contreforts_table(self) -> None:
-        if hasattr(self, "pane_cf"):
+        if self.pane_cf is not None:
             self.pane_cf.refresh()
 
     def on_show_sondages_toggled(self, show: bool) -> None:
@@ -501,9 +508,7 @@ class App(tk.Tk):
         self.section.set_show_sondages(show)
 
     def _refresh_diag(self) -> None:
-        """Thin wrapper : le contenu du diagnostic vit dans
-        DiagnosticPane.refresh()."""
-        if hasattr(self, "pane_diag"):
+        if self.pane_diag is not None:
             self.pane_diag.refresh()
 
     # --- Fichier ----------------------------------------------------
@@ -651,7 +656,7 @@ def _setup_logging() -> Path:
     return log_path
 
 
-def main():
+def main() -> None:
     log_path = _setup_logging()
     log = logging.getLogger("penetrometre")
     log.info("Démarrage Pénétromètre v%s", __version__)
