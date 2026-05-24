@@ -21,13 +21,16 @@ d'appeler ce mutateur et de lire son retour.
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from contextlib import contextmanager
 from tkinter import ttk
-from typing import Optional, Protocol
+from typing import Dict, Optional, Protocol
 
 from bareme import PORTS_ARBRE
 from model import Arbre
+
+_log = logging.getLogger("penetrometre")
 
 
 class _IdentificationHost(Protocol):
@@ -38,13 +41,14 @@ class _IdentificationHost(Protocol):
 class IdentificationPane(ttk.Frame):
     """Form Tk autonome : possède ses vars, son build et sa synchro."""
 
+    _COLOR_FIELD_OK = "#FFFFFF"
+    _COLOR_FIELD_ERR = "#FDDEDE"
+
     def __init__(self, master, host: _IdentificationHost, **kw) -> None:
         super().__init__(master, style="Panel.TFrame", padding=12, **kw)
         self._host = host
-        # _suspend_sync = True pendant un `load_from_arbre()` ou un
-        # ajustement de var_rayon depuis `_sync_to_model` — évite la
-        # boucle infinie de trace_add → _sync_to_model → set_var → trace_add.
         self._suspend_sync = False
+        self._entry_widgets: Dict[str, tk.Widget] = {}
 
         self.var_num = tk.StringVar()
         self.var_essence = tk.StringVar()
@@ -81,6 +85,7 @@ class IdentificationPane(ttk.Frame):
             else:
                 w = ttk.Entry(self, textvariable=var, width=32)
             w.grid(row=i, column=1, sticky="we", pady=5)
+            self._entry_widgets[str(var)] = w
             var.trace_add("write", lambda *a: self._sync_to_model())
 
         ttk.Label(self,
@@ -132,6 +137,33 @@ class IdentificationPane(ttk.Frame):
             self.var_port.set(a.port_arbre)
             self.var_comm.set(a.commentaire)
 
+    def _mark_field(self, var: tk.StringVar, valid: bool) -> None:
+        w = self._entry_widgets.get(str(var))
+        if w and isinstance(w, ttk.Entry):
+            style_name = "TEntry" if valid else "Error.TEntry"
+            try:
+                s = ttk.Style(w)
+                if not s.lookup("Error.TEntry", "fieldbackground"):
+                    s.configure("Error.TEntry",
+                                fieldbackground=self._COLOR_FIELD_ERR)
+                w.configure(style=style_name)
+            except tk.TclError:
+                pass
+
+    def _parse_float(self, var: tk.StringVar) -> Optional[float]:
+        """Parse un champ numérique. Renvoie None si invalide."""
+        raw = var.get().strip()
+        if not raw:
+            self._mark_field(var, True)
+            return 0.0
+        try:
+            val = float(raw)
+            self._mark_field(var, True)
+            return val
+        except ValueError:
+            self._mark_field(var, False)
+            return None
+
     def _sync_to_model(self) -> None:
         if self._suspend_sync:
             return
@@ -139,37 +171,34 @@ class IdentificationPane(ttk.Frame):
         if not a:
             return
 
-        # Détecter lequel des deux champs Ø / rayon vient d'être modifié
-        # pour répercuter automatiquement sur l'autre (sans boucle infinie).
         try:
-            new_diam = float(self.var_diam.get() or 0)
-        except ValueError:
-            new_diam = a.diametre_sous_ecorce_cm
-        try:
-            new_rayon = float(self.var_rayon.get() or 0)
-        except ValueError:
-            new_rayon = a.rayon_tronc_cm
+            new_diam = self._parse_float(self.var_diam)
+            new_rayon = self._parse_float(self.var_rayon)
 
-        diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
-        rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
+            if new_diam is None or new_rayon is None:
+                return
 
-        try:
+            diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
+            rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
+
             a.numero_arbre = self.var_num.get()
             a.essence = self.var_essence.get()
-            a.hauteur_sondage_cm = float(self.var_h_s.get() or 0)
-            a.hauteur_arbre_m = float(self.var_h_arb.get() or 0)
-            a.meche_cm = float(self.var_meche.get() or 0)
-            a.epaisseur_ecorce_cm = max(0.0,
-                float(self.var_ep_ecorce.get() or 0))
+
+            h_s = self._parse_float(self.var_h_s)
+            h_arb = self._parse_float(self.var_h_arb)
+            meche = self._parse_float(self.var_meche)
+            ep = self._parse_float(self.var_ep_ecorce)
+
+            if any(v is None for v in (h_s, h_arb, meche, ep)):
+                return
+
+            a.hauteur_sondage_cm = h_s  # type: ignore[assignment]
+            a.hauteur_arbre_m = h_arb  # type: ignore[assignment]
+            a.meche_cm = meche  # type: ignore[assignment]
+            a.epaisseur_ecorce_cm = max(0.0, ep)  # type: ignore[arg-type]
             a.port_arbre = self.var_port.get()
             a.commentaire = self.var_comm.get()
 
-            # Règle de cohérence Ø / rayon :
-            # - si l'utilisateur a édité le diamètre, on recalcule le rayon
-            # - si l'utilisateur a édité le rayon, on laisse le diamètre tel quel
-            #   (cas "j'ai mesuré directement sur le sondage")
-            # La règle métier "PRBS préservée, bois altéré recalculé"
-            # est portée par `Arbre.set_rayon` (modèle, testée).
             if diam_changed and not rayon_changed:
                 a.diametre_sous_ecorce_cm = new_diam
                 ajustement = a.set_rayon(new_diam / 2.0)
@@ -178,7 +207,8 @@ class IdentificationPane(ttk.Frame):
             else:
                 a.diametre_sous_ecorce_cm = new_diam
                 ajustement = a.set_rayon(new_rayon)
-        except ValueError:
+        except Exception:
+            _log.exception("Erreur inattendue dans _sync_to_model")
             return
 
         self._host.on_identification_changed(rayon_adjusted=ajustement)
