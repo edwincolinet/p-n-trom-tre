@@ -123,8 +123,8 @@ class DegradationsPane(ttk.Frame):
         if not a:
             return
         deg = a.degradations_externes[idx]
-        self._host.push_undo()
         if edit_degradation(self, a, deg):
+            self._host.push_undo()
             self.refresh()
             self._host._debounced_redraw()
 

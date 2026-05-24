@@ -131,8 +131,8 @@ class ContrefortsPane(ttk.Frame):
         if not a:
             return
         c = a.contreforts[idx]
-        self._host.push_undo()
         if edit_contrefort(self, a, c):
+            self._host.push_undo()
             self.refresh()
             self._host._debounced_redraw()
 

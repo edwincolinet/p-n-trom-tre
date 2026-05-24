@@ -119,8 +119,8 @@ class SondagesPane(ttk.Frame):
         if not a:
             return
         s = a.sondages[idx]
-        self._host.push_undo()
         if edit_sondage(self, a, s):
+            self._host.push_undo()
             self.refresh()
             self._host._debounced_redraw()
 

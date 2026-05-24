@@ -14,6 +14,7 @@ Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 
 from __future__ import annotations
 
+import copy
 import logging
 import tkinter as tk
 from contextlib import contextmanager
@@ -53,7 +54,6 @@ class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.title(f"Pénétromètre — Expertise arboricole (v{__version__})")
         self.geometry("1480x900")
         self.minsize(1280, 780)
         self.configure(bg=COLOR_BG)
@@ -62,6 +62,7 @@ class App(tk.Tk):
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
         self.current_file: Optional[Path] = None
+        self._dirty = False
         self._suspend_sync = False
         self._undo_stack = UndoStack()
 
@@ -70,10 +71,12 @@ class App(tk.Tk):
         self._build_layout()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
+        self._update_title()
 
         self.bind_all("<Control-z>", lambda e: self._perform_undo())
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_layout(self) -> None:
         header = ttk.Frame(self)
@@ -134,6 +137,7 @@ class App(tk.Tk):
         self.var_ch_adr = tk.StringVar(value=self.chantier.adresse)
         self.var_ch_ope = tk.StringVar(value=self.chantier.operateur)
         self.var_ch_date = tk.StringVar(value=self.chantier.date_releve)
+        self._meta_snapshot: Optional[str] = None
         for lbl, var, w in [("Mission", self.var_ch_nom, 22),
                             ("Adresse", self.var_ch_adr, 30),
                             ("Opérateur", self.var_ch_ope, 18),
@@ -142,6 +146,8 @@ class App(tk.Tk):
             e = ttk.Entry(meta, textvariable=var, width=w)
             e.pack(side="left", padx=(0, 14))
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
+            e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
+            e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=18, pady=(0, 14))
@@ -229,11 +235,33 @@ class App(tk.Tk):
         self.section = SectionCanvas(frame, width=550, height=550)
         self.section.pack(fill="both", expand=True)
 
+    # --- Dirty flag + fermeture ----------------------------------------
+
+    def _mark_dirty(self) -> None:
+        if not self._dirty:
+            self._dirty = True
+            self._update_title()
+
+    def _update_title(self) -> None:
+        name = self.current_file.name if self.current_file else "Sans titre"
+        dirty = " •" if self._dirty else ""
+        self.title(f"Pénétromètre — {name}{dirty}")
+
+    def _on_close(self) -> None:
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Quitter",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Quitter quand même ?"):
+                return
+        self.destroy()
+
     # --- Undo / redo --------------------------------------------------
 
     def push_undo(self) -> None:
         """Sauvegarde l'état courant avant une mutation discrète."""
         self._undo_stack.push(chantier_to_dict(self.chantier))
+        self._mark_dirty()
 
     def _perform_undo(self) -> None:
         snapshot = self._undo_stack.undo(chantier_to_dict(self.chantier))
@@ -281,6 +309,19 @@ class App(tk.Tk):
         finally:
             self._suspend_sync = prev
 
+    def _meta_focus_in(self) -> None:
+        self._meta_snapshot = (
+            f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
+            f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
+
+    def _meta_focus_out(self) -> None:
+        current = (
+            f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
+            f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
+        if self._meta_snapshot is not None and current != self._meta_snapshot:
+            self.push_undo()
+        self._meta_snapshot = None
+
     def _sync_chantier_meta(self) -> None:
         if self._suspend_sync:
             return
@@ -288,15 +329,12 @@ class App(tk.Tk):
         self.chantier.adresse = self.var_ch_adr.get()
         self.chantier.operateur = self.var_ch_ope.get()
         self.chantier.date_releve = self.var_ch_date.get()
+        self._mark_dirty()
 
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None:
         """Callback appelé par `IdentificationPane` quand l'utilisateur
-        modifie un champ. Si le rayon a été ajusté, les sondages et
-        dégradations ont vu leur bois altéré / profondeur recalculés
-        par `set_rayon` : on rafraîchit les trois tables. Sinon on
-        redessine seulement et on met à jour la ligne de l'arbre dans
-        la liste de gauche (n°, essence).
-        """
+        modifie un champ."""
+        self._mark_dirty()
         if rayon_adjusted:
             self._refresh_sondages_table()
             self._refresh_degradations_table()
@@ -345,7 +383,7 @@ class App(tk.Tk):
                 self.tree_arbres.selection_set(target)
                 self.tree_arbres.focus(target)
 
-    def _on_select_arbre(self, event=None) -> None:
+    def _on_select_arbre(self, event: Optional[tk.Event] = None) -> None:  # type: ignore[type-arg]
         sel = self.tree_arbres.selection()
         if not sel:
             return
@@ -374,7 +412,6 @@ class App(tk.Tk):
         if not a:
             return
         self.push_undo()
-        import copy
         new = copy.deepcopy(a)
         # Nouveau numéro = numéro existant + suffixe 'bis', 'ter', etc.
         suffixes = ["", " bis", " ter", " quater"]
@@ -472,10 +509,14 @@ class App(tk.Tk):
     # --- Fichier ----------------------------------------------------
 
     def action_new(self) -> None:
-        if not messagebox.askyesno("Nouvelle mission",
-                                   "Perdre les données non enregistrées ?"):
-            return
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Nouvelle mission",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Continuer quand même ?"):
+                return
         self._undo_stack.clear()
+        self._dirty = False
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
@@ -487,8 +528,15 @@ class App(tk.Tk):
             self.var_ch_date.set(self.chantier.date_releve)
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
+        self._update_title()
 
     def action_open(self) -> None:
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Ouvrir",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Continuer quand même ?"):
+                return
         p = filedialog.askopenfilename(
             title="Ouvrir une mission",
             filetypes=[("Mission Pénétromètre", "*.json"),
@@ -497,6 +545,7 @@ class App(tk.Tk):
             return
         try:
             self._undo_stack.clear()
+            self._dirty = False
             self.chantier = load_chantier(p)
             if not self.chantier.arbres:
                 self.chantier.arbres.append(Arbre())
@@ -509,6 +558,7 @@ class App(tk.Tk):
                 self.var_ch_date.set(self.chantier.date_releve)
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
+            self._update_title()
         except Exception as e:
             log.exception("Échec ouverture mission")
             messagebox.showerror("Erreur d'ouverture", str(e))
@@ -518,7 +568,8 @@ class App(tk.Tk):
             return self.action_save_as()
         try:
             save_chantier(self.chantier, self.current_file)
-            self.title(f"Pénétromètre — {self.current_file.name}")
+            self._dirty = False
+            self._update_title()
         except Exception as e:
             log.exception("Échec enregistrement mission")
             messagebox.showerror("Erreur", str(e))
