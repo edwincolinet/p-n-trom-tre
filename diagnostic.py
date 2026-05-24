@@ -36,10 +36,10 @@ l'historique git, mais cible désormais ce module).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple
 
 from bareme import classer_prbs
-from geometry import DIRECTION_LABELS, GRADES
+from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy
 
 if TYPE_CHECKING:
     from model import Arbre  # noqa: F401
@@ -464,3 +464,54 @@ def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
         f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %")
     lignes.append(f"→ Classe globale : {classe_globale}")
     return lignes
+
+
+# ---------------------------------------------------------------------
+# Données de rendu partagées Tk ↔ PIL pour les sondages
+# ---------------------------------------------------------------------
+
+class SondageRenderItem(NamedTuple):
+    """Données pré-calculées pour dessiner un sondage sur la section."""
+    numero: int
+    arrow_start: Tuple[float, float]
+    arrow_end: Tuple[float, float]
+    bullet_center: Tuple[float, float]
+    classe_color: str
+
+
+def sondage_render_data(
+    arbre: "Arbre", cx: float, cy: float, R: float, scale: float,
+    inset_cm: float, couleur_classe: Dict[str, str],
+) -> List[SondageRenderItem]:
+    """Calcule les données de rendu de chaque sondage (position, couleur).
+
+    Partage la logique entre les deux renderers (Tk et PIL) : même
+    classification, même positionnement, même pénétration. Les renderers
+    n'ont plus qu'à dessiner avec leur propre API.
+    """
+    if R <= 0:
+        return []
+    port = arbre.port_arbre
+    meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
+    deg_ext = degradation_externe_par_grade(arbre)
+    items: List[SondageRenderItem] = []
+    for s in arbre.sondages:
+        if s.grade not in GRADES:
+            continue
+        i = GRADES.index(s.grade)
+        penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
+        penetration = max(0.0, min(penetration, R))
+        end_radius = R - penetration
+        prbs_adj = max(0.0, s.prbs_cm - deg_ext[i])
+        ratio_adj = prbs_adj / R
+        col = couleur_classe[classer_prbs(ratio_adj, port)]
+        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
+        x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+        items.append(SondageRenderItem(
+            numero=s.numero,
+            arrow_start=(x_ext, y_ext),
+            arrow_end=(x_end, y_end),
+            bullet_center=(x_ext, y_ext),
+            classe_color=col,
+        ))
+    return items

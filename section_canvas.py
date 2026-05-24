@@ -21,20 +21,17 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Any, Optional, Tuple
 
-from bareme import classer_prbs
 from diagnostic import (
     compute_alteration_par_grade,
-    degradation_externe_par_grade,
+    sondage_render_data,
 )
 from geometry import (
-    GRADES,
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
-    polar_idx_to_xy,
     ruler_graduation_positions,
     tick_endpoints,
 )
@@ -312,41 +309,24 @@ class SectionCanvas(tk.Canvas):
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
 
     def _draw_sondages(self, A: Arbre, cx: float, cy: float, R: float, scale: float) -> None:
-        # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
-        # Pastille classée sur la PRBS AJUSTÉE (PRBS - dégradation
-        # externe couvrant le grade) pour être cohérente avec le tableau
-        # Diagnostic et la fiche PDF.
-        port = A.port_arbre
-        meche = A.meche_cm if A.meche_cm > 0 else float("inf")
-        deg_ext_par_grade = degradation_externe_par_grade(A)
         inset_cm = self.SONDAGE_INSET_PX / scale
         r_bul = self.BULLET_RADIUS_PX
-        for s in A.sondages:
-            if s.grade not in GRADES:
-                continue
-            i = GRADES.index(s.grade)
-            penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
-            penetration = max(0.0, min(penetration, R))
-            end_radius = R - penetration
-            # Flèche depuis `SONDAGE_INSET_PX` sous l'écorce.
-            x_ext, y_ext = polar_idx_to_xy(cx, cy, scale,
-                                           R - inset_cm, i)
-            x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+        items = sondage_render_data(A, cx, cy, R, scale, inset_cm,
+                                    COULEUR_CLASSE)
+        for item in items:
+            x_ext, y_ext = item.arrow_start
+            x_end, y_end = item.arrow_end
             self.create_line(x_ext, y_ext, x_end, y_end,
                              fill=COLOR_SOND, width=2,
                              arrow=tk.LAST, arrowshape=(10, 12, 4))
-
-            prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
-            ratio_adj = prbs_adj / R if R > 0 else 0.0
-            col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-            px, py = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
+            px, py = item.bullet_center
             self.create_oval(px - r_bul - 2, py - r_bul - 2,
                              px + r_bul + 2, py + r_bul + 2,
                              fill="white", outline="")
             self.create_oval(px - r_bul, py - r_bul,
                              px + r_bul, py + r_bul,
-                             fill=col_class, outline="white", width=2)
-            self.create_text(px, py, text=str(s.numero),
+                             fill=item.classe_color, outline="white", width=2)
+            self.create_text(px, py, text=str(item.numero),
                              font=("Helvetica", 10, "bold"), fill="white")
 
     def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:

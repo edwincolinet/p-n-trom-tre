@@ -30,20 +30,18 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import (
     compute_alteration_par_grade,
-    degradation_externe_par_grade,
+    sondage_render_data,
 )
 from geometry import (
-    GRADES,
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
-    polar_idx_to_xy,
     ruler_graduation_positions,
     tick_endpoints,
 )
@@ -384,41 +382,29 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
 def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                        cx: float, cy: float,
                        R: float, scale: float) -> None:
-    # Flèches + pastilles à l'INTÉRIEUR du tronc, juste sous l'écorce.
-    # Pastille classée sur la PRBS AJUSTÉE (cohérence Diagnostic + PDF).
-    port = arbre.port_arbre
-    meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
-    deg_ext_par_grade = degradation_externe_par_grade(arbre)
-    for s in arbre.sondages:
-        if s.grade not in GRADES:
-            continue
-        i = GRADES.index(s.grade)
-        penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
-        penetration = max(0.0, min(penetration, R))
-        end_radius = R - penetration
-        prbs_adj = max(0.0, s.prbs_cm - deg_ext_par_grade[i])
-        ratio_adj = prbs_adj / R if R > 0 else 0.0
-        col_class = COULEUR_CLASSE[classer_prbs(ratio_adj, port)]
-        # Flèche depuis `SONDAGE_INSET_PX` sous l'écorce jusqu'au fond.
-        inset_cm = SONDAGE_INSET_PX / scale
-        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
-        x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+    inset_cm = SONDAGE_INSET_PX / scale
+    items = sondage_render_data(arbre, cx, cy, R, scale, inset_cm,
+                                COULEUR_CLASSE)
+    r_b = BULLET_RADIUS_PX
+    for item in items:
+        x_ext, y_ext = item.arrow_start
+        x_end, y_end = item.arrow_end
         d.line([x_ext, y_ext, x_end, y_end], fill=COLOR_SOND, width=4)
-        ang = math.atan2(y_end-y_ext, x_end-x_ext)
+        ang = math.atan2(y_end - y_ext, x_end - x_ext)
         ah = 12
         d.polygon([
             (x_end, y_end),
-            (x_end - ah*math.cos(ang-0.5), y_end - ah*math.sin(ang-0.5)),
-            (x_end - ah*math.cos(ang+0.5), y_end - ah*math.sin(ang+0.5)),
+            (x_end - ah * math.cos(ang - 0.5),
+             y_end - ah * math.sin(ang - 0.5)),
+            (x_end - ah * math.cos(ang + 0.5),
+             y_end - ah * math.sin(ang + 0.5)),
         ], fill=COLOR_SOND)
-        # Pastille au même décalage à l'INTÉRIEUR de l'écorce.
-        px, py = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
-        r_b = BULLET_RADIUS_PX
-        d.ellipse([px-r_b-2, py-r_b-2, px+r_b+2, py+r_b+2],
+        px, py = item.bullet_center
+        d.ellipse([px - r_b - 2, py - r_b - 2, px + r_b + 2, py + r_b + 2],
                   fill="white")
-        d.ellipse([px-r_b, py-r_b, px+r_b, py+r_b],
-                  fill=col_class, outline="white", width=2)
-        d.text((px, py), str(s.numero), font=f(20, "sans_bold"),
+        d.ellipse([px - r_b, py - r_b, px + r_b, py + r_b],
+                  fill=item.classe_color, outline="white", width=2)
+        d.text((px, py), str(item.numero), font=f(20, "sans_bold"),
                fill="white", anchor="mm")
 
 
