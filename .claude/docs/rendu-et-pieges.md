@@ -79,6 +79,21 @@ Utiliser `openpyxl.utils.get_column_letter(i)` — **pas**
 Calcul uniquement par `compute_alteration_par_grade()` (pure).
 Verrouillé par `test_arbre_n_expose_plus_de_cache_alteration`.
 
+### set_rayon : jamais pendant la frappe
+`Arbre.set_rayon` est destructif : il cap `bois_sain_cm` à `min(sain, new_R)`,
+irréversible. Pendant la frappe dans les champs Diamètre/Rayon, on met à
+jour `rayon_tronc_cm` directement (aperçu live) sans appeler `set_rayon`.
+`set_rayon` n'est appelé qu'au **focus-out** via `_commit_rayon`, avec push
+undo. Si le champ est invalide au focus-out (texte non numérique), le rayon
+et le diamètre sont revertés à leur valeur d'avant le focus-in.
+
+### Chevauchement des dégradations externes
+Deux arcs sont en chevauchement si ils couvrent au moins un grade en
+commun, SAUF si ce grade est uniquement un point de contact (fin d'un
+arc = début de l'autre). La validation utilise `couvre_grade` sur les
+16 grades, en excluant les grades qui sont le début du candidat et la
+fin de l'existant (ou inversement).
+
 ## Limites connues
 
 - **Duplication Tk ↔ PIL au-delà de la géométrie** : écorce/anneau,

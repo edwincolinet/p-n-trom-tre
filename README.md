@@ -47,7 +47,7 @@ python -m unittest discover tests
 xvfb-run -a python -m unittest discover tests
 ```
 
-146 tests unitaires couvrent :
+174 tests unitaires couvrent :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au
@@ -122,18 +122,23 @@ Liste à gauche, ajout / duplication / suppression d'arbres en un clic.
 
 ### Identification d'un arbre
 
-- N° d'arbre, essence
-- Diamètre sous écorce ↔ rayon (lien automatique : Ø ÷ 2 = rayon)
+- N° d'arbre (numérique obligatoire), essence
+- Diamètre sous écorce ↔ rayon (synchro bidirectionnelle : Ø ÷ 2 = rayon,
+  rayon × 2 = Ø)
 - Hauteur du sondage, hauteur de l'arbre
 - Longueur de mèche du pénétromètre (limite la profondeur des flèches)
+- Épaisseur d'écorce (cm), purement visuelle
 - Port de l'arbre : libre / semi-libre / délaissé / architecturé / traumatique
+- Tous les champs numériques sont validés : une valeur non numérique est
+  revertée automatiquement au focus-out
 
 ### Sondages
 
 Chaque sondage est associé à une direction (16 grades disponibles).
-La PRBS (bois sain) et le bois altéré sont liés par le rayon
-(`sain + altéré = rayon`) avec calcul automatique. La compartimentation
-peut être renseignée (active / absente / -).
+Une seule mesure par direction (doublon interdit). La PRBS (bois sain)
+et le bois altéré sont liés par le rayon (`sain + altéré = rayon`) avec
+calcul automatique. La compartimentation peut être renseignée
+(active / absente / -).
 
 **Robustesse** : si le rayon est corrigé après saisie de sondages, la PRBS
 (mesure physique du pénétromètre) est conservée et le bois altéré est
@@ -153,9 +158,17 @@ Une dégradation externe est un arc continu sur l'écorce, défini par :
 - une profondeur radiale en cm depuis l'écorce.
 
 Trois modes de saisie liés automatiquement : grade de fin, largeur en
-grades ou largeur en cm sur l'écorce. Les dégradations externes sont
-**intégrées au calcul PRBS** : elles soustraient leur profondeur de la
-PRBS de la direction concernée.
+grades ou largeur en cm sur l'écorce. Les arcs ne doivent pas se
+chevaucher (les arcs mitoyens bout-à-bout sont autorisés). Les
+dégradations externes sont **intégrées au calcul PRBS** : elles
+soustraient leur profondeur de la PRBS de la direction concernée.
+
+### Contreforts
+
+Un contrefort est un empattement saillant à la base du tronc, défini par
+une orientation (grade central), une largeur angulaire et une longueur
+radiale. Un seul contrefort par grade central (doublon interdit). Élément
+purement descriptif : n'impacte pas le diagnostic.
 
 ### Diagnostic
 
@@ -224,11 +237,13 @@ Application du barème selon le port de l'arbre :
 
 ## Format de fichier
 
-Les missions sont enregistrées en **JSON lisible** (`.json`). Les fichiers
-des versions précédentes sont migrés automatiquement à l'ouverture.
-Réciproquement, un JSON contenant des champs inconnus (par exemple
-issu d'une version plus récente de l'app) est chargé en ignorant
-silencieusement ces champs au lieu de planter.
+Les missions sont enregistrées en **JSON lisible** (`.json`). L'écriture
+est **atomique** (write-tmp-then-rename) : un crash pendant la sauvegarde
+ne corrompt pas le fichier existant. Les fichiers des versions
+précédentes sont migrés automatiquement à l'ouverture. Réciproquement,
+un JSON contenant des champs inconnus (par exemple issu d'une version
+plus récente de l'app) est chargé en ignorant silencieusement ces
+champs au lieu de planter.
 
 Note technique : la classe Python interne s'appelle toujours `Chantier`
 pour rester compatible avec les fichiers déjà enregistrés. Seuls les

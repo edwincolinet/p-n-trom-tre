@@ -33,7 +33,7 @@ fiche_pdf.py           ← layout fiche expertise PDF (page A4)
 palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
-tests/                 ← 170 tests (intégration, golden PIL + Tk, undo)
+tests/                 ← 174 tests (intégration, golden PIL + Tk, undo, persistence)
 ```
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
@@ -67,6 +67,9 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Contreforts** = cloche cosinus², fusion si adjacents (`contrefort_zones`).
 - **Écorce** = purement visuel (n'intervient pas dans diagnostic). R_ext = R + ep.
 - **COLOR_BARK ≠ COLOR_ROT** : ne jamais unifier (contraste dégradation/écorce).
+- **Unicité** : un seul sondage par direction, pas de dégradations qui se
+  chevauchent (arcs mitoyens bout-à-bout autorisés), un seul contrefort par
+  grade central. Validé dans `dialogs.py` au clic Valider.
 
 ## Conventions de code
 
@@ -75,12 +78,14 @@ penetrometre.py  (Tk + main) ← undo.py
 - Pas de `print` — logger applicatif (`~/.penetrometre/penetrometre.log`).
 - Exports : `log.exception(...)` avant `messagebox.showerror`.
 - Compat fichier bidirectionnelle : ajout champ = OK (default) ; renommage/suppression = migration explicite dans `persistence.chantier_from_dict`.
+- Écriture atomique : `save_chantier` écrit dans un `.tmp` puis `os.replace` — le fichier original survit en cas de crash.
+- **Champs numériques UI** : `_parse_float("")` renvoie `None` (pas `0.0`). `set_rayon` n'est appelé qu'au focus-out (jamais pendant la frappe) pour éviter la destruction irréversible des PRBS par valeurs intermédiaires.
 
 ## Commandes utiles
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 170 tests
+python -m unittest discover tests           # 174 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

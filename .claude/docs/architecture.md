@@ -55,6 +55,8 @@ Convention : classe globale = t/R **moyen** (confirmé Silvavenir mai 2026).
 - `FORMAT_VERSION = 2` — versionne le format.
 - `chantier_to_dict` / `chantier_from_dict` — sérialisation symétrique.
 - `save_chantier` / `load_chantier` — wrappers fichier UTF-8.
+  **Écriture atomique** : write dans `.tmp` puis `os.replace` — le fichier
+  original survit en cas de crash (disque plein, coupure de courant).
 - Migration ascendante : anciens libellés de port (v3.1 → v3.2).
 - Migration descendante : filtre par `__dataclass_fields__` + WARNING logged.
 
@@ -63,7 +65,10 @@ Convention : classe globale = t/R **moyen** (confirmé Silvavenir mai 2026).
 Chaque pane : hérite `ttk.Frame`, possède ses widgets, expose `refresh()`,
 déclare un `Protocol` host (`_*Host`). Tables Treeview incluent leur propre
 cycle add/edit/del via `dialogs.py`. `IdentificationPane` gère la synchro
-Ø ↔ R. `DiagnosticPane` est scrollable (Canvas interne).
+bidirectionnelle Ø ↔ R, la validation des champs numériques (revert au
+focus-out si non numérique), et le `_commit_rayon` différé (set_rayon
+uniquement au focus-out, pas pendant la frappe — protège les PRBS des
+valeurs intermédiaires). `DiagnosticPane` est scrollable (Canvas interne).
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -103,6 +108,11 @@ spécifiques (polices, outline+width, smooth, flèches).
 
 `edit_sondage`, `edit_degradation`, `edit_contrefort` : reçoivent
 `(parent, arbre, obj)`, mutent en place, renvoient `True/False`.
+Validations à la confirmation :
+- Sondage : interdit deux sondages sur le même grade.
+- Dégradation : interdit les arcs qui se chevauchent (arcs mitoyens
+  bout-à-bout autorisés — détection via `couvre_grade` sur les 16 grades).
+- Contrefort : interdit deux contreforts sur le même grade central.
 
 ## `undo.py` — pile undo/redo
 
