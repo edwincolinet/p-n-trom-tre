@@ -596,6 +596,9 @@ class App(tk.Tk):
         app_exports.export_pdf_arbre(self, self._current_arbre(),
                                       self.chantier)
 
+    def action_export_pdf_mission(self) -> None:
+        app_exports.export_pdf_mission(self, self.chantier)
+
     def action_export_csv(self) -> None:
         app_exports.export_csv_mission(self, self.chantier)
 

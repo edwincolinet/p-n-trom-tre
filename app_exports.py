@@ -100,6 +100,37 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         messagebox.showerror("Erreur d'export PDF", str(e))
 
 
+def export_pdf_mission(parent: tk.Misc, chantier: Chantier) -> None:
+    """Exporte un PDF unique multi-pages regroupant les fiches de tous
+    les arbres de la mission."""
+    if not _need_pil("PDF"):
+        return
+    arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
+    if not arbres:
+        messagebox.showinfo(
+            "Rien à exporter",
+            "Aucun arbre avec un rayon renseigné dans cette mission.")
+        return
+    suggest = f"fiches_mission_{chantier.nom or 'sans_nom'}.pdf".replace(" ", "_")
+    p = filedialog.asksaveasfilename(
+        defaultextension=".pdf",
+        initialfile=suggest,
+        filetypes=[("Document PDF", "*.pdf")])
+    if not p:
+        return
+    try:
+        pages = [render_fiche_arbre_to_pdf_page(a, chantier)
+                 for a in arbres]
+        pages[0].save(p, "PDF", resolution=150.0, save_all=True,
+                      append_images=pages[1:])
+        messagebox.showinfo(
+            "Exporté",
+            f"PDF mission enregistré ({len(pages)} fiche(s)) :\n{p}")
+    except Exception as e:
+        log.exception("Échec export PDF mission")
+        messagebox.showerror("Erreur d'export PDF", str(e))
+
+
 def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
     """CSV de tous les sondages de la mission. Séparateur `;`,
     encodage UTF-8 avec BOM (compatible Excel). Colonnes ajustées
