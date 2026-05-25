@@ -64,7 +64,7 @@ def export_png(parent: tk.Misc, arbre: Optional[Arbre],
         return
     try:
         img = render_arbre_to_pil_image(
-            arbre, width=1600, height=1600,
+            arbre, width=2400, height=2400,
             show_sondages=show_sondages,
             show_legend=True)
         img.save(p, "PNG")
