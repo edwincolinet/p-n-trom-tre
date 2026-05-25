@@ -253,12 +253,14 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         top=Side(style="thin", color="999999"),
         bottom=Side(style="thin", color="999999"),
     )
-    HEADER_FILL = PatternFill("solid", fgColor="EFEFEF")
-    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="1A2E22")
-    META_FONT = Font(name="Calibri", size=11, color="1A2E22")
+    HEADER_FILL = PatternFill("solid", fgColor="2D7A3E")
+    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    META_FILL = PatternFill("solid", fgColor="2D7A3E")
+    META_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     TITLE_FONT = Font(name="Calibri", size=16, bold=True, color="2D7A3E")
     SUBTITLE_FONT = Font(name="Calibri", size=10, color="6E7B73")
     ROW_FONT = Font(name="Calibri", size=11, color="1A2E22")
+    ALT_ROW_FILL = PatternFill("solid", fgColor="F2F2F2")
     LEGEND_FONT = Font(name="Calibri", size=10, italic=True,
                        color="6E7B73")
 
@@ -300,6 +302,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         c = ws.cell(row=meta_row, column=col,
                     value=f"{label} :  {value}")
         c.font = META_FONT
+        c.fill = META_FILL
         c.alignment = LEFT
         c.border = BORDER
         if span > 1:
@@ -339,7 +342,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         row += 1
     classe_col = _NCOLS  # colonne t/R = fond coloré par classe
     compart_col = 6      # colonne Compartimentation = glyphe coloré
-    for r in rows_data:
+    for row_idx, r in enumerate(rows_data):
         values = [
             r["numero"],
             r["grade"],
@@ -351,11 +354,14 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         ]
         classe_hex = couleur_classe.get(r["classe"], "CCCCCC").lstrip("#")
         glyph, glyph_hex = _compart_visual(r["compartimentation"])
+        use_alt = row_idx % 2 == 1
         for i, v in enumerate(values, start=1):
             c = ws.cell(row=row, column=i)
             c.border = BORDER
             c.font = ROW_FONT
             c.alignment = CENTER
+            if use_alt:
+                c.fill = ALT_ROW_FILL
             if i == compart_col:
                 c.value = glyph
                 c.font = Font(name="Calibri", size=14, bold=True,
@@ -403,14 +409,22 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     ws.merge_cells(start_row=row, start_column=1,
                    end_row=row, end_column=last)
 
-    # --- Largeurs de colonnes ---
-    # NB : on n'utilise PAS `ws.cell(row=1, column=i).column_letter` ici,
-    # car la ligne 1 contient une cellule fusionnée et toutes les
-    # cellules au-delà de A1 sont des `MergedCell` qui n'ont pas
-    # `column_letter`. `get_column_letter` est la bonne API.
-    widths = [11, 14, 16, 16, 16, 18, 18]
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = w
+    # --- Largeurs de colonnes auto-fit ---
+    min_widths = [10, 12, 14, 14, 14, 16, 16]
+    for col_idx in range(1, _NCOLS + 1):
+        max_len = min_widths[col_idx - 1]
+        for cell_row in ws.iter_rows(min_row=header_row,
+                                     max_row=ws.max_row,
+                                     min_col=col_idx,
+                                     max_col=col_idx):
+            for cell in cell_row:
+                if cell.value is not None and not isinstance(
+                        cell, type(ws.merged_cells)):
+                    txt = str(cell.value)
+                    for line in txt.split("\n"):
+                        max_len = max(max_len, len(line) + 3)
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(
+            max_len, 30)
 
     # Gel : tout l'en-tête (titre + méta + en-tête tableau)
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
@@ -443,19 +457,20 @@ table th, table td {
     padding: 6px 10px;
 }
 .meta-cell {
-    background: #FFFFFF;
+    background: #2D7A3E;
     font-weight: 600;
     text-align: left;
 }
-.meta-cell .meta-label { color: #6E7B73; font-weight: 600; }
-.meta-cell .meta-value { color: #1A2E22; font-weight: 700;
+.meta-cell .meta-label { color: rgba(255,255,255,0.85); font-weight: 600; }
+.meta-cell .meta-value { color: #FFFFFF; font-weight: 700;
                           margin-left: 4px; }
 thead th {
-    background: #EFEFEF; color: #1A2E22;
+    background: #2D7A3E; color: #FFFFFF;
     text-align: center; font-weight: 700; font-size: 12px;
     line-height: 1.2;
 }
 tbody td { text-align: center; font-variant-numeric: tabular-nums; }
+tbody tr:nth-child(even) td { background: #F2F2F2; }
 td.tR {
     font-weight: 700; color: white;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
