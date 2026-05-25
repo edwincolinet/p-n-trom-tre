@@ -440,21 +440,24 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
 
     # Trait principal de -R à +R
     d.line([x_left, y_bar, x_right, y_bar], fill=COLOR_INK, width=lw + 1)
-    # Barres d'écorce aux deux extrémités
+    # Barres d'écorce aux deux extrémités + tiret et label au bout
     if ep > 0:
         bar_h = int(12 * _ds)
+        x_ext_r = cx + ext_half_px
+        x_ext_l = cx - ext_half_px
         d.rectangle([x_right, y_bar - bar_h / 2,
-                     cx + ext_half_px, y_bar + bar_h / 2],
-                    fill=COLOR_BARK)
-        d.rectangle([cx - ext_half_px, y_bar - bar_h / 2,
-                     x_left, y_bar + bar_h / 2],
-                    fill=COLOR_BARK)
-    # Tirets aux extrémités (R) et au centre (0)
-    end_color = COLOR_BARK if ep > 0 else COLOR_INK
+                     x_ext_r, y_bar + bar_h / 2], fill=COLOR_BARK)
+        d.rectangle([x_ext_l, y_bar - bar_h / 2,
+                     x_left, y_bar + bar_h / 2], fill=COLOR_BARK)
+        d.line([x_ext_r, y_bar - tick_h, x_ext_r, y_bar + tick_h],
+               fill=COLOR_BARK, width=lw + 1)
+        d.line([x_ext_l, y_bar - tick_h, x_ext_l, y_bar + tick_h],
+               fill=COLOR_BARK, width=lw + 1)
+    # Tirets aux extrémités bois (R) et au centre (0)
     d.line([x_left, y_bar - tick_h, x_left, y_bar + tick_h],
-           fill=end_color, width=lw + 1)
+           fill=COLOR_INK, width=lw + 1)
     d.line([x_right, y_bar - tick_h, x_right, y_bar + tick_h],
-           fill=end_color, width=lw + 1)
+           fill=COLOR_INK, width=lw + 1)
     d.line([cx, y_bar - tick_h, cx, y_bar + tick_h],
            fill=COLOR_INK, width=lw + 1)
     if R > 0:

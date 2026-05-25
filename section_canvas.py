@@ -340,21 +340,26 @@ class SectionCanvas(tk.Canvas):
         # Trait principal de -R à +R
         self.create_line(x_left, y_bar, x_right, y_bar,
                          fill=COLOR_INK, width=2)
-        # Barres d'écorce aux deux extrémités
+        # Barres d'écorce aux deux extrémités + tiret au bout
         if ep > 0:
             bar_h = 7
+            x_ext_r = cx + ext_half_px
+            x_ext_l = cx - ext_half_px
             self.create_rectangle(x_right, y_bar - bar_h / 2,
-                                  cx + ext_half_px, y_bar + bar_h / 2,
+                                  x_ext_r, y_bar + bar_h / 2,
                                   fill=COLOR_BARK, outline="")
-            self.create_rectangle(cx - ext_half_px, y_bar - bar_h / 2,
+            self.create_rectangle(x_ext_l, y_bar - bar_h / 2,
                                   x_left, y_bar + bar_h / 2,
                                   fill=COLOR_BARK, outline="")
-        # Tirets aux extrémités et au centre
-        end_color = COLOR_BARK if ep > 0 else COLOR_INK
+            self.create_line(x_ext_r, y_bar - 6, x_ext_r, y_bar + 6,
+                             fill=COLOR_BARK, width=2)
+            self.create_line(x_ext_l, y_bar - 6, x_ext_l, y_bar + 6,
+                             fill=COLOR_BARK, width=2)
+        # Tirets aux extrémités bois (R) et au centre
         self.create_line(x_left, y_bar - 6, x_left, y_bar + 6,
-                         fill=end_color, width=2)
+                         fill=COLOR_INK, width=2)
         self.create_line(x_right, y_bar - 6, x_right, y_bar + 6,
-                         fill=end_color, width=2)
+                         fill=COLOR_INK, width=2)
         self.create_line(cx, y_bar - 6, cx, y_bar + 6,
                          fill=COLOR_INK, width=2)
         if R > 0:
