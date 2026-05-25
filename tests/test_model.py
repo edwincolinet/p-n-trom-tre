@@ -163,6 +163,12 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Contrefort(grade_centre=-1)
 
+    def test_contrefort_grade_centre_pas_multiple_de_25(self):
+        with self.assertRaises(ValueError):
+            Contrefort(grade_centre=13)
+        with self.assertRaises(ValueError):
+            Contrefort(grade_centre=120)
+
     def test_contrefort_largeur_negative(self):
         with self.assertRaises(ValueError):
             Contrefort(largeur_grades=-25)

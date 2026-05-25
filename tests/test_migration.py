@@ -9,6 +9,7 @@ enregistré sur le terrain.
 
 from __future__ import annotations
 
+import os
 import unittest
 
 from model import (
@@ -22,6 +23,8 @@ from persistence import (
     FORMAT_VERSION,
     chantier_from_dict,
     chantier_to_dict,
+    load_chantier,
+    save_chantier,
 )
 
 
@@ -276,6 +279,66 @@ class RoundTripTests(unittest.TestCase):
         self.assertEqual(len(a.sondages), 1)
         self.assertEqual(len(a.degradations_externes), 1)
         self.assertEqual(len(a.contreforts), 1)
+
+
+class AtomicSaveTests(unittest.TestCase):
+    """Vérifie que save_chantier est atomique (write-tmp-then-rename)."""
+
+    def test_save_ne_corrompt_pas_le_fichier_existant(self):
+        """Un fichier existant reste intact si save_chantier échoue."""
+        import json
+        import tempfile
+        from unittest.mock import patch
+        original = Chantier(nom="Original")
+        original.arbres.append(Arbre(numero_arbre="1", rayon_tronc_cm=20.0))
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False,
+                                         mode="w") as f:
+            json.dump(chantier_to_dict(original), f, ensure_ascii=False)
+            path = f.name
+        try:
+            bad = Chantier(nom="Bad")
+            bad.arbres.append(Arbre(numero_arbre="2"))
+            with patch("json.dump", side_effect=IOError("disk full")):
+                with self.assertRaises(IOError):
+                    save_chantier(bad, path)
+            reloaded = load_chantier(path)
+            self.assertEqual(reloaded.nom, "Original")
+        finally:
+            import os
+            os.unlink(path)
+
+    def test_save_roundtrip(self):
+        """Écriture atomique produit un fichier lisible."""
+        import tempfile
+        ch = Chantier(nom="Roundtrip", adresse="123 rue")
+        ch.arbres.append(Arbre(numero_arbre="1", rayon_tronc_cm=15.0))
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            path = f.name
+        try:
+            save_chantier(ch, path)
+            reloaded = load_chantier(path)
+            self.assertEqual(reloaded.nom, "Roundtrip")
+            self.assertEqual(reloaded.adresse, "123 rue")
+            self.assertEqual(len(reloaded.arbres), 1)
+        finally:
+            import os
+            os.unlink(path)
+
+    def test_save_pas_de_fichier_tmp_residuel(self):
+        """Après un save réussi, aucun .tmp ne traîne dans le dossier."""
+        import glob
+        import tempfile
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "mission.json")
+        ch = Chantier(nom="Clean")
+        ch.arbres.append(Arbre(numero_arbre="1"))
+        try:
+            save_chantier(ch, path)
+            tmps = glob.glob(os.path.join(d, "*.tmp"))
+            self.assertEqual(tmps, [])
+        finally:
+            os.unlink(path)
+            os.rmdir(d)
 
 
 if __name__ == "__main__":

@@ -115,35 +115,32 @@ def _pil_load_fonts() -> FontFn:
     """
     from PIL import ImageFont
     embedded = Path(__file__).parent / "assets" / "fonts"
-    candidates = [
+    # (variant, chemin) — premier trouvé pour chaque variant gagne.
+    candidates: list[tuple[str, str]] = [
         # Polices embarquées (source unique, reproductible)
-        str(embedded / "DejaVuSerif-Bold.ttf"),
-        str(embedded / "DejaVuSans.ttf"),
-        str(embedded / "DejaVuSans-Bold.ttf"),
+        ("serif_bold", str(embedded / "DejaVuSerif-Bold.ttf")),
+        ("sans",       str(embedded / "DejaVuSans.ttf")),
+        ("sans_bold",  str(embedded / "DejaVuSans-Bold.ttf")),
         # Fallback Linux (chemins debian/ubuntu)
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ("serif_bold", "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"),
+        ("sans",       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        ("sans_bold",  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
         # Fallback Windows
-        r"C:\Windows\Fonts\georgiab.ttf",
-        r"C:\Windows\Fonts\arial.ttf",
-        r"C:\Windows\Fonts\arialbd.ttf",
+        ("serif_bold", r"C:\Windows\Fonts\georgiab.ttf"),
+        ("sans",       r"C:\Windows\Fonts\arial.ttf"),
+        ("sans_bold",  r"C:\Windows\Fonts\arialbd.ttf"),
         # Fallback macOS
-        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
-        "/Library/Fonts/Arial.ttf",
+        ("serif_bold", "/System/Library/Fonts/Supplemental/Georgia Bold.ttf"),
+        ("sans",       "/Library/Fonts/Arial.ttf"),
     ]
     paths: Dict[str, Optional[str]] = {
         "serif_bold": None, "sans": None, "sans_bold": None}
-    for c in candidates:
+    for variant, filepath in candidates:
+        if paths[variant] is not None:
+            continue
         try:
-            ImageFont.truetype(c, 12)
-            name = c.lower()
-            if paths["serif_bold"] is None and ("serifb" in name or "georgiab" in name):
-                paths["serif_bold"] = c
-            elif paths["sans_bold"] is None and "bold" in name and "serif" not in name:
-                paths["sans_bold"] = c
-            elif paths["sans"] is None and "serif" not in name:
-                paths["sans"] = c
+            ImageFont.truetype(filepath, 12)
+            paths[variant] = filepath
         except Exception:
             continue
 

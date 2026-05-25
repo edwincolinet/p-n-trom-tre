@@ -36,6 +36,7 @@ _log = logging.getLogger("penetrometre")
 class _IdentificationHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None: ...
+    def push_undo(self) -> None: ...
 
 
 class IdentificationPane(ttk.Frame):
@@ -49,6 +50,7 @@ class IdentificationPane(ttk.Frame):
         self._host = host
         self._suspend_sync = False
         self._entry_widgets: Dict[str, tk.Widget] = {}
+        self._rayon_at_focus_in: Optional[float] = None
 
         self.var_num = tk.StringVar()
         self.var_essence = tk.StringVar()
@@ -89,6 +91,11 @@ class IdentificationPane(ttk.Frame):
             self._entry_widgets[str(var)] = widget
             var.trace_add("write", lambda *a: self._sync_to_model())
 
+        for var in (self.var_diam, self.var_rayon):
+            w = self._entry_widgets[str(var)]
+            w.bind("<FocusIn>", lambda e: self._on_rayon_field_focus_in())
+            w.bind("<FocusOut>", lambda e: self._on_rayon_field_focus_out())
+
         ttk.Label(self,
                   text="ⓘ Saisir le diamètre sous écorce calcule le rayon "
                        "automatiquement (÷ 2). Le rayon reste modifiable "
@@ -119,6 +126,7 @@ class IdentificationPane(ttk.Frame):
     def load_from_arbre(self) -> None:
         """Recharge les vars depuis l'arbre courant du host (avec
         synchro suspendue pour ne pas boucler)."""
+        self._commit_rayon()
         a = self._host._current_arbre()
         if not a:
             return
@@ -152,11 +160,11 @@ class IdentificationPane(ttk.Frame):
                 pass
 
     def _parse_float(self, var: tk.StringVar) -> Optional[float]:
-        """Parse un champ numérique. Renvoie None si invalide."""
+        """Parse un champ numérique. Renvoie None si vide ou invalide."""
         raw = var.get().strip()
         if not raw:
             self._mark_field(var, True)
-            return 0.0
+            return None
         try:
             val = float(raw)
             self._mark_field(var, True)
@@ -164,6 +172,31 @@ class IdentificationPane(ttk.Frame):
         except ValueError:
             self._mark_field(var, False)
             return None
+
+    def _on_rayon_field_focus_in(self) -> None:
+        a = self._host._current_arbre()
+        if a:
+            self._rayon_at_focus_in = a.rayon_tronc_cm
+
+    def _on_rayon_field_focus_out(self) -> None:
+        self._commit_rayon()
+
+    def _commit_rayon(self) -> None:
+        """Finalise un changement de rayon : push undo + set_rayon
+        (ajustement des sondages). Appelé sur focus-out des champs
+        Diamètre/Rayon et avant un changement d'arbre."""
+        a = self._host._current_arbre()
+        if not a or self._rayon_at_focus_in is None:
+            return
+        old_R = self._rayon_at_focus_in
+        new_R = a.rayon_tronc_cm
+        self._rayon_at_focus_in = None
+        if abs(new_R - old_R) <= 1e-9:
+            return
+        a.rayon_tronc_cm = old_R
+        self._host.push_undo()
+        adjusted = a.set_rayon(new_R)
+        self._host.on_identification_changed(rayon_adjusted=adjusted)
 
     def _sync_to_model(self) -> None:
         if self._suspend_sync:
@@ -173,45 +206,44 @@ class IdentificationPane(ttk.Frame):
             return
 
         try:
-            new_diam = self._parse_float(self.var_diam)
-            new_rayon = self._parse_float(self.var_rayon)
-
-            if new_diam is None or new_rayon is None:
-                return
-
-            diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
-            rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
-
             a.numero_arbre = self.var_num.get()
             a.essence = self.var_essence.get()
+            a.port_arbre = self.var_port.get()
+            a.commentaire = self.var_comm.get()
 
             h_s = self._parse_float(self.var_h_s)
             h_arb = self._parse_float(self.var_h_arb)
             meche = self._parse_float(self.var_meche)
             ep = self._parse_float(self.var_ep_ecorce)
 
-            if any(v is None for v in (h_s, h_arb, meche, ep)):
-                return
+            if h_s is not None:
+                a.hauteur_sondage_cm = h_s
+            if h_arb is not None:
+                a.hauteur_arbre_m = h_arb
+            if meche is not None:
+                a.meche_cm = meche
+            if ep is not None:
+                a.epaisseur_ecorce_cm = max(0.0, ep)
 
-            assert h_s is not None and h_arb is not None
-            assert meche is not None and ep is not None
-            a.hauteur_sondage_cm = h_s
-            a.hauteur_arbre_m = h_arb
-            a.meche_cm = meche
-            a.epaisseur_ecorce_cm = max(0.0, ep)
-            a.port_arbre = self.var_port.get()
-            a.commentaire = self.var_comm.get()
+            new_diam = self._parse_float(self.var_diam)
+            new_rayon = self._parse_float(self.var_rayon)
 
-            if diam_changed and not rayon_changed:
+            if new_diam is not None and new_rayon is not None:
+                diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
+                rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
                 a.diametre_sous_ecorce_cm = new_diam
-                ajustement = a.set_rayon(new_diam / 2.0)
-                with self._suspend_sync_block():
-                    self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-            else:
+                if diam_changed and not rayon_changed:
+                    a.rayon_tronc_cm = max(0.0, new_diam / 2.0)
+                    with self._suspend_sync_block():
+                        self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+                else:
+                    a.rayon_tronc_cm = max(0.0, new_rayon)
+            elif new_diam is not None:
                 a.diametre_sous_ecorce_cm = new_diam
-                ajustement = a.set_rayon(new_rayon)
+            elif new_rayon is not None:
+                a.rayon_tronc_cm = max(0.0, new_rayon)
         except Exception:
             _log.exception("Erreur inattendue dans _sync_to_model")
             return
 
-        self._host.on_identification_changed(rayon_adjusted=ajustement)
+        self._host.on_identification_changed(rayon_adjusted=False)

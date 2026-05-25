@@ -86,9 +86,9 @@ class BellMaxAtGradeTests(unittest.TestCase):
         # culmine le plus haut à chaque grade. C'est ce qui supprime
         # l'encoche en V à la jonction.
         cfA = Contrefort(grade_centre=100, largeur_grades=100, longueur_cm=10.0)
-        cfB = Contrefort(grade_centre=120, largeur_grades=100, longueur_cm=15.0)
+        cfB = Contrefort(grade_centre=125, largeur_grades=100, longueur_cm=15.0)
         # Au centre de B, B domine
-        self.assertAlmostEqual(bell_max_at_grade(120, [cfA, cfB]), 15.0)
+        self.assertAlmostEqual(bell_max_at_grade(125, [cfA, cfB]), 15.0)
         # Au centre de A, A domine
         self.assertAlmostEqual(bell_max_at_grade(100, [cfA, cfB]), 10.0)
 

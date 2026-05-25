@@ -156,9 +156,10 @@ class Contrefort:
     commentaire: str = ""
 
     def __post_init__(self) -> None:
-        if not (0 <= self.grade_centre <= 375):
+        if self.grade_centre not in GRADES:
             raise ValueError(
-                f"grade_centre={self.grade_centre} invalide (attendu: 0–375)")
+                f"grade_centre={self.grade_centre} invalide "
+                f"(attendu: multiple de 25, 0–375)")
         if self.largeur_grades < 0:
             raise ValueError(
                 f"largeur_grades={self.largeur_grades} invalide (attendu: >= 0)")

@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -76,9 +78,20 @@ def save_chantier(chantier: Chantier, path: Union[str, Path]) -> None:
     `chantier_from_dict` qui ignore les clés inconnues et migre les
     ports renommés).
     """
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(chantier_to_dict(chantier), f,
-                  indent=2, ensure_ascii=False)
+    dest = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=dest.parent, suffix=".tmp",
+                               prefix=dest.stem + "_")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(chantier_to_dict(chantier), f,
+                      indent=2, ensure_ascii=False)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def load_chantier(path: Union[str, Path]) -> Chantier:
