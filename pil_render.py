@@ -420,60 +420,40 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
                     cx: float, cy: float,
                     R: float, ep: float, R_ext: float, scale: float,
                     height: int, _ds: float = 1.0) -> float:
-    """Dessine la règle graduée sous la section et renvoie son ordonnée
-    `y_axis`. Demi-règle : 0 AU CENTRE de l'arbre, graduation seulement
-    vers la droite jusqu'à R (bord du bois). La portion bois est en
-    trait noir fin ; la barre écorce (si ep > 0) prolonge la règle
-    jusqu'à R+ep, sans label numérique.
+    """Barre d'échelle compacte en bas à droite (style cartographique).
+
+    Renvoie l'ordonnée du haut de la barre pour le placement de la
+    légende en dessous.
     """
+    width_px = int(2 * cx)
     radius_ext_px = R_ext * scale
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * _ds))
-    y_axis = min(cy + radius_ext_px + int(105 * _ds),
-                 height - int(60 * _ds))
-    wood_half_px = R * scale
-    ext_half_px = R_ext * scale
-    x_rw = cx + wood_half_px
-    x_re = cx + ext_half_px
+    bar_cm = step * 2
+    if bar_cm > R:
+        bar_cm = step
+    bar_px = bar_cm * scale
+
+    margin_r = max(80, int(width_px * 0.06))
+    x_right = width_px - margin_r
+    x_left = x_right - bar_px
+    y_bar = min(cy + radius_ext_px + int(80 * _ds),
+                height - int(100 * _ds))
+
     lw = max(3, int(3 * _ds))
     tick_h = int(14 * _ds)
-    tick_m = int(11 * _ds)
-    tick_s = int(8 * _ds)
-    label_off = int(32 * _ds)
+    label_off = int(28 * _ds)
 
-    # Trait bois (noir fin) du centre au bord droit
-    d.line([cx, y_axis, x_rw, y_axis], fill=COLOR_INK, width=lw + 1)
-    # Barre écorce (brun foncé épais) à l'extrémité droite
-    if ep > 0:
-        bar_h = int(12 * _ds)
-        d.rectangle([x_rw, y_axis - bar_h/2,
-                     x_re, y_axis + bar_h/2], fill=COLOR_BARK)
-    # Tiret à l'extrémité externe (R+ep)
-    end_color = COLOR_BARK if ep > 0 else COLOR_INK
-    d.line([x_re, y_axis-tick_h, x_re, y_axis+tick_h],
-           fill=end_color, width=lw + 1)
-    # Tiret central (origine 0) et transition bois/écorce (R)
-    d.line([cx, y_axis-tick_m, cx, y_axis+tick_m],
+    d.line([x_left, y_bar, x_right, y_bar], fill=COLOR_INK, width=lw + 1)
+    d.line([x_left, y_bar - tick_h, x_left, y_bar + tick_h],
            fill=COLOR_INK, width=lw + 1)
-    if ep > 0:
-        d.line([x_rw, y_axis-tick_m, x_rw, y_axis+tick_m],
-               fill=COLOR_INK, width=lw + 1)
-    # Graduations intermédiaires (bois) tous les `step` cm depuis 0
-    # (centre) jusqu'à R (bord droit).
-    if R > 0:
-        for xg, label in ruler_graduation_positions(cx, scale, R, step):
-            d.line([xg, y_axis-tick_s, xg, y_axis+tick_s],
-                   fill=COLOR_INK, width=max(2, int(2 * _ds)))
-            d.text((xg, y_axis + label_off), label,
-                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        # Étiquettes des deux extrémités : 0 au centre, R au bord
-        d.text((cx, y_axis + label_off), "0",
-               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        d.text((x_rw, y_axis + label_off), f"{R:g}",
-               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    # Label "cm" à droite
-    d.text((x_re + int(35 * _ds), y_axis), "cm",
-           font=f(38, "sans_bold"), fill=COLOR_INK, anchor="lm")
-    return y_axis
+    d.line([x_right, y_bar - tick_h, x_right, y_bar + tick_h],
+           fill=COLOR_INK, width=lw + 1)
+
+    d.text((x_left, y_bar + label_off), "0",
+           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    d.text((x_right, y_bar + label_off), f"{bar_cm:g} cm",
+           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    return y_bar
 
 
 def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",

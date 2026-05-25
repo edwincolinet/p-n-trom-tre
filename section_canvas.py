@@ -325,69 +325,37 @@ class SectionCanvas(tk.Canvas):
                              font=("Helvetica", 10, "bold"), fill="white")
 
     def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:
-        # RÈGLE GRADUÉE sous la section, DEMI-RÈGLE : 0 au centre de
-        # l'arbre, graduation seulement vers la droite jusqu'à R (bord
-        # du bois). La barre écorce (si ep > 0) prolonge la règle sans
-        # label numérique — l'épaisseur d'écorce reste lisible via
-        # l'onglet Diagnostic.
+        w = max(self.winfo_width(), 1)
         h = max(self.winfo_height(), 1)
         radius_ext_px = R_ext * scale
-        # Pas adaptatif : on veut ~24 px mini entre deux étiquettes pour
-        # la police 8 pt du canvas.
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
-        # Position verticale : juste sous l'écorce + lettres cardinales
-        # + petit padding ; on remonte si on dépasse en bas du canvas.
-        y_axis = min(cy + radius_ext_px + 75, h - 30)
-        wood_half_px = R * scale
-        ext_half_px = R_ext * scale
-        x_rw = cx + wood_half_px
-        x_re = cx + ext_half_px
+        bar_cm = step * 2
+        if bar_cm > R:
+            bar_cm = step
+        bar_px = bar_cm * scale
 
-        # Bandeau blanc de fond (centré sur la demi-règle)
-        self.create_rectangle(cx - 8, y_axis - 14,
-                              x_re + 35, y_axis + 24,
+        margin_r = max(20, int(w * 0.04))
+        x_right = w - margin_r
+        x_left = x_right - bar_px
+        y_bar = min(cy + radius_ext_px + 55, h - 30)
+
+        self.create_rectangle(x_left - 10, y_bar - 12,
+                              x_right + 10, y_bar + 22,
                               fill="white", outline="")
-        # Trait bois (noir fin) du centre au bord droit
-        self.create_line(cx, y_axis, x_rw, y_axis,
+        self.create_line(x_left, y_bar, x_right, y_bar,
                          fill=COLOR_INK, width=2)
-        # Barre écorce à l'extrémité droite
-        if ep > 0:
-            bar_h = 7
-            self.create_rectangle(x_rw, y_axis - bar_h/2,
-                                  x_re, y_axis + bar_h/2,
-                                  fill=COLOR_BARK, outline="")
-        # Tiret à l'extrémité externe (R+ep)
-        end_color = COLOR_BARK if ep > 0 else COLOR_INK
-        self.create_line(x_re, y_axis - 8, x_re, y_axis + 8,
-                         fill=end_color, width=2)
-        # Tiret central (origine 0) et transition bois/écorce (R)
-        self.create_line(cx, y_axis - 6, cx, y_axis + 6,
+        self.create_line(x_left, y_bar - 6, x_left, y_bar + 6,
                          fill=COLOR_INK, width=2)
-        if ep > 0:
-            self.create_line(x_rw, y_axis - 6, x_rw, y_axis + 6,
-                             fill=COLOR_INK, width=2)
-        # Graduations intermédiaires (bois) tous les `step` cm depuis 0
-        # (centre) jusqu'à R (bord droit).
-        if R > 0:
-            for xg, label in ruler_graduation_positions(cx, scale, R, step):
-                self.create_line(xg, y_axis - 4, xg, y_axis + 4,
-                                 fill=COLOR_INK, width=1)
-                self.create_text(xg, y_axis + 15, text=label,
-                                 anchor="center",
-                                 font=("Helvetica", 8), fill=COLOR_INK)
-            # Étiquettes des deux extrémités : 0 au centre, R au bord
-            self.create_text(cx, y_axis + 15, text="0",
-                             anchor="center",
-                             font=("Helvetica", 8, "bold"),
-                             fill=COLOR_INK)
-            self.create_text(x_rw, y_axis + 15, text=f"{R:g}",
-                             anchor="center",
-                             font=("Helvetica", 8, "bold"),
-                             fill=COLOR_INK)
-        # Label "cm" à droite
-        self.create_text(x_re + 18, y_axis, text="cm",
-                         anchor="w",
-                         font=("Helvetica", 9, "bold italic"),
+        self.create_line(x_right, y_bar - 6, x_right, y_bar + 6,
+                         fill=COLOR_INK, width=2)
+        self.create_text(x_left, y_bar + 14, text="0",
+                         anchor="center",
+                         font=("Helvetica", 8, "bold"),
+                         fill=COLOR_INK)
+        self.create_text(x_right, y_bar + 14,
+                         text=f"{bar_cm:g} cm",
+                         anchor="center",
+                         font=("Helvetica", 8, "bold"),
                          fill=COLOR_INK)
 
     def _draw_titre(self, A: Arbre, R: float) -> None:
