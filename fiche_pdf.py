@@ -242,10 +242,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             if k % 2 == 0:
                 d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
                             fill=COLOR_BG)
-            if deg_ext > 0:
-                prbs_txt = f"{prbs_adj:g}  (–{deg_ext:g} ext.)"
-            else:
-                prbs_txt = f"{prbs_adj:g}"
+            prbs_txt = f"{prbs_adj:g}"
             vals = [str(s.numero), direction, prbs_txt,
                     f"{100*ratio:.1f}", classe, s.compartimentation]
             for i, v in enumerate(vals):
