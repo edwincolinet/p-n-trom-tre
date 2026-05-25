@@ -185,13 +185,10 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # Marges adaptées à la taille (responsive) :
     # - haut : titre+méta+lettre N hors écorce (proportionnel)
     # - bas : pastille S à l'intérieur, règle graduée + label
-    margin_top = max(140, int(height * 0.13)) if show_title else 70
-    # Si la légende est demandée, on la pose en bas (sous la règle
-    # graduée), sur une seule ligne horizontale. On réserve une bande de
-    # hauteur en bas, ce qui repousse la section vers le haut.
-    legend_bottom_h = max(70, int(height * 0.085)) if show_legend else 0
-    margin_bottom = max(160, int(height * 0.16)) + legend_bottom_h
-    margin_side = max(80, int(width * 0.08))
+    margin_top = max(130, int(height * 0.10)) if show_title else 70
+    legend_bottom_h = max(60, int(height * 0.06)) if show_legend else 0
+    margin_bottom = max(110, int(height * 0.09)) + legend_bottom_h
+    margin_side = max(60, int(width * 0.055))
     available_v = height - margin_top - margin_bottom
     available_h = width - 2 * margin_side
     radius_px_max = min(available_h / 2, available_v / 2)
@@ -220,7 +217,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     if show_title:
         _pil_draw_titre(d, f, arbre, R, width, height)
     if show_legend:
-        legend_y = y_axis + max(50, int(height * 0.045))
+        legend_y = y_axis + max(35, int(height * 0.028))
         _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
                                      width=width, height=height,
                                      font_fn=f,
@@ -367,9 +364,9 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
-                    d.text((lx+dx, ly+dy), lbl, font=f(36, "serif_bold"),
+                    d.text((lx+dx, ly+dy), lbl, font=f(44, "serif_bold"),
                            fill="white", anchor="mm")
-        d.text((lx, ly), lbl, font=f(36, "serif_bold"),
+        d.text((lx, ly), lbl, font=f(44, "serif_bold"),
                fill=COLOR_INK, anchor="mm")
 
 
@@ -415,7 +412,7 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
     radius_ext_px = R_ext * scale
     # Pas adaptatif : on veut ~50 px mini entre deux étiquettes pour la
     # police 18 pt de la fiche.
-    step = adaptive_ruler_step_cm(scale, min_gap_px=50)
+    step = adaptive_ruler_step_cm(scale, min_gap_px=60)
     y_axis = min(cy + radius_ext_px + 105, height - 60)
     wood_half_px = R * scale
     ext_half_px = R_ext * scale
@@ -423,44 +420,44 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
     x_re = cx + ext_half_px
 
     # Trait bois (noir fin) du centre au bord droit
-    d.line([cx, y_axis, x_rw, y_axis], fill=COLOR_INK, width=3)
+    d.line([cx, y_axis, x_rw, y_axis], fill=COLOR_INK, width=4)
     # Barre écorce (brun foncé épais) à l'extrémité droite
     if ep > 0:
-        bar_h = 10
+        bar_h = 12
         d.rectangle([x_rw, y_axis - bar_h/2,
                      x_re, y_axis + bar_h/2], fill=COLOR_BARK)
     # Tiret à l'extrémité externe (R+ep)
     end_color = COLOR_BARK if ep > 0 else COLOR_INK
-    d.line([x_re, y_axis-12, x_re, y_axis+12], fill=end_color, width=3)
+    d.line([x_re, y_axis-14, x_re, y_axis+14], fill=end_color, width=4)
     # Tiret central (origine 0) et transition bois/écorce (R)
-    d.line([cx, y_axis-9, cx, y_axis+9], fill=COLOR_INK, width=3)
+    d.line([cx, y_axis-11, cx, y_axis+11], fill=COLOR_INK, width=4)
     if ep > 0:
-        d.line([x_rw, y_axis-9, x_rw, y_axis+9], fill=COLOR_INK, width=3)
+        d.line([x_rw, y_axis-11, x_rw, y_axis+11], fill=COLOR_INK, width=4)
     # Graduations intermédiaires (bois) tous les `step` cm depuis 0
     # (centre) jusqu'à R (bord droit).
     if R > 0:
         for xg, label in ruler_graduation_positions(cx, scale, R, step):
-            d.line([xg, y_axis-7, xg, y_axis+7], fill=COLOR_INK, width=2)
-            d.text((xg, y_axis+28), label,
-                   font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
+            d.line([xg, y_axis-8, xg, y_axis+8], fill=COLOR_INK, width=2)
+            d.text((xg, y_axis+32), label,
+                   font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
         # Étiquettes des deux extrémités : 0 au centre, R au bord
-        d.text((cx, y_axis+28), "0",
-               font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        d.text((x_rw, y_axis+28), f"{R:g}",
-               font=f(18, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        d.text((cx, y_axis+32), "0",
+               font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        d.text((x_rw, y_axis+32), f"{R:g}",
+               font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
     # Label "cm" à droite
     d.text((x_re+35, y_axis), "cm",
-           font=f(20, "sans_bold"), fill=COLOR_INK, anchor="lm")
+           font=f(26, "sans_bold"), fill=COLOR_INK, anchor="lm")
     return y_axis
 
 
 def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                     R: float, width: int, height: int) -> None:
     # Titre + méta — positions proportionnelles à la hauteur.
-    title_y = max(45, int(height * 0.045))
-    sub_y = title_y + 52
+    title_y = max(48, int(height * 0.042))
+    sub_y = title_y + 62
     d.text((width/2, title_y), arbre.display_name,
-           font=f(44, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
+           font=f(54, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
     sub_parts = [f"Rayon {R:g} cm"]
     if arbre.diametre_sous_ecorce_cm:
         sub_parts.append(f"Ø sous écorce {arbre.diametre_sous_ecorce_cm:g} cm")
@@ -469,7 +466,7 @@ def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
     if arbre.meche_cm:
         sub_parts.append(f"Mèche {arbre.meche_cm:g} cm")
     d.text((width/2, sub_y), "   •   ".join(sub_parts),
-           font=f(24, "sans"), fill=COLOR_MUTED, anchor="mm")
+           font=f(30, "sans"), fill=COLOR_MUTED, anchor="mm")
 
 
 def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
@@ -500,10 +497,10 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
     has_bark = ep > 0
     has_sondages = bool(arbre.sondages)
 
-    item_size = max(13, int(height * 0.018))
-    swatch_w = max(20, int(height * 0.024))
-    swatch_h = max(14, int(height * 0.018))
-    r_p = max(8, int(height * 0.012))
+    item_size = max(16, int(height * 0.024))
+    swatch_w = max(26, int(height * 0.030))
+    swatch_h = max(18, int(height * 0.024))
+    r_p = max(10, int(height * 0.015))
     item_font = font_fn(item_size, "sans")
     bold_font = font_fn(item_size, "sans_bold")
 
