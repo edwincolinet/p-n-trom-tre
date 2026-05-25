@@ -194,9 +194,9 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # Marges adaptées à la taille (responsive) :
     # - haut : titre+méta+lettre N hors écorce (proportionnel)
     # - bas : pastille S à l'intérieur, règle graduée + label
-    margin_top = max(130, int(height * 0.10)) if show_title else 70
-    legend_bottom_h = max(60, int(height * 0.08)) if show_legend else 0
-    margin_bottom = max(110, int(height * 0.10)) + legend_bottom_h
+    margin_top = max(100, int(height * 0.065)) if show_title else 70
+    legend_bottom_h = max(70, int(height * 0.09)) if show_legend else 0
+    margin_bottom = max(120, int(height * 0.11)) + legend_bottom_h
     margin_side = max(60, int(width * 0.055))
     available_v = height - margin_top - margin_bottom
     available_h = width - 2 * margin_side
@@ -464,34 +464,23 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
             d.line([xg, y_axis-tick_s, xg, y_axis+tick_s],
                    fill=COLOR_INK, width=max(2, int(2 * _ds)))
             d.text((xg, y_axis + label_off), label,
-                   font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
+                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
         # Étiquettes des deux extrémités : 0 au centre, R au bord
         d.text((cx, y_axis + label_off), "0",
-               font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
+               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
         d.text((x_rw, y_axis + label_off), f"{R:g}",
-               font=f(24, "sans_bold"), fill=COLOR_INK, anchor="mm")
+               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
     # Label "cm" à droite
     d.text((x_re + int(35 * _ds), y_axis), "cm",
-           font=f(26, "sans_bold"), fill=COLOR_INK, anchor="lm")
+           font=f(38, "sans_bold"), fill=COLOR_INK, anchor="lm")
     return y_axis
 
 
 def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                     R: float, width: int, height: int) -> None:
-    # Titre + méta — positions proportionnelles à la hauteur.
     title_y = max(48, int(height * 0.042))
-    sub_y = title_y + 62
     d.text((width/2, title_y), arbre.display_name,
            font=f(54, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
-    sub_parts = [f"Rayon {R:g} cm"]
-    if arbre.diametre_sous_ecorce_cm:
-        sub_parts.append(f"Ø sous écorce {arbre.diametre_sous_ecorce_cm:g} cm")
-    if arbre.hauteur_arbre_m:
-        sub_parts.append(f"H {arbre.hauteur_arbre_m:g} m")
-    if arbre.meche_cm:
-        sub_parts.append(f"Mèche {arbre.meche_cm:g} cm")
-    d.text((width/2, sub_y), "   •   ".join(sub_parts),
-           font=f(30, "sans"), fill=COLOR_MUTED, anchor="mm")
 
 
 def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
@@ -522,10 +511,10 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
     has_bark = ep > 0
     has_sondages = bool(arbre.sondages)
 
-    item_size = max(16, int(height * 0.024))
-    swatch_w = max(26, int(height * 0.030))
-    swatch_h = max(18, int(height * 0.024))
-    r_p = max(10, int(height * 0.015))
+    item_size = max(20, int(height * 0.038))
+    swatch_w = max(32, int(height * 0.042))
+    swatch_h = max(24, int(height * 0.035))
+    r_p = max(14, int(height * 0.020))
     item_font = font_fn(item_size, "sans")
     bold_font = font_fn(item_size, "sans_bold")
 
