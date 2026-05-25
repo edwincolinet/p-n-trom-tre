@@ -170,7 +170,21 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
 
     def ok() -> None:
         try:
-            sondage.grade = _parse_grade(v_grade.get())
+            new_grade = _parse_grade(v_grade.get())
+            if arbre is not None:
+                for other in arbre.sondages:
+                    if other is not sondage and other.grade == new_grade:
+                        lbl = DIRECTION_LABELS.get(new_grade, "")
+                        direction = f" ({lbl})" if lbl else ""
+                        messagebox.showwarning(
+                            "Direction déjà sondée",
+                            f"Un sondage existe déjà au grade "
+                            f"{new_grade} gr{direction}.\n\n"
+                            "Chaque direction ne peut être sondée "
+                            "qu'une seule fois.",
+                            parent=dlg)
+                        return
+            sondage.grade = new_grade
             sain = float(v_sain.get() or 0)
             alt = float(v_alt.get() or 0)
             if R > 0:
@@ -339,8 +353,37 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
 
     def ok() -> None:
         try:
-            deg.grade_debut = _parse_grade(v_debut.get())
-            deg.grade_fin = _parse_grade(v_fin.get())
+            new_debut = _parse_grade(v_debut.get())
+            new_fin = _parse_grade(v_fin.get())
+            if arbre is not None:
+                candidate = DegradationExterne(
+                    grade_debut=new_debut, grade_fin=new_fin)
+                for other in arbre.degradations_externes:
+                    if other is not deg:
+                        shared = [g for g in GRADES
+                                  if candidate.couvre_grade(g)
+                                  and other.couvre_grade(g)
+                                  and not (g == new_debut
+                                           and g == other.grade_fin)
+                                  and not (g == new_fin
+                                           and g == other.grade_debut)]
+                        if shared:
+                            labels = ", ".join(
+                                f"{g} gr" for g in shared[:4])
+                            if len(shared) > 4:
+                                labels += ", …"
+                            messagebox.showwarning(
+                                "Chevauchement de dégradations",
+                                f"La dégradation n°{other.numero} "
+                                f"({other.grade_debut} gr → "
+                                f"{other.grade_fin} gr) couvre "
+                                f"déjà les directions {labels}.\n\n"
+                                f"Les arcs ne doivent pas se "
+                                f"chevaucher.",
+                                parent=dlg)
+                            return
+            deg.grade_debut = new_debut
+            deg.grade_fin = new_fin
             deg.profondeur_cm = max(0.0, float(v_prof.get() or 0))
             deg.commentaire = v_com.get()
             result["ok"] = True
@@ -454,7 +497,19 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
 
     def ok() -> None:
         try:
-            cf.grade_centre = _parse_grade(v_centre.get()) % 400
+            new_centre = _parse_grade(v_centre.get()) % 400
+            if arbre is not None:
+                for other in arbre.contreforts:
+                    if other is not cf and other.grade_centre == new_centre:
+                        lbl = DIRECTION_LABELS.get(new_centre, "")
+                        direction = f" ({lbl})" if lbl else ""
+                        messagebox.showwarning(
+                            "Contrefort en double",
+                            f"Un contrefort existe déjà au grade "
+                            f"{new_centre} gr{direction}.",
+                            parent=dlg)
+                        return
+            cf.grade_centre = new_centre
             cf.largeur_grades = _round_to_25(
                 int(float(v_largeur_gr.get() or 25)),
                 min_v=25, max_v=400, wrap=False)

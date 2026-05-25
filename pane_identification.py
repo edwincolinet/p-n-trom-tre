@@ -51,6 +51,8 @@ class IdentificationPane(ttk.Frame):
         self._suspend_sync = False
         self._entry_widgets: Dict[str, tk.Widget] = {}
         self._rayon_at_focus_in: Optional[float] = None
+        self._diam_at_focus_in: Optional[float] = None
+        self._numeric_snapshots: Dict[str, str] = {}
 
         self.var_num = tk.StringVar()
         self.var_essence = tk.StringVar()
@@ -95,6 +97,18 @@ class IdentificationPane(ttk.Frame):
             w = self._entry_widgets[str(var)]
             w.bind("<FocusIn>", lambda e: self._on_rayon_field_focus_in())
             w.bind("<FocusOut>", lambda e: self._on_rayon_field_focus_out())
+
+        for var in (self.var_meche, self.var_ep_ecorce,
+                    self.var_h_s, self.var_h_arb):
+            key = str(var)
+            w = self._entry_widgets[key]
+            w.bind("<FocusIn>", lambda e, k=key, v=var: self._numeric_snapshots.__setitem__(k, v.get()))
+            w.bind("<FocusOut>", lambda e, k=key, v=var: self._revert_if_invalid(v, k))
+
+        num_key = str(self.var_num)
+        num_w = self._entry_widgets[num_key]
+        num_w.bind("<FocusIn>", lambda e: self._numeric_snapshots.__setitem__(num_key, self.var_num.get()))
+        num_w.bind("<FocusOut>", lambda e: self._revert_num_if_invalid())
 
         ttk.Label(self,
                   text="ⓘ Saisir le diamètre sous écorce calcule le rayon "
@@ -159,6 +173,27 @@ class IdentificationPane(ttk.Frame):
             except tk.TclError:
                 pass
 
+    def _revert_if_invalid(self, var: tk.StringVar, key: str) -> None:
+        """Au focus-out d'un champ numérique secondaire, revert à la
+        valeur d'avant le focus-in si le contenu est non numérique."""
+        raw = var.get().strip()
+        if raw and self._parse_float(var) is None:
+            prev = self._numeric_snapshots.get(key, "")
+            with self._suspend_sync_block():
+                var.set(prev)
+            self._mark_field(var, True)
+
+    def _revert_num_if_invalid(self) -> None:
+        """Au focus-out du N° arbre, revert si la valeur ne contient
+        aucun chiffre (accepte '1', '42', '1 bis' mais rejette 'ouyg')."""
+        raw = self.var_num.get().strip()
+        if raw and not any(c.isdigit() for c in raw):
+            key = str(self.var_num)
+            prev = self._numeric_snapshots.get(key, "1")
+            with self._suspend_sync_block():
+                self.var_num.set(prev)
+            self._mark_field(self.var_num, True)
+
     def _parse_float(self, var: tk.StringVar) -> Optional[float]:
         """Parse un champ numérique. Renvoie None si vide ou invalide."""
         raw = var.get().strip()
@@ -177,6 +212,7 @@ class IdentificationPane(ttk.Frame):
         a = self._host._current_arbre()
         if a:
             self._rayon_at_focus_in = a.rayon_tronc_cm
+            self._diam_at_focus_in = a.diametre_sous_ecorce_cm
 
     def _on_rayon_field_focus_out(self) -> None:
         self._commit_rayon()
@@ -184,13 +220,32 @@ class IdentificationPane(ttk.Frame):
     def _commit_rayon(self) -> None:
         """Finalise un changement de rayon : push undo + set_rayon
         (ajustement des sondages). Appelé sur focus-out des champs
-        Diamètre/Rayon et avant un changement d'arbre."""
+        Diamètre/Rayon et avant un changement d'arbre.
+
+        Si le champ est invalide au moment du focus-out (texte non
+        numérique, champ vide), on REVERT le rayon et le diamètre à
+        leur valeur d'avant l'édition — les valeurs intermédiaires
+        (ex. "8" en route vers "80") ne doivent pas être commitées."""
         a = self._host._current_arbre()
         if not a or self._rayon_at_focus_in is None:
             return
         old_R = self._rayon_at_focus_in
-        new_R = a.rayon_tronc_cm
+        old_D = self._diam_at_focus_in
         self._rayon_at_focus_in = None
+        self._diam_at_focus_in = None
+
+        cur_diam = self._parse_float(self.var_diam)
+        cur_rayon = self._parse_float(self.var_rayon)
+        if cur_diam is None or cur_rayon is None:
+            a.rayon_tronc_cm = old_R
+            a.diametre_sous_ecorce_cm = old_D if old_D is not None else old_R * 2
+            with self._suspend_sync_block():
+                self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+                self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}")
+            self._host.on_identification_changed(rayon_adjusted=False)
+            return
+
+        new_R = a.rayon_tronc_cm
         if abs(new_R - old_R) <= 1e-9:
             return
         a.rayon_tronc_cm = old_R
@@ -236,6 +291,11 @@ class IdentificationPane(ttk.Frame):
                     a.rayon_tronc_cm = max(0.0, new_diam / 2.0)
                     with self._suspend_sync_block():
                         self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+                elif rayon_changed and not diam_changed:
+                    a.rayon_tronc_cm = max(0.0, new_rayon)
+                    a.diametre_sous_ecorce_cm = new_rayon * 2.0
+                    with self._suspend_sync_block():
+                        self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}")
                 else:
                     a.rayon_tronc_cm = max(0.0, new_rayon)
             elif new_diam is not None:
