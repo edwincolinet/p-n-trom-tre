@@ -420,27 +420,21 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
                     cx: float, cy: float,
                     R: float, ep: float, R_ext: float, scale: float,
                     height: int, _ds: float = 1.0) -> float:
-    """Barre d'échelle compacte en bas à droite (style cartographique).
+    """Règle graduée symétrique centrée sous la section (-R à +R).
 
-    Renvoie l'ordonnée du haut de la barre pour le placement de la
-    légende en dessous.
+    Renvoie l'ordonnée de la règle pour le placement de la légende.
     """
-    width_px = int(2 * cx)
     radius_ext_px = R_ext * scale
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * _ds))
-    bar_cm = step * 2
-    if bar_cm > R:
-        bar_cm = step
-    bar_px = bar_cm * scale
-
-    margin_r = max(80, int(width_px * 0.06))
-    x_right = width_px - margin_r
-    x_left = x_right - bar_px
     y_bar = min(cy + radius_ext_px + int(80 * _ds),
                 height - int(100 * _ds))
+    half_px = R * scale
+    x_left = cx - half_px
+    x_right = cx + half_px
 
     lw = max(3, int(3 * _ds))
     tick_h = int(14 * _ds)
+    tick_s = int(8 * _ds)
     label_off = int(28 * _ds)
 
     d.line([x_left, y_bar, x_right, y_bar], fill=COLOR_INK, width=lw + 1)
@@ -448,11 +442,25 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
            fill=COLOR_INK, width=lw + 1)
     d.line([x_right, y_bar - tick_h, x_right, y_bar + tick_h],
            fill=COLOR_INK, width=lw + 1)
-
-    d.text((x_left, y_bar + label_off), "0",
-           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    d.text((x_right, y_bar + label_off), f"{bar_cm:g} cm",
-           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    d.line([cx, y_bar - tick_h, cx, y_bar + tick_h],
+           fill=COLOR_INK, width=lw + 1)
+    if R > 0:
+        for xg, label in ruler_graduation_positions(cx, scale, R, step):
+            d.line([xg, y_bar - tick_s, xg, y_bar + tick_s],
+                   fill=COLOR_INK, width=max(2, int(2 * _ds)))
+            d.text((xg, y_bar + label_off), label,
+                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+            x_mirror = cx - (xg - cx)
+            d.line([x_mirror, y_bar - tick_s, x_mirror, y_bar + tick_s],
+                   fill=COLOR_INK, width=max(2, int(2 * _ds)))
+        d.text((cx, y_bar + label_off), "0",
+               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        d.text((x_right, y_bar + label_off), f"{R:g}",
+               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+        d.text((x_left, y_bar + label_off), f"{R:g}",
+               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    d.text((x_right + int(25 * _ds), y_bar), "cm",
+           font=f(38, "sans_bold"), fill=COLOR_INK, anchor="lm")
     return y_bar
 
 

@@ -325,22 +325,16 @@ class SectionCanvas(tk.Canvas):
                              font=("Helvetica", 10, "bold"), fill="white")
 
     def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:
-        w = max(self.winfo_width(), 1)
         h = max(self.winfo_height(), 1)
         radius_ext_px = R_ext * scale
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
-        bar_cm = step * 2
-        if bar_cm > R:
-            bar_cm = step
-        bar_px = bar_cm * scale
-
-        margin_r = max(20, int(w * 0.04))
-        x_right = w - margin_r
-        x_left = x_right - bar_px
         y_bar = min(cy + radius_ext_px + 55, h - 30)
+        half_px = R * scale
+        x_left = cx - half_px
+        x_right = cx + half_px
 
-        self.create_rectangle(x_left - 10, y_bar - 12,
-                              x_right + 10, y_bar + 22,
+        self.create_rectangle(x_left - 8, y_bar - 12,
+                              x_right + 30, y_bar + 22,
                               fill="white", outline="")
         self.create_line(x_left, y_bar, x_right, y_bar,
                          fill=COLOR_INK, width=2)
@@ -348,14 +342,33 @@ class SectionCanvas(tk.Canvas):
                          fill=COLOR_INK, width=2)
         self.create_line(x_right, y_bar - 6, x_right, y_bar + 6,
                          fill=COLOR_INK, width=2)
-        self.create_text(x_left, y_bar + 14, text="0",
-                         anchor="center",
-                         font=("Helvetica", 8, "bold"),
-                         fill=COLOR_INK)
-        self.create_text(x_right, y_bar + 14,
-                         text=f"{bar_cm:g} cm",
-                         anchor="center",
-                         font=("Helvetica", 8, "bold"),
+        self.create_line(cx, y_bar - 6, cx, y_bar + 6,
+                         fill=COLOR_INK, width=2)
+        if R > 0:
+            for xg, label in ruler_graduation_positions(cx, scale, R, step):
+                self.create_line(xg, y_bar - 4, xg, y_bar + 4,
+                                 fill=COLOR_INK, width=1)
+                self.create_text(xg, y_bar + 14, text=label,
+                                 anchor="center",
+                                 font=("Helvetica", 8), fill=COLOR_INK)
+                x_mirror = cx - (xg - cx)
+                self.create_line(x_mirror, y_bar - 4, x_mirror, y_bar + 4,
+                                 fill=COLOR_INK, width=1)
+            self.create_text(cx, y_bar + 14, text="0",
+                             anchor="center",
+                             font=("Helvetica", 8, "bold"),
+                             fill=COLOR_INK)
+            self.create_text(x_right, y_bar + 14, text=f"{R:g}",
+                             anchor="center",
+                             font=("Helvetica", 8, "bold"),
+                             fill=COLOR_INK)
+            self.create_text(x_left, y_bar + 14, text=f"{R:g}",
+                             anchor="center",
+                             font=("Helvetica", 8, "bold"),
+                             fill=COLOR_INK)
+        self.create_text(x_right + 18, y_bar, text="cm",
+                         anchor="w",
+                         font=("Helvetica", 9, "bold italic"),
                          fill=COLOR_INK)
 
     def _draw_titre(self, A: Arbre, R: float) -> None:
