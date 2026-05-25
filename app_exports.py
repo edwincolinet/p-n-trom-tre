@@ -167,7 +167,7 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                                 a.rayon_tronc_cm, a.port_arbre,
                                 s.numero,
                                 s.grade, d,
-                                prbs_adj, s.bois_altere_cm,
+                                prbs_adj, s.bois_altere_cm + deg_ext,
                                 tR_pct,
                                 classe,
                                 s.compartimentation, s.commentaire])
