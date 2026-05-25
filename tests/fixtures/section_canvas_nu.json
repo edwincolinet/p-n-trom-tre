@@ -1019,6 +1019,15 @@
     "width": "1.0"
   },
   {
+    "type": "text",
+    "coords": [
+      275.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "2"
+  },
+  {
     "type": "line",
     "coords": [
       350.0,
@@ -1048,6 +1057,15 @@
     ],
     "fill": "#1A2E22",
     "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      250.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "4"
   },
   {
     "type": "line",
@@ -1081,6 +1099,15 @@
     "width": "1.0"
   },
   {
+    "type": "text",
+    "coords": [
+      225.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "6"
+  },
+  {
     "type": "line",
     "coords": [
       400.0,
@@ -1110,6 +1137,15 @@
     ],
     "fill": "#1A2E22",
     "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      200.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "8"
   },
   {
     "type": "line",
@@ -1143,6 +1179,15 @@
     "width": "1.0"
   },
   {
+    "type": "text",
+    "coords": [
+      175.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "10"
+  },
+  {
     "type": "line",
     "coords": [
       450.0,
@@ -1172,6 +1217,15 @@
     ],
     "fill": "#1A2E22",
     "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      150.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "12"
   },
   {
     "type": "line",
@@ -1205,6 +1259,15 @@
     "width": "1.0"
   },
   {
+    "type": "text",
+    "coords": [
+      125.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "14"
+  },
+  {
     "type": "line",
     "coords": [
       500.0,
@@ -1236,6 +1299,15 @@
     "width": "1.0"
   },
   {
+    "type": "text",
+    "coords": [
+      100.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "16"
+  },
+  {
     "type": "line",
     "coords": [
       525.0,
@@ -1265,6 +1337,15 @@
     ],
     "fill": "#1A2E22",
     "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      75.0,
+      639.0
+    ],
+    "fill": "#1A2E22",
+    "text": "18"
   },
   {
     "type": "text",

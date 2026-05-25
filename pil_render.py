@@ -429,6 +429,7 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
     y_bar = min(cy + radius_ext_px + int(80 * _ds),
                 height - int(100 * _ds))
     half_px = R * scale
+    ext_half_px = R_ext * scale
     x_left = cx - half_px
     x_right = cx + half_px
 
@@ -437,29 +438,45 @@ def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
     tick_s = int(8 * _ds)
     label_off = int(28 * _ds)
 
+    # Trait principal de -R à +R
     d.line([x_left, y_bar, x_right, y_bar], fill=COLOR_INK, width=lw + 1)
+    # Barres d'écorce aux deux extrémités
+    if ep > 0:
+        bar_h = int(12 * _ds)
+        d.rectangle([x_right, y_bar - bar_h / 2,
+                     cx + ext_half_px, y_bar + bar_h / 2],
+                    fill=COLOR_BARK)
+        d.rectangle([cx - ext_half_px, y_bar - bar_h / 2,
+                     x_left, y_bar + bar_h / 2],
+                    fill=COLOR_BARK)
+    # Tirets aux extrémités (R) et au centre (0)
+    end_color = COLOR_BARK if ep > 0 else COLOR_INK
     d.line([x_left, y_bar - tick_h, x_left, y_bar + tick_h],
-           fill=COLOR_INK, width=lw + 1)
+           fill=end_color, width=lw + 1)
     d.line([x_right, y_bar - tick_h, x_right, y_bar + tick_h],
-           fill=COLOR_INK, width=lw + 1)
+           fill=end_color, width=lw + 1)
     d.line([cx, y_bar - tick_h, cx, y_bar + tick_h],
            fill=COLOR_INK, width=lw + 1)
     if R > 0:
+        # Graduations côté droit (avec labels)
         for xg, label in ruler_graduation_positions(cx, scale, R, step):
             d.line([xg, y_bar - tick_s, xg, y_bar + tick_s],
                    fill=COLOR_INK, width=max(2, int(2 * _ds)))
             d.text((xg, y_bar + label_off), label,
                    font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+            # Miroir côté gauche (même graduation, même label)
             x_mirror = cx - (xg - cx)
             d.line([x_mirror, y_bar - tick_s, x_mirror, y_bar + tick_s],
                    fill=COLOR_INK, width=max(2, int(2 * _ds)))
+            d.text((x_mirror, y_bar + label_off), label,
+                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
         d.text((cx, y_bar + label_off), "0",
                font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
         d.text((x_right, y_bar + label_off), f"{R:g}",
                font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
         d.text((x_left, y_bar + label_off), f"{R:g}",
                font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    d.text((x_right + int(25 * _ds), y_bar), "cm",
+    d.text((cx + ext_half_px + int(20 * _ds), y_bar), "cm",
            font=f(38, "sans_bold"), fill=COLOR_INK, anchor="lm")
     return y_bar
 

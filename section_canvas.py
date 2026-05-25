@@ -330,18 +330,31 @@ class SectionCanvas(tk.Canvas):
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
         y_bar = min(cy + radius_ext_px + 55, h - 30)
         half_px = R * scale
+        ext_half_px = R_ext * scale
         x_left = cx - half_px
         x_right = cx + half_px
 
-        self.create_rectangle(x_left - 8, y_bar - 12,
-                              x_right + 30, y_bar + 22,
+        self.create_rectangle(cx - ext_half_px - 8, y_bar - 12,
+                              cx + ext_half_px + 30, y_bar + 22,
                               fill="white", outline="")
+        # Trait principal de -R à +R
         self.create_line(x_left, y_bar, x_right, y_bar,
                          fill=COLOR_INK, width=2)
+        # Barres d'écorce aux deux extrémités
+        if ep > 0:
+            bar_h = 7
+            self.create_rectangle(x_right, y_bar - bar_h / 2,
+                                  cx + ext_half_px, y_bar + bar_h / 2,
+                                  fill=COLOR_BARK, outline="")
+            self.create_rectangle(cx - ext_half_px, y_bar - bar_h / 2,
+                                  x_left, y_bar + bar_h / 2,
+                                  fill=COLOR_BARK, outline="")
+        # Tirets aux extrémités et au centre
+        end_color = COLOR_BARK if ep > 0 else COLOR_INK
         self.create_line(x_left, y_bar - 6, x_left, y_bar + 6,
-                         fill=COLOR_INK, width=2)
+                         fill=end_color, width=2)
         self.create_line(x_right, y_bar - 6, x_right, y_bar + 6,
-                         fill=COLOR_INK, width=2)
+                         fill=end_color, width=2)
         self.create_line(cx, y_bar - 6, cx, y_bar + 6,
                          fill=COLOR_INK, width=2)
         if R > 0:
@@ -354,6 +367,9 @@ class SectionCanvas(tk.Canvas):
                 x_mirror = cx - (xg - cx)
                 self.create_line(x_mirror, y_bar - 4, x_mirror, y_bar + 4,
                                  fill=COLOR_INK, width=1)
+                self.create_text(x_mirror, y_bar + 14, text=label,
+                                 anchor="center",
+                                 font=("Helvetica", 8), fill=COLOR_INK)
             self.create_text(cx, y_bar + 14, text="0",
                              anchor="center",
                              font=("Helvetica", 8, "bold"),
@@ -366,7 +382,7 @@ class SectionCanvas(tk.Canvas):
                              anchor="center",
                              font=("Helvetica", 8, "bold"),
                              fill=COLOR_INK)
-        self.create_text(x_right + 18, y_bar, text="cm",
+        self.create_text(cx + ext_half_px + 18, y_bar, text="cm",
                          anchor="w",
                          font=("Helvetica", 9, "bold italic"),
                          fill=COLOR_INK)
