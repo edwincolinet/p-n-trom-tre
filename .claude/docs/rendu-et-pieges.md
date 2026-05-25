@@ -58,8 +58,16 @@ laisser une marge suffisante pour ne pas tronquer N.
 2. Polygone bois par-dessus (révèle le noyau)
 3. `cf_inner_r = R - 1/scale` pour éviter les trous pixel
 
+### Règle graduée symétrique
+La règle va de -R à +R (centrée sous le tronc), avec barres d'écorce
+brunes et tirets aux extrémités. Graduations et labels en miroir des
+deux côtés. Éléments en pixels (tirets, labels, offsets) scalés par
+`_ds` côté PIL pour suivre la résolution de l'image.
+
 ### Légende des exports
-- PNG : bande sous la règle graduée (`show_legend=True`).
+- PNG : bande sous la règle graduée (`show_legend=True`). Tailles
+  proportionnelles à la hauteur, polices via `f_base` (non scalées par
+  `_ds` car déjà proportionnelles).
 - PDF : rendue directement par `fiche_pdf` (pleine largeur A4, pas dans l'image tronc).
 
 ### Dimensionnement adaptatif du PDF

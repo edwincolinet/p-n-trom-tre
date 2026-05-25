@@ -74,11 +74,16 @@ valeurs intermédiaires). `DiagnosticPane` est scrollable (Canvas interne).
 
 Adaptateur : vérifie prérequis, gère `filedialog`, entoure d'un try/except
 avec logging. Thin wrappers depuis `App.action_export_*`.
+- `export_pdf_mission` : PDF multi-pages (Pillow `save_all`) regroupant
+  toutes les fiches arbres d'une mission.
 
 ## `pil_render.py` — rendu PNG de la section
 
-- `render_arbre_to_pil_image(arbre, …)` — orchestrateur ~70 l. enchaînant
-  les `_pil_draw_*`.
+- `render_arbre_to_pil_image(arbre, …)` — orchestrateur enchaînant
+  les `_pil_draw_*`. Facteur d'échelle `_ds = max(1.0, min(w,h)/1200)`
+  pour que les polices, pastilles et traits de la règle grossissent
+  automatiquement avec la résolution (ex. 2400×2400 pour le PNG export)
+  sans affecter les petits dessins (vignette PDF ~600 px, `_ds = 1.0`).
 - Helpers exposés : `_pil_load_fonts()`, `_draw_horizontal_legend_pil()`.
 - `HAS_PIL` : False si Pillow absent.
 
@@ -99,9 +104,10 @@ spécifiques (polices, outline+width, smooth, flèches).
 ## `export.py` — exports tableau PRBS (XLSX/HTML)
 
 - `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures.
-- `export_prbs_xlsx(…)` — Excel stylé (openpyxl). Colonne Compartimentation
-  (✓/✗), t/R coloré par classe.
-- `export_prbs_html(…)` — HTML autonome imprimable.
+- `export_prbs_xlsx(…)` — Excel stylé (openpyxl). En-têtes et méta sur
+  fond vert Silvavenir, alternance de lignes, largeurs auto-fit,
+  compartimentation ✓/✗, t/R coloré par classe.
+- `export_prbs_html(…)` — HTML autonome imprimable, même thème vert.
 - Injection de `couleur_classe` + `classer_prbs` pour éviter cycles.
 
 ## `dialogs.py` — boîtes de dialogue Tk

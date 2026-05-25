@@ -17,8 +17,9 @@ permet, pour chaque arbre d'une mission, de :
   cernes de croissance, cavité d'altération et flèches de sondage ;
 - obtenir un diagnostic complet avec PRBS, ratio t/R, classification
   Vert / Orange / Rouge ;
-- exporter une fiche d'expertise PDF par arbre, un PNG du dessin, un
-  tableau PRBS XLSX ou HTML par arbre, ou un CSV de toute la mission.
+- exporter une fiche d'expertise PDF par arbre (ou un PDF global
+  regroupant tous les arbres), un PNG du dessin, un tableau PRBS XLSX
+  ou HTML par arbre, ou un CSV de toute la mission.
 
 ## Installation
 
@@ -200,31 +201,37 @@ purement descriptif : n'impacte pas le diagnostic.
 - Pastilles colorées (Vert / Orange / Rouge) à l'intérieur du tronc,
   juste sous l'écorce, indiquant la classe de chaque sondage
 - Lettres cardinales (N, NE, E, SE, S, SO, O, NO) à l'extérieur
-- Règle graduée sous le tronc : demi-règle 0 (centre) → R (bord), pas
-  adaptatif selon la taille du dessin pour que les nombres ne se
-  chevauchent jamais
+- Règle graduée symétrique sous le tronc : de -R à +R, avec barres
+  d'écorce aux extrémités, pas adaptatif selon la taille du dessin
 - Section ronde (interpolation Catmull-Rom des points de sondage)
 
 ### Exports
 
-- **PDF** : fiche complète A4 avec en-tête mission, logo Silvavenir,
-  identité de l'arbre, dessin annoté, tableau PRBS coloré, diagnostic
-  avec barre de répartition Vert / Orange / Rouge
-- **PNG** : dessin haute résolution
+- **PDF arbre** : fiche complète A4 avec en-tête mission, logo
+  Silvavenir, identité de l'arbre, dessin annoté, tableau PRBS coloré,
+  diagnostic avec barre de répartition Vert / Orange / Rouge.
+  La colonne PRBS affiche la valeur pure (sans mention des dégradations
+  externes).
+- **PDF mission** : un seul fichier PDF multi-pages regroupant toutes
+  les fiches arbres de la mission.
+- **PNG** : dessin haute résolution 2400×2400, avec scaling automatique
+  des polices et pastilles pour rester lisible une fois réduit dans
+  un rapport Word.
 - **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**
-  (calqué sur la fiche Excel d'origine du cabinet), ligne méta
-  arbre, compartimentation ✓ / ✗ colorée, colonne t/R color-codée
-  par classe, légende sous le tableau. Nécessite
+  (calqué sur la fiche Excel d'origine du cabinet), en-têtes et méta
+  sur fond vert Silvavenir, alternance de lignes, largeurs de colonnes
+  auto-ajustées, compartimentation ✓ / ✗ colorée, colonne t/R
+  color-codée par classe. Nécessite
   [openpyxl](https://pypi.org/project/openpyxl/)
   (`pip install -r requirements.txt`).
-- **HTML** autonome : même tableau, en page imprimable. CSS embarqué,
-  ouvrable dans n'importe quel navigateur, aucune dépendance.
+- **HTML** autonome : même tableau, même thème vert, en page imprimable.
+  CSS embarqué, ouvrable dans n'importe quel navigateur, aucune
+  dépendance.
 - **CSV** : tous les sondages de la mission, séparateur `;`,
-  encodage UTF-8 avec BOM (compatible Excel). Inclut les colonnes
-  brutes (PRBS, Bois altéré, t/R) **et** les colonnes ajustées
-  (Dégrad. ext., PRBS ajustée, t/R ajusté, Classe), pour qu'une
-  ré-analyse Excel/R reproduise exactement le diagnostic de la
-  fiche PDF.
+  encodage UTF-8 avec BOM (compatible Excel). Colonnes ajustées
+  uniquement (PRBS et t/R tiennent compte des dégradations externes,
+  Bois altéré inclut la dégradation externe pour que
+  `PRBS + Bois altéré = Rayon`).
 
 ## Barème PRBS (Silvavenir)
 

@@ -63,7 +63,7 @@ penetrometre.py  (Tk + main) ← undo.py
 - **t/R** = PRBS / Rayon (0–1). **Classe globale** = barème sur t/R **moyen** 16 dir.
 - **Diagnostic non fiable si < 2 sondages** → exports masquent t/R moyen + classe.
 - **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain − profondeur_deg`.
-- **Pastille sondage = PRBS ajustée** (jamais brute). `ratio_tR_brut` = CSV uniquement.
+- **Pastille sondage = PRBS ajustée** (jamais brute).
 - **Contreforts** = cloche cosinus², fusion si adjacents (`contrefort_zones`).
 - **Écorce** = purement visuel (n'intervient pas dans diagnostic). R_ext = R + ep.
 - **COLOR_BARK ≠ COLOR_ROT** : ne jamais unifier (contraste dégradation/écorce).
