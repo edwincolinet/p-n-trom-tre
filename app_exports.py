@@ -102,10 +102,8 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
 
 def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
     """CSV de tous les sondages de la mission. Séparateur `;`,
-    encodage UTF-8 avec BOM (compatible Excel). Colonnes brutes
-    (PRBS, Bois altéré, t/R) ET ajustées (Dégrad. ext., PRBS ajustée,
-    t/R ajusté, Classe), pour qu'une ré-analyse Excel/R reproduise
-    exactement le diagnostic de la fiche PDF.
+    encodage UTF-8 avec BOM (compatible Excel). Colonnes ajustées
+    uniquement (PRBS et t/R tiennent compte des dégradations externes).
     """
     p = filedialog.asksaveasfilename(
         defaultextension=".csv",
@@ -120,9 +118,6 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                         "N° sondage", "Grade (gr)", "Direction",
                         "PRBS (cm)", "Bois altéré (cm)",
                         "t/R (%)",
-                        "Dégrad. ext. (cm)",
-                        "PRBS ajustée (cm)",
-                        "t/R ajusté (%)",
                         "Classe",
                         "Compartimentation", "Commentaire"])
             for a in chantier.arbres:
@@ -130,23 +125,19 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                 deg_ext_par_grade = degradation_externe_par_grade(a)
                 for s in a.sondages:
                     d = DIRECTION_LABELS.get(s.grade, "")
-                    tR_pct = f"{100*s.ratio_tR_brut(R):.1f}"
                     idx_g = (GRADES.index(s.grade)
                              if s.grade in GRADES else 0)
                     deg_ext = deg_ext_par_grade[idx_g]
                     prbs_adj = max(0.0, s.prbs_cm - deg_ext)
                     ratio_adj = prbs_adj / R if R > 0 else 0.0
-                    tR_adj_pct = f"{100*ratio_adj:.1f}"
+                    tR_pct = f"{100*ratio_adj:.1f}"
                     classe = classer_prbs(ratio_adj, a.port_arbre)
                     w.writerow([a.numero_arbre, a.essence,
                                 a.rayon_tronc_cm, a.port_arbre,
                                 s.numero,
                                 s.grade, d,
-                                s.prbs_cm, s.bois_altere_cm,
+                                prbs_adj, s.bois_altere_cm,
                                 tR_pct,
-                                deg_ext,
-                                prbs_adj,
-                                tR_adj_pct,
                                 classe,
                                 s.compartimentation, s.commentaire])
         messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
