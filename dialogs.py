@@ -68,6 +68,43 @@ def _round_to_25(v: int, *, min_v: int = 0, max_v: int = 375,
     return max(min_v, min(max_v, v))
 
 
+def validate_numeric(proposed: str) -> bool:
+    """Validateur Tk (validate="key") pour les champs numériques
+    positifs. Accepte : vide, chiffres, et au plus un séparateur
+    décimal (`.` ou `,`). Refuse tout autre caractère à la frappe.
+
+    Public car réutilisé par les onglets (`pane_identification`)."""
+    if proposed == "":
+        return True
+    if proposed.count(",") + proposed.count(".") > 1:
+        return False
+    test = proposed.replace(",", ".", 1)
+    try:
+        float(test)
+    except ValueError:
+        return False
+    return True
+
+
+def to_float(s: str) -> float:
+    """Convertit la saisie utilisateur en float, en acceptant la
+    virgule comme séparateur décimal (format français). Chaîne vide
+    → 0.0. Public car réutilisé par `pane_identification`."""
+    s = (s or "").strip().replace(",", ".")
+    if not s:
+        return 0.0
+    return float(s)
+
+
+def _numeric_entry(parent: tk.Misc, textvariable: tk.StringVar,
+                    width: int) -> ttk.Entry:
+    """Crée une ttk.Entry qui n'accepte à la frappe que des chiffres
+    et un seul séparateur décimal."""
+    vcmd = (parent.register(validate_numeric), "%P")
+    return ttk.Entry(parent, textvariable=textvariable, width=width,
+                     validate="key", validatecommand=vcmd)
+
+
 # ---------------------------------------------------------------------
 # Dialog : Sondage
 # ---------------------------------------------------------------------
@@ -119,21 +156,21 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Label(dlg, text="Épaisseur bois sain (cm)",
               background=COLOR_PANEL
               ).grid(row=2, column=0, sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_sain, width=12
-              ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_sain, width=12
+                   ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Épaisseur bois altéré (cm)",
               background=COLOR_PANEL
               ).grid(row=3, column=0, sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_alt, width=12
-              ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_alt, width=12
+                   ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
 
     # --- Lien automatique bois sain <-> bois altéré -----------------
     def _on_sain_changed(*_: object) -> None:
         if syncing[0] or R <= 0:
             return
         try:
-            v = float(v_sain.get() or 0)
+            v = to_float(v_sain.get())
         except ValueError:
             return
         v = max(0.0, min(v, R))
@@ -145,7 +182,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
         if syncing[0] or R <= 0:
             return
         try:
-            v = float(v_alt.get() or 0)
+            v = to_float(v_alt.get())
         except ValueError:
             return
         v = max(0.0, min(v, R))
@@ -185,8 +222,8 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
                             parent=dlg)
                         return
             sondage.grade = new_grade
-            sain = float(v_sain.get() or 0)
-            alt = float(v_alt.get() or 0)
+            sain = to_float(v_sain.get())
+            alt = to_float(v_alt.get())
             if R > 0:
                 # Clamp et recoller à R pour éviter toute incohérence
                 sain = max(0.0, min(sain, R))
@@ -272,20 +309,20 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Label(dlg, text="Largeur en grades",
               background=COLOR_PANEL).grid(row=3, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_largeur_gr, width=12
-              ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_largeur_gr, width=12
+                   ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
               background=COLOR_PANEL).grid(row=4, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_largeur_cm, width=12
-              ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_largeur_cm, width=12
+                   ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Profondeur (cm, depuis l'écorce)",
               background=COLOR_PANEL).grid(row=5, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_prof, width=12
-              ).grid(row=5, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_prof, width=12
+                   ).grid(row=5, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
               ).grid(row=6, column=0, sticky="w", padx=10, pady=6)
@@ -315,7 +352,8 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
         if syncing[0]:
             return
         try:
-            gr = _round_to_25(int(float(v_largeur_gr.get() or 25)))
+            raw = to_float(v_largeur_gr.get()) or 25
+            gr = _round_to_25(int(raw))
             if gr == 0:
                 gr = 25
             d = _parse_grade(v_debut.get())
@@ -333,7 +371,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
         if syncing[0] or R <= 0:
             return
         try:
-            cm = float(v_largeur_cm.get() or 0)
+            cm = to_float(v_largeur_cm.get())
             gr = _round_to_25(int(cm * 200 / (R * math.pi)))
             if gr == 0:
                 gr = 25
@@ -384,7 +422,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
                             return
             deg.grade_debut = new_debut
             deg.grade_fin = new_fin
-            deg.profondeur_cm = max(0.0, float(v_prof.get() or 0))
+            deg.profondeur_cm = max(0.0, to_float(v_prof.get()))
             deg.commentaire = v_com.get()
             result["ok"] = True
             dlg.destroy()
@@ -445,20 +483,20 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Label(dlg, text="Largeur en grades (multiple de 25)",
               background=COLOR_PANEL).grid(row=1, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_largeur_gr, width=12
-              ).grid(row=1, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_largeur_gr, width=12
+                   ).grid(row=1, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
               background=COLOR_PANEL).grid(row=2, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_largeur_cm, width=12
-              ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_largeur_cm, width=12
+                   ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Longueur radiale (cm, vers l'extérieur)",
               background=COLOR_PANEL).grid(row=3, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Entry(dlg, textvariable=v_long, width=12
-              ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
+    _numeric_entry(dlg, v_long, width=12
+                   ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
@@ -470,7 +508,8 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
         if syncing[0]:
             return
         try:
-            gr = _round_to_25(int(float(v_largeur_gr.get() or 25)),
+            raw = to_float(v_largeur_gr.get()) or 25
+            gr = _round_to_25(int(raw),
                                 min_v=25, max_v=400, wrap=False)
             syncing[0] = True
             if R > 0:
@@ -483,7 +522,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
         if syncing[0] or R <= 0:
             return
         try:
-            cm = float(v_largeur_cm.get() or 0)
+            cm = to_float(v_largeur_cm.get())
             gr = _round_to_25(int(cm * 200 / (R * math.pi)),
                                 min_v=25, max_v=400, wrap=False)
             syncing[0] = True
@@ -511,9 +550,9 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
                         return
             cf.grade_centre = new_centre
             cf.largeur_grades = _round_to_25(
-                int(float(v_largeur_gr.get() or 25)),
+                int(to_float(v_largeur_gr.get()) or 25),
                 min_v=25, max_v=400, wrap=False)
-            cf.longueur_cm = max(0.0, float(v_long.get() or 0))
+            cf.longueur_cm = max(0.0, to_float(v_long.get()))
             cf.commentaire = v_com.get()
             result["ok"] = True
             dlg.destroy()

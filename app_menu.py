@@ -39,11 +39,10 @@ class AppLike(Protocol):
     def action_open(self) -> None: ...
     def action_save(self) -> None: ...
     def action_save_as(self) -> None: ...
-    def action_export_png(self) -> None: ...
-    def action_export_pdf_arbre(self) -> None: ...
+    # Exports globaux (mission) — les exports individuels (PNG, fiche
+    # PDF, tableau XLSX/HTML) restent accessibles depuis l'onglet
+    # Diagnostic, qui les expose en haut du pane.
     def action_export_pdf_mission(self) -> None: ...
-    def action_export_prbs_xlsx(self) -> None: ...
-    def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
 
     # Actions Arbres
@@ -77,16 +76,8 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_save)
     f.add_command(label="Enregistrer sous…", command=app.action_save_as)
     f.add_separator()
-    f.add_command(label="Exporter dessin (PNG)…",
-                  command=app.action_export_png)
-    f.add_command(label="Exporter fiche arbre (PDF)…",
-                  command=app.action_export_pdf_arbre)
     f.add_command(label="Exporter toutes les fiches (PDF)…",
                   command=app.action_export_pdf_mission)
-    f.add_command(label="Exporter tableau arbre (XLSX)…",
-                  command=app.action_export_prbs_xlsx)
-    f.add_command(label="Exporter tableau arbre (HTML)…",
-                  command=app.action_export_prbs_html)
     f.add_command(label="Exporter sondages mission (CSV)…",
                   command=app.action_export_csv)
     f.add_separator()

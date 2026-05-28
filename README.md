@@ -123,15 +123,17 @@ Liste à gauche, ajout / duplication / suppression d'arbres en un clic.
 
 ### Identification d'un arbre
 
-- N° d'arbre (numérique obligatoire), essence
+- N° d'arbre (doit contenir au moins un chiffre — « 1 », « 42 », « 12 bis »
+  acceptés ; « bis » seul refusé), essence
 - Diamètre sous écorce ↔ rayon (synchro bidirectionnelle : Ø ÷ 2 = rayon,
   rayon × 2 = Ø)
 - Hauteur du sondage, hauteur de l'arbre
 - Longueur de mèche du pénétromètre (limite la profondeur des flèches)
 - Épaisseur d'écorce (cm), purement visuelle
 - Port de l'arbre : libre / semi-libre / délaissé / architecturé / traumatique
-- Tous les champs numériques sont validés : une valeur non numérique est
-  revertée automatiquement au focus-out
+- Tous les champs numériques **filtrent la frappe** : seuls les chiffres
+  et un séparateur décimal (`,` ou `.`) sont acceptés. Le format français
+  (`2,5`) est interprété comme `2.5`.
 
 ### Sondages
 

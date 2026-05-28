@@ -65,10 +65,15 @@ Convention : classe globale = t/R **moyen** (confirmé Silvavenir mai 2026).
 Chaque pane : hérite `ttk.Frame`, possède ses widgets, expose `refresh()`,
 déclare un `Protocol` host (`_*Host`). Tables Treeview incluent leur propre
 cycle add/edit/del via `dialogs.py`. `IdentificationPane` gère la synchro
-bidirectionnelle Ø ↔ R, la validation des champs numériques (revert au
-focus-out si non numérique), et le `_commit_rayon` différé (set_rayon
-uniquement au focus-out, pas pendant la frappe — protège les PRBS des
-valeurs intermédiaires). `DiagnosticPane` est scrollable (Canvas interne).
+bidirectionnelle Ø ↔ R, le **filtrage des champs numériques à la frappe**
+via `dialogs.validate_numeric` (Diamètre, Rayon, Mèche, Épaisseur écorce,
+Hauteur sondage, Hauteur arbre — accepte virgule ou point décimal), le
+revert au focus-out en filet de sécurité, et le `_commit_rayon` différé
+(set_rayon uniquement au focus-out, pas pendant la frappe — protège les
+PRBS des valeurs intermédiaires). `DiagnosticPane` est scrollable (Canvas
+interne) et expose les 5 exports individuels (PNG / fiche PDF / XLSX /
+HTML / CSV mission) en haut du pane — le menu Fichier ne conserve que les
+2 exports globaux (PDF mission, CSV mission).
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -114,7 +119,17 @@ spécifiques (polices, outline+width, smooth, flèches).
 
 `edit_sondage`, `edit_degradation`, `edit_contrefort` : reçoivent
 `(parent, arbre, obj)`, mutent en place, renvoient `True/False`.
+Helpers publics réutilisés par `pane_identification` :
+
+- `validate_numeric(proposed) -> bool` — validateur Tk (`validate="key"`)
+  acceptant chiffres + au plus un séparateur décimal (`,` ou `.`).
+- `to_float(s) -> float` — parse `"2,5"` ou `"2.5"` → `2.5` ; `""` → `0.0`.
+
+Tous les champs numériques des 3 dialogues filtrent la frappe via ces
+helpers (Entry créée par le helper privé `_numeric_entry`).
+
 Validations à la confirmation :
+
 - Sondage : interdit deux sondages sur le même grade.
 - Dégradation : interdit les arcs qui se chevauchent (arcs mitoyens
   bout-à-bout autorisés — détection via `couvre_grade` sur les 16 grades).

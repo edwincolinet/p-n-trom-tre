@@ -454,11 +454,33 @@ class App(tk.Tk):
         a = self._current_arbre()
         if not a:
             return
-        new = simpledialog.askstring("Renuméroter l'arbre",
-                                     "Nouveau n° d'arbre :",
-                                     initialvalue=a.numero_arbre, parent=self)
-        if not new or new == a.numero_arbre:
-            return
+        # Boucle de retry : si la saisie ne contient pas de chiffre,
+        # on ré-ouvre le dialogue pré-rempli avec la valeur invalide
+        # plutôt que de refermer et perdre la saisie de l'utilisateur.
+        # Règle alignée sur `_revert_num_if_invalid` du pane Identification :
+        # au moins un chiffre, lettres autorisées (« 12 bis », « 3 ter »).
+        proposed = a.numero_arbre
+        while True:
+            new = simpledialog.askstring(
+                "Renuméroter l'arbre",
+                "Nouveau n° d'arbre (doit contenir au moins un chiffre,\n"
+                "ex. « 1 », « 42 », « 12 bis ») :",
+                initialvalue=proposed, parent=self)
+            if new is None:
+                return
+            new = new.strip()
+            if not new or new == a.numero_arbre:
+                return
+            if not any(c.isdigit() for c in new):
+                messagebox.showwarning(
+                    "Numéro invalide",
+                    "Le numéro d'arbre doit contenir au moins un "
+                    "chiffre.\n\nExemples valides : « 1 », « 42 », "
+                    "« 12 bis ».",
+                    parent=self)
+                proposed = new
+                continue
+            break
         # Avertissement non bloquant si le numéro est déjà utilisé par
         # un autre arbre de la mission. L'utilisateur peut quand même
         # confirmer (cas d'un renommage en chaîne, ou d'un doublon

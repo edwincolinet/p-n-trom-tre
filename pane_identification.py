@@ -28,6 +28,7 @@ from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
 from bareme import PORTS_ARBRE
+from dialogs import to_float, validate_numeric
 from model import Arbre
 
 _log = logging.getLogger("penetrometre")
@@ -80,6 +81,10 @@ class IdentificationPane(ttk.Frame):
             ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
             ("Commentaire",               self.var_comm, None),
         ]
+        numeric_var_names = {str(self.var_diam), str(self.var_rayon),
+                             str(self.var_meche), str(self.var_ep_ecorce),
+                             str(self.var_h_s), str(self.var_h_arb)}
+        vcmd = (self.register(validate_numeric), "%P")
         for i, (lbl, var, choices) in enumerate(rows):
             ttk.Label(self, text=lbl, style="Panel.TLabel").grid(
                 row=i, column=0, sticky="w", pady=5, padx=(0, 10))
@@ -89,6 +94,9 @@ class IdentificationPane(ttk.Frame):
                     state="readonly", width=30)
             else:
                 widget = ttk.Entry(self, textvariable=var, width=32)
+                if str(var) in numeric_var_names:
+                    widget.configure(validate="key",
+                                     validatecommand=vcmd)
             widget.grid(row=i, column=1, sticky="we", pady=5)
             self._entry_widgets[str(var)] = widget
             var.trace_add("write", lambda *a: self._sync_to_model())
@@ -195,13 +203,14 @@ class IdentificationPane(ttk.Frame):
             self._mark_field(self.var_num, True)
 
     def _parse_float(self, var: tk.StringVar) -> Optional[float]:
-        """Parse un champ numérique. Renvoie None si vide ou invalide."""
+        """Parse un champ numérique. Renvoie None si vide ou invalide.
+        Accepte la virgule comme séparateur décimal (format FR)."""
         raw = var.get().strip()
         if not raw:
             self._mark_field(var, True)
             return None
         try:
-            val = float(raw)
+            val = to_float(raw)
             self._mark_field(var, True)
             return val
         except ValueError:
