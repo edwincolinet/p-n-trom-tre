@@ -45,7 +45,7 @@ class Sondage:
     grade: int = 0
     bois_sain_cm: float = 0.0
     bois_altere_cm: float = 0.0
-    compartimentation: str = "-"
+    compartimentation: str = "non renseignée"
     commentaire: str = ""
 
     def __post_init__(self) -> None:

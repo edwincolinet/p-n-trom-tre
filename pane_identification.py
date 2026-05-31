@@ -25,7 +25,7 @@ import logging
 import tkinter as tk
 from contextlib import contextmanager
 from tkinter import ttk
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from bareme import PORTS_ARBRE
 from dialogs import to_float, validate_numeric
@@ -69,37 +69,58 @@ class IdentificationPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
-        rows = [
-            ("N° arbre",                  self.var_num, None),
-            ("Essence",                   self.var_essence, None),
-            ("Diamètre sous écorce (cm)", self.var_diam, None),
-            ("Rayon du tronc (cm)",       self.var_rayon, None),
-            ("Longueur de la mèche (cm)", self.var_meche, None),
-            ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
-            ("Hauteur du sondage (cm)",   self.var_h_s, None),
-            ("Hauteur de l'arbre (m)",    self.var_h_arb, None),
-            ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
-            ("Commentaire",               self.var_comm, None),
+        # Groupes thématiques (LabelFrame) pour clarifier les unités :
+        # un opérateur qui voit « Hauteur (m) » et « Rayon (cm) » côte à
+        # côte peut se tromper d'ordre de grandeur. Les regrouper par
+        # objet (Arbre / Tronc / Sondage) rend l'unité évidente.
+        # Schéma : Arbre (n°, essence, hauteur en m, port) ; Tronc
+        # (diam, rayon, écorce) ; Sondage (mèche, hauteur sondage) ;
+        # Notes (commentaire libre).
+        Row = Tuple[str, tk.StringVar, Optional[List[str]]]
+        groupes: List[Tuple[str, List[Row]]] = [
+            ("Arbre", [
+                ("N° arbre",                  self.var_num, None),
+                ("Essence",                   self.var_essence, None),
+                ("Hauteur de l'arbre (m)",    self.var_h_arb, None),
+                ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
+            ]),
+            ("Tronc", [
+                ("Diamètre sous écorce (cm)", self.var_diam, None),
+                ("Rayon du tronc (cm)",       self.var_rayon, None),
+                ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
+            ]),
+            ("Sondage", [
+                ("Longueur de la mèche (cm)", self.var_meche, None),
+                ("Hauteur du sondage (cm)",   self.var_h_s, None),
+            ]),
+            ("Notes", [
+                ("Commentaire",               self.var_comm, None),
+            ]),
         ]
         numeric_var_names = {str(self.var_diam), str(self.var_rayon),
                              str(self.var_meche), str(self.var_ep_ecorce),
                              str(self.var_h_s), str(self.var_h_arb)}
         vcmd = (self.register(validate_numeric), "%P")
-        for i, (lbl, var, choices) in enumerate(rows):
-            ttk.Label(self, text=lbl, style="Panel.TLabel").grid(
-                row=i, column=0, sticky="w", pady=5, padx=(0, 10))
-            if choices:
-                widget: tk.Widget = ttk.Combobox(
-                    self, textvariable=var, values=choices,
-                    state="readonly", width=30)
-            else:
-                widget = ttk.Entry(self, textvariable=var, width=32)
-                if str(var) in numeric_var_names:
-                    widget.configure(validate="key",
-                                     validatecommand=vcmd)
-            widget.grid(row=i, column=1, sticky="we", pady=5)
-            self._entry_widgets[str(var)] = widget
-            var.trace_add("write", lambda *a: self._sync_to_model())
+        for gi, (group_label, rows) in enumerate(groupes):
+            box = ttk.LabelFrame(self, text=" " + group_label + " ",
+                                  padding=(10, 6, 10, 10))
+            box.grid(row=gi, column=0, sticky="we", pady=(0, 8))
+            box.columnconfigure(1, weight=1)
+            for i, (lbl, var, choices) in enumerate(rows):
+                ttk.Label(box, text=lbl, style="Panel.TLabel").grid(
+                    row=i, column=0, sticky="w", pady=4, padx=(0, 10))
+                if choices:
+                    widget: tk.Widget = ttk.Combobox(
+                        box, textvariable=var, values=choices,
+                        state="readonly", width=28)
+                else:
+                    widget = ttk.Entry(box, textvariable=var, width=30)
+                    if str(var) in numeric_var_names:
+                        widget.configure(validate="key",
+                                         validatecommand=vcmd)
+                widget.grid(row=i, column=1, sticky="we", pady=4)
+                self._entry_widgets[str(var)] = widget
+                var.trace_add("write", lambda *a: self._sync_to_model())
 
         for var in (self.var_diam, self.var_rayon):
             w = self._entry_widgets[str(var)]
@@ -123,8 +144,8 @@ class IdentificationPane(ttk.Frame):
                        "automatiquement (÷ 2). Le rayon reste modifiable "
                        "indépendamment si besoin.",
                   style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(rows), column=0, columnspan=2,
-                         sticky="we", pady=(10, 0))
+                  ).grid(row=len(groupes), column=0,
+                         sticky="we", pady=(4, 0))
         ttk.Label(self,
                   text="ⓘ Si vous corrigez le rayon après avoir saisi des "
                        "sondages, la PRBS (bois sain) reste inchangée car "
@@ -132,9 +153,9 @@ class IdentificationPane(ttk.Frame):
                        "pénétromètre. Le bois altéré est recalculé "
                        "automatiquement (= rayon − bois sain).",
                   style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(rows)+1, column=0, columnspan=2,
+                  ).grid(row=len(groupes)+1, column=0,
                          sticky="we", pady=(6, 0))
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
 
     @contextmanager
     def _suspend_sync_block(self):

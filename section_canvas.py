@@ -19,7 +19,7 @@ fichiers (Tk + PIL).
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Protocol, Tuple
 
 from diagnostic import (
     compute_alteration_par_grade,
@@ -36,7 +36,7 @@ from geometry import (
     ruler_graduation_positions,
     tick_endpoints,
 )
-from model import Arbre
+from model import Arbre, Contrefort, DegradationExterne, Sondage
 from palette import (
     COLOR_ACCENT,
     COLOR_BARK,
@@ -50,6 +50,18 @@ from palette import (
     COLOR_WOOD,
     COULEUR_CLASSE,
 )
+
+
+class _CanvasHost(Protocol):
+    """Surface attendue de l'App par le canvas interactif.
+
+    Le canvas doit pouvoir ouvrir un dialogue d'édition pour
+    sondage/dégradation/contrefort et rafraîchir les tables/dessin via
+    l'App quand l'utilisateur a validé.
+    """
+    def open_edit_sondage(self, s: Sondage) -> None: ...
+    def open_edit_degradation(self, d: DegradationExterne) -> None: ...
+    def open_edit_contrefort(self, c: Contrefort) -> None: ...
 
 
 class SectionCanvas(tk.Canvas):
@@ -79,12 +91,84 @@ class SectionCanvas(tk.Canvas):
     # Échantillonnage du polygone d'altération (segments Catmull-Rom).
     CAVITY_SAMPLES_PER_SEGMENT = 28
 
-    def __init__(self, master: tk.Misc, **kw: Any) -> None:
+    def __init__(self, master: tk.Misc,
+                 host: Optional[_CanvasHost] = None, **kw: Any) -> None:
         super().__init__(master, bg=COLOR_PANEL, highlightthickness=0,
                          bd=0, **kw)
         self.arbre: Optional[Arbre] = None
         self.show_sondages: bool = True
+        self._host = host
         self.bind("<Configure>", lambda e: self.redraw())
+        # Bindings sur tags : valent pour tous les items recréés à
+        # chaque redraw qui portent le tag correspondant. Le curseur
+        # passe en « main » au survol pour signaler la zone cliquable.
+        if host is not None:
+            for tag in ("sondage_item", "degradation_item",
+                         "contrefort_item"):
+                self.tag_bind(tag, "<Enter>",
+                              lambda e: self.configure(cursor="hand2"))
+                self.tag_bind(tag, "<Leave>",
+                              lambda e: self.configure(cursor=""))
+            self.tag_bind("sondage_item", "<Button-1>",
+                          self._on_click_sondage)
+            self.tag_bind("degradation_item", "<Button-1>",
+                          self._on_click_degradation)
+            self.tag_bind("contrefort_item", "<Button-1>",
+                          self._on_click_contrefort)
+
+    # ------------------------------------------------------------------
+    # Handlers d'interaction — actifs uniquement si un host a été fourni.
+    # ------------------------------------------------------------------
+
+    def _picked_index(self, prefix: str) -> Optional[int]:
+        """Renvoie l'index de l'objet métier sous le curseur, d'après les
+        tags `prefix_<idx>` portés par l'item canvas cliqué."""
+        for tag in self.gettags("current"):
+            if tag.startswith(prefix):
+                try:
+                    return int(tag[len(prefix):])
+                except ValueError:
+                    return None
+        return None
+
+    # NB sur l'usage d'`after_idle` : on diffère l'ouverture du
+    # dialogue à la fin du traitement du clic. Sans cela, le `tk.Toplevel`
+    # + `grab_set()` créé en plein dispatch d'événement entrait en
+    # conflit avec le focus du Canvas — sur Linux/X11 (GNOME/Mutter),
+    # la fenêtre apparaissait vide car ses widgets n'avaient pas eu le
+    # temps d'être posés avant `wait_window()`. `after_idle` rend la
+    # main à la boucle Tk, qui finalise le clic puis ouvre le dialogue
+    # à blanc.
+
+    def _on_click_sondage(self, _event: "tk.Event[tk.Misc]") -> None:
+        if self._host is None or self.arbre is None:
+            return
+        idx = self._picked_index("sondage_idx_")
+        if idx is None or idx >= len(self.arbre.sondages):
+            return
+        s = self.arbre.sondages[idx]
+        host = self._host
+        self.after_idle(lambda: host.open_edit_sondage(s))
+
+    def _on_click_degradation(self, _event: "tk.Event[tk.Misc]") -> None:
+        if self._host is None or self.arbre is None:
+            return
+        idx = self._picked_index("degradation_idx_")
+        if idx is None or idx >= len(self.arbre.degradations_externes):
+            return
+        d = self.arbre.degradations_externes[idx]
+        host = self._host
+        self.after_idle(lambda: host.open_edit_degradation(d))
+
+    def _on_click_contrefort(self, _event: "tk.Event[tk.Misc]") -> None:
+        if self._host is None or self.arbre is None:
+            return
+        idx = self._picked_index("contrefort_idx_")
+        if idx is None or idx >= len(self.arbre.contreforts):
+            return
+        c = self.arbre.contreforts[idx]
+        host = self._host
+        self.after_idle(lambda: host.open_edit_contrefort(c))
 
     def set_arbre(self, arbre: Optional[Arbre]) -> None:
         self.arbre = arbre
@@ -125,6 +209,11 @@ class SectionCanvas(tk.Canvas):
         """Dessine TOUS les contreforts en utilisant les polygones fusionnés
         renvoyés par `contrefort_zone_outline` (cf. geometry.py). Évite
         l'encoche en V à la jonction de deux contreforts proches.
+
+        Tags : chaque zone fusionnée est cliquable et porte l'index du
+        premier contrefort qu'elle contient (cas mono-CF = 99 % des
+        usages). Pour les zones multi-CF, le clic ouvre le 1er ;
+        l'utilisateur peut éditer les autres via l'onglet Contreforts.
         """
         if R <= 0 or not contreforts:
             return
@@ -132,6 +221,13 @@ class SectionCanvas(tk.Canvas):
             poly = contrefort_zone_outline(zone, contreforts, R, ep_cm,
                                             cx, cy, scale, R_inner=R_inner)
             wood_outer = poly["wood_outer"]
+            # Identifier le premier contrefort de la zone par son
+            # grade_centre (sens horaire avec wrap au grade 0).
+            zone_idx = self._pick_first_contrefort_in_zone(zone, contreforts)
+            wood_tags: Tuple[str, ...] = ()
+            if zone_idx >= 0:
+                wood_tags = ("contrefort_item",
+                              f"contrefort_idx_{zone_idx}")
             if ep_cm > 0:
                 # Couche d'écorce : bord interne à R (arc constant),
                 # bord externe suit la cloche r_wood + ep.
@@ -139,30 +235,55 @@ class SectionCanvas(tk.Canvas):
                                               + poly["bark_inner"])
                              for coord in p]
                 self.create_polygon(*flat_bark, fill=COLOR_BARK,
-                                    outline="")
+                                    outline="", tags=wood_tags)
             # Polygone bois : noyau de bois sous l'écorce.
             flat_wood = [coord for p in (wood_outer + poly["base"])
                          for coord in p]
-            self.create_polygon(*flat_wood, fill=COLOR_WOOD, outline="")
+            self.create_polygon(*flat_wood, fill=COLOR_WOOD, outline="",
+                                tags=wood_tags)
             if ep_cm == 0:
                 # Pas d'écorce : trait brun en surface
                 flat_outer = [coord for p in wood_outer for coord in p]
                 self.create_line(*flat_outer, fill=COLOR_BARK, width=3,
-                                 smooth=True)
+                                 smooth=True, tags=wood_tags)
+
+    @staticmethod
+    def _pick_first_contrefort_in_zone(zone: Tuple[float, float],
+                                        contreforts: Any) -> int:
+        """Renvoie l'index dans `contreforts` du premier CF dont l'arc
+        chevauche la zone (a, b). -1 si aucun (ne devrait pas arriver
+        puisque les zones sont calculées depuis ces CFs)."""
+        a, b = zone
+        for i, c in enumerate(contreforts):
+            if c.longueur_cm <= 0 or c.largeur_grades <= 0:
+                continue
+            demi = c.largeur_grades / 2.0
+            ca = (c.grade_centre - demi) % 400
+            cb = ca + c.largeur_grades
+            # Chevauchement avec [a, b], gestion du wrap par décalage ±400
+            for shift in (-400.0, 0.0, 400.0):
+                if (ca + shift) < b and (cb + shift) > a:
+                    return i
+        return -1
 
     def _draw_degradation_externe_canvas(self, cx: float, cy: float,
                                           scale: float, R: float, ep_cm: float,
-                                          contreforts: Any, deg: Any) -> None:
+                                          contreforts: Any, deg: Any,
+                                          idx: int = -1) -> None:
         """Dessine une dégradation externe sur le canvas Tkinter à partir
         des points renvoyés par `degradation_externe_outline` (cf.
-        geometry.py)."""
+        geometry.py). `idx` (>= 0) tague le polygone pour le clic-édit."""
         points = degradation_externe_outline(deg, contreforts, R, ep_cm,
                                               cx, cy, scale)
         if not points:
             return
         flat = [c for p in points for c in p]
+        tags: Tuple[str, ...] = ()
+        if idx >= 0:
+            tags = ("degradation_item", f"degradation_idx_{idx}")
         # Pas de contour : fusion visuelle avec la cavité interne
-        self.create_polygon(*flat, fill=COLOR_ROT, outline="")
+        self.create_polygon(*flat, fill=COLOR_ROT, outline="",
+                            tags=tags)
 
     def redraw(self) -> None:
         """Orchestre le rendu de la section. Chaque couche est déléguée à
@@ -194,9 +315,10 @@ class SectionCanvas(tk.Canvas):
         self._draw_contreforts_canvas(cx, cy, scale, R, A.contreforts,
                                        ep_cm=ep, R_inner=R - 1.0 / scale)
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
-        for deg in A.degradations_externes:
+        for idx, deg in enumerate(A.degradations_externes):
             self._draw_degradation_externe_canvas(cx, cy, scale, R, ep,
-                                                   A.contreforts, deg)
+                                                   A.contreforts, deg,
+                                                   idx=idx)
         self._draw_ticks(cx, cy, R_ext, scale)
         self._draw_cardinales(cx, cy, R_ext, scale)
         if self.show_sondages:
@@ -308,6 +430,10 @@ class SectionCanvas(tk.Canvas):
         r_bul = self.BULLET_RADIUS_PX
         items = sondage_render_data(A, cx, cy, R, scale, inset_cm,
                                     COULEUR_CLASSE)
+        # Pour le tag click, on retrouve l'index du sondage dans la
+        # liste métier via son numéro (numero = position+1 en pratique,
+        # cf. `renumeroter_sondages`).
+        numero_to_idx = {s.numero: i for i, s in enumerate(A.sondages)}
         for item in items:
             x_ext, y_ext = item.arrow_start
             x_end, y_end = item.arrow_end
@@ -315,14 +441,18 @@ class SectionCanvas(tk.Canvas):
                              fill=COLOR_SOND, width=2,
                              arrow=tk.LAST, arrowshape=(10, 12, 4))
             px, py = item.bullet_center
+            idx = numero_to_idx.get(item.numero, item.numero - 1)
+            tags = ("sondage_item", f"sondage_idx_{idx}")
             self.create_oval(px - r_bul - 2, py - r_bul - 2,
                              px + r_bul + 2, py + r_bul + 2,
-                             fill="white", outline="")
+                             fill="white", outline="", tags=tags)
             self.create_oval(px - r_bul, py - r_bul,
                              px + r_bul, py + r_bul,
-                             fill=item.classe_color, outline="white", width=2)
+                             fill=item.classe_color, outline="white",
+                             width=2, tags=tags)
             self.create_text(px, py, text=str(item.numero),
-                             font=("Helvetica", 10, "bold"), fill="white")
+                             font=("Helvetica", 10, "bold"), fill="white",
+                             tags=tags)
 
     def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:
         h = max(self.winfo_height(), 1)

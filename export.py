@@ -132,7 +132,7 @@ def prbs_table_rows_par_sondage(arbre: ArbreLike,
     - `rayon_cm` (float, identique pour toutes les lignes)
     - `prbs_cm` (float, PRBS brute mesurée par le sondage)
     - `bois_altere_cm` (float)
-    - `compartimentation` (str: "active" | "absente" | "-")
+    - `compartimentation` (str: "active" | "absente" | "non renseignée")
     - `ratio_tR` (float, 0..1, ajusté de la dégradation externe →
       cohérent avec la pastille colorée sur le dessin)
     - `classe` (str: Vert/Orange/Rouge)
@@ -161,7 +161,7 @@ def prbs_table_rows_par_sondage(arbre: ArbreLike,
             "rayon_cm": R,
             "prbs_cm": s.prbs_cm,
             "bois_altere_cm": s.bois_altere_cm,
-            "compartimentation": s.compartimentation or "-",
+            "compartimentation": s.compartimentation or "non renseignée",
             "ratio_tR": ratio,
             "classe": classer_prbs(ratio, arbre.port_arbre),
             "commentaire": s.commentaire,

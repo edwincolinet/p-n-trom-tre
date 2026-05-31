@@ -151,9 +151,14 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         # `__dataclass_fields__` plus bas exclut de toute façon ces
         # clés du dict passé à `Arbre(**...)`, et le caller conserve
         # son dict d'origine intact (pas d'effet de bord).
-        sondages = [Sondage(**{k: v for k, v in s.items()
-                                if k in sondage_fields})
-                    for s in a.get("sondages", [])]
+        sondages_raw = []
+        for s in a.get("sondages", []):
+            s = {k: v for k, v in s.items() if k in sondage_fields}
+            # Migration libellé compartimentation : "-" → "non renseignée"
+            if s.get("compartimentation") == "-":
+                s["compartimentation"] = "non renseignée"
+            sondages_raw.append(s)
+        sondages = [Sondage(**s) for s in sondages_raw]
         degs = [DegradationExterne(**{k: v for k, v in dg.items()
                                        if k in deg_fields})
                 for dg in a.get("degradations_externes", [])]

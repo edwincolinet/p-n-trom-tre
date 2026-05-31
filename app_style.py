@@ -101,6 +101,28 @@ def apply_ttk_styles(root: tk.Misc) -> None:
           foreground=[("selected", COLOR_INK)])
     s.configure("Side.Treeview", background=COLOR_SIDE_PANEL,
                 fieldbackground=COLOR_SIDE_PANEL, rowheight=28)
+    # Pas de `foreground=white` sur la sélection : on veut que les
+    # tags d'état (rouge/orange/vert posés par `tree_arbres.tag_configure`)
+    # restent visibles même sur l'arbre courant (= ligne sélectionnée).
+    # Le fond vert accent suffit à signaler la sélection.
     s.map("Side.Treeview",
-          background=[("selected", COLOR_ACCENT)],
-          foreground=[("selected", "white")])
+          background=[("selected", COLOR_ACCENT_SOFT)])
+
+    # ------------------------------------------------------------------
+    # Workaround bpo-36468 — depuis Python 3.7, `ttk.Treeview` ignore
+    # silencieusement le `foreground` posé par `tag_configure` à cause
+    # d'entrées par défaut dans le mapping de style qui priment sur le
+    # tag. Sans ce patch, les tags d'état (`etat_vide`, `etat_partiel`,
+    # `etat_ok`) sont sans effet et la pastille reste blanche/grise.
+    # On retire les entrées `("!disabled", "!selected", …)` du mapping
+    # background/foreground pour que les tags prennent enfin la main.
+    # Réf. https://bugs.python.org/issue36468
+    # ------------------------------------------------------------------
+    def _fixed_map(style_name: str, option: str) -> list[tuple[str, ...]]:
+        return [elm for elm in s.map(style_name, query_opt=option)
+                if elm[:2] != ("!disabled", "!selected")]
+
+    for tv_style in ("Treeview", "Side.Treeview"):
+        s.map(tv_style,
+              foreground=_fixed_map(tv_style, "foreground"),
+              background=_fixed_map(tv_style, "background"))

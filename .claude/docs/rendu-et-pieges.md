@@ -102,6 +102,41 @@ arc = début de l'autre). La validation utilise `couvre_grade` sur les
 16 grades, en excluant les grades qui sont le début du candidat et la
 fin de l'existant (ou inversement).
 
+### `ttk.Treeview` ignore les `tag_configure(foreground=…)` (bpo-36468)
+
+Depuis Python 3.7, des entrées par défaut dans `style.map` priment sur
+les tags d'item — résultat : `tree.tag_configure("rouge",
+foreground="#A62A1F")` n'a aucun effet visible. Workaround dans
+`app_style._fixed_map` : retire les entrées `("!disabled",
+"!selected", …)` du mapping de `Treeview` et `Side.Treeview`. Sans ce
+correctif, les pastilles d'état de la liste d'arbres restent
+blanches/grises. Vérifier l'effet du workaround : `style.map("Side.
+Treeview", query_opt="foreground")` doit renvoyer `[]` (ou ne
+contenir que des entrées non par-défaut).
+
+### Dialogue Tk modal vide quand ouvert depuis un événement de clic
+
+Appeler `grab_set()` sur un `tk.Toplevel` AVANT que le WM ait mappé
+la fenêtre fait apparaître le dialogue vide sur Linux/X11 (race entre
+le grab et le rendu des enfants). Symptôme : titre OK, fenêtre OK,
+mais aucun widget visible. Fix dans `dialogs._make_modal(dlg,
+parent)` : séquence canonique `update_idletasks → transient →
+wait_visibility → grab_set → focus_set`, appelée APRÈS la création
+des widgets. Tous les dialogues d'édition passent par ce helper. Pour
+le canvas interactif (`section_canvas`), l'ouverture du dialogue est
+en plus différée via `after_idle` pour laisser la boucle Tk finaliser
+l'événement de clic avant de créer le Toplevel.
+
+### Menu contextuel `tk_popup` + `grab_release()` immédiat
+
+Anti-pattern courant copié des vieilles docs Tcl/Tk : appeler
+`menu.grab_release()` juste après `menu.tk_popup(x, y)`. Sur
+Linux/X11, `tk_popup` ne pose pas de grab automatique → l'appel
+immédiat à `grab_release()` annule le seul mécanisme qui fermerait le
+menu au clic externe. Fix : NE PAS appeler `grab_release()` après
+`tk_popup`, et binder `<FocusOut>` sur le menu pour fermeture
+explicite.
+
 ## Limites connues
 
 - **Duplication Tk ↔ PIL au-delà de la géométrie** : écorce/anneau,

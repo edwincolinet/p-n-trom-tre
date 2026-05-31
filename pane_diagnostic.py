@@ -41,7 +41,6 @@ class _DiagnosticHost(Protocol):
     def action_export_prbs_xlsx(self) -> None: ...
     def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
-    def on_show_sondages_toggled(self, show: bool) -> None: ...
 
 
 class DiagnosticPane(ttk.Frame):
@@ -50,7 +49,6 @@ class DiagnosticPane(ttk.Frame):
     def __init__(self, master: tk.Misc, host: _DiagnosticHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", **kw)
         self._host = host
-        self.var_show_sondages = tk.BooleanVar(value=True)
         self._build()
 
     def _build(self) -> None:
@@ -126,15 +124,6 @@ class DiagnosticPane(ttk.Frame):
             wraplength=400, justify="left", font=("Helvetica", 10))
         self.lbl_diag.pack(anchor="w", fill="x", pady=(0, 10))
 
-        # --- Case à cocher affichage des sondages ---
-        cb = ttk.Checkbutton(
-            parent,
-            text="Afficher l'emplacement des sondages sur le dessin",
-            variable=self.var_show_sondages,
-            command=self._on_toggle_show_sondages,
-            style="TCheckbutton")
-        cb.pack(anchor="w", pady=(0, 10))
-
         # --- Tableau PRBS par sondage ---
         ttk.Label(parent, text="Paroi Résiduelle de Bois Sain par sondage",
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
@@ -165,9 +154,6 @@ class DiagnosticPane(ttk.Frame):
             "orange", background="#FDEBD5", foreground="#8A4A10")
         self.tbl_prbs.tag_configure(
             "rouge",  background="#FADBD8", foreground="#7B1B12")
-
-    def _on_toggle_show_sondages(self) -> None:
-        self._host.on_show_sondages_toggled(self.var_show_sondages.get())
 
     def refresh(self) -> None:
         """Recharge le tableau PRBS et le résumé textuel à partir de

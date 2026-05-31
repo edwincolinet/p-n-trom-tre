@@ -119,21 +119,41 @@ Les missions sont enregistrées au format JSON.
 ### Mission multi-arbres
 
 Une **mission** regroupe plusieurs arbres dans un seul fichier `.json`.
-Liste à gauche, ajout / duplication / suppression d'arbres en un clic.
+Liste à gauche, ajout / duplication / suppression d'arbres en un clic
+(également via **clic droit** sur un arbre — menu contextuel
+Renommer/Dupliquer/Supprimer).
+
+Chaque arbre affiche un **indicateur d'état visuel** dans la liste :
+
+- ● rouge bordeaux : aucun sondage (ou rayon non renseigné)
+- ● orange ambre : 1 ou 2 sondages (instrumentation minimale)
+- ● vert foncé : 3 sondages ou plus (instrumentation solide)
+
+Toute la ligne est teintée selon l'état, et un footer sous la liste
+compte les arbres avec diagnostic fiable (« 3/12 arbres avec diagnostic
+fiable »).
+
+Le menu **Fichier → Ouvrir récent** garde un historique des 8 dernières
+missions ouvertes (persisté dans `~/.penetrometre/recent.json`).
 
 ### Identification d'un arbre
 
-- N° d'arbre (doit contenir au moins un chiffre — « 1 », « 42 », « 12 bis »
-  acceptés ; « bis » seul refusé), essence
-- Diamètre sous écorce ↔ rayon (synchro bidirectionnelle : Ø ÷ 2 = rayon,
-  rayon × 2 = Ø)
-- Hauteur du sondage, hauteur de l'arbre
-- Longueur de mèche du pénétromètre (limite la profondeur des flèches)
-- Épaisseur d'écorce (cm), purement visuelle
-- Port de l'arbre : libre / semi-libre / délaissé / architecturé / traumatique
-- Tous les champs numériques **filtrent la frappe** : seuls les chiffres
-  et un séparateur décimal (`,` ou `.`) sont acceptés. Le format français
-  (`2,5`) est interprété comme `2.5`.
+Le formulaire est groupé en 4 blocs pour clarifier les unités :
+
+- **Arbre** : N° (doit contenir au moins un chiffre — « 1 », « 42 »,
+  « 12 bis » acceptés ; « bis » seul refusé), essence, hauteur de
+  l'arbre (m), port (libre / semi-libre / délaissé / architecturé /
+  traumatique)
+- **Tronc** : diamètre sous écorce (cm) ↔ rayon (cm) (synchro
+  bidirectionnelle : Ø ÷ 2 = rayon, rayon × 2 = Ø), épaisseur
+  d'écorce (cm, purement visuelle)
+- **Sondage** : longueur de mèche (cm, limite la profondeur des
+  flèches), hauteur du sondage (cm)
+- **Notes** : commentaire libre
+
+Tous les champs numériques **filtrent la frappe** : seuls les chiffres
+et un séparateur décimal (`,` ou `.`) sont acceptés. Le format français
+(`2,5`) est interprété comme `2.5`.
 
 ### Sondages
 
@@ -141,7 +161,7 @@ Chaque sondage est associé à une direction (16 grades disponibles).
 Une seule mesure par direction (doublon interdit). La PRBS (bois sain)
 et le bois altéré sont liés par le rayon (`sain + altéré = rayon`) avec
 calcul automatique. La compartimentation peut être renseignée
-(active / absente / -).
+(active / absente / non renseignée).
 
 **Robustesse** : si le rayon est corrigé après saisie de sondages, la PRBS
 (mesure physique du pénétromètre) est conservée et le bois altéré est
@@ -206,6 +226,13 @@ purement descriptif : n'impacte pas le diagnostic.
 - Règle graduée symétrique sous le tronc : de -R à +R, avec barres
   d'écorce aux extrémités, pas adaptatif selon la taille du dessin
 - Section ronde (interpolation Catmull-Rom des points de sondage)
+- **Dessin interactif** : un clic sur une pastille de sondage, un arc
+  de dégradation externe ou un contrefort ouvre directement le
+  dialogue d'édition de l'élément. Le curseur passe en main au
+  survol. Pas besoin de retrouver la ligne dans la table d'onglet.
+- La checkbox **« Afficher l'emplacement des sondages »** sous le
+  dessin contrôle l'affichage des pastilles (utile pour exporter un
+  PNG vierge sans annotations).
 
 ### Exports
 
@@ -270,7 +297,11 @@ trace complète dans :
 
 (`%USERPROFILE%\.penetrometre\penetrometre.log` sous Windows.)
 
-C'est ce fichier qu'il faut joindre quand on signale un bug.
+Le menu **Aide → Ouvrir le fichier de log** ouvre ce fichier
+directement avec l'éditeur par défaut du système — c'est ce qu'il
+faut joindre quand on signale un bug. Le menu **Aide → Raccourcis
+clavier…** rappelle tous les raccourcis disponibles (Ctrl+N/O/S/T,
+Ctrl+Z/Y, double-clic et clic droit sur un arbre).
 
 ## Crédits
 

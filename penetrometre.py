@@ -15,7 +15,9 @@ Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 from __future__ import annotations
 
 import copy
+import json
 import logging
+import os
 import tkinter as tk
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
@@ -24,9 +26,10 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Iterator, Optional
 
 import app_exports
-from app_menu import build_menu
+from app_menu import build_menu, refresh_recent_menu
 from app_style import apply_ttk_styles
-from model import Arbre, Chantier
+from dialogs import edit_contrefort, edit_degradation, edit_sondage
+from model import Arbre, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_BG
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -38,6 +41,12 @@ from section_canvas import SectionCanvas
 from undo import UndoStack
 
 __version__ = "3.3.0"
+
+# Fichiers récents : on en garde 8, persistés en JSON dans le même
+# répertoire que le log (~/.penetrometre/). 8 est un bon compromis :
+# tient en un sous-menu compact, suffisant pour 1-2 semaines d'usage.
+_RECENT_FILES_MAX = 8
+_RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -54,8 +63,19 @@ class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.geometry("1480x900")
-        self.minsize(1280, 780)
+        # minsize ajusté pour rester utilisable sur écrans 1366×768
+        # (très répandus sur laptops de terrain). Le canvas se redimensionne
+        # tout seul, les onglets restent lisibles à cette taille.
+        self.minsize(1100, 680)
+        # Géométrie souhaitée 1480×900, mais on clamp à 95 % de l'écran
+        # disponible pour éviter qu'au démarrage la fenêtre déborde
+        # (Windows : barre des tâches ; Linux : panel + barre titre).
+        self.update_idletasks()
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        w = min(1480, max(1100, int(screen_w * 0.95)))
+        h = min(900, max(680, int(screen_h * 0.95)))
+        self.geometry(f"{w}x{h}")
         self.configure(bg=COLOR_BG)
 
         self.chantier = Chantier()
@@ -66,6 +86,7 @@ class App(tk.Tk):
         self._suspend_sync = False
         self._redraw_id: Optional[str] = None
         self._undo_stack = UndoStack()
+        self._recent_files: list[str] = self._load_recent_files()
         self.pane_s: Optional[SondagesPane] = None
         self.pane_de: Optional[DegradationsPane] = None
         self.pane_cf: Optional[ContrefortsPane] = None
@@ -173,12 +194,28 @@ class App(tk.Tk):
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
         self.tree_arbres = ttk.Treeview(
-            lst_frame, columns=("ess",), show="tree headings",
+            lst_frame, columns=("ess", "etat"), show="tree headings",
             height=20, style="Side.Treeview")
         self.tree_arbres.heading("#0", text="Nom")
         self.tree_arbres.heading("ess", text="Essence")
-        self.tree_arbres.column("#0", width=130, anchor="w")
-        self.tree_arbres.column("ess", width=90, anchor="w")
+        self.tree_arbres.heading("etat", text="État")
+        self.tree_arbres.column("#0", width=110, anchor="w")
+        self.tree_arbres.column("ess", width=80, anchor="w")
+        self.tree_arbres.column("etat", width=42, anchor="center",
+                                stretch=False)
+        # Tags par état : coloration du foreground de toute la ligne
+        # (rouge/orange/vert discrets). Plus fiable que des emojis
+        # 🔴🟠🟢 dont le rendu dans ttk.Treeview dépend du thème et de
+        # la police système (peut tomber sur une font monochrome où
+        # les trois pastilles deviennent identiques).
+        # Orange volontairement décalé vers le jaune (saturé) pour
+        # bien se distinguer du rouge bordeaux.
+        self.tree_arbres.tag_configure("etat_vide",
+                                        foreground="#A62A1F")
+        self.tree_arbres.tag_configure("etat_partiel",
+                                        foreground="#D97706")
+        self.tree_arbres.tag_configure("etat_ok",
+                                        foreground="#1A5A2A")
         self.tree_arbres.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(lst_frame, orient="vertical",
                            command=self.tree_arbres.yview)
@@ -187,6 +224,31 @@ class App(tk.Tk):
         self.tree_arbres.bind("<<TreeviewSelect>>", self._on_select_arbre)
         self.tree_arbres.bind("<Double-1>",
                               lambda e: self.action_rename_arbre())
+        # Menu contextuel : clic droit sélectionne d'abord la ligne sous
+        # le curseur (pratique Windows/Linux), puis affiche le menu.
+        self._tree_arbres_ctx_menu = tk.Menu(self, tearoff=0)
+        self._tree_arbres_ctx_menu.add_command(
+            label="Renommer…", command=self.action_rename_arbre)
+        self._tree_arbres_ctx_menu.add_command(
+            label="Dupliquer", command=self.action_dup_arbre)
+        self._tree_arbres_ctx_menu.add_separator()
+        self._tree_arbres_ctx_menu.add_command(
+            label="Supprimer…", command=self.action_del_arbre)
+        # `<FocusOut>` ferme le menu si l'utilisateur clique en dehors
+        # (sur Linux/X11, `tk_popup` ne pose pas de grab automatique →
+        # sans ce binding, le menu reste affiché). Le menu doit pouvoir
+        # prendre le focus pour que l'événement soit déclenché : Tk le
+        # fait quand le menu est posté.
+        self._tree_arbres_ctx_menu.bind(
+            "<FocusOut>",
+            lambda e: self._tree_arbres_ctx_menu.unpost())
+        self.tree_arbres.bind("<Button-3>", self._on_tree_arbres_right_click)
+
+        # Footer "X/N arbres complets" — vue macro de l'avancement.
+        self.lbl_etat_footer = ttk.Label(
+            frame, text="", style="Side.TLabel",
+            font=("Helvetica", 9, "italic"))
+        self.lbl_etat_footer.pack(anchor="w", pady=(6, 0))
 
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(fill="x", pady=(10, 0))
@@ -237,8 +299,21 @@ class App(tk.Tk):
     def _build_right(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
         frame.grid(row=0, column=2, sticky="nsew")
-        self.section = SectionCanvas(frame, width=550, height=550)
+        self.section = SectionCanvas(frame, host=self,
+                                      width=550, height=550)
         self.section.pack(fill="both", expand=True)
+        # Contrôle d'affichage : cohabite avec le dessin (visible quel
+        # que soit l'onglet actif, plutôt que caché dans l'onglet
+        # Diagnostic).
+        self.var_show_sondages = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            frame,
+            text="Afficher l'emplacement des sondages sur le dessin",
+            variable=self.var_show_sondages,
+            command=lambda: self.section.set_show_sondages(
+                self.var_show_sondages.get()),
+            style="TCheckbutton",
+        ).pack(anchor="w", pady=(6, 0))
 
     # --- Dirty flag + fermeture ----------------------------------------
 
@@ -351,8 +426,15 @@ class App(tk.Tk):
         sel = self.tree_arbres.selection()
         if sel:
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+            glyph, tag = self._arbre_etat(a)
             self.tree_arbres.item(sel[0], text=label,
-                                  values=(a.essence,))
+                                  values=(a.essence, glyph),
+                                  tags=(tag,))
+            # Recalcule le footer (le passage d'un arbre orange→vert
+            # change le compteur global).
+            n_ok = sum(1 for x in self.chantier.arbres
+                       if self._arbre_etat(x)[1] == "etat_ok")
+            self._update_etat_footer(n_ok, len(self.chantier.arbres))
 
     def _load_arbre_to_ui(self) -> None:
         """Recharge l'UI complète depuis l'arbre courant : identification
@@ -372,21 +454,105 @@ class App(tk.Tk):
         a = self._current_arbre()
         self.section.set_arbre(a)
         self._refresh_diag()
+        # Réactualise la pastille d'état de l'arbre courant : les
+        # ajouts/suppressions de sondages, dégradations ou contreforts
+        # passent par `_debounced_redraw` → `_redraw_all`, mais ne
+        # touchent pas la liste d'arbres autrement. Sans ce refresh,
+        # passer de 0 à 2 sondages laisserait la pastille rouge.
+        self._refresh_current_arbre_etat()
+
+    def _refresh_current_arbre_etat(self) -> None:
+        """Met à jour la pastille d'état + le footer après une mutation
+        sur l'arbre courant. N'agit que sur la ligne sélectionnée pour
+        éviter de reconstruire toute la tree (préserve la sélection et
+        la position de scroll)."""
+        a = self._current_arbre()
+        if a is None:
+            return
+        sel = self.tree_arbres.selection()
+        if sel:
+            label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+            glyph, tag = self._arbre_etat(a)
+            self.tree_arbres.item(sel[0], text=label,
+                                  values=(a.essence, glyph),
+                                  tags=(tag,))
+        n_ok = sum(1 for x in self.chantier.arbres
+                   if self._arbre_etat(x)[1] == "etat_ok")
+        self._update_etat_footer(n_ok, len(self.chantier.arbres))
 
     # --- Liste d'arbres ---------------------------------------------
 
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
+        n_ok = 0
         for i, a in enumerate(self.chantier.arbres):
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+            glyph, tag = self._arbre_etat(a)
+            if tag == "etat_ok":
+                n_ok += 1
             self.tree_arbres.insert("", "end", iid=f"a{i}",
-                                    text=label, values=(a.essence,))
+                                    text=label,
+                                    values=(a.essence, glyph),
+                                    tags=(tag,))
+        self._update_etat_footer(n_ok, len(self.chantier.arbres))
         if self.chantier.arbres:
             target = f"a{self.current_idx}"
             if target in self.tree_arbres.get_children():
                 self.tree_arbres.selection_set(target)
                 self.tree_arbres.focus(target)
+
+    def _update_etat_footer(self, n_ok: int, n_total: int) -> None:
+        """Met à jour le footer « X/N arbres complets » sous la liste."""
+        if not hasattr(self, "lbl_etat_footer"):
+            return
+        self.lbl_etat_footer.configure(
+            text=f"● {n_ok}/{n_total} arbres avec diagnostic fiable")
+
+    @staticmethod
+    def _arbre_etat(a: Arbre) -> tuple[str, str]:
+        """Renvoie `(glyphe, tag)` pour la colonne État d'un arbre.
+
+        Le glyphe est un caractère universellement disponible (●),
+        c'est le tag — appliqué à toute la ligne via `tag_configure` —
+        qui colorise (rouge/orange/vert) le foreground et permet la
+        distinction visuelle. On évite les emojis couleur (🔴🟠🟢)
+        qui s'affichent souvent en monochrome dans ttk.Treeview selon
+        la police système : trois pastilles devenaient indistinguables.
+
+        Seuil de complétude UX (plus strict que la règle métier
+        « < 2 sondages → exports masqués ») : on veut signaler vert
+        seulement quand l'arbre est solidement instrumenté (3 mesures
+        ou plus), pour pousser l'opérateur à ne pas s'arrêter au
+        minimum réglementaire.
+
+        Règles :
+          - `etat_vide`    : pas de rayon OU pas de sondage
+          - `etat_partiel` : 1 ou 2 sondages (instrumentation minimale)
+          - `etat_ok`      : 3 sondages ou plus (instrumentation solide)
+        """
+        if a.rayon_tronc_cm <= 0 or not a.sondages:
+            return "●", "etat_vide"
+        if len(a.sondages) < 3:
+            return "●", "etat_partiel"
+        return "●", "etat_ok"
+
+    def _on_tree_arbres_right_click(self, event: "tk.Event[tk.Misc]") -> None:
+        """Sélectionne la ligne sous le curseur puis affiche le menu
+        contextuel. Sélectionner avant l'action garantit que les
+        commandes (Renommer/Dupliquer/Supprimer) agissent sur l'arbre
+        sous le clic, pas sur l'arbre précédemment sélectionné.
+
+        NB : pas de `grab_release()` après `tk_popup()` — Tk gère le
+        grab tout seul, l'appel immédiat l'annulait et empêchait le
+        menu de se fermer au clic externe (cf. binding `<FocusOut>`
+        posé à la construction du menu)."""
+        row_id = self.tree_arbres.identify_row(event.y)
+        if not row_id:
+            return
+        self.tree_arbres.selection_set(row_id)
+        self.tree_arbres.focus(row_id)
+        self._tree_arbres_ctx_menu.tk_popup(event.x_root, event.y_root)
 
     def _on_select_arbre(self, event: Optional["tk.Event[tk.Misc]"] = None) -> None:
         sel = self.tree_arbres.selection()
@@ -524,14 +690,42 @@ class App(tk.Tk):
         if self.pane_cf is not None:
             self.pane_cf.refresh()
 
-    def on_show_sondages_toggled(self, show: bool) -> None:
-        """Callback du DiagnosticPane : répercute le toggle sur le
-        SectionCanvas (propriété de l'App)."""
-        self.section.set_show_sondages(show)
-
     def _refresh_diag(self) -> None:
         if self.pane_diag is not None:
             self.pane_diag.refresh()
+
+    # --- Callbacks d'édition depuis le canvas interactif --------------
+    # Le `SectionCanvas` les appelle au clic sur une pastille sondage,
+    # un arc de dégradation ou un contrefort. Chacun ouvre le dialogue
+    # idoine et, si l'utilisateur valide, pousse l'undo + rafraîchit la
+    # table correspondante + redessine.
+
+    def open_edit_sondage(self, s: Sondage) -> None:
+        a = self._current_arbre()
+        if not a:
+            return
+        if edit_sondage(self, a, s):
+            self.push_undo()
+            self._refresh_sondages_table()
+            self._debounced_redraw()
+
+    def open_edit_degradation(self, d: DegradationExterne) -> None:
+        a = self._current_arbre()
+        if not a:
+            return
+        if edit_degradation(self, a, d):
+            self.push_undo()
+            self._refresh_degradations_table()
+            self._debounced_redraw()
+
+    def open_edit_contrefort(self, c: Contrefort) -> None:
+        a = self._current_arbre()
+        if not a:
+            return
+        if edit_contrefort(self, a, c):
+            self.push_undo()
+            self._refresh_contreforts_table()
+            self._debounced_redraw()
 
     # --- Fichier ----------------------------------------------------
 
@@ -570,6 +764,12 @@ class App(tk.Tk):
                        ("Tous", "*.*")])
         if not p:
             return
+        self._open_path(p)
+
+    def _open_path(self, p: str) -> None:
+        """Ouvre un fichier de mission par son chemin (factorise
+        `action_open` et `action_open_recent`). Pousse le chemin dans
+        l'historique des récents même en cas de succès."""
         try:
             self._undo_stack.clear()
             self._dirty = False
@@ -586,9 +786,70 @@ class App(tk.Tk):
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
             self._update_title()
+            self._push_recent_file(p)
+        except FileNotFoundError:
+            messagebox.showerror(
+                "Fichier introuvable",
+                f"Le fichier suivant n'existe plus :\n{p}\n\n"
+                "Il a été retiré de la liste des fichiers récents.")
+            self._remove_recent_file(p)
         except Exception as e:
             log.exception("Échec ouverture mission")
             messagebox.showerror("Erreur d'ouverture", str(e))
+
+    def action_open_recent(self, path: str) -> None:
+        """Ouvre un fichier récent (appelé par le sous-menu Récents)."""
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Ouvrir",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Continuer quand même ?"):
+                return
+        self._open_path(path)
+
+    def get_recent_files(self) -> list[str]:
+        """Lecture pure pour `refresh_recent_menu`."""
+        return list(self._recent_files)
+
+    def _load_recent_files(self) -> list[str]:
+        """Charge la liste depuis `~/.penetrometre/recent.json`.
+        Tolérant : tout problème (fichier absent, JSON invalide,
+        permission) renvoie liste vide sans interrompre le démarrage."""
+        try:
+            if _RECENT_FILES_PATH.exists():
+                with open(_RECENT_FILES_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    return [str(x) for x in data
+                            if isinstance(x, str)][:_RECENT_FILES_MAX]
+        except Exception:
+            log.exception("Lecture recent.json")
+        return []
+
+    def _save_recent_files(self) -> None:
+        try:
+            _RECENT_FILES_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with open(_RECENT_FILES_PATH, "w", encoding="utf-8") as f:
+                json.dump(self._recent_files, f, ensure_ascii=False, indent=2)
+        except Exception:
+            log.exception("Écriture recent.json")
+
+    def _push_recent_file(self, path: str) -> None:
+        """Pousse un chemin en tête de l'historique (déduplication).
+        Met à jour le sous-menu et persiste."""
+        path = str(Path(path).resolve())
+        self._recent_files = [path] + [p for p in self._recent_files
+                                        if p != path]
+        self._recent_files = self._recent_files[:_RECENT_FILES_MAX]
+        self._save_recent_files()
+        refresh_recent_menu(self)  # type: ignore[arg-type]
+
+    def _remove_recent_file(self, path: str) -> None:
+        target = str(Path(path).resolve()) if Path(path).exists() else path
+        self._recent_files = [p for p in self._recent_files
+                              if p != target and p != path]
+        self._save_recent_files()
+        refresh_recent_menu(self)  # type: ignore[arg-type]
 
     def action_save(self) -> None:
         if not self.current_file:
@@ -597,6 +858,7 @@ class App(tk.Tk):
             save_chantier(self.chantier, self.current_file)
             self._dirty = False
             self._update_title()
+            self._push_recent_file(str(self.current_file))
         except Exception as e:
             log.exception("Échec enregistrement mission")
             messagebox.showerror("Erreur", str(e))
@@ -612,7 +874,7 @@ class App(tk.Tk):
 
     def action_export_png(self) -> None:
         app_exports.export_png(self, self._current_arbre(),
-                                self.section.show_sondages)
+                                self.var_show_sondages.get())
 
     def action_export_pdf_arbre(self) -> None:
         app_exports.export_pdf_arbre(self, self._current_arbre(),
@@ -643,6 +905,50 @@ class App(tk.Tk):
             "Note : « Résistographe » étant une marque déposée,\n"
             "ce logiciel utilise le terme générique « pénétromètre »."
             "\n\n— Silvavenir, Foresterie urbaine.")
+
+    def action_shortcuts(self) -> None:
+        messagebox.showinfo(
+            "Raccourcis clavier",
+            "Fichier\n"
+            "  Ctrl+N   Nouvelle mission\n"
+            "  Ctrl+O   Ouvrir une mission\n"
+            "  Ctrl+S   Enregistrer\n"
+            "\n"
+            "Arbres\n"
+            "  Ctrl+T   Ajouter un arbre\n"
+            "  Double-clic sur un arbre : le renommer\n"
+            "  Clic droit sur un arbre : menu d'actions\n"
+            "\n"
+            "Édition\n"
+            "  Ctrl+Z   Annuler\n"
+            "  Ctrl+Y   Rétablir\n"
+            "  (Ctrl+Maj+Z fonctionne aussi pour Rétablir)")
+
+    def action_open_log(self) -> None:
+        """Ouvre le fichier de log de l'application avec l'éditeur par
+        défaut du système. Utile quand un utilisateur cherche à
+        comprendre une erreur ou à transmettre le log à un développeur."""
+        import subprocess
+        import sys
+        log_path = Path.home() / ".penetrometre" / "penetrometre.log"
+        if not log_path.exists():
+            messagebox.showinfo(
+                "Fichier de log",
+                f"Aucun fichier de log trouvé à :\n{log_path}")
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(log_path))  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(log_path)], check=False)
+            else:
+                subprocess.run(["xdg-open", str(log_path)], check=False)
+        except Exception as e:
+            log.exception("Échec ouverture log")
+            messagebox.showerror(
+                "Erreur",
+                f"Impossible d'ouvrir le fichier de log :\n{e}\n\n"
+                f"Chemin : {log_path}")
 
 
 def _setup_logging() -> Path:

@@ -105,6 +105,33 @@ def _numeric_entry(parent: tk.Misc, textvariable: tk.StringVar,
                      validate="key", validatecommand=vcmd)
 
 
+def _make_modal(dlg: tk.Toplevel, parent: tk.Misc) -> None:
+    """Pose `transient` + `grab_set` sur un Toplevel **après** que ses
+    widgets soient visibles.
+
+    Sans cet ordre, ouvrir un dialogue depuis un événement de clic
+    (typiquement : `tag_bind` du canvas interactif) produisait une
+    fenêtre vide sur Linux/X11 : le grab pris pendant que la fenêtre
+    n'avait pas encore été mappée par le WM empêchait le rendu de ses
+    enfants. La séquence canonique Tk : update_idletasks → transient →
+    wait_visibility → grab_set → focus.
+    """
+    dlg.update_idletasks()
+    try:
+        dlg.transient(parent)  # type: ignore[call-overload]
+    except tk.TclError:
+        # parent n'est pas un Toplevel/Tk acceptable : on continue sans
+        # transient, le dialogue restera modal via grab_set.
+        pass
+    try:
+        dlg.wait_visibility()
+    except tk.TclError:
+        # fenêtre détruite avant d'être visible (cas limite tests).
+        return
+    dlg.grab_set()
+    dlg.focus_set()
+
+
 # ---------------------------------------------------------------------
 # Dialog : Sondage
 # ---------------------------------------------------------------------
@@ -115,9 +142,11 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
     dlg = tk.Toplevel(parent)
     dlg.title(f"Sondage n° {sondage.numero}")
     dlg.configure(bg=COLOR_PANEL)
-    dlg.transient(parent)  # type: ignore[call-overload]
-    dlg.grab_set()
     dlg.resizable(False, False)
+    # `transient` + `grab_set` posés APRÈS la création des widgets et
+    # `wait_visibility` (cf. fin de fonction). Les appeler avant
+    # provoquait un dialogue vide quand l'ouverture venait du canvas
+    # interactif (clic sur pastille) sur Linux/X11.
 
     R = arbre.rayon_tronc_cm if arbre else 0.0
 
@@ -193,11 +222,14 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
     v_sain.trace_add("write", _on_sain_changed)
     v_alt.trace_add("write", _on_alt_changed)
 
+    # Migration silencieuse à l'ouverture du dialogue : ancien "-" → libellé lisible.
+    if v_comp.get() == "-":
+        v_comp.set("non renseignée")
     ttk.Label(dlg, text="Compartimentation", background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_comp,
-                 values=["active", "absente", "-"],
-                 state="readonly", width=16
+                 values=["active", "absente", "non renseignée"],
+                 state="readonly", width=18
                  ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 
     ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
@@ -249,6 +281,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    _make_modal(dlg, parent)
     dlg.wait_window()
     return result["ok"]
 
@@ -268,9 +301,8 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
     dlg = tk.Toplevel(parent)
     dlg.title(f"Dégradation externe n° {deg.numero}")
     dlg.configure(bg=COLOR_PANEL)
-    dlg.transient(parent)  # type: ignore[call-overload]
-    dlg.grab_set()
     dlg.resizable(False, False)
+    # transient + grab_set : cf. note dans edit_sondage.
 
     R = arbre.rayon_tronc_cm if arbre else 0.0
 
@@ -437,6 +469,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    _make_modal(dlg, parent)
     dlg.wait_window()
     return result["ok"]
 
@@ -455,9 +488,8 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
     dlg = tk.Toplevel(parent)
     dlg.title(f"Contrefort n° {cf.numero}")
     dlg.configure(bg=COLOR_PANEL)
-    dlg.transient(parent)  # type: ignore[call-overload]
-    dlg.grab_set()
     dlg.resizable(False, False)
+    # transient + grab_set : cf. note dans edit_sondage.
 
     R = arbre.rayon_tronc_cm if arbre else 0.0
 
@@ -567,5 +599,6 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    _make_modal(dlg, parent)
     dlg.wait_window()
     return result["ok"]

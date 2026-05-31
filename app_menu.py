@@ -53,6 +53,12 @@ class AppLike(Protocol):
 
     # Aide
     def action_about(self) -> None: ...
+    def action_shortcuts(self) -> None: ...
+    def action_open_log(self) -> None: ...
+
+    # Récents — l'App ouvre directement le chemin sans dialogue.
+    def action_open_recent(self, path: str) -> None: ...
+    def get_recent_files(self) -> list[str]: ...
 
 
 def build_menu(app: AppLike) -> None:
@@ -72,6 +78,15 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_new)
     f.add_command(label="Ouvrir mission…", accelerator="Ctrl+O",
                   command=app.action_open)
+    # Sous-menu Récents — populé par `refresh_recent_menu` (appelé par
+    # l'App au démarrage et après chaque ouverture/enregistrement).
+    recent_menu = tk.Menu(f, tearoff=0)
+    f.add_cascade(label="Ouvrir récent", menu=recent_menu)
+    # Exposer le menu sur l'App pour qu'elle puisse le rafraîchir sans
+    # reconstruire toute la barre de menu (réutilise les méthodes Tk
+    # de Menu : delete / add_command).
+    setattr(app, "_recent_menu", recent_menu)
+    refresh_recent_menu(app)
     f.add_command(label="Enregistrer", accelerator="Ctrl+S",
                   command=app.action_save)
     f.add_command(label="Enregistrer sous…", command=app.action_save_as)
@@ -98,11 +113,39 @@ def build_menu(app: AppLike) -> None:
 
     # Aide
     h = tk.Menu(m, tearoff=0)
+    h.add_command(label="Raccourcis clavier…",
+                  command=app.action_shortcuts)
+    h.add_command(label="Ouvrir le fichier de log",
+                  command=app.action_open_log)
+    h.add_separator()
     h.add_command(label="À propos", command=app.action_about)
-    m.add_cascade(label="?", menu=h)
+    m.add_cascade(label="Aide", menu=h)
 
     # Raccourcis globaux
     app.bind_all("<Control-n>", lambda e: app.action_new())
     app.bind_all("<Control-o>", lambda e: app.action_open())
     app.bind_all("<Control-s>", lambda e: app.action_save())
     app.bind_all("<Control-t>", lambda e: app.action_add_arbre())
+
+
+def refresh_recent_menu(app: AppLike) -> None:
+    """Vide et reconstruit le sous-menu « Ouvrir récent » à partir de
+    `app.get_recent_files()`. À appeler par l'App après chaque ouverture
+    ou enregistrement pour que la liste reflète l'historique courant."""
+    menu = getattr(app, "_recent_menu", None)
+    if menu is None:
+        return
+    menu.delete(0, "end")
+    paths = app.get_recent_files()
+    if not paths:
+        menu.add_command(label="(aucun)", state="disabled")
+        return
+    for i, p in enumerate(paths, 1):
+        # Affichage : "1. nom.json — /chemin/parent" (raccourci Alt+i
+        # pour les 9 premiers via &i dans le label Tk : `underline`).
+        from pathlib import Path
+        pp = Path(p)
+        label = f"{pp.name}  —  {pp.parent}"
+        # Closure : capturer p par défaut, sinon Python lie p dynamiquement.
+        menu.add_command(label=label,
+                          command=lambda path=p: app.action_open_recent(path))

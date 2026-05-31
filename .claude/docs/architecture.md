@@ -70,17 +70,49 @@ via `dialogs.validate_numeric` (Diamètre, Rayon, Mèche, Épaisseur écorce,
 Hauteur sondage, Hauteur arbre — accepte virgule ou point décimal), le
 revert au focus-out en filet de sécurité, et le `_commit_rayon` différé
 (set_rayon uniquement au focus-out, pas pendant la frappe — protège les
-PRBS des valeurs intermédiaires). `DiagnosticPane` est scrollable (Canvas
-interne) et expose les 5 exports individuels (PNG / fiche PDF / XLSX /
-HTML / CSV mission) en haut du pane — le menu Fichier ne conserve que les
-2 exports globaux (PDF mission, CSV mission).
+PRBS des valeurs intermédiaires). Form groupé en 4 `ttk.LabelFrame`
+(Arbre / Tronc / Sondage / Notes) pour clarifier les unités (m vs cm).
+`DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
+individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
+pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
+mission, CSV mission). La checkbox « Afficher sondages » a été déplacée
+hors de ce pane et vit désormais sous le canvas (`App._build_right`).
 
 ## `app_exports.py` — actions d'export Tk
 
 Adaptateur : vérifie prérequis, gère `filedialog`, entoure d'un try/except
 avec logging. Thin wrappers depuis `App.action_export_*`.
+
 - `export_pdf_mission` : PDF multi-pages (Pillow `save_all`) regroupant
   toutes les fiches arbres d'une mission.
+
+## `app_menu.py` — barre de menu Tk
+
+`build_menu(app)` attache la barre de menu et bind les raccourcis
+globaux. Trois cascades :
+
+- **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
+  (sous-menu populé par `refresh_recent_menu(app)` depuis
+  `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous,
+  exports PDF/CSV mission, Quitter.
+- **Arbres** : Ajouter (Ctrl+T), Dupliquer, Renommer, Supprimer.
+- **Aide** : Raccourcis clavier, Ouvrir le fichier de log, À propos.
+
+`refresh_recent_menu(app)` est exposée pour être réappelée par l'App
+après chaque ouverture/enregistrement ; elle vide et reconstruit le
+sous-menu Récents depuis `app.get_recent_files()`. Le menu est exposé
+sur l'App via `setattr(app, "_recent_menu", recent_menu)`.
+
+## `app_style.py` — thème ttk
+
+`apply_ttk_styles(root)` configure les styles ttk de l'app. Inclut le
+**workaround bpo-36468** (`_fixed_map`) qui retire les entrées
+`("!disabled", "!selected", …)` du `style.map` de `Treeview` et
+`Side.Treeview` pour que `tag_configure(foreground=…)` reprenne enfin
+la main. Sans ce patch, les tags d'état de la liste d'arbres seraient
+silencieusement ignorés. Le style `Side.Treeview` ne force PAS
+`foreground=white` sur la sélection — ainsi la couleur d'état reste
+visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 
 ## `pil_render.py` — rendu PNG de la section
 
@@ -106,6 +138,19 @@ avec logging. Thin wrappers depuis `App.action_export_*`.
 superposition). Pendant Tk de `pil_render` — géométrie partagée, visuels
 spécifiques (polices, outline+width, smooth, flèches).
 
+**Canvas interactif** : accepte un `host: _CanvasHost` optionnel. Quand
+fourni, chaque pastille de sondage, arc de dégradation externe et zone
+de contrefort est dessiné avec des tags `<type>_item` + `<type>_idx_<i>`.
+`tag_bind("<Button-1>")` retrouve l'index via `_picked_index()` et appelle
+`host.open_edit_*(obj)` — qui ouvre le dialogue d'édition, push undo et
+rafraîchit la table correspondante. Pour les contreforts, les zones
+fusionnées (cf. `geometry.contrefort_zones`) sont taggées avec l'index
+du premier CF de la zone (cas mono-CF = 99 % des usages ; pour les
+multi-CF, l'édition des autres reste accessible via l'onglet Contreforts).
+Le clic est différé via `after_idle` pour laisser la boucle Tk finaliser
+le clic avant la création du Toplevel modal (sinon race avec le focus du
+Canvas). Curseur `hand2` au survol des items cliquables.
+
 ## `export.py` — exports tableau PRBS (XLSX/HTML)
 
 - `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures.
@@ -127,6 +172,13 @@ Helpers publics réutilisés par `pane_identification` :
 
 Tous les champs numériques des 3 dialogues filtrent la frappe via ces
 helpers (Entry créée par le helper privé `_numeric_entry`).
+
+Helper privé `_make_modal(dlg, parent)` : séquence canonique
+`update_idletasks → transient → wait_visibility → grab_set → focus_set`
+appelée APRÈS la création des widgets. Sans cet ordre, les dialogues
+ouverts depuis un événement de clic (ex. canvas interactif) apparaissent
+**vides** sur Linux/X11 — le grab pris avant que le WM ait mappé la
+fenêtre empêche le rendu des enfants.
 
 Validations à la confirmation :
 
@@ -151,11 +203,36 @@ Ctrl+Shift+Z (redo).
 
 ## `penetrometre.py` — application Tk + main
 
-`App(tk.Tk)` — fenêtre principale, 44 méthodes. Layout 3 colonnes,
-instanciation des panes, callbacks communs. Porte :
+`App(tk.Tk)` — fenêtre principale, layout 3 colonnes, instanciation des
+panes, callbacks communs. Porte :
+
 - **Dirty flag** (`_dirty`) : tracké sur toute mutation, reset au
   save/open/new. Titre dynamique avec `•` si modifié.
 - **WM_DELETE_WINDOW** : confirme la fermeture si dirty.
 - **Undo/redo** : `push_undo()` + `_perform_undo/redo()` via
   `UndoStack` + `chantier_to_dict`/`chantier_from_dict`.
 - **Meta mission** : push undo sur FocusOut (pas à chaque frappe).
+- **Géométrie de fenêtre adaptative** : `minsize(1100, 680)` + clamp
+  à 95 % de l'écran via `winfo_screenwidth/height` au démarrage.
+- **Liste d'arbres** : colonne État cliquable (Nom, Essence, État).
+  Indicateurs : `_arbre_etat(a) -> (glyphe, tag)` — `etat_vide` (rouge,
+  rayon=0 OU 0 sondage), `etat_partiel` (orange, 1-2 sondages),
+  `etat_ok` (vert, ≥3 sondages). Refresh granulaire via
+  `_refresh_current_arbre_etat()` appelé dans `_redraw_all`. Footer
+  `lbl_etat_footer` = compteur d'arbres `etat_ok`.
+- **Menu contextuel clic droit** : `_tree_arbres_ctx_menu` avec
+  Renommer/Dupliquer/Supprimer. `tk_popup` SANS `grab_release()` +
+  `<FocusOut>` pour fermeture au clic externe.
+- **Fichiers récents** : `_load_recent_files()` / `_save_recent_files()`
+  / `_push_recent_file(path)` / `_remove_recent_file(path)` + action
+  `action_open_recent(path)`. Persistance dans
+  `~/.penetrometre/recent.json` (8 max). Sous-menu rebuilt via
+  `app_menu.refresh_recent_menu()`.
+- **Callbacks canvas interactif** : `open_edit_sondage(s)`,
+  `open_edit_degradation(d)`, `open_edit_contrefort(c)` — appelés par
+  `SectionCanvas` au clic sur un item, ouvrent le dialogue puis push
+  undo, refresh table et redraw.
+- **Aide** : `action_about`, `action_shortcuts` (popup raccourcis),
+  `action_open_log` (ouvre `~/.penetrometre/penetrometre.log` avec
+  l'éditeur par défaut, cross-platform via `os.startfile`/`open`/
+  `xdg-open`).
