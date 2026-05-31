@@ -22,13 +22,13 @@ import tkinter as tk
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, ttk
 from typing import Iterator, Optional
 
 import app_exports
 from app_menu import build_menu, refresh_recent_menu
 from app_style import apply_ttk_styles
-from dialogs import edit_contrefort, edit_degradation, edit_sondage
+from dialogs import ask_string, edit_contrefort, edit_degradation, edit_sondage
 from model import Arbre, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_BG
 from pane_contreforts import ContrefortsPane
@@ -38,6 +38,7 @@ from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 from persistence import chantier_from_dict, chantier_to_dict, load_chantier, save_chantier
 from section_canvas import SectionCanvas
+from tooltip import Tooltip
 from undo import UndoStack
 
 __version__ = "3.3.0"
@@ -87,6 +88,9 @@ class App(tk.Tk):
         self._redraw_id: Optional[str] = None
         self._undo_stack = UndoStack()
         self._recent_files: list[str] = self._load_recent_files()
+        # Dernier fichier exporté — cible des boutons « Ouvrir le
+        # fichier / le dossier » de la barre d'état (cf. notify_export).
+        self._last_export_path: Optional[Path] = None
         self.pane_s: Optional[SondagesPane] = None
         self.pane_de: Optional[DegradationsPane] = None
         self.pane_cf: Optional[ContrefortsPane] = None
@@ -102,7 +106,18 @@ class App(tk.Tk):
         self.bind_all("<Control-z>", lambda e: self._perform_undo())
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
+        self.bind_all("<Control-e>", self._on_export_shortcut)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
+        """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
+        champ texte a le focus : dans les `Entry`/`Combobox` Tk, Ctrl+E
+        signifie « aller en fin de ligne » — on laisse le widget gérer
+        plutôt que d'ouvrir un dialogue d'export en pleine saisie."""
+        w = self.focus_get()
+        if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
+            return
+        self.action_export_pdf_arbre()
 
     def _build_layout(self) -> None:
         header = ttk.Frame(self)
@@ -174,6 +189,10 @@ class App(tk.Tk):
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
             e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
             e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
+
+        # Barre d'état AVANT le body : packée en bas, le body (expand)
+        # remplit l'espace restant au-dessus.
+        self._build_statusbar()
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=18, pady=(0, 14))
@@ -252,8 +271,10 @@ class App(tk.Tk):
 
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(fill="x", pady=(10, 0))
-        ttk.Button(btns, text="＋ Ajouter", style="Accent.TButton",
-                   command=self.action_add_arbre).pack(side="left")
+        btn_add = ttk.Button(btns, text="＋ Ajouter", style="Accent.TButton",
+                             command=self.action_add_arbre)
+        btn_add.pack(side="left")
+        Tooltip(btn_add, "Ajouter un arbre à la mission (Ctrl+T)")
         ttk.Button(btns, text="Dupliquer", style="Ghost.TButton",
                    command=self.action_dup_arbre
                    ).pack(side="left", padx=(6, 0))
@@ -314,6 +335,74 @@ class App(tk.Tk):
                 self.var_show_sondages.get()),
             style="TCheckbutton",
         ).pack(anchor="w", pady=(6, 0))
+        # Indice de découvrabilité : le canevas est interactif (clic sur
+        # un élément = édition, clic sur une direction vide = ajout).
+        # Rien ne le signalait a priori — d'où ce rappel discret.
+        ttk.Label(
+            frame,
+            text="ⓘ Cliquez un élément du dessin pour le modifier, "
+                 "ou une direction libre pour ajouter un sondage.",
+            style="Muted.TLabel", wraplength=440, justify="left",
+        ).pack(anchor="w", pady=(2, 0))
+
+    def _build_statusbar(self) -> None:
+        """Barre d'état en bas de fenêtre : message + boutons d'ouverture
+        du dernier export. Remplace les `messagebox` de succès d'export
+        (un « OK » à cliquer à chaque fois) par un retour non-modal."""
+        bar = ttk.Frame(self, style="Side.TFrame")
+        bar.pack(side="bottom", fill="x")
+        self.lbl_status = ttk.Label(bar, text="Prêt.", style="Side.TLabel",
+                                    font=("Helvetica", 9))
+        self.lbl_status.pack(side="left", padx=12, pady=3)
+        self._btn_open_folder = ttk.Button(
+            bar, text="Ouvrir le dossier", style="Ghost.TButton",
+            command=self._open_last_export_folder, state="disabled")
+        self._btn_open_folder.pack(side="right", padx=(0, 10), pady=2)
+        self._btn_open_file = ttk.Button(
+            bar, text="Ouvrir le fichier", style="Ghost.TButton",
+            command=self._open_last_export_file, state="disabled")
+        self._btn_open_file.pack(side="right", padx=(0, 4), pady=2)
+
+    def set_status(self, text: str) -> None:
+        """Met à jour le message de la barre d'état (no-op si la barre
+        n'est pas encore construite — cas tests sans UI complète)."""
+        if hasattr(self, "lbl_status"):
+            self.lbl_status.configure(text=text)
+
+    def notify_export(self, path: str, label: str) -> None:
+        """Feedback non-modal après un export réussi (appelé par
+        `app_exports`). Met à jour la barre d'état et active les boutons
+        d'ouverture du fichier / dossier."""
+        p = Path(path)
+        self._last_export_path = p
+        self.set_status(f"✓ {label} — {p.name}")
+        self._btn_open_file.configure(state="normal")
+        self._btn_open_folder.configure(state="normal")
+
+    def _open_last_export_file(self) -> None:
+        if self._last_export_path:
+            self._open_in_system(self._last_export_path)
+
+    def _open_last_export_folder(self) -> None:
+        if self._last_export_path:
+            self._open_in_system(self._last_export_path.parent)
+
+    def _open_in_system(self, path: Path) -> None:
+        """Ouvre un fichier ou dossier avec l'application système par
+        défaut (Explorateur, Finder, gestionnaire de fichiers Linux)."""
+        import subprocess
+        import sys
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(path)], check=False)
+            else:
+                subprocess.run(["xdg-open", str(path)], check=False)
+        except Exception as e:
+            log.exception("Échec ouverture %s", path)
+            messagebox.showerror(
+                "Erreur", f"Impossible d'ouvrir :\n{path}\n\n{e}")
 
     # --- Dirty flag + fermeture ----------------------------------------
 
@@ -520,16 +609,16 @@ class App(tk.Tk):
         qui s'affichent souvent en monochrome dans ttk.Treeview selon
         la police système : trois pastilles devenaient indistinguables.
 
-        Seuil de complétude UX (plus strict que la règle métier
-        « < 2 sondages → exports masqués ») : on veut signaler vert
-        seulement quand l'arbre est solidement instrumenté (3 mesures
-        ou plus), pour pousser l'opérateur à ne pas s'arrêter au
-        minimum réglementaire.
+        Seuil de complétude aligné sur la règle métier : un diagnostic
+        global n'est publié (t/R moyen + classe) qu'à partir de 3
+        directions sondées (cf. `diagnostic.DiagnosticSnapshot`). La
+        pastille verte signale donc exactement les arbres dont le
+        diagnostic est fiable et exportable.
 
         Règles :
           - `etat_vide`    : pas de rayon OU pas de sondage
-          - `etat_partiel` : 1 ou 2 sondages (instrumentation minimale)
-          - `etat_ok`      : 3 sondages ou plus (instrumentation solide)
+          - `etat_partiel` : 1 ou 2 sondages (diagnostic non fiable)
+          - `etat_ok`      : 3 sondages ou plus (diagnostic fiable)
         """
         if a.rayon_tronc_cm <= 0 or not a.sondages:
             return "●", "etat_vide"
@@ -627,11 +716,12 @@ class App(tk.Tk):
         # au moins un chiffre, lettres autorisées (« 12 bis », « 3 ter »).
         proposed = a.numero_arbre
         while True:
-            new = simpledialog.askstring(
-                "Renuméroter l'arbre",
-                "Nouveau n° d'arbre (doit contenir au moins un chiffre,\n"
-                "ex. « 1 », « 42 », « 12 bis ») :",
-                initialvalue=proposed, parent=self)
+            new = ask_string(
+                self, "Renuméroter l'arbre",
+                "Nouveau n° d'arbre :",
+                initial=proposed,
+                info="Doit contenir au moins un chiffre "
+                     "(ex. « 1 », « 42 », « 12 bis »).")
             if new is None:
                 return
             new = new.strip()
@@ -699,6 +789,22 @@ class App(tk.Tk):
     # un arc de dégradation ou un contrefort. Chacun ouvre le dialogue
     # idoine et, si l'utilisateur valide, pousse l'undo + rafraîchit la
     # table correspondante + redessine.
+
+    def open_add_sondage(self, grade: int) -> None:
+        """Ajoute un sondage à un grade donné (clic sur une direction
+        vide du dessin). Pré-rempli avec bois sain = rayon (cavité
+        nulle), comme le bouton « Ajouter sondage » de l'onglet."""
+        a = self._current_arbre()
+        if not a:
+            return
+        s = Sondage(numero=len(a.sondages) + 1, grade=grade,
+                    bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
+        if edit_sondage(self, a, s):
+            self.push_undo()
+            a.sondages.append(s)
+            a.renumeroter_sondages()
+            self._refresh_sondages_table()
+            self._debounced_redraw()
 
     def open_edit_sondage(self, s: Sondage) -> None:
         a = self._current_arbre()
@@ -859,6 +965,7 @@ class App(tk.Tk):
             self._dirty = False
             self._update_title()
             self._push_recent_file(str(self.current_file))
+            self.set_status(f"✓ Enregistré — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")
             messagebox.showerror("Erreur", str(e))
@@ -913,6 +1020,7 @@ class App(tk.Tk):
             "  Ctrl+N   Nouvelle mission\n"
             "  Ctrl+O   Ouvrir une mission\n"
             "  Ctrl+S   Enregistrer\n"
+            "  Ctrl+E   Exporter la fiche PDF de l'arbre courant\n"
             "\n"
             "Arbres\n"
             "  Ctrl+T   Ajouter un arbre\n"
@@ -928,27 +1036,13 @@ class App(tk.Tk):
         """Ouvre le fichier de log de l'application avec l'éditeur par
         défaut du système. Utile quand un utilisateur cherche à
         comprendre une erreur ou à transmettre le log à un développeur."""
-        import subprocess
-        import sys
         log_path = Path.home() / ".penetrometre" / "penetrometre.log"
         if not log_path.exists():
             messagebox.showinfo(
                 "Fichier de log",
                 f"Aucun fichier de log trouvé à :\n{log_path}")
             return
-        try:
-            if sys.platform.startswith("win"):
-                os.startfile(str(log_path))  # type: ignore[attr-defined]
-            elif sys.platform == "darwin":
-                subprocess.run(["open", str(log_path)], check=False)
-            else:
-                subprocess.run(["xdg-open", str(log_path)], check=False)
-        except Exception as e:
-            log.exception("Échec ouverture log")
-            messagebox.showerror(
-                "Erreur",
-                f"Impossible d'ouvrir le fichier de log :\n{e}\n\n"
-                f"Chemin : {log_path}")
+        self._open_in_system(log_path)
 
 
 def _setup_logging() -> Path:

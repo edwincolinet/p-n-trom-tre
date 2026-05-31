@@ -43,7 +43,10 @@ Toutes les fonctions sont **pures** (pas de mutation, pas de cache sur l'arbre).
 - `repartition_classes(arbre)` → `DiagnosticSnapshot` (self-contained :
   répartition, ratios, direction critique, t/R moyen, classe globale,
   `diagnostic_fiable`, `extrapolation_text`).
-  - `snap.diagnostic_global` → `Optional[Tuple[float, str]]` — point d'entrée unique.
+  - `snap.diagnostic_global` → `Optional[Tuple[float, str]]` — point
+    d'entrée unique ; renvoie `None` (t/R moyen + classe masqués) tant
+    que `diagnostic_fiable` est faux, c.-à-d. **< 3 directions sondées**
+    (seuil métier, découplé du minimum d'extrapolation de la cavité = 2).
   - `snap.par_classe(cls)` — accès indexé par label.
 - `extrapolation_summary(arbre)` / `extrapolation_summary_text(arbre)`.
 - `diagnostic_summary_lines(arbre)` — résumé textuel (onglet Diag + fiche PDF).
@@ -151,6 +154,14 @@ Le clic est différé via `after_idle` pour laisser la boucle Tk finaliser
 le clic avant la création du Toplevel modal (sinon race avec le focus du
 Canvas). Curseur `hand2` au survol des items cliquables.
 
+**Ajout par clic sur le fond** : un binding `<Button-1>` au niveau widget
+(`_on_click_background`) convertit le pixel cliqué en grade (inverse de
+`geometry.polar_to_xy`, via la géométrie du dernier rendu mémorisée dans
+`self._geom`). Sur une direction libre → `host.open_add_sondage(grade)` ;
+sur une direction déjà sondée → édition. Garde par tags : si le clic
+porte sur un item interactif, le handler dédié s'en charge et le fond
+est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
+
 ## `export.py` — exports tableau PRBS (XLSX/HTML)
 
 - `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures.
@@ -163,7 +174,16 @@ Canvas). Curseur `hand2` au survol des items cliquables.
 ## `dialogs.py` — boîtes de dialogue Tk
 
 `edit_sondage`, `edit_degradation`, `edit_contrefort` : reçoivent
-`(parent, arbre, obj)`, mutent en place, renvoient `True/False`.
+`(parent, arbre, obj)`, mutent en place, renvoient `True/False`. Chacun
+bind `<Return>`→Valider, `<Escape>`→Annuler, et pose le focus initial
+sur son 1er champ utile (la combobox Direction/Orientation).
+
+`ask_string(parent, title, prompt, initial, info=…)` : dialogue de
+saisie texte thémé (look ttk Silvavenir) qui remplace
+`simpledialog.askstring`. Renvoie `None` si annulé, la chaîne (sans
+`strip`) si validé — `""` validé ≠ `None`. Utilisé par
+`App.action_rename_arbre`.
+
 Helpers publics réutilisés par `pane_identification` :
 
 - `validate_numeric(proposed) -> bool` — validateur Tk (`validate="key"`)
@@ -186,6 +206,16 @@ Validations à la confirmation :
 - Dégradation : interdit les arcs qui se chevauchent (arcs mitoyens
   bout-à-bout autorisés — détection via `couvre_grade` sur les 16 grades).
 - Contrefort : interdit deux contreforts sur le même grade central.
+
+## `tooltip.py` — infobulle Tk légère
+
+`Tooltip(widget, text, delay_ms=500)` : attache une infobulle de survol
+à n'importe quel widget (petit `Toplevel` sans bordure via
+`overrideredirect`, affiché après un court délai, masqué à la sortie ou
+au clic). Bindings posés avec `add="+"` pour ne pas écraser ceux du
+widget (ex. curseur `hand2`). Importe uniquement `palette`. Utilisé
+pour rappeler les accélérateurs (bouton « ＋ Ajouter » → Ctrl+T) et
+décrire les 5 boutons d'export du pane Diagnostic.
 
 ## `undo.py` — pile undo/redo
 
@@ -217,9 +247,10 @@ panes, callbacks communs. Porte :
 - **Liste d'arbres** : colonne État cliquable (Nom, Essence, État).
   Indicateurs : `_arbre_etat(a) -> (glyphe, tag)` — `etat_vide` (rouge,
   rayon=0 OU 0 sondage), `etat_partiel` (orange, 1-2 sondages),
-  `etat_ok` (vert, ≥3 sondages). Refresh granulaire via
-  `_refresh_current_arbre_etat()` appelé dans `_redraw_all`. Footer
-  `lbl_etat_footer` = compteur d'arbres `etat_ok`.
+  `etat_ok` (vert, ≥3 sondages). Le seuil vert ≥3 est **aligné** sur la
+  règle de fiabilité du diagnostic global (`DiagnosticSnapshot`). Refresh
+  granulaire via `_refresh_current_arbre_etat()` appelé dans
+  `_redraw_all`. Footer `lbl_etat_footer` = compteur d'arbres `etat_ok`.
 - **Menu contextuel clic droit** : `_tree_arbres_ctx_menu` avec
   Renommer/Dupliquer/Supprimer. `tk_popup` SANS `grab_release()` +
   `<FocusOut>` pour fermeture au clic externe.
@@ -231,7 +262,16 @@ panes, callbacks communs. Porte :
 - **Callbacks canvas interactif** : `open_edit_sondage(s)`,
   `open_edit_degradation(d)`, `open_edit_contrefort(c)` — appelés par
   `SectionCanvas` au clic sur un item, ouvrent le dialogue puis push
-  undo, refresh table et redraw.
+  undo, refresh table et redraw. `open_add_sondage(grade)` — appelé au
+  clic sur une direction libre du dessin (cf. `section_canvas`).
+- **Barre d'état** : `_build_statusbar()` (bas de fenêtre).
+  `notify_export(path, label)` affiche le succès d'un export (non-modal,
+  appelé par `app_exports._notify_export`) et active les boutons
+  « Ouvrir le fichier / le dossier » → `_open_in_system(path)`
+  (cross-platform). `set_status(text)` met à jour le message.
+- **Raccourci export** : `Ctrl+E` → `action_export_pdf_arbre`, bind dans
+  `__init__` via `_on_export_shortcut` qui ne déclenche pas si un
+  `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans Tk).
 - **Aide** : `action_about`, `action_shortcuts` (popup raccourcis),
   `action_open_log` (ouvre `~/.penetrometre/penetrometre.log` avec
   l'éditeur par défaut, cross-platform via `os.startfile`/`open`/

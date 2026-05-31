@@ -454,13 +454,25 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertEqual(total_grades, 400)
         self.assertAlmostEqual(total_pct, 100.0)
 
-    def test_diagnostic_fiable_avec_deux_sondages(self):
-        # Dès n_sondees >= 2 → diagnostic_fiable = True.
+    def test_diagnostic_non_fiable_avec_deux_sondages(self):
+        # Seuil métier porté à 3 : 2 sondages ne suffisent plus à publier
+        # un diagnostic global fiable (la cavité reste extrapolée, mais
+        # t/R moyen + classe globale sont masqués).
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
         snap = repartition_classes(a)
         self.assertEqual(snap.n_sondees, 2)
+        self.assertFalse(snap.diagnostic_fiable)
+
+    def test_diagnostic_fiable_avec_trois_sondages(self):
+        # Dès n_sondees >= 3 → diagnostic_fiable = True.
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(grade=100, bois_altere_cm=5.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
+        snap = repartition_classes(a)
+        self.assertEqual(snap.n_sondees, 3)
         self.assertTrue(snap.diagnostic_fiable)
 
     def test_diagnostic_non_fiable_avec_un_seul_sondage(self):
@@ -480,18 +492,20 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertFalse(snap.diagnostic_fiable)
 
     def test_diagnostic_global_none_si_non_fiable(self):
-        # Verrouille la règle : tant que <2 directions sondées,
+        # Verrouille la règle : tant que <3 directions sondées,
         # diagnostic_global doit renvoyer None pour que les exports
         # (PDF, XLSX, HTML, Tk) n'aient qu'un seul point d'entrée à
         # respecter au lieu de tester diagnostic_fiable à la main.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=18.0))
         snap = repartition_classes(a)
         self.assertIsNone(snap.diagnostic_global)
 
     def test_diagnostic_global_tuple_si_fiable(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=2.0))
+        a.sondages.append(Sondage(grade=100, bois_altere_cm=2.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=2.0))
         snap = repartition_classes(a)
         diag = snap.diagnostic_global
@@ -593,8 +607,12 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         self.assertNotIn("Répartition", joined)
 
     def test_avec_alteration_inclut_classe_globale_et_repartition(self):
+        # 3 sondages : seuil de fiabilité atteint → la répartition et la
+        # classe globale sont publiées dans le résumé.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_sain_cm=2.0,
+                                    bois_altere_cm=18.0))
+        a.sondages.append(Sondage(grade=100, bois_sain_cm=2.0,
                                     bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_sain_cm=2.0,
                                     bois_altere_cm=18.0))

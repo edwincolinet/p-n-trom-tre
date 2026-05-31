@@ -61,7 +61,9 @@ class PrbsTableRowsParSondageTests(unittest.TestCase):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(numero=1, grade=100,
                                     bois_sain_cm=15.0, bois_altere_cm=5.0))
-        # 2e sondage requis pour rendre le diagnostic « fiable ».
+        # 2e sondage présent pour le réalisme ; la table par-sondage est
+        # calculée ligne par ligne, indépendamment du seuil de fiabilité
+        # du diagnostic global.
         a.sondages.append(Sondage(numero=2, grade=300,
                                     bois_sain_cm=14.0, bois_altere_cm=6.0))
         a.degradations_externes.append(

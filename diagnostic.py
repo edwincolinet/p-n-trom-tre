@@ -71,12 +71,19 @@ class DiagnosticSnapshot:
     - l'état de l'extrapolation (`n_sondees`, `diagnostic_fiable`,
       `extrapolation_text`).
 
-    `diagnostic_fiable` est True dès qu'au moins 2 directions sont
-    sondées — seuil minimal pour que l'extrapolation linéaire ait un
-    sens. En-dessous, `classe_globale` et `tR_moyen` sont calculés sur
-    des valeurs majoritairement nulles et donnent un résultat
-    faussement Vert : les consommateurs (UI, fiche PDF, XLSX, HTML)
-    doivent masquer ces deux champs et signaler l'indisponibilité.
+    `diagnostic_fiable` est True à partir de **3 directions sondées**
+    (seuil métier Silvavenir, aligné sur la pastille d'état verte de la
+    liste d'arbres et le footer « X/N arbres fiables »). En-dessous,
+    `classe_globale` et `tR_moyen` reposent sur trop peu de mesures
+    (les directions non sondées sont extrapolées ou supposées saines) et
+    donneraient un résultat faussement rassurant : les consommateurs
+    (UI, fiche PDF, XLSX, HTML) doivent masquer ces deux champs et
+    signaler l'indisponibilité.
+
+    NB : l'extrapolation géométrique de la cavité
+    (`compute_alteration_par_grade`) reste active dès 2 sondages — c'est
+    son minimum mathématique. La fiabilité du *diagnostic global publié*
+    est un critère plus strict (3), volontairement découplé.
     """
     vert: ClasseRepartition
     orange: ClasseRepartition
@@ -107,7 +114,7 @@ class DiagnosticSnapshot:
     def diagnostic_global(self) -> Optional[Tuple[float, str]]:
         """`(tR_moyen, classe_globale)` si publiable, `None` sinon.
 
-        Encapsule la règle « pas de diagnostic global si <2 sondages » :
+        Encapsule la règle « pas de diagnostic global si <3 sondages » :
         chaque consommateur (fiche PDF, XLSX, HTML, diagnostic Tk) doit
         appeler cette propriété plutôt que de lire `tR_moyen` /
         `classe_globale` puis tester `diagnostic_fiable` à la main —
@@ -361,11 +368,11 @@ def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
     else:
         classe_pire = "Vert"
 
-    # Fiabilité : il faut au moins 2 directions sondées pour que
-    # l'extrapolation linéaire (`compute_alteration_par_grade`) produise
-    # des valeurs significatives ailleurs que sur le grade sondé. À n=1,
-    # les 15 autres directions sont supposées saines, ce qui tire
-    # artificiellement le t/R moyen vers Vert.
+    # Fiabilité : seuil métier Silvavenir fixé à 3 directions sondées
+    # minimum (aligné sur la pastille verte et le footer de la liste
+    # d'arbres). En-dessous, trop peu de mesures réelles sur le pourtour :
+    # les directions non sondées sont extrapolées (≥2) ou supposées
+    # saines (≤1), ce qui tire artificiellement le t/R moyen vers Vert.
     n_sondees = extrapolation_summary(arbre)["n_sondees"]
 
     return DiagnosticSnapshot(
@@ -380,7 +387,7 @@ def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
         classe_globale=classe_globale,
         classe_pire=classe_pire,
         n_sondees=n_sondees,
-        diagnostic_fiable=n_sondees >= 2,
+        diagnostic_fiable=n_sondees >= 3,
         extrapolation_text=extrapolation_summary_text(arbre),
     )
 
@@ -436,18 +443,18 @@ def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
         f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
     lignes.append("")
 
-    # Avec un seul sondage, l'extrapolation linéaire est désactivée (cf.
-    # compute_alteration_par_grade) : 15 des 16 directions sont alors
-    # supposées saines, ce qui ferait afficher faussement Vert pour t/R
-    # moyen et classe globale. La propriété `diagnostic_global`
-    # retourne `None` dans ce cas — un seul point d'entrée à respecter
-    # (par tous les exports) au lieu de tester `diagnostic_fiable` à la
-    # main.
+    # En-dessous de 3 sondages, le diagnostic global n'est pas publié :
+    # trop peu de mesures réelles sur le pourtour (les directions non
+    # sondées sont extrapolées ou supposées saines), ce qui ferait
+    # afficher un t/R moyen et une classe globale faussement rassurants.
+    # La propriété `diagnostic_global` retourne `None` dans ce cas — un
+    # seul point d'entrée à respecter (par tous les exports) au lieu de
+    # tester `diagnostic_fiable` à la main.
     diag = snap.diagnostic_global
     if diag is None:
         lignes.append(
             "⚠ Diagnostic global indisponible : il faut au moins "
-            "2 directions sondées pour extrapoler le pourtour.")
+            "3 directions sondées pour un diagnostic fiable.")
         return lignes
     tR_moyen, classe_globale = diag
 

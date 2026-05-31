@@ -33,7 +33,8 @@ fiche_pdf.py           ← layout fiche expertise PDF (page A4)
 palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
-tests/                 ← 174 tests (intégration, golden PIL + Tk, undo, persistence)
+tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
+tests/                 ← 176 tests (intégration, golden PIL + Tk, undo, persistence)
 ```
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
@@ -41,7 +42,7 @@ tests/                 ← 174 tests (intégration, golden PIL + Tk, undo, persi
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py
+model.py + palette.py + tooltip.py
    ↑
 diagnostic.py
    ↑
@@ -61,7 +62,7 @@ penetrometre.py  (Tk + main) ← undo.py
 - **PRBS** = Paroi Résiduelle de Bois Sain (mesure physique invariante).
   Quand le rayon change, la PRBS reste, `bois_altéré` s'ajuste.
 - **t/R** = PRBS / Rayon (0–1). **Classe globale** = barème sur t/R **moyen** 16 dir.
-- **Diagnostic non fiable si < 2 sondages** → exports masquent t/R moyen + classe.
+- **Diagnostic non fiable si < 3 sondages** → exports masquent t/R moyen + classe.
 - **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain − profondeur_deg`.
 - **Pastille sondage = PRBS ajustée** (jamais brute).
 - **Contreforts** = cloche cosinus², fusion si adjacents (`contrefort_zones`).
@@ -82,11 +83,16 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Champs numériques UI** : filtrage à la frappe via `dialogs.validate_numeric` (validateur Tk `validate="key"`) — seuls chiffres + un séparateur décimal `.`/`,` acceptés. Parsing via `dialogs.to_float` (accepte `2,5` et `2.5`). Branché sur les 3 dialogues (Sondage/Dégradation/Contrefort) + les 6 champs numériques de `pane_identification`. `_parse_float("")` renvoie `None` (pas `0.0`). `set_rayon` n'est appelé qu'au focus-out (jamais pendant la frappe) pour éviter la destruction irréversible des PRBS par valeurs intermédiaires.
 - **N° d'arbre** : doit contenir au moins un chiffre (« 1 », « 42 », « 12 bis » OK ; « bis » seul refusé). Règle appliquée dans `pane_identification._revert_num_if_invalid` (revert au focus-out) et `App.action_rename_arbre` (boucle de retry pré-remplie).
 - **Compartimentation** : valeurs `"active"`, `"absente"`, `"non renseignée"` (anciennement `"-"`, migré silencieusement au load via `persistence.chantier_from_dict`).
-- **Indicateurs d'état de la liste d'arbres** : `App._arbre_etat(arbre)` renvoie `(glyphe, tag)`. Tags : `etat_vide` (0 sondage OU rayon=0, **rouge**), `etat_partiel` (1-2 sondages, **orange ambre**), `etat_ok` (≥3 sondages, **vert**). Le seuil **vert ≥ 3** est volontairement plus strict que la règle métier « < 2 sondages → exports masqués » pour pousser l'opérateur à ne pas s'arrêter au minimum. Refresh ligne par ligne via `_refresh_current_arbre_etat()` appelé dans `_redraw_all` (donc après toute mutation via debounce). Footer `lbl_etat_footer` = compteur d'arbres `etat_ok`.
+- **Indicateurs d'état de la liste d'arbres** : `App._arbre_etat(arbre)` renvoie `(glyphe, tag)`. Tags : `etat_vide` (0 sondage OU rayon=0, **rouge**), `etat_partiel` (1-2 sondages, **orange ambre**), `etat_ok` (≥3 sondages, **vert**). Le seuil **vert ≥ 3** est **aligné** sur la règle métier de fiabilité (« < 3 sondages → exports masqués ») : la pastille verte signale exactement les arbres au diagnostic global publiable. NB : l'extrapolation géométrique de la cavité (`compute_alteration_par_grade`) reste active dès 2 sondages — c'est son minimum mathématique, découplé du seuil de fiabilité. Refresh ligne par ligne via `_refresh_current_arbre_etat()` appelé dans `_redraw_all` (donc après toute mutation via debounce). Footer `lbl_etat_footer` = compteur d'arbres `etat_ok`.
 - **Workaround bpo-36468 (ttk.Treeview)** : depuis Python 3.7, les `tag_configure(foreground=…)` sont ignorés à cause d'entrées par défaut dans `style.map`. `app_style._fixed_map` retire les entrées `("!disabled", "!selected", …)` pour que les tags prennent la main. Sans ça, les pastilles d'état resteraient blanches.
 - **Menu contextuel clic droit** sur la liste d'arbres : Renommer/Dupliquer/Supprimer. `tk_popup` SANS `grab_release()` (anti-pattern qui annule le grab) + `bind("<FocusOut>")` sur le menu pour fermeture au clic externe.
 - **Canvas interactif** : `section_canvas.SectionCanvas` accepte un `host` optionnel (l'App) ; `tag_bind("sondage_item"/"degradation_item"/"contrefort_item", "<Button-1>")` ouvre le dialogue d'édition correspondant. Curseur `hand2` au survol. Dispatch via tags `<type>_idx_<i>` pour retrouver l'objet métier.
-- **Dialogues modaux** : `dialogs._make_modal(dlg, parent)` séquence `update_idletasks → transient → wait_visibility → grab_set → focus_set`. Appeler `grab_set` avant que le WM ait mappé la fenêtre fait apparaître le dialogue **vide** sur Linux/X11 (race entre grab et rendu). Tous les dialogues passent par ce helper, qui est appelé APRÈS la création des widgets.
+- **Dialogues modaux** : `dialogs._make_modal(dlg, parent)` séquence `update_idletasks → transient → wait_visibility → grab_set → focus_set`. Appeler `grab_set` avant que le WM ait mappé la fenêtre fait apparaître le dialogue **vide** sur Linux/X11 (race entre grab et rendu). Tous les dialogues passent par ce helper, qui est appelé APRÈS la création des widgets. Chaque dialogue d'édition (Sondage/Dégradation/Contrefort) bind `<Return>`→Valider, `<Escape>`→Annuler, et pose le focus initial sur son 1er champ utile.
+- **Saisie texte thémée** : `dialogs.ask_string(parent, title, prompt, initial, info=…)` remplace `simpledialog.askstring` (look système incohérent). Renvoie `None` si annulé, la chaîne (sans `strip`) si validé — `""` validé ≠ `None`. Utilisé par `action_rename_arbre`.
+- **Barre d'état** : `App._build_statusbar()` (bas de fenêtre, packée `side="bottom"` AVANT le body). `App.notify_export(path, label)` y affiche le succès d'un export (non-modal) et active les boutons « Ouvrir le fichier / le dossier » (`App._open_in_system`). `app_exports._notify_export` route vers `notify_export` si l'hôte le fournit, sinon `messagebox` (contexte test).
+- **Infobulles** : `tooltip.Tooltip(widget, texte)` — bindings `add="+"` pour ne pas écraser ceux du widget. Sert à rappeler les accélérateurs (bouton « ＋ Ajouter » → Ctrl+T) et décrire les 5 boutons d'export.
+- **Canevas — ajout par clic** : un clic sur une direction libre du dessin ajoute un sondage à ce grade (`App.open_add_sondage`) ; un clic sur une direction déjà sondée l'édite. `SectionCanvas._on_click_background` convertit le pixel en grade (inverse de `geometry.polar_to_xy`), mémorise la géométrie du dernier rendu dans `self._geom`, et ignore les clics sur un élément interactif (garde par tags).
+- **Raccourci export** : `Ctrl+E` → `App.action_export_pdf_arbre`. Bind dans `App.__init__` (comme Ctrl+Z/Y) via `_on_export_shortcut`, qui **ne déclenche pas** si un `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans les widgets Tk).
 - **Fichiers récents** : `~/.penetrometre/recent.json` (8 entrées max). `App._push_recent_file(path)` appelé après chaque open/save. Sous-menu `Fichier → Ouvrir récent` reconstruit par `app_menu.refresh_recent_menu(app)`.
 - **Adaptation petits écrans** : `App.__init__` clampe la geometry à 95 % de l'écran et fixe `minsize(1100, 680)` pour rester utilisable sur laptops 1366×768.
 - **Checkbox « Afficher sondages »** vit **sous le canvas** (`App._build_right`), pas dans l'onglet Diagnostic — elle contrôle un état visuel toujours présent. Variable `App.var_show_sondages`.
@@ -101,7 +107,7 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
-  undo.py penetrometre.py
+  undo.py tooltip.py penetrometre.py
 ```
 
 Golden-tests :

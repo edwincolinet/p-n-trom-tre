@@ -132,6 +132,59 @@ def _make_modal(dlg: tk.Toplevel, parent: tk.Misc) -> None:
     dlg.focus_set()
 
 
+def ask_string(parent: tk.Misc, title: str, prompt: str,
+               initial: str = "", *, info: str = "") -> Optional[str]:
+    """Dialogue de saisie texte thémé (look ttk Silvavenir).
+
+    Remplace `tkinter.simpledialog.askstring`, dont l'apparence système
+    détonne avec le reste de l'app. Renvoie la chaîne saisie (sans
+    `strip`) si l'utilisateur valide, ou `None` s'il annule / ferme —
+    même contrat que `askstring`, donc une chaîne vide validée ("") se
+    distingue d'une annulation (`None`).
+
+    `info` : note grise optionnelle sous le champ (exemples, contraintes).
+    """
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.resizable(False, False)
+    dlg.columnconfigure(0, weight=1)
+    result: dict[str, Optional[str]] = {"val": None}
+    var = tk.StringVar(value=initial)
+
+    ttk.Label(dlg, text=prompt, background=COLOR_PANEL, justify="left",
+              wraplength=320).grid(row=0, column=0, sticky="w",
+                                   padx=12, pady=(12, 6))
+    entry = ttk.Entry(dlg, textvariable=var, width=34)
+    entry.grid(row=1, column=0, sticky="we", padx=12, pady=(0, 6))
+    entry.select_range(0, "end")
+    if info:
+        ttk.Label(dlg, text=info, background=COLOR_PANEL,
+                  foreground=COLOR_MUTED,
+                  font=("Helvetica", 9, "italic"),
+                  wraplength=320, justify="left"
+                  ).grid(row=2, column=0, sticky="w", padx=12, pady=(0, 6))
+
+    def ok() -> None:
+        result["val"] = var.get()
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg, style="Panel.TFrame")
+    btns.grid(row=3, column=0, sticky="e", padx=12, pady=(8, 12))
+    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+               command=dlg.destroy).pack(side="right", padx=6)
+    ttk.Button(btns, text="Valider", style="Accent.TButton",
+               command=ok).pack(side="right")
+
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    _make_modal(dlg, parent)
+    entry.focus_set()
+    dlg.wait_window()
+    return result["val"]
+
+
 # ---------------------------------------------------------------------
 # Dialog : Sondage
 # ---------------------------------------------------------------------
@@ -178,9 +231,10 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
 
     ttk.Label(dlg, text="Direction (grade)", background=COLOR_PANEL
               ).grid(row=1, column=0, sticky="w", padx=10, pady=6)
-    ttk.Combobox(dlg, textvariable=v_grade, values=grade_choices,
-                 state="readonly", width=26
-                 ).grid(row=1, column=1, sticky="we", padx=10, pady=6)
+    combo_grade = ttk.Combobox(dlg, textvariable=v_grade,
+                               values=grade_choices,
+                               state="readonly", width=26)
+    combo_grade.grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
     ttk.Label(dlg, text="Épaisseur bois sain (cm)",
               background=COLOR_PANEL
@@ -281,7 +335,13 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    # Validation au clavier : Entrée valide, Échap annule — évite
+    # d'attraper la souris à chaque sondage saisi.
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
     _make_modal(dlg, parent)
+    combo_grade.focus_set()  # focus sur le 1er champ utile
     dlg.wait_window()
     return result["ok"]
 
@@ -323,9 +383,10 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Label(dlg, text="Direction de début (grade)",
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Combobox(dlg, textvariable=v_debut, values=grade_choices,
-                 state="readonly", width=24
-                 ).grid(row=0, column=1, sticky="we", padx=10, pady=6)
+    combo_debut = ttk.Combobox(dlg, textvariable=v_debut,
+                               values=grade_choices,
+                               state="readonly", width=24)
+    combo_debut.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
     ttk.Label(dlg, text="Direction de fin (grade, sens horaire)",
               background=COLOR_PANEL).grid(row=1, column=0,
@@ -469,7 +530,12 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    # Entrée valide, Échap annule (cf. edit_sondage).
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
     _make_modal(dlg, parent)
+    combo_debut.focus_set()  # focus sur le 1er champ utile
     dlg.wait_window()
     return result["ok"]
 
@@ -508,9 +574,10 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Label(dlg, text="Orientation (grade central)",
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Combobox(dlg, textvariable=v_centre, values=grade_choices,
-                 state="readonly", width=24
-                 ).grid(row=0, column=1, sticky="we", padx=10, pady=6)
+    combo_centre = ttk.Combobox(dlg, textvariable=v_centre,
+                                values=grade_choices,
+                                state="readonly", width=24)
+    combo_centre.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
     ttk.Label(dlg, text="Largeur en grades (multiple de 25)",
               background=COLOR_PANEL).grid(row=1, column=0,
@@ -599,6 +666,11 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
     ttk.Button(btns, text="Valider", style="Accent.TButton",
                command=ok).pack(side="right")
 
+    # Entrée valide, Échap annule (cf. edit_sondage).
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
     _make_modal(dlg, parent)
+    combo_centre.focus_set()  # focus sur le 1er champ utile
     dlg.wait_window()
     return result["ok"]

@@ -32,6 +32,7 @@ from diagnostic import (
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre
 from palette import COLOR_PANEL
+from tooltip import Tooltip
 
 
 class _DiagnosticHost(Protocol):
@@ -99,22 +100,34 @@ class DiagnosticPane(ttk.Frame):
         # --- Boutons d'export EN HAUT (toujours accessibles) ---
         btn_exp = ttk.Frame(parent, style="Panel.TFrame")
         btn_exp.pack(fill="x", pady=(0, 12))
-        ttk.Button(btn_exp, text="📄 Fiche PDF (arbre courant)",
-                   style="Accent.TButton",
-                   command=self._host.action_export_pdf_arbre
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="🖼 PNG du dessin", style="Ghost.TButton",
-                   command=self._host.action_export_png
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="📊 Tableau XLSX", style="Ghost.TButton",
-                   command=self._host.action_export_prbs_xlsx
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="🌐 Tableau HTML", style="Ghost.TButton",
-                   command=self._host.action_export_prbs_html
-                   ).pack(side="left", padx=(0, 6))
-        ttk.Button(btn_exp, text="📋 CSV mission", style="Ghost.TButton",
-                   command=self._host.action_export_csv
-                   ).pack(side="left")
+        btn_pdf = ttk.Button(btn_exp, text="📄 Fiche PDF (arbre courant)",
+                             style="Accent.TButton",
+                             command=self._host.action_export_pdf_arbre)
+        btn_pdf.pack(side="left", padx=(0, 6))
+        Tooltip(btn_pdf, "Exporter la fiche PDF de l'arbre courant "
+                         "(dessin + tableau + diagnostic) — Ctrl+E")
+        btn_png = ttk.Button(btn_exp, text="🖼 PNG du dessin",
+                             style="Ghost.TButton",
+                             command=self._host.action_export_png)
+        btn_png.pack(side="left", padx=(0, 6))
+        Tooltip(btn_png, "Exporter le dessin de la section en image PNG")
+        btn_xlsx = ttk.Button(btn_exp, text="📊 Tableau XLSX",
+                              style="Ghost.TButton",
+                              command=self._host.action_export_prbs_xlsx)
+        btn_xlsx.pack(side="left", padx=(0, 6))
+        Tooltip(btn_xlsx, "Exporter le tableau PRBS de l'arbre au format "
+                          "Excel (nécessite openpyxl)")
+        btn_html = ttk.Button(btn_exp, text="🌐 Tableau HTML",
+                              style="Ghost.TButton",
+                              command=self._host.action_export_prbs_html)
+        btn_html.pack(side="left", padx=(0, 6))
+        Tooltip(btn_html, "Exporter le tableau PRBS de l'arbre en page HTML")
+        btn_csv = ttk.Button(btn_exp, text="📋 CSV mission",
+                             style="Ghost.TButton",
+                             command=self._host.action_export_csv)
+        btn_csv.pack(side="left")
+        Tooltip(btn_csv, "Exporter tous les sondages de la mission "
+                         "(tous les arbres) en CSV")
 
         # --- Bloc résumé haut ---
         ttk.Label(parent, text="Résumé de l'arbre courant",

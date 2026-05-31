@@ -157,10 +157,24 @@ class MutationIntegrationTests(unittest.TestCase):
         self.assertFalse(snap.diagnostic_fiable)
         self.assertIsNone(snap.diagnostic_global)
 
-    def test_diagnostic_fiable_avec_deux_sondages(self):
+    def test_diagnostic_non_fiable_avec_deux_sondages(self):
+        # Seuil métier : il faut désormais 3 directions sondées.
         arbre = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         arbre.sondages.append(Sondage(grade=0, bois_sain_cm=10.0,
                                        bois_altere_cm=10.0))
+        arbre.sondages.append(Sondage(grade=200, bois_sain_cm=15.0,
+                                       bois_altere_cm=5.0))
+
+        snap = repartition_classes(arbre)
+        self.assertFalse(snap.diagnostic_fiable)
+        self.assertIsNone(snap.diagnostic_global)
+
+    def test_diagnostic_fiable_avec_trois_sondages(self):
+        arbre = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        arbre.sondages.append(Sondage(grade=0, bois_sain_cm=10.0,
+                                       bois_altere_cm=10.0))
+        arbre.sondages.append(Sondage(grade=100, bois_sain_cm=12.0,
+                                       bois_altere_cm=8.0))
         arbre.sondages.append(Sondage(grade=200, bois_sain_cm=15.0,
                                        bois_altere_cm=5.0))
 

@@ -18,6 +18,7 @@ fichiers (Tk + PIL).
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from typing import Any, Optional, Protocol, Tuple
 
@@ -62,6 +63,7 @@ class _CanvasHost(Protocol):
     def open_edit_sondage(self, s: Sondage) -> None: ...
     def open_edit_degradation(self, d: DegradationExterne) -> None: ...
     def open_edit_contrefort(self, c: Contrefort) -> None: ...
+    def open_add_sondage(self, grade: int) -> None: ...
 
 
 class SectionCanvas(tk.Canvas):
@@ -98,6 +100,11 @@ class SectionCanvas(tk.Canvas):
         self.arbre: Optional[Arbre] = None
         self.show_sondages: bool = True
         self._host = host
+        # Géométrie du dernier rendu (cx, cy, scale, R, R_ext), mise à
+        # jour à chaque `redraw`. Sert au clic sur fond pour convertir
+        # un pixel cliqué en grade. `None` tant qu'aucune section
+        # valide n'est dessinée (placeholder).
+        self._geom: Optional[Tuple[float, float, float, float, float]] = None
         self.bind("<Configure>", lambda e: self.redraw())
         # Bindings sur tags : valent pour tous les items recréés à
         # chaque redraw qui portent le tag correspondant. Le curseur
@@ -115,6 +122,11 @@ class SectionCanvas(tk.Canvas):
                           self._on_click_degradation)
             self.tag_bind("contrefort_item", "<Button-1>",
                           self._on_click_contrefort)
+            # Clic sur le fond (hors élément interactif) : ajoute un
+            # sondage dans la direction la plus proche. Binding au
+            # niveau widget — il se déclenche aussi sur les items, d'où
+            # le garde par tags dans le handler (cf. `_on_click_background`).
+            self.bind("<Button-1>", self._on_click_background)
 
     # ------------------------------------------------------------------
     # Handlers d'interaction — actifs uniquement si un host a été fourni.
@@ -169,6 +181,51 @@ class SectionCanvas(tk.Canvas):
         c = self.arbre.contreforts[idx]
         host = self._host
         self.after_idle(lambda: host.open_edit_contrefort(c))
+
+    def _grade_at_event(self, event: "tk.Event[tk.Misc]") -> Optional[int]:
+        """Convertit le pixel cliqué en grade (multiple de 25, 0-375).
+
+        Renvoie `None` si aucune section n'est dessinée ou si le clic est
+        hors de la zone de la section (au-delà de l'anneau des lettres
+        cardinales) — on évite ainsi d'ajouter un sondage sur un clic
+        dans le titre ou la règle. Inverse de `geometry.polar_to_xy` :
+        `a = grade·360/400 − 90°`, sens horaire, grade 0 = Nord.
+        """
+        if self._geom is None:
+            return None
+        cx, cy, scale, _R, R_ext = self._geom
+        dx = event.x - cx
+        dy = event.y - cy
+        dist_px = math.hypot(dx, dy)
+        max_px = R_ext * scale + self.CARDINALES_OFFSET_PX
+        if dist_px > max_px:
+            return None
+        deg = math.degrees(math.atan2(dy, dx))
+        grade = round((deg + 90.0) * 400.0 / 360.0 / 25.0) * 25
+        return int(grade % 400)
+
+    def _on_click_background(self, event: "tk.Event[tk.Misc]") -> None:
+        """Clic sur le fond du dessin : ajoute un sondage dans la
+        direction la plus proche (ou édite celui qui existe déjà à ce
+        grade). Ignoré si le clic porte sur un élément interactif, dont
+        le handler dédié (`_on_click_sondage`/`_degradation`/`_contrefort`)
+        a déjà géré l'événement."""
+        if self._host is None or self.arbre is None:
+            return
+        for tag in self.gettags("current"):
+            if tag in ("sondage_item", "degradation_item",
+                       "contrefort_item"):
+                return
+        grade = self._grade_at_event(event)
+        if grade is None:
+            return
+        host = self._host
+        existing = next((s for s in self.arbre.sondages
+                         if s.grade == grade), None)
+        if existing is not None:
+            self.after_idle(lambda: host.open_edit_sondage(existing))
+        else:
+            self.after_idle(lambda: host.open_add_sondage(grade))
 
     def set_arbre(self, arbre: Optional[Arbre]) -> None:
         self.arbre = arbre
@@ -292,6 +349,7 @@ class SectionCanvas(tk.Canvas):
         global des couches » pour la convention métier.
         """
         self.delete("all")
+        self._geom = None
         if not self.arbre or self.arbre.rayon_tronc_cm <= 0:
             self._draw_placeholder()
             return
@@ -305,6 +363,7 @@ class SectionCanvas(tk.Canvas):
         expansion = ep + max((c.longueur_cm for c in A.contreforts),
                               default=0.0)
         cx, cy, scale = self._center_and_scale(R, expansion_cm=expansion)
+        self._geom = (cx, cy, scale, R, R_ext)
 
         self._draw_bois_sain(cx, cy, R, scale)
         self._draw_cernes(cx, cy, R, scale)

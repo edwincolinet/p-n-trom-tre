@@ -48,7 +48,7 @@ python -m unittest discover tests
 xvfb-run -a python -m unittest discover tests
 ```
 
-174 tests unitaires couvrent :
+176 tests unitaires couvrent :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au
@@ -126,8 +126,12 @@ Renommer/Dupliquer/Supprimer).
 Chaque arbre affiche un **indicateur d'état visuel** dans la liste :
 
 - ● rouge bordeaux : aucun sondage (ou rayon non renseigné)
-- ● orange ambre : 1 ou 2 sondages (instrumentation minimale)
-- ● vert foncé : 3 sondages ou plus (instrumentation solide)
+- ● orange ambre : 1 ou 2 sondages (diagnostic non fiable)
+- ● vert foncé : 3 sondages ou plus (diagnostic fiable)
+
+Le seuil vert (≥ 3 sondages) est **aligné** sur la règle de publication
+du diagnostic global : la pastille verte signale exactement les arbres
+dont le t/R moyen et la classe globale sont exportables.
 
 Toute la ligne est teintée selon l'état, et un footer sous la liste
 compte les arbres avec diagnostic fiable (« 3/12 arbres avec diagnostic
@@ -208,12 +212,16 @@ purement descriptif : n'impacte pas le diagnostic.
   robustesse du diagnostic. Les exports XLSX/HTML, calqués sur la
   fiche Excel d'origine, ne reprennent pas ce bloc — il reste
   consultable dans l'onglet Diagnostic et sur la fiche PDF.
-- **Diagnostic non publié si n_sondages < 2** : avec 0 ou 1 sondage,
-  l'extrapolation par voisins n'a pas de sens (toutes les directions
-  héritent de la même valeur). Le t/R moyen et la classe globale sont
-  alors **supprimés** de la fiche PDF, remplacés par un avertissement
-  explicite ; saisir au moins 2 sondages dans des directions
-  différentes pour obtenir un diagnostic.
+- **Diagnostic non publié si n_sondages < 3** : en-dessous de 3
+  directions sondées, trop peu de mesures réelles sur le pourtour (les
+  directions non sondées sont extrapolées ou supposées saines) pour
+  publier un diagnostic global honnête. Le t/R moyen et la classe
+  globale sont alors **supprimés** de la fiche PDF (et des exports
+  XLSX/HTML/CSV), remplacés par un avertissement explicite ; saisir au
+  moins 3 sondages dans des directions différentes pour obtenir un
+  diagnostic global. Ce seuil de fiabilité est volontairement découplé
+  du minimum mathématique de l'extrapolation de la cavité (2 points,
+  cf. ci-dessus) : le dessin reste tracé dès 2 sondages.
 
 ### Visualisation
 
@@ -230,6 +238,8 @@ purement descriptif : n'impacte pas le diagnostic.
   de dégradation externe ou un contrefort ouvre directement le
   dialogue d'édition de l'élément. Le curseur passe en main au
   survol. Pas besoin de retrouver la ligne dans la table d'onglet.
+  Un clic sur une **direction libre** du dessin ajoute un sondage à ce
+  grade (pré-rempli) ; un clic sur une direction déjà sondée l'édite.
 - La checkbox **« Afficher l'emplacement des sondages »** sous le
   dessin contrôle l'affichage des pastilles (utile pour exporter un
   PNG vierge sans annotations).
@@ -261,6 +271,12 @@ purement descriptif : n'impacte pas le diagnostic.
   uniquement (PRBS et t/R tiennent compte des dégradations externes,
   Bois altéré inclut la dégradation externe pour que
   `PRBS + Bois altéré = Rayon`).
+
+Chaque export réussi est confirmé dans la **barre d'état** en bas de
+fenêtre (sans pop-up à fermer), avec deux boutons **« Ouvrir le
+fichier »** / **« Ouvrir le dossier »** pour accéder directement au
+résultat. Le raccourci **Ctrl+E** exporte la fiche PDF de l'arbre
+courant.
 
 ## Barème PRBS (Silvavenir)
 
@@ -301,7 +317,8 @@ Le menu **Aide → Ouvrir le fichier de log** ouvre ce fichier
 directement avec l'éditeur par défaut du système — c'est ce qu'il
 faut joindre quand on signale un bug. Le menu **Aide → Raccourcis
 clavier…** rappelle tous les raccourcis disponibles (Ctrl+N/O/S/T,
-Ctrl+Z/Y, double-clic et clic droit sur un arbre).
+Ctrl+E pour exporter la fiche PDF de l'arbre courant, Ctrl+Z/Y,
+double-clic et clic droit sur un arbre).
 
 ## Crédits
 

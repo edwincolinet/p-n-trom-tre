@@ -270,11 +270,11 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # repasse par la chaîne compute_alteration_par_grade).
     snap = repartition_classes(arbre)
     # Propriété diagnostic_global : encapsule la règle « publiable
-    # seulement si >= 2 sondages ». Tous les exports passent par là.
+    # seulement si >= 3 sondages ». Tous les exports passent par là.
     diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         # t/R moyen et classe globale ne sont écrits que si le
-        # diagnostic est fiable (>= 2 sondages). Sinon on affiche
+        # diagnostic est fiable (>= 3 sondages). Sinon on affiche
         # l'avertissement et on saute la barre / l'encadré final.
         if diag is not None:
             tR_moyen_diag, _ = diag

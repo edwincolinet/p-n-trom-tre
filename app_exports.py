@@ -39,6 +39,18 @@ from pil_render import HAS_PIL, render_arbre_to_pil_image
 log = logging.getLogger("penetrometre")
 
 
+def _notify_export(parent: tk.Misc, path: str, label: str) -> None:
+    """Feedback de succès d'export. Non-modal via la barre d'état de
+    l'App (`notify_export`) si l'hôte la fournit ; sinon `messagebox`
+    classique (parent générique, contexte de test). Évite le « OK » à
+    cliquer après chaque export."""
+    notify = getattr(parent, "notify_export", None)
+    if callable(notify):
+        notify(path, label)
+    else:
+        messagebox.showinfo("Exporté", f"{label} :\n{path}")
+
+
 def _need_pil(format_label: str) -> bool:
     """Affiche un message clair si Pillow est absent. Renvoie True si
     OK pour continuer, False si on doit avorter."""
@@ -68,7 +80,7 @@ def export_png(parent: tk.Misc, arbre: Optional[Arbre],
             show_sondages=show_sondages,
             show_legend=True)
         img.save(p, "PNG")
-        messagebox.showinfo("Exporté", f"Image enregistrée : {p}")
+        _notify_export(parent, p, "Image PNG enregistrée")
     except Exception as e:
         log.exception("Échec export PNG")
         messagebox.showerror("Erreur d'export", str(e))
@@ -94,7 +106,7 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         page = render_fiche_arbre_to_pdf_page(arbre, chantier)
         # Pillow : sauvegarder une image en PDF donne un PDF 1 page
         page.save(p, "PDF", resolution=150.0)
-        messagebox.showinfo("Exporté", f"Fiche PDF enregistrée : {p}")
+        _notify_export(parent, p, "Fiche PDF enregistrée")
     except Exception as e:
         log.exception("Échec export PDF")
         messagebox.showerror("Erreur d'export PDF", str(e))
@@ -123,9 +135,9 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier) -> None:
                  for a in arbres]
         pages[0].save(p, "PDF", resolution=150.0, save_all=True,
                       append_images=pages[1:])
-        messagebox.showinfo(
-            "Exporté",
-            f"PDF mission enregistré ({len(pages)} fiche(s)) :\n{p}")
+        _notify_export(
+            parent, p,
+            f"PDF mission enregistré ({len(pages)} fiche(s))")
     except Exception as e:
         log.exception("Échec export PDF mission")
         messagebox.showerror("Erreur d'export PDF", str(e))
@@ -171,7 +183,7 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                                 tR_pct,
                                 classe,
                                 s.compartimentation, s.commentaire])
-        messagebox.showinfo("Exporté", f"CSV enregistré : {p}")
+        _notify_export(parent, p, "CSV mission enregistré")
     except Exception as e:
         log.exception("Échec export CSV")
         messagebox.showerror("Erreur", str(e))
@@ -185,14 +197,14 @@ def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         messagebox.showerror(
             "Export XLSX indisponible",
             "Le module openpyxl n'est pas installé.\n\n"
-            "Pour activer cet export, lance dans un terminal :\n"
+            "Pour activer cet export, lancez dans un terminal :\n"
             "    pip install -r requirements.txt\n\n"
             "L'export HTML reste disponible sans dépendance.")
         return
     if arbre.rayon_tronc_cm <= 0:
         messagebox.showerror(
             "Export impossible",
-            "Renseigne un rayon de tronc avant l'export.")
+            "Renseignez un rayon de tronc avant l'export.")
         return
     default = (f"tableau_arbre_{arbre.numero_arbre or 'X'}.xlsx"
                .replace(" ", "_"))
@@ -206,7 +218,7 @@ def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         export_prbs_xlsx(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs)
-        messagebox.showinfo("Exporté", f"Tableau XLSX enregistré :\n{p}")
+        _notify_export(parent, p, "Tableau XLSX enregistré")
     except Exception as e:
         log.exception("Échec export XLSX")
         messagebox.showerror("Erreur", str(e))
@@ -219,7 +231,7 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if arbre.rayon_tronc_cm <= 0:
         messagebox.showerror(
             "Export impossible",
-            "Renseigne un rayon de tronc avant l'export.")
+            "Renseignez un rayon de tronc avant l'export.")
         return
     default = (f"tableau_arbre_{arbre.numero_arbre or 'X'}.html"
                .replace(" ", "_"))
@@ -233,7 +245,7 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         export_prbs_html(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs)
-        messagebox.showinfo("Exporté", f"Tableau HTML enregistré :\n{p}")
+        _notify_export(parent, p, "Tableau HTML enregistré")
     except Exception as e:
         log.exception("Échec export HTML")
         messagebox.showerror("Erreur", str(e))
