@@ -54,7 +54,7 @@ class DiagnosticPane(ttk.Frame):
 
     def _build(self) -> None:
         # Canvas + scrollbar : le contenu peut dépasser verticalement
-        # (5 boutons + résumé + checkbox + tableau PRBS sur 16 lignes
+        # (bandeau d'export + résumé + checkbox + tableau PRBS sur 16 lignes
         # max → ~600 px), on garde tout accessible même en fenêtre
         # étroite.
         diag_canvas = tk.Canvas(self, bg=COLOR_PANEL,
@@ -98,6 +98,10 @@ class DiagnosticPane(ttk.Frame):
 
     def _build_content(self, parent: ttk.Frame) -> None:
         # --- Boutons d'export EN HAUT (toujours accessibles) ---
+        # Le livrable (fiche PDF) et l'image (PNG) restent en boutons
+        # directs ; les 3 exports de tableau (XLSX/HTML/CSV) — variantes
+        # de format d'une même donnée — sont regroupés sous un menu
+        # déroulant pour alléger la barre (5 boutons → 2 boutons + 1 menu).
         btn_exp = ttk.Frame(parent, style="Panel.TFrame")
         btn_exp.pack(fill="x", pady=(0, 12))
         btn_pdf = ttk.Button(btn_exp, text="📄 Fiche PDF (arbre courant)",
@@ -111,23 +115,25 @@ class DiagnosticPane(ttk.Frame):
                              command=self._host.action_export_png)
         btn_png.pack(side="left", padx=(0, 6))
         Tooltip(btn_png, "Exporter le dessin de la section en image PNG")
-        btn_xlsx = ttk.Button(btn_exp, text="📊 Tableau XLSX",
-                              style="Ghost.TButton",
-                              command=self._host.action_export_prbs_xlsx)
-        btn_xlsx.pack(side="left", padx=(0, 6))
-        Tooltip(btn_xlsx, "Exporter le tableau PRBS de l'arbre au format "
-                          "Excel (nécessite openpyxl)")
-        btn_html = ttk.Button(btn_exp, text="🌐 Tableau HTML",
-                              style="Ghost.TButton",
-                              command=self._host.action_export_prbs_html)
-        btn_html.pack(side="left", padx=(0, 6))
-        Tooltip(btn_html, "Exporter le tableau PRBS de l'arbre en page HTML")
-        btn_csv = ttk.Button(btn_exp, text="📋 CSV mission",
-                             style="Ghost.TButton",
-                             command=self._host.action_export_csv)
-        btn_csv.pack(side="left")
-        Tooltip(btn_csv, "Exporter tous les sondages de la mission "
-                         "(tous les arbres) en CSV")
+
+        mb_table = ttk.Menubutton(btn_exp, text="📊 Exporter le tableau",
+                                  style="Ghost.TMenubutton", direction="below")
+        table_menu = tk.Menu(mb_table, tearoff=0)
+        table_menu.add_command(
+            label="Tableau PRBS — Excel (XLSX)…",
+            command=self._host.action_export_prbs_xlsx)
+        table_menu.add_command(
+            label="Tableau PRBS — page HTML…",
+            command=self._host.action_export_prbs_html)
+        table_menu.add_separator()
+        table_menu.add_command(
+            label="Sondages de la mission (CSV)…",
+            command=self._host.action_export_csv)
+        mb_table["menu"] = table_menu
+        mb_table.pack(side="left")
+        Tooltip(mb_table,
+                "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+                "tous les sondages de la mission (CSV)")
 
         # --- Bloc résumé haut ---
         ttk.Label(parent, text="Résumé de l'arbre courant",

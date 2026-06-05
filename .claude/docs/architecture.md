@@ -215,7 +215,8 @@ Validations à la confirmation :
 au clic). Bindings posés avec `add="+"` pour ne pas écraser ceux du
 widget (ex. curseur `hand2`). Importe uniquement `palette`. Utilisé
 pour rappeler les accélérateurs (bouton « ＋ Ajouter » → Ctrl+T) et
-décrire les 5 boutons d'export du pane Diagnostic.
+décrire le bandeau d'export du pane Diagnostic (boutons Fiche PDF / PNG
+et menu déroulant « Exporter le tableau » → XLSX / HTML / CSV).
 
 ## `undo.py` — pile undo/redo
 

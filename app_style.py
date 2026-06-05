@@ -81,6 +81,14 @@ def apply_ttk_styles(root: tk.Misc) -> None:
                 font=("Helvetica", 10), borderwidth=1)
     s.map("Ghost.TButton",
           background=[("active", COLOR_ACCENT_SOFT)])
+    # Menu déroulant d'export (`pane_diagnostic`) : même look que
+    # Ghost.TButton mais sur un ttk.Menubutton (le style TButton ne
+    # s'applique pas tel quel à un Menubutton).
+    s.configure("Ghost.TMenubutton", background=COLOR_PANEL,
+                foreground=COLOR_ACCENT, padding=(10, 6),
+                font=("Helvetica", 10), borderwidth=1)
+    s.map("Ghost.TMenubutton",
+          background=[("active", COLOR_ACCENT_SOFT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
                 foreground=COLOR_INK, padding=3)
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
