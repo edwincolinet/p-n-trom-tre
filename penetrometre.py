@@ -763,6 +763,28 @@ class App(tk.Tk):
         if self.pane_s is not None:
             self.pane_s.refresh()
 
+    def on_sondages_changed(self) -> None:
+        """Notifié par `SondagesPane` après une mutation live (saisie
+        directe dans la grille). Marque dirty + redessine (debouncé) — ce
+        qui rafraîchit aussi le diagnostic et la pastille d'état. On ne
+        rappelle PAS `_refresh_sondages_table` ici : la grille est déjà à
+        jour (c'est elle qui a muté), inutile de lutter contre la frappe."""
+        self._mark_dirty()
+        self._debounced_redraw()
+
+    def capture_undo_snapshot(self) -> dict:
+        """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé
+        par les éditions live (grille de sondages) : on capture l'état
+        AVANT édition au focus-in, on ne l'empile (`push_undo_snapshot`)
+        qu'au focus-out si la valeur a réellement changé."""
+        return chantier_to_dict(self.chantier)
+
+    def push_undo_snapshot(self, snapshot: dict) -> None:
+        """Empile un snapshot pré-édition capturé par `capture_undo_snapshot`
+        (cf. édition live de la grille de sondages)."""
+        self._undo_stack.push(snapshot)
+        self._mark_dirty()
+
     # ---- Dégradations externes -------------------------------------
     # Le refresh et les actions vivent dans DegradationsPane (cf.
     # pane_degradations.py). Thin wrapper pour les sites qui
