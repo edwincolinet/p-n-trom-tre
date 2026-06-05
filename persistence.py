@@ -30,6 +30,7 @@ import logging
 import os
 import tempfile
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -92,6 +93,69 @@ def save_chantier(chantier: Chantier, path: Union[str, Path]) -> None:
         except OSError:
             pass
         raise
+
+
+def save_recovery(chantier: Chantier, original_file: Union[str, None],
+                  path: Union[str, Path]) -> None:
+    """Écrit une sauvegarde de récupération (autosave) atomique.
+
+    Enveloppe le `chantier` sérialisé dans un dict portant des
+    métadonnées de récupération : horodatage et chemin du fichier
+    d'origine (ou `None` si la mission n'a jamais été enregistrée). Sert
+    à proposer une reprise après un crash (cf. `load_recovery`).
+
+    Écriture atomique (`.tmp` + `os.replace`) comme `save_chantier` : un
+    crash pendant l'écriture ne corrompt pas un autosave précédent.
+    """
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "_recovery": True,
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+        "original_file": str(original_file) if original_file else None,
+        "chantier": chantier_to_dict(chantier),
+    }
+    fd, tmp = tempfile.mkstemp(dir=dest.parent, suffix=".tmp",
+                               prefix=dest.stem + "_")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def load_recovery(
+    path: Union[str, Path]
+) -> "tuple[Chantier, Union[str, None], str]":
+    """Lit une sauvegarde de récupération.
+
+    Renvoie `(chantier, original_file, saved_at)`. `original_file` peut
+    être `None` (mission jamais enregistrée). Lève si le fichier est
+    illisible ou n'a pas la structure attendue — au caller de gérer
+    (journaliser + ignorer l'autosave corrompu).
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    chantier = chantier_from_dict(data["chantier"])
+    original = data.get("original_file")
+    saved_at = data.get("saved_at", "")
+    return chantier, original, saved_at
+
+
+def clear_recovery(path: Union[str, Path]) -> None:
+    """Supprime la sauvegarde de récupération si elle existe. Silencieux
+    (best-effort) : un échec de suppression ne doit jamais bloquer l'app."""
+    try:
+        Path(path).unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        _log.exception("Échec suppression autosave %s", path)
 
 
 def load_chantier(path: Union[str, Path]) -> Chantier:

@@ -36,7 +36,15 @@ from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
-from persistence import chantier_from_dict, chantier_to_dict, load_chantier, save_chantier
+from persistence import (
+    chantier_from_dict,
+    chantier_to_dict,
+    clear_recovery,
+    load_chantier,
+    load_recovery,
+    save_chantier,
+    save_recovery,
+)
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
 from undo import UndoStack
@@ -48,6 +56,14 @@ __version__ = "3.3.0"
 # tient en un sous-menu compact, suffisant pour 1-2 semaines d'usage.
 _RECENT_FILES_MAX = 8
 _RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
+
+# Sauvegarde de récupération (autosave anti-crash). Écrite périodiquement
+# tant que la mission a des modifications non enregistrées, et effacée dès
+# qu'on atteint un état propre (enregistrement, nouvelle mission, ouverture)
+# ou à la fermeture normale. Sa seule présence au démarrage signale donc
+# un crash précédent avec du travail non sauvegardé → on propose la reprise.
+_RECOVERY_PATH = Path.home() / ".penetrometre" / "recovery" / "autosave.json"
+_AUTOSAVE_INTERVAL_MS = 60_000  # 60 s
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -108,6 +124,14 @@ class App(tk.Tk):
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
         self.bind_all("<Control-e>", self._on_export_shortcut)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Autosave anti-crash : on programme le 1er tick et on vérifie au
+        # démarrage (fenêtre déjà mappée → le dialogue de reprise s'affiche
+        # par-dessus une UI visible) s'il reste un autosave d'une session
+        # précédente non refermée proprement.
+        self._autosave_after_id: Optional[str] = None
+        self._schedule_autosave()
+        self.after(200, self._check_recovery_on_startup)
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
         """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
@@ -423,7 +447,91 @@ class App(tk.Tk):
                     "Des modifications n'ont pas été enregistrées.\n"
                     "Quitter quand même ?"):
                 return
+        # Fermeture normale (même en abandonnant des modifications) : on
+        # efface l'autosave. Sa survivance ne doit signaler QUE le crash.
+        clear_recovery(_RECOVERY_PATH)
         self.destroy()
+
+    # --- Autosave anti-crash + récupération ----------------------------
+
+    def _schedule_autosave(self) -> None:
+        """(Re)programme le prochain tick d'autosave. Idempotent : annule
+        un tick en attente avant d'en reprogrammer un."""
+        if self._autosave_after_id is not None:
+            try:
+                self.after_cancel(self._autosave_after_id)
+            except (ValueError, tk.TclError):
+                pass
+        self._autosave_after_id = self.after(
+            _AUTOSAVE_INTERVAL_MS, self._autosave_tick)
+
+    def _autosave_tick(self) -> None:
+        """Écrit l'autosave si la mission a des modifications non
+        enregistrées, puis se reprogramme. Tout échec est journalisé sans
+        interrompre l'app (l'autosave est un filet, pas un point dur)."""
+        try:
+            if self._dirty:
+                save_recovery(
+                    self.chantier,
+                    str(self.current_file) if self.current_file else None,
+                    _RECOVERY_PATH)
+                log.info("Autosave écrit (%s)", _RECOVERY_PATH.name)
+        except Exception:
+            log.exception("Échec de l'autosave")
+        finally:
+            self._schedule_autosave()
+
+    def _check_recovery_on_startup(self) -> None:
+        """Au démarrage : si un autosave subsiste (crash précédent avec
+        travail non enregistré), propose de le récupérer."""
+        if not _RECOVERY_PATH.exists():
+            return
+        try:
+            chantier, original, saved_at = load_recovery(_RECOVERY_PATH)
+        except Exception:
+            log.exception("Autosave illisible — ignoré")
+            clear_recovery(_RECOVERY_PATH)
+            return
+        details = (f"Fichier : {original}" if original
+                   else "Mission jamais enregistrée.")
+        when = f" du {saved_at}" if saved_at else ""
+        if messagebox.askyesno(
+                "Récupération",
+                "Une session non enregistrée a été retrouvée "
+                f"(sauvegarde automatique{when}).\n\n{details}\n\n"
+                "La récupérer ?"):
+            self._restore_recovery(chantier, original)
+            # On laisse l'autosave en place : il reflète l'état restauré
+            # (toujours non enregistré). Il sera rafraîchi au prochain tick
+            # et effacé au 1er enregistrement.
+        else:
+            clear_recovery(_RECOVERY_PATH)
+
+    def _restore_recovery(self, chantier: Chantier,
+                          original: Optional[str]) -> None:
+        """Recharge l'UI complète depuis un chantier récupéré. Marque la
+        mission comme modifiée (le travail n'est pas encore réenregistré)
+        et pointe sur le fichier d'origine s'il existe encore (pour que
+        Ctrl+S réécrive au bon endroit)."""
+        self._undo_stack.clear()
+        self.chantier = chantier
+        if not self.chantier.arbres:
+            self.chantier.arbres.append(Arbre(numero_arbre="1"))
+        self.current_idx = 0
+        if original and Path(original).exists():
+            self.current_file = Path(original)
+        else:
+            self.current_file = None
+        with self._suspend_sync_block():
+            self.var_ch_nom.set(self.chantier.nom)
+            self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_ope.set(self.chantier.operateur)
+            self.var_ch_date.set(self.chantier.date_releve)
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+        self._dirty = True
+        self._update_title()
+        self.set_status("Session récupérée — pensez à l'enregistrer.")
 
     # --- Undo / redo --------------------------------------------------
 
@@ -866,6 +974,7 @@ class App(tk.Tk):
                 return
         self._undo_stack.clear()
         self._dirty = False
+        clear_recovery(_RECOVERY_PATH)
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
@@ -901,6 +1010,7 @@ class App(tk.Tk):
         try:
             self._undo_stack.clear()
             self._dirty = False
+            clear_recovery(_RECOVERY_PATH)
             self.chantier = load_chantier(p)
             if not self.chantier.arbres:
                 self.chantier.arbres.append(Arbre())
@@ -987,6 +1097,9 @@ class App(tk.Tk):
             self._dirty = False
             self._update_title()
             self._push_recent_file(str(self.current_file))
+            # Le fichier réel est à jour → l'autosave n'a plus de raison
+            # d'être ; on l'efface pour ne pas proposer une reprise inutile.
+            clear_recovery(_RECOVERY_PATH)
             self.set_status(f"✓ Enregistré — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")
