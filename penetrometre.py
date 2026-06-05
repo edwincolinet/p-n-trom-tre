@@ -238,6 +238,24 @@ class App(tk.Tk):
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
+        # Filtre de la liste (par n° ou essence) — utile dès que la
+        # mission compte beaucoup d'arbres. N'altère PAS le modèle : ne
+        # fait que masquer les lignes non concordantes (les iid `a{i}`
+        # restent indexés sur la position réelle dans `chantier.arbres`,
+        # cf. `_on_select_arbre`). `var_filter` est lue par
+        # `_refresh_tree_arbres` (tolérante si appelée avant ce build).
+        filt = ttk.Frame(frame, style="Side.TFrame")
+        filt.pack(fill="x", pady=(0, 6))
+        ttk.Label(filt, text="🔎", style="Side.TLabel").pack(side="left",
+                                                             padx=(0, 4))
+        self.var_filter = tk.StringVar()
+        ent_filter = ttk.Entry(filt, textvariable=self.var_filter)
+        ent_filter.pack(side="left", fill="x", expand=True)
+        self.var_filter.trace_add("write",
+                                  lambda *a: self._refresh_tree_arbres())
+        # Échap dans le champ = vider le filtre.
+        ent_filter.bind("<Escape>", lambda e: self.var_filter.set(""))
+
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
         self.tree_arbres = ttk.Treeview(
@@ -541,6 +559,7 @@ class App(tk.Tk):
             self.var_ch_adr.set(self.chantier.adresse)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
+        self.var_filter.set("")  # nouvelle mission → filtre remis à zéro
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._dirty = True
@@ -693,25 +712,46 @@ class App(tk.Tk):
 
     # --- Liste d'arbres ---------------------------------------------
 
+    def _arbre_matches_filter(self, a: Arbre) -> bool:
+        """Vrai si l'arbre concorde avec le filtre courant (sous-chaîne,
+        insensible à la casse, sur le n° OU l'essence). Filtre vide =
+        tout passe. Tolérant si appelé avant la construction du champ."""
+        q = getattr(self, "var_filter", None)
+        if q is None:
+            return True
+        needle = q.get().strip().lower()
+        if not needle:
+            return True
+        return (needle in a.numero_arbre.lower()
+                or needle in a.essence.lower())
+
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
-        n_ok = 0
+        # Le compteur footer reste sur TOUTE la mission (vue macro), pas
+        # sur la sous-liste filtrée.
+        n_ok = sum(1 for a in self.chantier.arbres
+                   if self._arbre_etat(a)[1] == "etat_ok")
         for i, a in enumerate(self.chantier.arbres):
+            if not self._arbre_matches_filter(a):
+                continue
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
             glyph, tag = self._arbre_etat(a)
-            if tag == "etat_ok":
-                n_ok += 1
+            # iid = position réelle dans chantier.arbres (cf.
+            # _on_select_arbre) — préservée même quand des lignes sont
+            # masquées par le filtre.
             self.tree_arbres.insert("", "end", iid=f"a{i}",
                                     text=label,
                                     values=(a.essence, glyph),
                                     tags=(tag,))
         self._update_etat_footer(n_ok, len(self.chantier.arbres))
-        if self.chantier.arbres:
-            target = f"a{self.current_idx}"
-            if target in self.tree_arbres.get_children():
-                self.tree_arbres.selection_set(target)
-                self.tree_arbres.focus(target)
+        # Re-sélectionne l'arbre courant s'il est visible dans la liste
+        # filtrée (sinon on laisse la sélection vide : le panneau de droite
+        # continue d'afficher l'arbre courant).
+        target = f"a{self.current_idx}"
+        if target in self.tree_arbres.get_children():
+            self.tree_arbres.selection_set(target)
+            self.tree_arbres.focus(target)
 
     def _update_etat_footer(self, n_ok: int, n_total: int) -> None:
         """Met à jour le footer « X/N arbres complets » sous la liste."""
@@ -792,8 +832,16 @@ class App(tk.Tk):
         self.chantier.arbres.append(
             Arbre(numero_arbre=self._next_arbre_numero()))
         self.current_idx = len(self.chantier.arbres) - 1
+        self._clear_filter_if_set()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
+
+    def _clear_filter_if_set(self) -> None:
+        """Vide le filtre de la liste s'il est actif — pour qu'un arbre
+        nouvellement créé reste visible même s'il ne concorde pas avec le
+        filtre courant. No-op (donc pas de refresh parasite) si vide."""
+        if getattr(self, "var_filter", None) is not None and self.var_filter.get():
+            self.var_filter.set("")
 
     def action_add_arbre_inherit(self) -> None:
         """Ajoute un arbre héritant des champs d'« identité » de l'arbre
@@ -817,16 +865,25 @@ class App(tk.Tk):
         )
         self.chantier.arbres.append(new)
         self.current_idx = len(self.chantier.arbres) - 1
+        self._clear_filter_if_set()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
 
     def _select_arbre_relative(self, delta: int) -> None:
         """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
-        passe à l'arbre suivant/précédent dans la liste, sans boucler."""
-        n = len(self.chantier.arbres)
-        if n <= 1:
+        passe à l'arbre suivant/précédent **parmi les arbres visibles**
+        (le filtre est respecté), sans boucler."""
+        visible = [i for i, a in enumerate(self.chantier.arbres)
+                   if self._arbre_matches_filter(a)]
+        if len(visible) <= 1:
             return
-        new_idx = min(n - 1, max(0, self.current_idx + delta))
+        if self.current_idx in visible:
+            pos = visible.index(self.current_idx)
+            new_idx = visible[min(len(visible) - 1, max(0, pos + delta))]
+        else:
+            # Arbre courant masqué par le filtre : on entre dans la liste
+            # visible par son 1er (avance) ou son dernier (recul) élément.
+            new_idx = visible[0] if delta > 0 else visible[-1]
         if new_idx == self.current_idx:
             return
         # Donne le focus clavier à la liste AVANT de changer d'arbre :
@@ -866,6 +923,7 @@ class App(tk.Tk):
             new.numero_arbre = base + " (copie)"
         self.chantier.arbres.insert(self.current_idx + 1, new)
         self.current_idx += 1
+        self._clear_filter_if_set()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
 
@@ -1057,6 +1115,7 @@ class App(tk.Tk):
             self.var_ch_adr.set("")
             self.var_ch_ope.set("")
             self.var_ch_date.set(self.chantier.date_releve)
+        self.var_filter.set("")  # nouvelle mission → filtre remis à zéro
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -1094,6 +1153,7 @@ class App(tk.Tk):
                 self.var_ch_adr.set(self.chantier.adresse)
                 self.var_ch_ope.set(self.chantier.operateur)
                 self.var_ch_date.set(self.chantier.date_releve)
+            self.var_filter.set("")  # mission ouverte → filtre remis à zéro
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
             self._update_title()
