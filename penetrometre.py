@@ -1128,6 +1128,12 @@ class App(tk.Tk):
     def action_export_csv(self) -> None:
         app_exports.export_csv_mission(self, self.chantier)
 
+    def action_export_synthesis_xlsx(self) -> None:
+        app_exports.export_synthesis_xlsx_mission(self, self.chantier)
+
+    def action_export_synthesis_csv(self) -> None:
+        app_exports.export_synthesis_csv_mission(self, self.chantier)
+
     def action_export_prbs_xlsx(self) -> None:
         app_exports.export_xlsx_arbre(self, self._current_arbre(),
                                        self.chantier)

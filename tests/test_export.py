@@ -185,5 +185,129 @@ class XlsxSmokeTests(unittest.TestCase):
                 os.unlink(path)
 
 
+class MissionSynthesisRowsTests(unittest.TestCase):
+    """Synthèse mission : une ligne par arbre + masquage des champs non
+    fiables (< 3 sondages, ou rayon nul)."""
+
+    @staticmethod
+    def _arbre(numero, rayon, grades, sain, port="libre", essence="Platane"):
+        from model import Chantier
+        a = Arbre(numero_arbre=numero, essence=essence,
+                  rayon_tronc_cm=rayon, port_arbre=port)
+        for g in grades:
+            a.sondages.append(Sondage(grade=g, bois_sain_cm=sain,
+                                      bois_altere_cm=max(0.0, rayon - sain)))
+        c = Chantier()
+        c.arbres = [a]
+        return c
+
+    def test_une_ligne_par_arbre(self):
+        from diagnostic import mission_synthesis_rows
+        from model import Chantier
+        c = Chantier()
+        c.arbres = [Arbre(numero_arbre="1"), Arbre(numero_arbre="2")]
+        self.assertEqual(len(mission_synthesis_rows(c)), 2)
+
+    def test_arbre_fiable_publie_classe_et_tR_moyen(self):
+        from diagnostic import mission_synthesis_rows
+        c = self._arbre("1", 20.0, [0, 50, 100, 150, 200, 250, 300, 350],
+                        sain=16.0)  # t/R = 0.8 partout → Vert
+        r = mission_synthesis_rows(c)[0]
+        self.assertTrue(r.fiable)
+        self.assertEqual(r.classe_globale, "Vert")
+        self.assertAlmostEqual(r.tR_moyen_pct, 80.0, places=1)
+
+    def test_moins_de_3_sondages_masque_diagnostic_global(self):
+        from diagnostic import mission_synthesis_rows
+        c = self._arbre("3", 18.0, [0, 100], sain=10.0)
+        r = mission_synthesis_rows(c)[0]
+        self.assertFalse(r.fiable)
+        self.assertIsNone(r.classe_globale)
+        self.assertIsNone(r.tR_moyen_pct)
+        # mais le nombre de sondages reste exposé
+        self.assertEqual(r.n_sondees, 2)
+
+    def test_rayon_nul_ou_sans_sondage_tout_masque(self):
+        from diagnostic import mission_synthesis_rows
+        from model import Chantier
+        c = Chantier()
+        c.arbres = [Arbre(numero_arbre="4", rayon_tronc_cm=0.0)]
+        r = mission_synthesis_rows(c)[0]
+        self.assertFalse(r.fiable)
+        self.assertIsNone(r.classe_globale)
+        self.assertIsNone(r.tR_min_pct)
+
+
+class SynthesisExportSmokeTests(unittest.TestCase):
+    """Smoke-tests des exports de synthèse : on vérifie que les données
+    arrivent correctement au formateur (CSV lisible, XLSX ouvrable)."""
+
+    def _chantier(self):
+        from model import Chantier
+        c = Chantier(nom="Mission Test", operateur="Edwin")
+        a1 = Arbre(numero_arbre="1", essence="Platane", rayon_tronc_cm=20.0,
+                   port_arbre="libre")
+        for g in (0, 50, 100, 150):
+            a1.sondages.append(Sondage(grade=g, bois_sain_cm=16.0,
+                                       bois_altere_cm=4.0))
+        a2 = Arbre(numero_arbre="2", essence="Tilleul", rayon_tronc_cm=0.0)
+        c.arbres = [a1, a2]
+        return c
+
+    def test_csv_contient_une_ligne_par_arbre(self):
+        import csv as _csv
+        import os
+        import tempfile
+
+        from diagnostic import mission_synthesis_rows
+        from export import export_synthesis_csv
+        c = self._chantier()
+        fd, path = tempfile.mkstemp(suffix=".csv")
+        os.close(fd)
+        try:
+            export_synthesis_csv(mission_synthesis_rows(c), path)
+            with open(path, "r", encoding="utf-8-sig", newline="") as f:
+                rows = list(_csv.reader(f, delimiter=";"))
+            # 1 en-tête + 2 arbres
+            self.assertEqual(len(rows), 3)
+            self.assertEqual(rows[0][0], "N°")
+            self.assertEqual(rows[1][0], "1")
+            self.assertEqual(rows[2][0], "2")
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+    def test_xlsx_ouvrable_avec_entete_synthese(self):
+        try:
+            import openpyxl  # noqa: F401
+        except ImportError:
+            self.skipTest("openpyxl absent")
+        import os
+        import tempfile
+
+        from diagnostic import mission_synthesis_rows
+        from export import export_synthesis_xlsx
+        from palette import COULEUR_CLASSE
+        c = self._chantier()
+        fd, path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(fd)
+        try:
+            export_synthesis_xlsx(mission_synthesis_rows(c), c, path,
+                                  couleur_classe=COULEUR_CLASSE)
+            import openpyxl
+            with open(path, "rb") as f:
+                wb = openpyxl.load_workbook(f)
+            ws = wb.active
+            self.assertEqual(ws.title, "Synthèse")
+            header_row = next(
+                row for row in range(1, 20)
+                if ws.cell(row=row, column=1).value == "N°")
+            self.assertEqual(ws.cell(row=header_row + 1, column=1).value, "1")
+            self.assertEqual(ws.cell(row=header_row + 2, column=1).value, "2")
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main()

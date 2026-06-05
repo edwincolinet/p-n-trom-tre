@@ -28,8 +28,14 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from bareme import classer_prbs
-from diagnostic import degradation_externe_par_grade
-from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
+from diagnostic import degradation_externe_par_grade, mission_synthesis_rows
+from export import (
+    HAS_OPENPYXL,
+    export_prbs_html,
+    export_prbs_xlsx,
+    export_synthesis_csv,
+    export_synthesis_xlsx,
+)
 from fiche_pdf import render_fiche_arbre_to_pdf_page
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre, Chantier
@@ -186,6 +192,56 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
         _notify_export(parent, p, "CSV mission enregistré")
     except Exception as e:
         log.exception("Échec export CSV")
+        messagebox.showerror("Erreur", str(e))
+
+
+def _suggest_synthesis_name(chantier: Chantier, ext: str) -> str:
+    return (f"synthese_mission_{chantier.nom or 'sans_nom'}.{ext}"
+            .replace(" ", "_"))
+
+
+def export_synthesis_csv_mission(parent: tk.Misc,
+                                 chantier: Chantier) -> None:
+    """Synthèse mission (1 ligne/arbre : classe globale, t/R moyen,
+    direction critique) en CSV."""
+    p = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        initialfile=_suggest_synthesis_name(chantier, "csv"),
+        filetypes=[("CSV", "*.csv")])
+    if not p:
+        return
+    try:
+        export_synthesis_csv(mission_synthesis_rows(chantier), p)
+        _notify_export(parent, p, "Synthèse mission CSV enregistrée")
+    except Exception as e:
+        log.exception("Échec export synthèse CSV")
+        messagebox.showerror("Erreur", str(e))
+
+
+def export_synthesis_xlsx_mission(parent: tk.Misc,
+                                  chantier: Chantier) -> None:
+    """Synthèse mission en .xlsx thémé (cellule classe colorée,
+    autofiltre pour trier par risque)."""
+    if not HAS_OPENPYXL:
+        messagebox.showerror(
+            "Export XLSX indisponible",
+            "Le module openpyxl n'est pas installé.\n\n"
+            "Pour activer cet export, lancez dans un terminal :\n"
+            "    pip install -r requirements.txt\n\n"
+            "L'export CSV de la synthèse reste disponible sans dépendance.")
+        return
+    p = filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        initialfile=_suggest_synthesis_name(chantier, "xlsx"),
+        filetypes=[("Classeur Excel", "*.xlsx")])
+    if not p:
+        return
+    try:
+        export_synthesis_xlsx(mission_synthesis_rows(chantier), chantier, p,
+                              couleur_classe=COULEUR_CLASSE)
+        _notify_export(parent, p, "Synthèse mission XLSX enregistrée")
+    except Exception as e:
+        log.exception("Échec export synthèse XLSX")
         messagebox.showerror("Erreur", str(e))
 
 

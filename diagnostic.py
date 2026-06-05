@@ -42,7 +42,7 @@ from bareme import classer_prbs
 from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy
 
 if TYPE_CHECKING:
-    from model import Arbre  # noqa: F401
+    from model import Arbre, Chantier  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -471,6 +471,78 @@ def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
         f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %")
     lignes.append(f"→ Classe globale : {classe_globale}")
     return lignes
+
+
+# ---------------------------------------------------------------------
+# Synthèse de mission : une ligne par arbre (hiérarchisation du risque)
+# ---------------------------------------------------------------------
+
+class MissionSynthesisRow(NamedTuple):
+    """Une ligne de synthèse mission = l'état diagnostic d'un arbre.
+
+    Champs masqués (`None`) selon la règle métier de fiabilité :
+    - `tR_moyen_pct` / `classe_globale` = `None` si le diagnostic global
+      n'est pas publiable (rayon nul, ou < 3 directions sondées — cf.
+      `DiagnosticSnapshot.diagnostic_global`).
+    - `tR_min_pct` / `crit_grade` = `None` s'il n'y a aucune altération
+      saisie (ou aucun sondage) : pas de « direction critique » pertinente.
+
+    `fiable` rappelle l'état de fiabilité (≥ 3 sondages) pour que les
+    consommateurs puissent afficher « Non fiable » plutôt qu'un simple
+    tiret quand l'arbre a 1-2 sondages.
+    """
+    numero: str
+    essence: str
+    port: str
+    n_sondees: int
+    rayon_cm: float
+    fiable: bool
+    tR_moyen_pct: Optional[float]
+    classe_globale: Optional[str]
+    tR_min_pct: Optional[float]
+    crit_grade: Optional[int]
+    crit_dir: str
+
+
+def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
+    """Construit la synthèse de la mission : une `MissionSynthesisRow`
+    par arbre, dans l'ordre de la liste d'arbres.
+
+    Fonction pure (réutilise `repartition_classes` et respecte la règle
+    « pas de diagnostic global < 3 sondages »). Sert de source unique aux
+    exports de synthèse (XLSX/CSV) et à tout récap à l'écran.
+    """
+    rows: List[MissionSynthesisRow] = []
+    for a in chantier.arbres:
+        n = len([s for s in a.sondages if s.grade in GRADES])
+        if a.rayon_tronc_cm <= 0 or n == 0:
+            rows.append(MissionSynthesisRow(
+                numero=a.numero_arbre, essence=a.essence,
+                port=a.port_arbre, n_sondees=n,
+                rayon_cm=a.rayon_tronc_cm, fiable=False,
+                tR_moyen_pct=None, classe_globale=None,
+                tR_min_pct=None, crit_grade=None, crit_dir=""))
+            continue
+        snap = repartition_classes(a)
+        diag = snap.diagnostic_global
+        tR_moyen_pct = 100.0 * diag[0] if diag is not None else None
+        classe = diag[1] if diag is not None else None
+        if snap.tR_min >= 0.999:  # aucune altération → pas de dir. critique
+            tR_min_pct: Optional[float] = None
+            crit_grade: Optional[int] = None
+            crit_dir = ""
+        else:
+            tR_min_pct = 100.0 * snap.tR_min
+            crit_grade = snap.tR_min_grade
+            crit_dir = snap.tR_min_dir
+        rows.append(MissionSynthesisRow(
+            numero=a.numero_arbre, essence=a.essence, port=a.port_arbre,
+            n_sondees=snap.n_sondees, rayon_cm=a.rayon_tronc_cm,
+            fiable=snap.diagnostic_fiable,
+            tR_moyen_pct=tR_moyen_pct, classe_globale=classe,
+            tR_min_pct=tR_min_pct, crit_grade=crit_grade,
+            crit_dir=crit_dir))
+    return rows
 
 
 # ---------------------------------------------------------------------

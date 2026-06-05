@@ -44,6 +44,8 @@ class AppLike(Protocol):
     # Diagnostic, qui les expose en haut du pane.
     def action_export_pdf_mission(self) -> None: ...
     def action_export_csv(self) -> None: ...
+    def action_export_synthesis_xlsx(self) -> None: ...
+    def action_export_synthesis_csv(self) -> None: ...
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
@@ -91,6 +93,10 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_save)
     f.add_command(label="Enregistrer sous…", command=app.action_save_as)
     f.add_separator()
+    f.add_command(label="Exporter la synthèse mission (XLSX)…",
+                  command=app.action_export_synthesis_xlsx)
+    f.add_command(label="Exporter la synthèse mission (CSV)…",
+                  command=app.action_export_synthesis_csv)
     f.add_command(label="Exporter toutes les fiches (PDF)…",
                   command=app.action_export_pdf_mission)
     f.add_command(label="Exporter sondages mission (CSV)…",

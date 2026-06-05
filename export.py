@@ -29,6 +29,7 @@ bareme), eux aussi par paramètre pour éviter une dépendance forte.
 
 from __future__ import annotations
 
+import csv
 import html as html_lib
 from datetime import datetime
 from typing import (
@@ -47,6 +48,7 @@ from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from geometry import GRADES
 
 if TYPE_CHECKING:
+    from diagnostic import MissionSynthesisRow  # noqa: F401
     from model import Arbre  # noqa: F401  (forward-ref pour `cast()`)
 
 try:
@@ -604,3 +606,181 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 """
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
+
+
+# ----------------------------------------------------------------------
+# Synthèse de mission : une ligne par arbre (tableau de hiérarchisation)
+# ----------------------------------------------------------------------
+#
+# Source des données : `diagnostic.mission_synthesis_rows(chantier)` —
+# calculé par l'appelant et passé en paramètre (List[MissionSynthesisRow]),
+# pour garder `export.py` purement « formatage » et testable avec des
+# stubs. Le masquage des champs non fiables (< 3 sondages) est déjà
+# appliqué en amont (champs `None`) ; ici on ne fait que présenter.
+
+_SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
+                  "t/R moyen (%)", "Classe globale", "Direction critique",
+                  "t/R critique (%)"]
+
+
+def _synth_classe_text(row: "MissionSynthesisRow") -> str:
+    """Texte de la colonne « Classe globale ». Distingue les 3 cas :
+    classe publiée (Vert/Orange/Rouge), arbre sondé mais non fiable
+    (1-2 sondages → « Non fiable »), ou non renseigné (« — »)."""
+    if row.classe_globale is not None:
+        return row.classe_globale
+    if row.n_sondees > 0 and row.rayon_cm > 0:
+        return "Non fiable"
+    return "—"
+
+
+def _synth_crit_text(row: "MissionSynthesisRow") -> str:
+    if row.crit_grade is None:
+        return "—"
+    if row.crit_dir:
+        return f"{row.crit_dir} ({row.crit_grade} gr)"
+    return f"{row.crit_grade} gr"
+
+
+def _synth_pct_text(v: object) -> str:
+    return f"{v:.1f}" if isinstance(v, (int, float)) else "—"
+
+
+def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
+                         path: str) -> None:
+    """Synthèse mission en CSV (séparateur `;`, UTF-8 BOM compatible
+    Excel). Une ligne par arbre."""
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f, delimiter=";")
+        w.writerow(_SYNTH_HEADERS)
+        for r in rows:
+            w.writerow([
+                r.numero, r.essence, r.port, r.n_sondees,
+                f"{r.rayon_cm:g}",
+                _synth_pct_text(r.tR_moyen_pct),
+                _synth_classe_text(r),
+                _synth_crit_text(r),
+                _synth_pct_text(r.tR_min_pct),
+            ])
+
+
+def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
+                          chantier: ChantierLike, path: str,
+                          couleur_classe: Mapping[str, str]) -> None:
+    """Synthèse mission en .xlsx thémé Silvavenir : une ligne par arbre,
+    cellule « Classe globale » colorée, autofiltre (tri par n'importe
+    quelle colonne — p.ex. trier par classe = priorités d'intervention),
+    en-tête gelé, ligne de bilan en pied."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError(
+            "openpyxl n'est pas installé. Lancer "
+            "`pip install -r requirements.txt`.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Synthèse"
+
+    BORDER = Border(
+        left=Side(style="thin", color="999999"),
+        right=Side(style="thin", color="999999"),
+        top=Side(style="thin", color="999999"),
+        bottom=Side(style="thin", color="999999"),
+    )
+    HEADER_FILL = PatternFill("solid", fgColor="2D7A3E")
+    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    TITLE_FONT = Font(name="Calibri", size=16, bold=True, color="2D7A3E")
+    SUBTITLE_FONT = Font(name="Calibri", size=10, color="6E7B73")
+    ROW_FONT = Font(name="Calibri", size=11, color="1A2E22")
+    ALT_ROW_FILL = PatternFill("solid", fgColor="F2F2F2")
+    MUTED_FILL = PatternFill("solid", fgColor="E0E0E0")
+    FOOTER_FONT = Font(name="Calibri", size=10, italic=True, color="6E7B73")
+    CENTER = Alignment(horizontal="center", vertical="center",
+                       wrap_text=True)
+    LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    last = len(_SYNTH_HEADERS)
+
+    # --- Titre + sous-titre mission ---
+    ws.cell(row=1, column=1,
+            value=f"Pénétromètre — Synthèse mission « {chantier.nom or 'Mission'} »"
+            ).font = TITLE_FONT
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last)
+    subtitle_parts = []
+    if chantier.adresse:
+        subtitle_parts.append(chantier.adresse)
+    if chantier.operateur:
+        subtitle_parts.append(f"Opérateur : {chantier.operateur}")
+    subtitle_parts.append(f"Relevé du {chantier.date_releve or '—'}")
+    ws.cell(row=2, column=1,
+            value=" • ".join(subtitle_parts)).font = SUBTITLE_FONT
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last)
+
+    # --- En-tête tableau ---
+    header_row = 4
+    for i, h in enumerate(_SYNTH_HEADERS, start=1):
+        c = ws.cell(row=header_row, column=i, value=h)
+        c.font = HEADER_FONT
+        c.fill = HEADER_FILL
+        c.alignment = CENTER
+        c.border = BORDER
+    ws.row_dimensions[header_row].height = 30
+
+    # --- Une ligne par arbre ---
+    classe_col = 7  # colonne « Classe globale » → fond coloré
+    r_idx = header_row
+    for k, row in enumerate(rows):
+        r_idx += 1
+        classe_txt = _synth_classe_text(row)
+        values = [
+            row.numero, row.essence, row.port, row.n_sondees,
+            f"{row.rayon_cm:g}",
+            _synth_pct_text(row.tR_moyen_pct),
+            classe_txt,
+            _synth_crit_text(row),
+            _synth_pct_text(row.tR_min_pct),
+        ]
+        use_alt = k % 2 == 1
+        for i, v in enumerate(values, start=1):
+            c = ws.cell(row=r_idx, column=i, value=v)
+            c.border = BORDER
+            c.font = ROW_FONT
+            c.alignment = LEFT if i in (2,) else CENTER
+            if i == classe_col:
+                hexa = couleur_classe.get(classe_txt, "").lstrip("#")
+                if hexa:
+                    c.fill = PatternFill("solid", fgColor=hexa)
+                    c.font = Font(name="Calibri", size=11, bold=True,
+                                  color="FFFFFF")
+                else:
+                    c.fill = MUTED_FILL
+            elif use_alt:
+                c.fill = ALT_ROW_FILL
+        ws.row_dimensions[r_idx].height = 22
+
+    last_data_row = r_idx if rows else header_row
+
+    # Autofiltre + gel de l'en-tête (tri par classe = hiérarchisation).
+    ws.auto_filter.ref = (f"{get_column_letter(1)}{header_row}:"
+                          f"{get_column_letter(last)}{last_data_row}")
+    ws.freeze_panes = f"A{header_row + 1}"
+
+    # --- Ligne de bilan ---
+    n_total = len(rows)
+    n_fiable = sum(1 for r in rows if r.fiable)
+    n_v = sum(1 for r in rows if r.classe_globale == "Vert")
+    n_o = sum(1 for r in rows if r.classe_globale == "Orange")
+    n_r = sum(1 for r in rows if r.classe_globale == "Rouge")
+    footer_row = last_data_row + 2
+    ws.cell(row=footer_row, column=1,
+            value=(f"{n_total} arbre(s)  •  {n_fiable} diagnostic(s) fiable(s)"
+                   f"  •  Vert : {n_v}   Orange : {n_o}   Rouge : {n_r}")
+            ).font = FOOTER_FONT
+    ws.merge_cells(start_row=footer_row, start_column=1,
+                   end_row=footer_row, end_column=last)
+
+    # --- Largeurs de colonnes ---
+    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14]
+    for i, wdt in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = wdt
+
+    wb.save(path)
