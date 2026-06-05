@@ -76,6 +76,15 @@ def apply_ttk_styles(root: tk.Misc) -> None:
     s.map("Accent.TButton",
           background=[("active", COLOR_WOOD_DARK),
                       ("pressed", COLOR_WOOD_DARK)])
+    # Variante Menubutton du bouton accent (bouton « ＋ Ajouter ▾ » de la
+    # liste d'arbres) : le style TButton ne s'applique pas tel quel à un
+    # Menubutton.
+    s.configure("Accent.TMenubutton", background=COLOR_ACCENT,
+                foreground="white", padding=(12, 7),
+                font=("Helvetica", 10, "bold"), borderwidth=0)
+    s.map("Accent.TMenubutton",
+          background=[("active", COLOR_WOOD_DARK),
+                      ("pressed", COLOR_WOOD_DARK)])
     s.configure("Ghost.TButton", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT, padding=(10, 6),
                 font=("Helvetica", 10), borderwidth=1)

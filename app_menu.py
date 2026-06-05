@@ -49,6 +49,9 @@ class AppLike(Protocol):
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
+    def action_add_arbre_inherit(self) -> None: ...
+    def action_next_arbre(self) -> None: ...
+    def action_prev_arbre(self) -> None: ...
     def action_dup_arbre(self) -> None: ...
     def action_rename_arbre(self) -> None: ...
     def action_del_arbre(self) -> None: ...
@@ -109,6 +112,14 @@ def build_menu(app: AppLike) -> None:
     a = tk.Menu(m, tearoff=0)
     a.add_command(label="Ajouter un arbre", accelerator="Ctrl+T",
                   command=app.action_add_arbre)
+    a.add_command(label="Ajouter (hériter du précédent)",
+                  command=app.action_add_arbre_inherit)
+    a.add_separator()
+    a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
+                  command=app.action_next_arbre)
+    a.add_command(label="Arbre précédent", accelerator="Ctrl+PgUp",
+                  command=app.action_prev_arbre)
+    a.add_separator()
     a.add_command(label="Dupliquer l'arbre courant",
                   command=app.action_dup_arbre)
     a.add_command(label="Renommer l'arbre courant",

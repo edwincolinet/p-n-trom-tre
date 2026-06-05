@@ -123,6 +123,10 @@ class App(tk.Tk):
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
         self.bind_all("<Control-e>", self._on_export_shortcut)
+        # Navigation clavier entre arbres (Ctrl+PageDown/PageUp). Libre de
+        # conflit : ttk.Notebook ne lie que Ctrl+Tab.
+        self.bind_all("<Control-Next>", lambda e: self.action_next_arbre())
+        self.bind_all("<Control-Prior>", lambda e: self.action_prev_arbre())
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Autosave anti-crash : on programme le 1er tick et on vérifie au
@@ -295,10 +299,20 @@ class App(tk.Tk):
 
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(fill="x", pady=(10, 0))
-        btn_add = ttk.Button(btns, text="＋ Ajouter", style="Accent.TButton",
+        mb_add = ttk.Menubutton(btns, text="＋ Ajouter",
+                                style="Accent.TMenubutton", direction="below")
+        add_menu = tk.Menu(mb_add, tearoff=0)
+        add_menu.add_command(label="Arbre vierge",
+                             accelerator="Ctrl+T",
                              command=self.action_add_arbre)
-        btn_add.pack(side="left")
-        Tooltip(btn_add, "Ajouter un arbre à la mission (Ctrl+T)")
+        add_menu.add_command(
+            label="Hériter du précédent (essence, port, mèche…)",
+            command=self.action_add_arbre_inherit)
+        mb_add["menu"] = add_menu
+        mb_add.pack(side="left")
+        Tooltip(mb_add, "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
+                        "« Hériter du précédent » pour reprendre essence, "
+                        "port et mèche d'un alignement.")
         ttk.Button(btns, text="Dupliquer", style="Ghost.TButton",
                    command=self.action_dup_arbre
                    ).pack(side="left", padx=(6, 0))
@@ -761,19 +775,78 @@ class App(tk.Tk):
         self.current_idx = idx
         self._load_arbre_to_ui()
 
-    def action_add_arbre(self) -> None:
-        self.push_undo()
+    def _next_arbre_numero(self) -> str:
+        """Prochain n° d'arbre : max numérique existant + 1, borné au
+        moins au nombre d'arbres + 1 (cas de numéros non numériques)."""
         max_num = 0
         for arb in self.chantier.arbres:
             try:
                 max_num = max(max_num, int(arb.numero_arbre))
             except (ValueError, TypeError):
                 pass
-        new_num = str(max(max_num + 1, len(self.chantier.arbres) + 1))
-        self.chantier.arbres.append(Arbre(numero_arbre=new_num))
+        return str(max(max_num + 1, len(self.chantier.arbres) + 1))
+
+    def action_add_arbre(self) -> None:
+        """Ajoute un arbre vierge (tous champs par défaut)."""
+        self.push_undo()
+        self.chantier.arbres.append(
+            Arbre(numero_arbre=self._next_arbre_numero()))
         self.current_idx = len(self.chantier.arbres) - 1
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
+
+    def action_add_arbre_inherit(self) -> None:
+        """Ajoute un arbre héritant des champs d'« identité » de l'arbre
+        courant (essence, port, longueur de mèche, épaisseur d'écorce,
+        hauteur de sondage) mais SANS ses sondages / dégradations /
+        contreforts ni sa géométrie mesurée (rayon, diamètre, hauteur de
+        l'arbre restent à mesurer). Pensé pour les alignements d'arbres
+        identiques (30 platanes de même essence et même port) : on ne
+        re-saisit pas le protocole commun à chaque arbre."""
+        cur = self._current_arbre()
+        if cur is None:
+            return self.action_add_arbre()
+        self.push_undo()
+        new = Arbre(
+            numero_arbre=self._next_arbre_numero(),
+            essence=cur.essence,
+            port_arbre=cur.port_arbre,
+            meche_cm=cur.meche_cm,
+            epaisseur_ecorce_cm=cur.epaisseur_ecorce_cm,
+            hauteur_sondage_cm=cur.hauteur_sondage_cm,
+        )
+        self.chantier.arbres.append(new)
+        self.current_idx = len(self.chantier.arbres) - 1
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+
+    def _select_arbre_relative(self, delta: int) -> None:
+        """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
+        passe à l'arbre suivant/précédent dans la liste, sans boucler."""
+        n = len(self.chantier.arbres)
+        if n <= 1:
+            return
+        new_idx = min(n - 1, max(0, self.current_idx + delta))
+        if new_idx == self.current_idx:
+            return
+        # Donne le focus clavier à la liste AVANT de changer d'arbre :
+        # déclenche le <FocusOut> d'une éventuelle case de grille en cours
+        # d'édition (commit undo + normalisation) sur l'arbre encore
+        # courant, avant de basculer.
+        self.tree_arbres.focus_set()
+        self.current_idx = new_idx
+        target = f"a{new_idx}"
+        if target in self.tree_arbres.get_children():
+            self.tree_arbres.selection_set(target)
+            self.tree_arbres.focus(target)
+            self.tree_arbres.see(target)
+        self._load_arbre_to_ui()
+
+    def action_next_arbre(self) -> None:
+        self._select_arbre_relative(1)
+
+    def action_prev_arbre(self) -> None:
+        self._select_arbre_relative(-1)
 
     def action_dup_arbre(self) -> None:
         a = self._current_arbre()
@@ -1164,7 +1237,9 @@ class App(tk.Tk):
             "  Ctrl+E   Exporter la fiche PDF de l'arbre courant\n"
             "\n"
             "Arbres\n"
-            "  Ctrl+T   Ajouter un arbre\n"
+            "  Ctrl+T        Ajouter un arbre\n"
+            "  Ctrl+PgDown   Arbre suivant\n"
+            "  Ctrl+PgUp     Arbre précédent\n"
             "  Double-clic sur un arbre : le renommer\n"
             "  Clic droit sur un arbre : menu d'actions\n"
             "\n"
