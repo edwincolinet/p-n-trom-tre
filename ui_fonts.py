@@ -22,6 +22,8 @@ par rapport au diagramme, pas au texte de l'UI.
 
 from __future__ import annotations
 
+from typing import Any
+
 _scale: float = 1.0
 
 
@@ -36,15 +38,16 @@ def get_ui_scale() -> float:
     return _scale
 
 
-def font(family: str, size: int,
-         *options: str) -> "tuple[str, int, *tuple[str, ...]]":
+def font(family: str, size: int, *options: str) -> tuple[Any, ...]:
     """Renvoie un tuple de police Tk avec la taille mise à l'échelle.
 
     `font("Helvetica", 10, "bold")` → `("Helvetica", 14, "bold")` à
     l'échelle 1.4. Taille plancher de 1 pt. À l'échelle 1.0, identité.
 
-    Le type de retour reproduit la forme attendue par les stubs tkinter
-    (`tuple[str, int, *tuple[str, ...]]`) — famille, taille, puis options
-    (`bold`, `italic`…) — pour rester typé chez les appelants.
+    Retour typé `tuple[Any, ...]` : la forme exacte attendue par les
+    stubs tkinter (`tuple[str, int, *tuple[str, ...]]`) utilise la syntaxe
+    d'unpack PEP 646, invalide pour la cible mypy `python_version = 3.9`.
+    `tuple[Any, ...]` reste assignable au paramètre `font=` chez tous les
+    appelants sans casser la CI 3.9.
     """
     return (family, max(1, round(size * _scale)), *options)
