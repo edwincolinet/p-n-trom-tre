@@ -41,17 +41,31 @@ tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 tests/                 ← 210 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
 ```
 
-**`App` = orchestration + 3 mixins + 1 helper.** Pour contenir la classe
-`App` (qui grossissait à chaque feature), sa logique est répartie par
-responsabilité : `ArbreListMixin` (panneau gauche), `RecoveryMixin`
-(autosave/récupération), `ExportActionsMixin` (les `action_export_*`,
-appelées par nom depuis `app_menu`/`pane_diagnostic` → doivent rester des
-méthodes de `App`), et `RecentFilesStore` (composition, pur). `App` ne
-garde que le câblage UI, la synchro modèle, undo/redo, fichier et le
+**`App` = orchestration + 3 mixins + 1 helper.** C'est un
+**partitionnement par responsabilité** (navigabilité, localité git-blame),
+**pas une décomposition** : sauf `ExportActionsMixin`, les mixins lisent et
+**mutent** l'état d'`App` (`chantier`, `current_idx`, `current_file`,
+`_dirty`, …) et s'appellent même entre eux (`RecoveryMixin` invoque
+`_refresh_tree_arbres` d'`ArbreListMixin`). Ça reste **un seul objet réparti
+sur 4 fichiers**, avec un couplage total **assumé** — intrinsèque à une UI
+maître-détail où sélectionner un arbre recharge tout le panneau de droite
+(le « découpler » ne ferait que déplacer ce couplage dans une interface de
+callbacks, pour un gain net faible). Découpage :
+
+- `ArbreListMixin` (panneau gauche) — mute `current_idx`, `chantier.arbres`.
+- `RecoveryMixin` (autosave/récupération) — réassigne l'état de session.
+- `ExportActionsMixin` (les `action_export_*`, appelées par nom depuis
+  `app_menu`/`pane_diagnostic` → doivent rester des méthodes de `App`) :
+  pur dispatcher en lecture seule, le seul mixin réellement découplé.
+- `RecentFilesStore` (composition, pur).
+
+`App` garde le câblage UI, la synchro modèle, undo/redo, fichier et le
 debounce de redraw. Les mixins dérivent de `tk.Tk` **uniquement sous
 `TYPE_CHECKING`** (`_MixinBase`) — `object` au runtime — pour que mypy
-voie `self` comme un widget sans couplage ni problème de MRO ; les
-attributs propres à `App` sont déclarés dans un bloc `TYPE_CHECKING`.
+voie `self` comme un widget sans problème de MRO ; les attributs/méthodes
+d'`App` requis sont déclarés dans un bloc `TYPE_CHECKING`. **Ces blocs
+documentent la surface de couplage (greppable) mais ne l'encapsulent pas**
+— au runtime un mixin peut toucher n'importe quel attribut d'`App`.
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
 
