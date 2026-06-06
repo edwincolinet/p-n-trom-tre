@@ -27,6 +27,7 @@ from contextlib import contextmanager
 from tkinter import ttk
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
+from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import to_float, validate_numeric
 from model import Arbre
@@ -139,22 +140,16 @@ class IdentificationPane(ttk.Frame):
         num_w.bind("<FocusIn>", lambda e: self._numeric_snapshots.__setitem__(num_key, self.var_num.get()))
         num_w.bind("<FocusOut>", lambda e: self._revert_num_if_invalid())
 
-        ttk.Label(self,
-                  text="ⓘ Saisir le diamètre sous écorce calcule le rayon "
-                       "automatiquement (÷ 2). Le rayon reste modifiable "
-                       "indépendamment si besoin.",
-                  style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(groupes), column=0,
-                         sticky="we", pady=(4, 0))
-        ttk.Label(self,
-                  text="ⓘ Si vous corrigez le rayon après avoir saisi des "
-                       "sondages, la PRBS (bois sain) reste inchangée car "
-                       "elle correspond à la mesure physique du "
-                       "pénétromètre. Le bois altéré est recalculé "
-                       "automatiquement (= rayon − bois sain).",
-                  style="Muted.TLabel", wraplength=380, justify="left"
-                  ).grid(row=len(groupes)+1, column=0,
-                         sticky="we", pady=(6, 0))
+        AideRepliable(
+            self,
+            "Saisir le diamètre sous écorce calcule le rayon "
+            "automatiquement (÷ 2). Le rayon reste modifiable "
+            "indépendamment si besoin.",
+            "Si vous corrigez le rayon après avoir saisi des sondages, la "
+            "PRBS (bois sain) reste inchangée car elle correspond à la "
+            "mesure physique du pénétromètre. Le bois altéré est recalculé "
+            "automatiquement (= rayon − bois sain).",
+        ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
         self.columnconfigure(0, weight=1)
 
     @contextmanager

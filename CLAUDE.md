@@ -38,7 +38,8 @@ palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (XLSX/CSV)
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
-tests/                 ← 210 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
+aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
+tests/                 ← 212 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -72,7 +73,7 @@ documentent la surface de couplage (greppable) mais ne l'encapsulent pas**
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + tooltip.py + app_recent.py
+model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py
    ↑
 diagnostic.py
    ↑
@@ -127,6 +128,7 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Saisie texte thémée** : `dialogs.ask_string(parent, title, prompt, initial, info=…)` remplace `simpledialog.askstring` (look système incohérent). Renvoie `None` si annulé, la chaîne (sans `strip`) si validé — `""` validé ≠ `None`. Utilisé par `action_rename_arbre`.
 - **Barre d'état** : `App._build_statusbar()` (bas de fenêtre, packée `side="bottom"` AVANT le body). `App.notify_export(path, label)` y affiche le succès d'un export (non-modal) et active les boutons « Ouvrir le fichier / le dossier » (`App._open_in_system`). `app_exports._notify_export` route vers `notify_export` si l'hôte le fournit, sinon `messagebox` (contexte test).
 - **Infobulles** : `tooltip.Tooltip(widget, texte)` — bindings `add="+"` pour ne pas écraser ceux du widget. Sert à rappeler les accélérateurs (bouton « ＋ Ajouter » → Ctrl+T) et décrire le bandeau d'export (2 boutons + menu « Tableau »).
+- **Aide repliable** : `aide_repliable.AideRepliable(parent, *paragraphes, titre="Aide", wraplength=…)` — bloc d'aide derrière un en-tête cliquable « ⓘ Aide ▸/▾ », **replié par défaut** (discret pour l'opérateur expérimenté, dépliable au clic à la 1ʳᵉ utilisation). Remplace les libellés `Muted.TLabel` ⓘ permanents (identification : couplage Ø↔rayon + invariance PRBS ; sondages : sémantique case vide/effacer ; canevas : clic = éditer/ajouter). Fonctionne en `grid` comme en `pack` (gère sa disposition interne ; le parent place le widget). État conservé tant que le widget vit — les panes ne sont construits qu'une fois, pas par arbre. S'appuie sur les styles `Panel.TFrame`/`Muted.TLabel`.
 - **Canevas — ajout par clic** : un clic sur une direction libre du dessin ajoute un sondage à ce grade (`App.open_add_sondage`) ; un clic sur une direction déjà sondée l'édite. `SectionCanvas._on_click_background` convertit le pixel en grade (inverse de `geometry.polar_to_xy`), mémorise la géométrie du dernier rendu dans `self._geom`, et ignore les clics sur un élément interactif (garde par tags).
 - **Raccourci export** : `Ctrl+E` → `App.action_export_pdf_arbre`. Bind dans `App.__init__` (comme Ctrl+Z/Y) via `_on_export_shortcut`, qui **ne déclenche pas** si un `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans les widgets Tk).
 - **Fichiers récents** : `~/.penetrometre/recent.json` (8 entrées max). `App._push_recent_file(path)` appelé après chaque open/save. Sous-menu `Fichier → Ouvrir récent` reconstruit par `app_menu.refresh_recent_menu(app)`.
@@ -146,7 +148,7 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   app_recent.py app_arbres.py app_recovery.py app_export_actions.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
-  undo.py tooltip.py penetrometre.py
+  undo.py tooltip.py aide_repliable.py penetrometre.py
 ```
 
 > NB mypy : sous mypy ≥ 1.20, `pane_sondages`, `pane_identification` et

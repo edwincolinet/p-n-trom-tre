@@ -36,6 +36,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
+from aide_repliable import AideRepliable
 from dialogs import edit_sondage, to_float, validate_numeric
 from geometry import GRADES
 from model import Arbre, Sondage
@@ -142,12 +143,12 @@ class SondagesPane(ttk.Frame):
             for w in (lbl_dir, lbl_gr):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
 
-        ttk.Label(
+        AideRepliable(
             self,
-            text="ⓘ Laissez vide une direction non sondée. Effacer une "
-                 "valeur supprime le sondage. Double-cliquez la direction "
-                 "pour le détail (commentaire, redirection).",
-            style="Muted.TLabel", wraplength=420, justify="left"
+            "Laissez vide une direction non sondée. Effacer une valeur "
+            "supprime le sondage. Double-cliquez la direction pour le "
+            "détail (commentaire, redirection).",
+            wraplength=420,
         ).pack(anchor="w", pady=(8, 0))
 
     # --- Navigation ---------------------------------------------------

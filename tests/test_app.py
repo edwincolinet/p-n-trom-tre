@@ -288,5 +288,40 @@ class TestAppMixins(unittest.TestCase):
         self.assertIsNone(self.app.current_file)
 
 
+@unittest.skipIf(_SKIP_TK, _SKIP_REASON)
+class TestAideRepliable(unittest.TestCase):
+    """Widget d'aide repliable : replié par défaut, toggle au clic."""
+
+    def setUp(self) -> None:
+        from aide_repliable import AideRepliable
+        from app_style import apply_ttk_styles
+        self.root = tk.Tk()
+        apply_ttk_styles(self.root)  # définit Panel.TFrame / Muted.TLabel
+        self.aide = AideRepliable(self.root, "Premier conseil.",
+                                  "Second conseil.")
+        self.root.update_idletasks()
+
+    def tearDown(self) -> None:
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    def test_replie_par_defaut(self) -> None:
+        # Corps non géré (pack_forget) tant qu'on n'a pas déplié.
+        # winfo_manager() == "" => le widget n'est pas packé (≠ ismapped,
+        # qui dépend de la fenêtre réellement affichée, fragile en headless).
+        self.assertEqual(self.aide._body.winfo_manager(), "")
+        self.assertIn("▸", self.aide._header.cget("text"))
+
+    def test_toggle_deplie_puis_replie(self) -> None:
+        self.aide.toggle()
+        self.assertEqual(self.aide._body.winfo_manager(), "pack")
+        self.assertIn("▾", self.aide._header.cget("text"))
+        self.aide.toggle()
+        self.assertEqual(self.aide._body.winfo_manager(), "")
+        self.assertIn("▸", self.aide._header.cget("text"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -23,11 +23,20 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   laptop de terrain en plein jour. Golden-tests Tk régénérés
   (changement de couleur uniquement).
 
+- **Aide contextuelle repliable** : les libellés d'aide ⓘ qui restaient
+  affichés en permanence (identification, sondages, canevas) passent
+  derrière un en-tête cliquable « ⓘ Aide ▸ » — repliés par défaut (écran
+  désencombré pour l'opérateur expérimenté), dépliables d'un clic à la
+  première utilisation. Nouveau widget réutilisable `AideRepliable`
+  (`aide_repliable.py`).
+
 ### Interne
 
 - `_arbre_diag_fiable(a)` extrait pour le compteur du footer (≥3
   sondages) ; `_arbre_etat` consulte `repartition_classes` pour la
   couleur de classe. Tests `_arbre_etat` étendus (glyphes + classe).
+- `aide_repliable.py` + tests `TestAideRepliable` (replié par défaut,
+  toggle). Total : 212 tests.
 
 ## 3.4.0
 

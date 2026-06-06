@@ -23,6 +23,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Iterator, Optional
 
+from aide_repliable import AideRepliable
 from app_arbres import ArbreListMixin
 from app_export_actions import ExportActionsMixin
 from app_menu import build_menu, refresh_recent_menu
@@ -402,12 +403,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         ).pack(anchor="w", pady=(6, 0))
         # Indice de découvrabilité : le canevas est interactif (clic sur
         # un élément = édition, clic sur une direction vide = ajout).
-        # Rien ne le signalait a priori — d'où ce rappel discret.
-        ttk.Label(
+        # Rien ne le signalait a priori — d'où ce rappel, repliable.
+        AideRepliable(
             frame,
-            text="ⓘ Cliquez un élément du dessin pour le modifier, "
-                 "ou une direction libre pour ajouter un sondage.",
-            style="Muted.TLabel", wraplength=440, justify="left",
+            "Cliquez un élément du dessin pour le modifier, ou une "
+            "direction libre pour ajouter un sondage.",
+            wraplength=440,
         ).pack(anchor="w", pady=(2, 0))
 
     def _build_statusbar(self) -> None:
