@@ -14,8 +14,6 @@ Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 
 from __future__ import annotations
 
-import copy
-import json
 import logging
 import os
 import tkinter as tk
@@ -25,10 +23,16 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Iterator, Optional
 
-import app_exports
+from app_arbres import ArbreListMixin
+from app_export_actions import ExportActionsMixin
 from app_menu import build_menu, refresh_recent_menu
+from app_recent import RecentFilesStore
+from app_recovery import (
+    _RECOVERY_PATH,
+    RecoveryMixin,
+)
 from app_style import apply_ttk_styles
-from dialogs import ask_string, edit_contrefort, edit_degradation, edit_sondage
+from dialogs import edit_contrefort, edit_degradation, edit_sondage
 from model import Arbre, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_BG
 from pane_contreforts import ContrefortsPane
@@ -41,29 +45,22 @@ from persistence import (
     chantier_to_dict,
     clear_recovery,
     load_chantier,
-    load_recovery,
     save_chantier,
-    save_recovery,
 )
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
 from undo import UndoStack
 
-__version__ = "3.3.0"
+__version__ = "3.4.0"
 
 # Fichiers récents : on en garde 8, persistés en JSON dans le même
 # répertoire que le log (~/.penetrometre/). 8 est un bon compromis :
 # tient en un sous-menu compact, suffisant pour 1-2 semaines d'usage.
+# La logique (chargement/persistance/déduplication) vit dans
+# `app_recent.RecentFilesStore` ; l'autosave anti-crash et la
+# récupération dans `app_recovery.RecoveryMixin`.
 _RECENT_FILES_MAX = 8
 _RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
-
-# Sauvegarde de récupération (autosave anti-crash). Écrite périodiquement
-# tant que la mission a des modifications non enregistrées, et effacée dès
-# qu'on atteint un état propre (enregistrement, nouvelle mission, ouverture)
-# ou à la fermeture normale. Sa seule présence au démarrage signale donc
-# un crash précédent avec du travail non sauvegardé → on propose la reprise.
-_RECOVERY_PATH = Path.home() / ".penetrometre" / "recovery" / "autosave.json"
-_AUTOSAVE_INTERVAL_MS = 60_000  # 60 s
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -76,7 +73,7 @@ log = logging.getLogger("penetrometre")
 # Application principale
 # ---------------------------------------------------------------------------
 
-class App(tk.Tk):
+class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
@@ -103,7 +100,9 @@ class App(tk.Tk):
         self._suspend_sync = False
         self._redraw_id: Optional[str] = None
         self._undo_stack = UndoStack()
-        self._recent_files: list[str] = self._load_recent_files()
+        self._recent = RecentFilesStore(
+            _RECENT_FILES_PATH, _RECENT_FILES_MAX,
+            on_change=lambda: refresh_recent_menu(self))  # type: ignore[arg-type]
         # Dernier fichier exporté — cible des boutons « Ouvrir le
         # fichier / le dossier » de la barre d'état (cf. notify_export).
         self._last_export_path: Optional[Path] = None
@@ -484,87 +483,9 @@ class App(tk.Tk):
         clear_recovery(_RECOVERY_PATH)
         self.destroy()
 
-    # --- Autosave anti-crash + récupération ----------------------------
-
-    def _schedule_autosave(self) -> None:
-        """(Re)programme le prochain tick d'autosave. Idempotent : annule
-        un tick en attente avant d'en reprogrammer un."""
-        if self._autosave_after_id is not None:
-            try:
-                self.after_cancel(self._autosave_after_id)
-            except (ValueError, tk.TclError):
-                pass
-        self._autosave_after_id = self.after(
-            _AUTOSAVE_INTERVAL_MS, self._autosave_tick)
-
-    def _autosave_tick(self) -> None:
-        """Écrit l'autosave si la mission a des modifications non
-        enregistrées, puis se reprogramme. Tout échec est journalisé sans
-        interrompre l'app (l'autosave est un filet, pas un point dur)."""
-        try:
-            if self._dirty:
-                save_recovery(
-                    self.chantier,
-                    str(self.current_file) if self.current_file else None,
-                    _RECOVERY_PATH)
-                log.info("Autosave écrit (%s)", _RECOVERY_PATH.name)
-        except Exception:
-            log.exception("Échec de l'autosave")
-        finally:
-            self._schedule_autosave()
-
-    def _check_recovery_on_startup(self) -> None:
-        """Au démarrage : si un autosave subsiste (crash précédent avec
-        travail non enregistré), propose de le récupérer."""
-        if not _RECOVERY_PATH.exists():
-            return
-        try:
-            chantier, original, saved_at = load_recovery(_RECOVERY_PATH)
-        except Exception:
-            log.exception("Autosave illisible — ignoré")
-            clear_recovery(_RECOVERY_PATH)
-            return
-        details = (f"Fichier : {original}" if original
-                   else "Mission jamais enregistrée.")
-        when = f" du {saved_at}" if saved_at else ""
-        if messagebox.askyesno(
-                "Récupération",
-                "Une session non enregistrée a été retrouvée "
-                f"(sauvegarde automatique{when}).\n\n{details}\n\n"
-                "La récupérer ?"):
-            self._restore_recovery(chantier, original)
-            # On laisse l'autosave en place : il reflète l'état restauré
-            # (toujours non enregistré). Il sera rafraîchi au prochain tick
-            # et effacé au 1er enregistrement.
-        else:
-            clear_recovery(_RECOVERY_PATH)
-
-    def _restore_recovery(self, chantier: Chantier,
-                          original: Optional[str]) -> None:
-        """Recharge l'UI complète depuis un chantier récupéré. Marque la
-        mission comme modifiée (le travail n'est pas encore réenregistré)
-        et pointe sur le fichier d'origine s'il existe encore (pour que
-        Ctrl+S réécrive au bon endroit)."""
-        self._undo_stack.clear()
-        self.chantier = chantier
-        if not self.chantier.arbres:
-            self.chantier.arbres.append(Arbre(numero_arbre="1"))
-        self.current_idx = 0
-        if original and Path(original).exists():
-            self.current_file = Path(original)
-        else:
-            self.current_file = None
-        with self._suspend_sync_block():
-            self.var_ch_nom.set(self.chantier.nom)
-            self.var_ch_adr.set(self.chantier.adresse)
-            self.var_ch_ope.set(self.chantier.operateur)
-            self.var_ch_date.set(self.chantier.date_releve)
-        self.var_filter.set("")  # nouvelle mission → filtre remis à zéro
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-        self._dirty = True
-        self._update_title()
-        self.set_status("Session récupérée — pensez à l'enregistrer.")
+    # Autosave anti-crash + récupération : cf. `app_recovery.RecoveryMixin`
+    # (_schedule_autosave / _autosave_tick / _check_recovery_on_startup /
+    # _restore_recovery).
 
     # --- Undo / redo --------------------------------------------------
 
@@ -691,308 +612,10 @@ class App(tk.Tk):
         # passer de 0 à 2 sondages laisserait la pastille rouge.
         self._refresh_current_arbre_etat()
 
-    def _refresh_current_arbre_etat(self) -> None:
-        """Met à jour la pastille d'état + le footer après une mutation
-        sur l'arbre courant. N'agit que sur la ligne sélectionnée pour
-        éviter de reconstruire toute la tree (préserve la sélection et
-        la position de scroll)."""
-        a = self._current_arbre()
-        if a is None:
-            return
-        sel = self.tree_arbres.selection()
-        if sel:
-            label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, tag = self._arbre_etat(a)
-            self.tree_arbres.item(sel[0], text=label,
-                                  values=(a.essence, glyph),
-                                  tags=(tag,))
-        n_ok = sum(1 for x in self.chantier.arbres
-                   if self._arbre_etat(x)[1] == "etat_ok")
-        self._update_etat_footer(n_ok, len(self.chantier.arbres))
-
-    # --- Liste d'arbres ---------------------------------------------
-
-    def _arbre_matches_filter(self, a: Arbre) -> bool:
-        """Vrai si l'arbre concorde avec le filtre courant (sous-chaîne,
-        insensible à la casse, sur le n° OU l'essence). Filtre vide =
-        tout passe. Tolérant si appelé avant la construction du champ."""
-        q = getattr(self, "var_filter", None)
-        if q is None:
-            return True
-        needle = q.get().strip().lower()
-        if not needle:
-            return True
-        return (needle in a.numero_arbre.lower()
-                or needle in a.essence.lower())
-
-    def _refresh_tree_arbres(self) -> None:
-        self.tree_arbres.delete(*self.tree_arbres.get_children())
-        # Le compteur footer reste sur TOUTE la mission (vue macro), pas
-        # sur la sous-liste filtrée.
-        n_ok = sum(1 for a in self.chantier.arbres
-                   if self._arbre_etat(a)[1] == "etat_ok")
-        for i, a in enumerate(self.chantier.arbres):
-            if not self._arbre_matches_filter(a):
-                continue
-            # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
-            label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, tag = self._arbre_etat(a)
-            # iid = position réelle dans chantier.arbres (cf.
-            # _on_select_arbre) — préservée même quand des lignes sont
-            # masquées par le filtre.
-            self.tree_arbres.insert("", "end", iid=f"a{i}",
-                                    text=label,
-                                    values=(a.essence, glyph),
-                                    tags=(tag,))
-        self._update_etat_footer(n_ok, len(self.chantier.arbres))
-        # Re-sélectionne l'arbre courant s'il est visible dans la liste
-        # filtrée (sinon on laisse la sélection vide : le panneau de droite
-        # continue d'afficher l'arbre courant).
-        target = f"a{self.current_idx}"
-        if target in self.tree_arbres.get_children():
-            self.tree_arbres.selection_set(target)
-            self.tree_arbres.focus(target)
-
-    def _update_etat_footer(self, n_ok: int, n_total: int) -> None:
-        """Met à jour le footer « X/N arbres complets » sous la liste."""
-        if not hasattr(self, "lbl_etat_footer"):
-            return
-        self.lbl_etat_footer.configure(
-            text=f"● {n_ok}/{n_total} arbres avec diagnostic fiable")
-
-    @staticmethod
-    def _arbre_etat(a: Arbre) -> tuple[str, str]:
-        """Renvoie `(glyphe, tag)` pour la colonne État d'un arbre.
-
-        Le glyphe est un caractère universellement disponible (●),
-        c'est le tag — appliqué à toute la ligne via `tag_configure` —
-        qui colorise (rouge/orange/vert) le foreground et permet la
-        distinction visuelle. On évite les emojis couleur (🔴🟠🟢)
-        qui s'affichent souvent en monochrome dans ttk.Treeview selon
-        la police système : trois pastilles devenaient indistinguables.
-
-        Seuil de complétude aligné sur la règle métier : un diagnostic
-        global n'est publié (t/R moyen + classe) qu'à partir de 3
-        directions sondées (cf. `diagnostic.DiagnosticSnapshot`). La
-        pastille verte signale donc exactement les arbres dont le
-        diagnostic est fiable et exportable.
-
-        Règles :
-          - `etat_vide`    : pas de rayon OU pas de sondage
-          - `etat_partiel` : 1 ou 2 sondages (diagnostic non fiable)
-          - `etat_ok`      : 3 sondages ou plus (diagnostic fiable)
-        """
-        if a.rayon_tronc_cm <= 0 or not a.sondages:
-            return "●", "etat_vide"
-        if len(a.sondages) < 3:
-            return "●", "etat_partiel"
-        return "●", "etat_ok"
-
-    def _on_tree_arbres_right_click(self, event: "tk.Event[tk.Misc]") -> None:
-        """Sélectionne la ligne sous le curseur puis affiche le menu
-        contextuel. Sélectionner avant l'action garantit que les
-        commandes (Renommer/Dupliquer/Supprimer) agissent sur l'arbre
-        sous le clic, pas sur l'arbre précédemment sélectionné.
-
-        NB : pas de `grab_release()` après `tk_popup()` — Tk gère le
-        grab tout seul, l'appel immédiat l'annulait et empêchait le
-        menu de se fermer au clic externe (cf. binding `<FocusOut>`
-        posé à la construction du menu)."""
-        row_id = self.tree_arbres.identify_row(event.y)
-        if not row_id:
-            return
-        self.tree_arbres.selection_set(row_id)
-        self.tree_arbres.focus(row_id)
-        self._tree_arbres_ctx_menu.tk_popup(event.x_root, event.y_root)
-
-    def _on_select_arbre(self, event: Optional["tk.Event[tk.Misc]"] = None) -> None:
-        sel = self.tree_arbres.selection()
-        if not sel:
-            return
-        idx = int(sel[0][1:])
-        if idx == self.current_idx:
-            return
-        self.current_idx = idx
-        self._load_arbre_to_ui()
-
-    def _next_arbre_numero(self) -> str:
-        """Prochain n° d'arbre : max numérique existant + 1, borné au
-        moins au nombre d'arbres + 1 (cas de numéros non numériques)."""
-        max_num = 0
-        for arb in self.chantier.arbres:
-            try:
-                max_num = max(max_num, int(arb.numero_arbre))
-            except (ValueError, TypeError):
-                pass
-        return str(max(max_num + 1, len(self.chantier.arbres) + 1))
-
-    def action_add_arbre(self) -> None:
-        """Ajoute un arbre vierge (tous champs par défaut)."""
-        self.push_undo()
-        self.chantier.arbres.append(
-            Arbre(numero_arbre=self._next_arbre_numero()))
-        self.current_idx = len(self.chantier.arbres) - 1
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
-    def _clear_filter_if_set(self) -> None:
-        """Vide le filtre de la liste s'il est actif — pour qu'un arbre
-        nouvellement créé reste visible même s'il ne concorde pas avec le
-        filtre courant. No-op (donc pas de refresh parasite) si vide."""
-        if getattr(self, "var_filter", None) is not None and self.var_filter.get():
-            self.var_filter.set("")
-
-    def action_add_arbre_inherit(self) -> None:
-        """Ajoute un arbre héritant des champs d'« identité » de l'arbre
-        courant (essence, port, longueur de mèche, épaisseur d'écorce,
-        hauteur de sondage) mais SANS ses sondages / dégradations /
-        contreforts ni sa géométrie mesurée (rayon, diamètre, hauteur de
-        l'arbre restent à mesurer). Pensé pour les alignements d'arbres
-        identiques (30 platanes de même essence et même port) : on ne
-        re-saisit pas le protocole commun à chaque arbre."""
-        cur = self._current_arbre()
-        if cur is None:
-            return self.action_add_arbre()
-        self.push_undo()
-        new = Arbre(
-            numero_arbre=self._next_arbre_numero(),
-            essence=cur.essence,
-            port_arbre=cur.port_arbre,
-            meche_cm=cur.meche_cm,
-            epaisseur_ecorce_cm=cur.epaisseur_ecorce_cm,
-            hauteur_sondage_cm=cur.hauteur_sondage_cm,
-        )
-        self.chantier.arbres.append(new)
-        self.current_idx = len(self.chantier.arbres) - 1
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
-    def _select_arbre_relative(self, delta: int) -> None:
-        """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
-        passe à l'arbre suivant/précédent **parmi les arbres visibles**
-        (le filtre est respecté), sans boucler."""
-        visible = [i for i, a in enumerate(self.chantier.arbres)
-                   if self._arbre_matches_filter(a)]
-        if len(visible) <= 1:
-            return
-        if self.current_idx in visible:
-            pos = visible.index(self.current_idx)
-            new_idx = visible[min(len(visible) - 1, max(0, pos + delta))]
-        else:
-            # Arbre courant masqué par le filtre : on entre dans la liste
-            # visible par son 1er (avance) ou son dernier (recul) élément.
-            new_idx = visible[0] if delta > 0 else visible[-1]
-        if new_idx == self.current_idx:
-            return
-        # Donne le focus clavier à la liste AVANT de changer d'arbre :
-        # déclenche le <FocusOut> d'une éventuelle case de grille en cours
-        # d'édition (commit undo + normalisation) sur l'arbre encore
-        # courant, avant de basculer.
-        self.tree_arbres.focus_set()
-        self.current_idx = new_idx
-        target = f"a{new_idx}"
-        if target in self.tree_arbres.get_children():
-            self.tree_arbres.selection_set(target)
-            self.tree_arbres.focus(target)
-            self.tree_arbres.see(target)
-        self._load_arbre_to_ui()
-
-    def action_next_arbre(self) -> None:
-        self._select_arbre_relative(1)
-
-    def action_prev_arbre(self) -> None:
-        self._select_arbre_relative(-1)
-
-    def action_dup_arbre(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        self.push_undo()
-        new = copy.deepcopy(a)
-        # Nouveau numéro = numéro existant + suffixe 'bis', 'ter', etc.
-        suffixes = ["", " bis", " ter", " quater"]
-        base = a.numero_arbre
-        for suf in suffixes[1:]:
-            candidate = base + suf
-            if not any(x.numero_arbre == candidate for x in self.chantier.arbres):
-                new.numero_arbre = candidate
-                break
-        else:
-            new.numero_arbre = base + " (copie)"
-        self.chantier.arbres.insert(self.current_idx + 1, new)
-        self.current_idx += 1
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
-    def action_del_arbre(self) -> None:
-        if len(self.chantier.arbres) <= 1:
-            messagebox.showinfo("Information",
-                                "La mission doit contenir au moins un arbre.")
-            return
-        a = self._current_arbre()
-        if a is None:
-            return
-        if not messagebox.askyesno("Supprimer",
-                                   f"Supprimer définitivement « {a.display_name} » ?"):
-            return
-        self.push_undo()
-        del self.chantier.arbres[self.current_idx]
-        self.current_idx = max(0, self.current_idx - 1)
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
-    def action_rename_arbre(self) -> None:
-        a = self._current_arbre()
-        if not a:
-            return
-        # Boucle de retry : si la saisie ne contient pas de chiffre,
-        # on ré-ouvre le dialogue pré-rempli avec la valeur invalide
-        # plutôt que de refermer et perdre la saisie de l'utilisateur.
-        # Règle alignée sur `_revert_num_if_invalid` du pane Identification :
-        # au moins un chiffre, lettres autorisées (« 12 bis », « 3 ter »).
-        proposed = a.numero_arbre
-        while True:
-            new = ask_string(
-                self, "Renuméroter l'arbre",
-                "Nouveau n° d'arbre :",
-                initial=proposed,
-                info="Doit contenir au moins un chiffre "
-                     "(ex. « 1 », « 42 », « 12 bis »).")
-            if new is None:
-                return
-            new = new.strip()
-            if not new or new == a.numero_arbre:
-                return
-            if not any(c.isdigit() for c in new):
-                messagebox.showwarning(
-                    "Numéro invalide",
-                    "Le numéro d'arbre doit contenir au moins un "
-                    "chiffre.\n\nExemples valides : « 1 », « 42 », "
-                    "« 12 bis ».",
-                    parent=self)
-                proposed = new
-                continue
-            break
-        # Avertissement non bloquant si le numéro est déjà utilisé par
-        # un autre arbre de la mission. L'utilisateur peut quand même
-        # confirmer (cas d'un renommage en chaîne, ou d'un doublon
-        # volontaire pour un arbre jumeau identifié sur le terrain).
-        already_used = any(x is not a and x.numero_arbre == new
-                           for x in self.chantier.arbres)
-        if already_used:
-            confirmer = messagebox.askyesno(
-                "Numéro déjà utilisé",
-                f"Un autre arbre porte déjà le n° « {new} ».\n\n"
-                "Continuer quand même ?")
-            if not confirmer:
-                return
-        self.push_undo()
-        a.numero_arbre = new
-        self.pane_id.load_from_arbre()
-        self._refresh_tree_arbres()
+    # Liste d'arbres (filtre, Treeview, pastilles d'état, navigation,
+    # CRUD ajouter/dupliquer/supprimer/renommer) : cf.
+    # `app_arbres.ArbreListMixin`. `_refresh_current_arbre_etat`,
+    # `_refresh_tree_arbres` et `_arbre_etat` y vivent aussi.
 
     # --- Sondages ---------------------------------------------------
     # Le refresh et les actions vivent dans SondagesPane
@@ -1157,13 +780,13 @@ class App(tk.Tk):
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
             self._update_title()
-            self._push_recent_file(p)
+            self._recent.push(p)
         except FileNotFoundError:
             messagebox.showerror(
                 "Fichier introuvable",
                 f"Le fichier suivant n'existe plus :\n{p}\n\n"
                 "Il a été retiré de la liste des fichiers récents.")
-            self._remove_recent_file(p)
+            self._recent.remove(p)
         except Exception as e:
             log.exception("Échec ouverture mission")
             messagebox.showerror("Erreur d'ouverture", str(e))
@@ -1179,48 +802,14 @@ class App(tk.Tk):
         self._open_path(path)
 
     def get_recent_files(self) -> list[str]:
-        """Lecture pure pour `refresh_recent_menu`."""
-        return list(self._recent_files)
+        """Lecture pure pour `refresh_recent_menu` (délègue au store)."""
+        return self._recent.get()
 
-    def _load_recent_files(self) -> list[str]:
-        """Charge la liste depuis `~/.penetrometre/recent.json`.
-        Tolérant : tout problème (fichier absent, JSON invalide,
-        permission) renvoie liste vide sans interrompre le démarrage."""
-        try:
-            if _RECENT_FILES_PATH.exists():
-                with open(_RECENT_FILES_PATH, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    return [str(x) for x in data
-                            if isinstance(x, str)][:_RECENT_FILES_MAX]
-        except Exception:
-            log.exception("Lecture recent.json")
-        return []
-
-    def _save_recent_files(self) -> None:
-        try:
-            _RECENT_FILES_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with open(_RECENT_FILES_PATH, "w", encoding="utf-8") as f:
-                json.dump(self._recent_files, f, ensure_ascii=False, indent=2)
-        except Exception:
-            log.exception("Écriture recent.json")
-
-    def _push_recent_file(self, path: str) -> None:
-        """Pousse un chemin en tête de l'historique (déduplication).
-        Met à jour le sous-menu et persiste."""
-        path = str(Path(path).resolve())
-        self._recent_files = [path] + [p for p in self._recent_files
-                                        if p != path]
-        self._recent_files = self._recent_files[:_RECENT_FILES_MAX]
-        self._save_recent_files()
-        refresh_recent_menu(self)  # type: ignore[arg-type]
-
-    def _remove_recent_file(self, path: str) -> None:
-        target = str(Path(path).resolve()) if Path(path).exists() else path
-        self._recent_files = [p for p in self._recent_files
-                              if p != target and p != path]
-        self._save_recent_files()
-        refresh_recent_menu(self)  # type: ignore[arg-type]
+    # Le chargement / la persistance / la déduplication de l'historique
+    # vivent dans `app_recent.RecentFilesStore` (`self._recent`) ; les
+    # sites d'ouverture/enregistrement appellent `self._recent.push` /
+    # `self._recent.remove`, qui rafraîchissent le sous-menu via le
+    # callback `on_change` câblé dans `__init__`.
 
     def action_save(self) -> None:
         if not self.current_file:
@@ -1229,7 +818,7 @@ class App(tk.Tk):
             save_chantier(self.chantier, self.current_file)
             self._dirty = False
             self._update_title()
-            self._push_recent_file(str(self.current_file))
+            self._recent.push(str(self.current_file))
             # Le fichier réel est à jour → l'autosave n'a plus de raison
             # d'être ; on l'efface pour ne pas proposer une reprise inutile.
             clear_recovery(_RECOVERY_PATH)
@@ -1247,33 +836,9 @@ class App(tk.Tk):
         self.current_file = Path(p)
         self.action_save()
 
-    def action_export_png(self) -> None:
-        app_exports.export_png(self, self._current_arbre(),
-                                self.var_show_sondages.get())
-
-    def action_export_pdf_arbre(self) -> None:
-        app_exports.export_pdf_arbre(self, self._current_arbre(),
-                                      self.chantier)
-
-    def action_export_pdf_mission(self) -> None:
-        app_exports.export_pdf_mission(self, self.chantier)
-
-    def action_export_csv(self) -> None:
-        app_exports.export_csv_mission(self, self.chantier)
-
-    def action_export_synthesis_xlsx(self) -> None:
-        app_exports.export_synthesis_xlsx_mission(self, self.chantier)
-
-    def action_export_synthesis_csv(self) -> None:
-        app_exports.export_synthesis_csv_mission(self, self.chantier)
-
-    def action_export_prbs_xlsx(self) -> None:
-        app_exports.export_xlsx_arbre(self, self._current_arbre(),
-                                       self.chantier)
-
-    def action_export_prbs_html(self) -> None:
-        app_exports.export_html_arbre(self, self._current_arbre(),
-                                       self.chantier)
+    # Actions d'export (action_export_png / _pdf_arbre / _pdf_mission /
+    # _csv / _synthesis_{xlsx,csv} / _prbs_{xlsx,html}) : cf.
+    # `app_export_actions.ExportActionsMixin`.
 
     def action_about(self) -> None:
         messagebox.showinfo(

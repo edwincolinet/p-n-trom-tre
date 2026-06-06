@@ -12,14 +12,18 @@ troncs au pénétromètre). Utilisé en interne par le cabinet Silvavenir.
 ## Structure
 
 ```text
-penetrometre.py        ← App Tk + main (~670 l.)
+penetrometre.py        ← App Tk + main (~940 l.) — orchestration
+app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
+app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
+app_export_actions.py  ← ExportActionsMixin (les action_export_*)
+app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
 section_canvas.py      ← SectionCanvas (rendu Tk section, ~410 l.)
 pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
 pane_diagnostic.py     ← onglet Diagnostic (exports + résumé)
-app_exports.py         ← actions d'export (adaptateur Tk)
+app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
 dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort)
@@ -34,15 +38,27 @@ palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (XLSX/CSV)
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
-tests/                 ← 176 tests (intégration, golden PIL + Tk, undo, persistence)
+tests/                 ← 209 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
 ```
+
+**`App` = orchestration + 3 mixins + 1 helper.** Pour contenir la classe
+`App` (qui grossissait à chaque feature), sa logique est répartie par
+responsabilité : `ArbreListMixin` (panneau gauche), `RecoveryMixin`
+(autosave/récupération), `ExportActionsMixin` (les `action_export_*`,
+appelées par nom depuis `app_menu`/`pane_diagnostic` → doivent rester des
+méthodes de `App`), et `RecentFilesStore` (composition, pur). `App` ne
+garde que le câblage UI, la synchro modèle, undo/redo, fichier et le
+debounce de redraw. Les mixins dérivent de `tk.Tk` **uniquement sous
+`TYPE_CHECKING`** (`_MixinBase`) — `object` au runtime — pour que mypy
+voie `self` comme un widget sans couplage ni problème de MRO ; les
+attributs propres à `App` sont déclarés dans un bloc `TYPE_CHECKING`.
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
 
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + tooltip.py
+model.py + palette.py + tooltip.py + app_recent.py
    ↑
 diagnostic.py
    ↑
@@ -51,6 +67,8 @@ export.py + pil_render.py + persistence.py + dialogs.py
 fiche_pdf.py
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
+   ↑
+app_arbres.py + app_recovery.py + app_export_actions.py  (mixins de App)
    ↑
 penetrometre.py  (Tk + main) ← undo.py
 ```
@@ -107,14 +125,20 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 174 tests
+python -m unittest discover tests           # 209 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  app_recent.py app_arbres.py app_recovery.py app_export_actions.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
   undo.py tooltip.py penetrometre.py
 ```
+
+> NB mypy : sous mypy ≥ 1.20, `pane_sondages`, `pane_identification` et
+> `app_style` remontent quelques « Cannot infer type of lambda » dus à
+> l'évolution des stubs tkinter (bruit connu, hors cœur typé). Ne **pas**
+> faire `mypy .` : il agrège ce bruit + les tests. S'en tenir à la liste.
 
 Golden-tests :
 - PIL : `python -m tests.test_render --update`
@@ -131,7 +155,10 @@ Golden-tests :
    - Couleurs → `palette.py` ; exports tableau → `export.py`
    - Dialogues Tk → `dialogs.py` ; onglet UI → `pane_*.py`
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
-   - Orchestration App → `penetrometre.py`
+   - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
+   - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`
+   - Fichiers récents → `app_recent.py`
+   - Orchestration App (câblage, synchro, undo, fichier) → `penetrometre.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.
