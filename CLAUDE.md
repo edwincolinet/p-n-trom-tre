@@ -12,14 +12,20 @@ troncs au pénétromètre). Utilisé en interne par le cabinet Silvavenir.
 ## Structure
 
 ```text
-penetrometre.py        ← App Tk + main (~670 l.)
+penetrometre.py        ← App Tk + main (~940 l.) — orchestration
+app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
+app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
+app_export_actions.py  ← ExportActionsMixin (les action_export_*)
+app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
+app_settings.py        ← SettingsStore (réglages UI persistés : ui_scale, pur)
+ui_fonts.py            ← échelle des polices (facteur global + helper font(), pur)
 section_canvas.py      ← SectionCanvas (rendu Tk section, ~410 l.)
 pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
 pane_diagnostic.py     ← onglet Diagnostic (exports + résumé)
-app_exports.py         ← actions d'export (adaptateur Tk)
+app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
 dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort)
@@ -34,15 +40,42 @@ palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (XLSX/CSV)
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
-tests/                 ← 176 tests (intégration, golden PIL + Tk, undo, persistence)
+aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
+tests/                 ← 218 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
 ```
+
+**`App` = orchestration + 3 mixins + 1 helper.** C'est un
+**partitionnement par responsabilité** (navigabilité, localité git-blame),
+**pas une décomposition** : sauf `ExportActionsMixin`, les mixins lisent et
+**mutent** l'état d'`App` (`chantier`, `current_idx`, `current_file`,
+`_dirty`, …) et s'appellent même entre eux (`RecoveryMixin` invoque
+`_refresh_tree_arbres` d'`ArbreListMixin`). Ça reste **un seul objet réparti
+sur 4 fichiers**, avec un couplage total **assumé** — intrinsèque à une UI
+maître-détail où sélectionner un arbre recharge tout le panneau de droite
+(le « découpler » ne ferait que déplacer ce couplage dans une interface de
+callbacks, pour un gain net faible). Découpage :
+
+- `ArbreListMixin` (panneau gauche) — mute `current_idx`, `chantier.arbres`.
+- `RecoveryMixin` (autosave/récupération) — réassigne l'état de session.
+- `ExportActionsMixin` (les `action_export_*`, appelées par nom depuis
+  `app_menu`/`pane_diagnostic` → doivent rester des méthodes de `App`) :
+  pur dispatcher en lecture seule, le seul mixin réellement découplé.
+- `RecentFilesStore` (composition, pur).
+
+`App` garde le câblage UI, la synchro modèle, undo/redo, fichier et le
+debounce de redraw. Les mixins dérivent de `tk.Tk` **uniquement sous
+`TYPE_CHECKING`** (`_MixinBase`) — `object` au runtime — pour que mypy
+voie `self` comme un widget sans problème de MRO ; les attributs/méthodes
+d'`App` requis sont déclarés dans un bloc `TYPE_CHECKING`. **Ces blocs
+documentent la surface de couplage (greppable) mais ne l'encapsulent pas**
+— au runtime un mixin peut toucher n'importe quel attribut d'`App`.
 
 **Graphe de dépendances** (chaque module importe uniquement vers le bas) :
 
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + tooltip.py
+model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py
    ↑
 diagnostic.py
    ↑
@@ -51,6 +84,8 @@ export.py + pil_render.py + persistence.py + dialogs.py
 fiche_pdf.py
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
+   ↑
+app_arbres.py + app_recovery.py + app_export_actions.py  (mixins de App)
    ↑
 penetrometre.py  (Tk + main) ← undo.py
 ```
@@ -84,7 +119,7 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Champs numériques UI** : filtrage à la frappe via `dialogs.validate_numeric` (validateur Tk `validate="key"`) — seuls chiffres + un séparateur décimal `.`/`,` acceptés. Parsing via `dialogs.to_float` (accepte `2,5` et `2.5`). Branché sur les 3 dialogues (Sondage/Dégradation/Contrefort) + les 6 champs numériques de `pane_identification`. `_parse_float("")` renvoie `None` (pas `0.0`). `set_rayon` n'est appelé qu'au focus-out (jamais pendant la frappe) pour éviter la destruction irréversible des PRBS par valeurs intermédiaires.
 - **N° d'arbre** : doit contenir au moins un chiffre (« 1 », « 42 », « 12 bis » OK ; « bis » seul refusé). Règle appliquée dans `pane_identification._revert_num_if_invalid` (revert au focus-out) et `App.action_rename_arbre` (boucle de retry pré-remplie).
 - **Compartimentation** : valeurs `"active"`, `"absente"`, `"non renseignée"` (anciennement `"-"`, migré silencieusement au load via `persistence.chantier_from_dict`).
-- **Indicateurs d'état de la liste d'arbres** : `App._arbre_etat(arbre)` renvoie `(glyphe, tag)`. Tags : `etat_vide` (0 sondage OU rayon=0, **rouge**), `etat_partiel` (1-2 sondages, **orange ambre**), `etat_ok` (≥3 sondages, **vert**). Le seuil **vert ≥ 3** est **aligné** sur la règle métier de fiabilité (« < 3 sondages → exports masqués ») : la pastille verte signale exactement les arbres au diagnostic global publiable. NB : l'extrapolation géométrique de la cavité (`compute_alteration_par_grade`) reste active dès 2 sondages — c'est son minimum mathématique, découplé du seuil de fiabilité. Refresh ligne par ligne via `_refresh_current_arbre_etat()` appelé dans `_redraw_all` (donc après toute mutation via debounce). Footer `lbl_etat_footer` = compteur d'arbres `etat_ok`.
+- **Indicateurs d'état de la liste d'arbres** : `App._arbre_etat(arbre)` renvoie `(glyphe, tag)`. **Glyphes distincts** (la forme porte la complétude — lisible en cas de daltonisme rouge-vert, la couleur ne fait que renforcer) : `○` `etat_vide` (0 sondage OU rayon=0, **rouge**), `◐` `etat_partiel` (1-2 sondages, **orange ambre**), `●` fiable (≥3 sondages). **La couleur du `●` plein encode la classe de risque** (pas juste « complet ») : tags `etat_ok_vert`/`etat_ok_orange`/`etat_ok_rouge` colorés via `COULEUR_CLASSE` selon `repartition_classes(a).diagnostic_global` — l'opérateur repère les arbres à risque dans la liste sans ouvrir l'onglet Diagnostic (repli `etat_ok` vert si classe indispo). Le seuil **fiable ≥ 3** est **aligné** sur la règle métier de fiabilité (« < 3 sondages → exports masqués »). NB : l'extrapolation géométrique de la cavité (`compute_alteration_par_grade`) reste active dès 2 sondages — c'est son minimum mathématique, découplé du seuil de fiabilité. Refresh ligne par ligne via `_refresh_current_arbre_etat()` appelé dans `_redraw_all` (donc après toute mutation via debounce). Footer `lbl_etat_footer` = compteur d'arbres au diagnostic fiable (`_arbre_diag_fiable`, ≥3 sondages).
 - **Workaround bpo-36468 (ttk.Treeview)** : depuis Python 3.7, les `tag_configure(foreground=…)` sont ignorés à cause d'entrées par défaut dans `style.map`. `app_style._fixed_map` retire les entrées `("!disabled", "!selected", …)` pour que les tags prennent la main. Sans ça, les pastilles d'état resteraient blanches.
 - **Filtre de la liste d'arbres** : champ 🔎 au-dessus de la liste (`var_filter`), sous-chaîne insensible à la casse sur **n° OU essence**. `_refresh_tree_arbres` masque les lignes non concordantes via `_arbre_matches_filter` **mais conserve les `iid = a{index}`** indexés sur la position réelle (cf. `_on_select_arbre`) — le filtre n'altère jamais le modèle. Le **footer reste sur toute la mission** (vue macro), pas sur la sous-liste. `Échap` dans le champ vide le filtre. Le filtre est **remis à zéro** au chargement d'une mission (new/open/recovery) et à la **création d'un arbre** (`_clear_filter_if_set`, pour que le nouvel arbre reste visible). La **navigation clavier** (`_select_arbre_relative`) parcourt uniquement les arbres **visibles** quand un filtre est actif.
 - **Ajout d'arbre en série** : le bouton « ＋ Ajouter » est un `Menubutton` (`Accent.TMenubutton`) à 2 entrées. **« Arbre vierge »** (`action_add_arbre`, `Ctrl+T`) = tous champs par défaut. **« Hériter du précédent »** (`action_add_arbre_inherit`) reprend les champs d'identité/protocole de l'arbre courant (essence, port, mèche, épaisseur d'écorce, hauteur de sondage) mais **PAS** la géométrie mesurée (rayon/diamètre/hauteur d'arbre laissés à défaut, à re-mesurer) ni les sondages/dégradations/contreforts — pensé pour les alignements d'arbres identiques. N° via `_next_arbre_numero` (max numérique + 1).
@@ -95,10 +130,13 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Saisie texte thémée** : `dialogs.ask_string(parent, title, prompt, initial, info=…)` remplace `simpledialog.askstring` (look système incohérent). Renvoie `None` si annulé, la chaîne (sans `strip`) si validé — `""` validé ≠ `None`. Utilisé par `action_rename_arbre`.
 - **Barre d'état** : `App._build_statusbar()` (bas de fenêtre, packée `side="bottom"` AVANT le body). `App.notify_export(path, label)` y affiche le succès d'un export (non-modal) et active les boutons « Ouvrir le fichier / le dossier » (`App._open_in_system`). `app_exports._notify_export` route vers `notify_export` si l'hôte le fournit, sinon `messagebox` (contexte test).
 - **Infobulles** : `tooltip.Tooltip(widget, texte)` — bindings `add="+"` pour ne pas écraser ceux du widget. Sert à rappeler les accélérateurs (bouton « ＋ Ajouter » → Ctrl+T) et décrire le bandeau d'export (2 boutons + menu « Tableau »).
+- **Aide repliable** : `aide_repliable.AideRepliable(parent, *paragraphes, titre="Aide", wraplength=…)` — bloc d'aide derrière un en-tête cliquable « ⓘ Aide ▸/▾ », **replié par défaut** (discret pour l'opérateur expérimenté, dépliable au clic à la 1ʳᵉ utilisation). Remplace les libellés `Muted.TLabel` ⓘ permanents (identification : couplage Ø↔rayon + invariance PRBS ; sondages : sémantique case vide/effacer ; canevas : clic = éditer/ajouter). Fonctionne en `grid` comme en `pack` (gère sa disposition interne ; le parent place le widget). État conservé tant que le widget vit — les panes ne sont construits qu'une fois, pas par arbre. S'appuie sur les styles `Panel.TFrame`/`Muted.TLabel`.
 - **Canevas — ajout par clic** : un clic sur une direction libre du dessin ajoute un sondage à ce grade (`App.open_add_sondage`) ; un clic sur une direction déjà sondée l'édite. `SectionCanvas._on_click_background` convertit le pixel en grade (inverse de `geometry.polar_to_xy`), mémorise la géométrie du dernier rendu dans `self._geom`, et ignore les clics sur un élément interactif (garde par tags).
 - **Raccourci export** : `Ctrl+E` → `App.action_export_pdf_arbre`. Bind dans `App.__init__` (comme Ctrl+Z/Y) via `_on_export_shortcut`, qui **ne déclenche pas** si un `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans les widgets Tk).
 - **Fichiers récents** : `~/.penetrometre/recent.json` (8 entrées max). `App._push_recent_file(path)` appelé après chaque open/save. Sous-menu `Fichier → Ouvrir récent` reconstruit par `app_menu.refresh_recent_menu(app)`.
 - **Adaptation petits écrans** : `App.__init__` clampe la geometry à 95 % de l'écran et fixe `minsize(1100, 680)` pour rester utilisable sur laptops 1366×768.
+- **Taille du texte (accessibilité)** : réglage `ui_scale` persisté dans `~/.penetrometre/settings.json` (`app_settings.SettingsStore`, pur, borné `[0.8, 1.6]`). **`tk scaling` est inopérant** sur plusieurs builds Tk/Linux (métriques de police indépendantes du facteur) — le seul levier fiable est de **multiplier le nombre de taille** de chaque police. Centralisé dans `ui_fonts` : facteur global de processus (`set_ui_scale`/`get_ui_scale`) + helper `font(family, size, *opts)` qui applique le facteur (identité à 1.0 → aucune régression ni golden-test par défaut). `App.__init__` fixe le facteur **avant** la création des widgets (`_apply_ui_scale` → `set_ui_scale`). Toutes les polices de la couche UI passent par `ui_fonts.font` : styles ttk (`app_style`, `_f`), et tuples explicites de `penetrometre`/`pane_sondages`/`pane_diagnostic`/`dialogs` (`ui_font`). `app_style` scale aussi le `rowheight` du Treeview. **Le dessin (`section_canvas`) n'est PAS scalé** (géométrie en pixels fixes, golden-testé). Menu **Affichage → Taille du texte** (radiobuttons Petit/Normal/Grand/Très grand → `action_set_ui_scale`) : persiste, met à jour le facteur, **ré-applique `apply_ttk_styles` à chaud** (effet immédiat sur la majorité de l'UI) ; les quelques widgets à police en tuple déjà réalisés ne se redimensionnent qu'au redémarrage (message de barre d'état).
+- **Progression dans les onglets** : `App._refresh_tab_progress()` (appelé dans `_redraw_all`) préfixe les onglets de l'étape par un glyphe d'avancement — **même vocabulaire que les pastilles** (`○` à faire · `◐` en cours · `●` prêt). Identification (`●` si rayon>0 et essence saisie), Sondages (glyphe de complétude via `_arbre_etat`), Diagnostic (`●` si `_arbre_diag_fiable`). La **forme** porte l'info (lisible en daltonisme ; ttk n'autorise pas de couleur par onglet). Dégradations/Contreforts restent sans glyphe (étapes optionnelles — un `○` y suggérerait à tort un manque). `self.nb` mémorisé dans `_build_center`.
 - **Saisie des sondages = grille 16 directions** (`pane_sondages.py`) : refonte ergonomique remplaçant la modale-par-mesure. Les 16 directions (rose des vents `_WIND_LABELS` : cardinales `N/NE/E…`, intermédiaires en combiné `N-NE/NE-E…`) sont pré-affichées ; l'opérateur tape la PRBS et descend (`Entrée`/`↓`/`↑` → ligne suivante via `_focus_entry`). **Sémantique** : case vide = direction non sondée (aucun `Sondage`) ; valeur (y compris 0) = sondage existant ; **effacer la valeur supprime le `Sondage`**. L'altéré (`R − sain`, clampé à `R`) est en lecture seule, recalculé en direct. La compartimentation (combobox) n'est active que si un sondage existe sur la ligne. **Unicité garantie par construction** (une ligne par grade — plus de validation d'unicité). Double-clic sur les libellés **Direction/Grade** ouvre `edit_sondage` (détail : commentaire, redirection de grade) ; l'`Entry` garde son double-clic natif. **Undo des éditions live** : snapshot capturé au focus-in (`host.capture_undo_snapshot`), empilé au focus-out seulement si la valeur a changé (`host.push_undo_snapshot`) — évite les undo parasites ; la compartimentation passe par `host.push_undo` (mutation discrète). Mutations notifiées via `host.on_sondages_changed` (dirty + redraw debouncé ; ne re-`refresh()` PAS la grille pour ne pas lutter contre la frappe). Sondages maintenus triés par grade (`sort` + `renumeroter_sondages`).
 - **Synthèse de mission** (tableau de hiérarchisation du risque) : `diagnostic.mission_synthesis_rows(chantier)` → `List[MissionSynthesisRow]` (fonction pure), **une ligne par arbre** (n° · essence · port · nb sondages · rayon · t/R moyen · classe globale · direction critique). Respecte la règle de fiabilité : `tR_moyen_pct`/`classe_globale` = `None` si `< 3` sondages (via `DiagnosticSnapshot.diagnostic_global`), `tR_min_pct`/`crit_grade` = `None` si aucune altération. Exports : `export.export_synthesis_csv` (séparateur `;`, UTF-8 BOM) et `export.export_synthesis_xlsx` (thème vert, cellule classe colorée, **autofiltre** pour trier par risque, en-tête gelé, ligne de bilan). Wrappers Tk dans `app_exports.export_synthesis_{csv,xlsx}_mission` ; actions `App.action_export_synthesis_{csv,xlsx}` ; entrées dans le menu **Fichier** (mission-level, à côté des fiches PDF / sondages CSV). « Non fiable » (1-2 sondages) ≠ « — » (rayon nul / 0 sondage) dans la colonne classe.
 - **Checkbox « Afficher sondages »** vit **sous le canvas** (`App._build_right`), pas dans l'onglet Diagnostic — elle contrôle un état visuel toujours présent. Variable `App.var_show_sondages`.
@@ -107,16 +145,26 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 174 tests
+python -m unittest discover tests           # 210 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
-  undo.py tooltip.py penetrometre.py
+  undo.py tooltip.py aide_repliable.py penetrometre.py
 ```
 
+> NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy
+> ≥ 1.20. Le bruit « Cannot infer type of lambda » des callbacks Tk
+> (`pane_sondages`, `pane_identification`) est neutralisé par module via
+> `disable_error_code = misc` dans `mypy.ini` ; le faux positif du
+> workaround bpo de `app_style` est réglé par `_fixed_map -> list[Any]`.
+> Ne **pas** faire `mypy .` : il agrège les tests (hors périmètre typé).
+> S'en tenir à la liste.
+
 Golden-tests :
+
 - PIL : `python -m tests.test_render --update`
 - Tk : `xvfb-run -a python -m tests.test_section_canvas --update`
 
@@ -131,12 +179,16 @@ Golden-tests :
    - Couleurs → `palette.py` ; exports tableau → `export.py`
    - Dialogues Tk → `dialogs.py` ; onglet UI → `pane_*.py`
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
-   - Orchestration App → `penetrometre.py`
+   - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
+   - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`
+   - Fichiers récents → `app_recent.py`
+   - Orchestration App (câblage, synchro, undo, fichier) → `penetrometre.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.
 5. **Valider** : lancer l'app + sauvegarder/recharger un `.json`.
 
 Pour les détails d'architecture, de rendu et les pièges, voir :
+
 - `.claude/docs/architecture.md` — description détaillée de chaque module
 - `.claude/docs/rendu-et-pieges.md` — pendants Tk↔PIL, pièges, ordre des couches

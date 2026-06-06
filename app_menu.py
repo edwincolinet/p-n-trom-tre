@@ -15,6 +15,7 @@ Protocols `ArbreLike`/`ChantierLike` de `export.py`.
 from __future__ import annotations
 
 import tkinter as tk
+from functools import partial
 from typing import Any, Callable, Protocol, cast
 
 
@@ -55,6 +56,10 @@ class AppLike(Protocol):
     def action_dup_arbre(self) -> None: ...
     def action_rename_arbre(self) -> None: ...
     def action_del_arbre(self) -> None: ...
+
+    # Affichage
+    def action_set_ui_scale(self, scale: float) -> None: ...
+    def get_ui_scale(self) -> float: ...
 
     # Aide
     def action_about(self) -> None: ...
@@ -127,6 +132,24 @@ def build_menu(app: AppLike) -> None:
     a.add_command(label="Supprimer l'arbre courant",
                   command=app.action_del_arbre)
     m.add_cascade(label="Arbres", menu=a)
+
+    # Affichage — taille du texte (accessibilité : laptops de terrain en
+    # plein soleil, écrans HiDPI). Radiobuttons sur un facteur d'échelle.
+    v = tk.Menu(m, tearoff=0)
+    scale_var = tk.DoubleVar(value=app.get_ui_scale())
+    # Gardée vivante sur l'App (sinon la var Tk est ramassée par le GC et
+    # les radiobuttons perdent leur état).
+    setattr(app, "_ui_scale_var", scale_var)
+    taille = tk.Menu(v, tearoff=0)
+    for label, factor in (("Petit", 0.85), ("Normal", 1.0),
+                          ("Grand", 1.2), ("Très grand", 1.4)):
+        # `partial` plutôt qu'un lambda à argument par défaut : évite le
+        # bruit mypy « Cannot infer type of lambda » des stubs tkinter.
+        taille.add_radiobutton(
+            label=label, value=factor, variable=scale_var,
+            command=partial(app.action_set_ui_scale, factor))
+    v.add_cascade(label="Taille du texte", menu=taille)
+    m.add_cascade(label="Affichage", menu=v)
 
     # Aide
     h = tk.Menu(m, tearoff=0)

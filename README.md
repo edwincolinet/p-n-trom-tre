@@ -257,10 +257,12 @@ purement descriptif : n'impacte pas le diagnostic.
   des polices et pastilles pour rester lisible une fois réduit dans
   un rapport Word.
 - **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**
-  (calqué sur la fiche Excel d'origine du cabinet), en-têtes et méta
-  sur fond vert Silvavenir, alternance de lignes, largeurs de colonnes
-  auto-ajustées, compartimentation ✓ / ✗ colorée, colonne t/R
-  color-codée par classe. Nécessite
+  (calqué cellule pour cellule sur la fiche Excel d'origine du cabinet),
+  en-têtes et méta sur fond vert Silvavenir, alternance de lignes,
+  largeurs de colonnes auto-ajustées, compartimentation ✓ / ✗ / —
+  colorée, colonne t/R color-codée par classe. Sous le tableau, une
+  légende des trois glyphes puis une légende des classes
+  (« Classe verte / orange / rouge »). Nécessite
   [openpyxl](https://pypi.org/project/openpyxl/)
   (`pip install -r requirements.txt`).
 - **HTML** autonome : même tableau, même thème vert, en page imprimable.
