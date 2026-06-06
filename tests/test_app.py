@@ -25,6 +25,7 @@ from tempfile import TemporaryDirectory
 
 # `tests/__init__.py` ajoute la racine du projet à sys.path.
 from app_recent import RecentFilesStore
+from app_settings import UI_SCALE_DEFAULT, UI_SCALE_MAX, UI_SCALE_MIN, SettingsStore
 from model import Arbre, Sondage
 
 # --- Détection Tk (même sonde que test_section_canvas) ------------------
@@ -126,6 +127,75 @@ class TestRecentFilesStore(unittest.TestCase):
 # ========================================================================
 # Helpers d'état d'arbre — testables sans instance Tk (staticmethod)
 # ========================================================================
+# SettingsStore — pur, sans Tk
+# ========================================================================
+
+class TestSettingsStore(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self._tmp = TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "settings.json"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_defaut_si_absent(self) -> None:
+        self.assertEqual(SettingsStore(self.path).ui_scale, UI_SCALE_DEFAULT)
+
+    def test_set_persiste_et_recharge(self) -> None:
+        SettingsStore(self.path).set_ui_scale(1.2)
+        self.assertEqual(SettingsStore(self.path).ui_scale, 1.2)
+
+    def test_bornage(self) -> None:
+        s = SettingsStore(self.path)
+        s.set_ui_scale(99.0)
+        self.assertEqual(s.ui_scale, UI_SCALE_MAX)
+        s.set_ui_scale(0.01)
+        self.assertEqual(s.ui_scale, UI_SCALE_MIN)
+
+    def test_json_corrompu_retombe_au_defaut(self) -> None:
+        self.path.write_text("{pas du json", encoding="utf-8")
+        self.assertEqual(SettingsStore(self.path).ui_scale, UI_SCALE_DEFAULT)
+
+    def test_valeur_non_numerique_ignoree(self) -> None:
+        self.path.write_text('{"ui_scale": "grand"}', encoding="utf-8")
+        self.assertEqual(SettingsStore(self.path).ui_scale, UI_SCALE_DEFAULT)
+
+
+# ========================================================================
+# ui_fonts — échelle des polices, pur
+# ========================================================================
+
+class TestUiFonts(unittest.TestCase):
+
+    def setUp(self) -> None:
+        import ui_fonts
+        self.uf = ui_fonts
+        # Remise à 1.0 après le test : facteur global de processus, ne
+        # doit pas fuiter vers les autres tests (App le re-fixe de toute
+        # façon depuis settings au démarrage, mais on reste propre).
+        self.addCleanup(self.uf.set_ui_scale, 1.0)
+
+    def test_identite_a_1(self) -> None:
+        self.uf.set_ui_scale(1.0)
+        self.assertEqual(self.uf.font("Helvetica", 10), ("Helvetica", 10))
+        self.assertEqual(self.uf.font("Georgia", 18, "bold"),
+                         ("Georgia", 18, "bold"))
+
+    def test_mise_a_l_echelle(self) -> None:
+        self.uf.set_ui_scale(1.4)
+        self.assertEqual(self.uf.font("Helvetica", 10), ("Helvetica", 14))
+        # Les options (bold/italic) sont préservées après la taille.
+        self.assertEqual(self.uf.font("Helvetica", 10, "bold"),
+                         ("Helvetica", 14, "bold"))
+        self.assertEqual(self.uf.get_ui_scale(), 1.4)
+
+    def test_taille_plancher(self) -> None:
+        self.uf.set_ui_scale(0.0)
+        self.assertEqual(self.uf.font("Helvetica", 10)[1], 1)
+
+
+# ========================================================================
 
 class TestArbreEtat(unittest.TestCase):
     """`_arbre_etat` est une `@staticmethod` : testable sans fenêtre."""
@@ -209,6 +279,29 @@ class TestAppMixins(unittest.TestCase):
         self.app.action_add_arbre()
         self.assertEqual(len(self.app.chantier.arbres), 2)
         self.assertEqual(self.app.current_idx, 1)
+
+    def test_progression_onglets_reflete_l_avancement(self) -> None:
+        a = self.app.chantier.arbres[0]
+        a.essence = "Platane"
+        a.rayon_tronc_cm = 20.0
+        for i in range(3):
+            a.sondages.append(Sondage(numero=i + 1, grade=i * 25,
+                                      bois_sain_cm=20.0, bois_altere_cm=0.0))
+        self.app._refresh_tab_progress()
+        # Étapes prêtes => `●` ; vocabulaire de glyphes des pastilles.
+        self.assertTrue(
+            self.app.nb.tab(self.app.pane_id, "text").startswith("●"))
+        self.assertTrue(
+            self.app.nb.tab(self.app.pane_s, "text").startswith("●"))
+        self.assertTrue(
+            self.app.nb.tab(self.app.pane_diag, "text").startswith("●"))
+        # Sondages incomplets => `◐` (en cours), Diagnostic non fiable => `○`.
+        a.sondages.pop()
+        self.app._refresh_tab_progress()
+        self.assertTrue(
+            self.app.nb.tab(self.app.pane_s, "text").startswith("◐"))
+        self.assertTrue(
+            self.app.nb.tab(self.app.pane_diag, "text").startswith("○"))
 
     def test_add_arbre_inherit_reprend_identite_pas_geometrie(self) -> None:
         cur = self.app.chantier.arbres[0]

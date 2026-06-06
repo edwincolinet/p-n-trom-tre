@@ -32,6 +32,7 @@ from app_recovery import (
     _RECOVERY_PATH,
     RecoveryMixin,
 )
+from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from dialogs import edit_contrefort, edit_degradation, edit_sondage
@@ -51,9 +52,11 @@ from persistence import (
 )
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
+from ui_fonts import font as ui_font
+from ui_fonts import set_ui_scale
 from undo import UndoStack
 
-__version__ = "3.5.0"
+__version__ = "3.6.0"
 
 # Fichiers récents : on en garde 8, persistés en JSON dans le même
 # répertoire que le log (~/.penetrometre/). 8 est un bon compromis :
@@ -63,6 +66,7 @@ __version__ = "3.5.0"
 # récupération dans `app_recovery.RecoveryMixin`.
 _RECENT_FILES_MAX = 8
 _RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
+_SETTINGS_PATH = Path.home() / ".penetrometre" / "settings.json"
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -93,6 +97,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         h = min(900, max(680, int(screen_h * 0.95)))
         self.geometry(f"{w}x{h}")
         self.configure(bg=COLOR_BG)
+
+        # Échelle du texte (accessibilité). Fixée AVANT la création des
+        # widgets/styles pour que toutes les polices (styles ttk + tuples
+        # explicites) naissent à la bonne taille. On agit sur le nombre
+        # de taille des polices (`ui_fonts`), pas sur `tk scaling` qui est
+        # inopérant sur plusieurs builds Tk/Linux. Le canvas (pixels) et
+        # les paddings ne sont pas affectés.
+        self._settings = SettingsStore(_SETTINGS_PATH)
+        self._apply_ui_scale(self._settings.ui_scale)
 
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
@@ -137,6 +150,31 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self._autosave_after_id: Optional[str] = None
         self._schedule_autosave()
         self.after(200, self._check_recovery_on_startup)
+
+    def _apply_ui_scale(self, scale: float) -> None:
+        """Applique le facteur d'échelle du texte. `tk scaling` étant
+        inopérant sur plusieurs builds Tk/Linux (métriques de police
+        indépendantes du scaling), on agit sur le **nombre de taille**
+        de chaque police via `ui_fonts` : les styles ttk et les tuples
+        de police explicites le lisent à leur création."""
+        set_ui_scale(scale)
+
+    def action_set_ui_scale(self, scale: float) -> None:
+        """Change la taille du texte (menu Affichage) : persiste, met à
+        jour le facteur, puis ré-applique les styles ttk pour un effet
+        immédiat sur la majorité de l'UI. Les quelques widgets à police
+        en tuple (déjà réalisés) ne se redimensionnent qu'au redémarrage
+        — d'où le rappel en barre d'état."""
+        self._settings.set_ui_scale(scale)
+        self._apply_ui_scale(self._settings.ui_scale)
+        apply_ttk_styles(self)
+        self.set_status(
+            "Taille du texte modifiée. Relancez l'application pour "
+            "l'appliquer entièrement.")
+
+    def get_ui_scale(self) -> float:
+        """Facteur d'échelle courant (pour cocher le bon item de menu)."""
+        return self._settings.ui_scale
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
         """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
@@ -237,7 +275,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
-                  font=("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
+                  font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
         # Filtre de la liste (par n° ou essence) — utile dès que la
         # mission compte beaucoup d'arbres. N'altère PAS le modèle : ne
@@ -322,7 +360,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # Footer "X/N arbres complets" — vue macro de l'avancement.
         self.lbl_etat_footer = ttk.Label(
             frame, text="", style="Side.TLabel",
-            font=("Helvetica", 9, "italic"))
+            font=ui_font("Helvetica", 9, "italic"))
         self.lbl_etat_footer.pack(anchor="w", pady=(6, 0))
 
         btns = ttk.Frame(frame, style="Side.TFrame")
@@ -352,6 +390,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
         nb = ttk.Notebook(frame)
+        self.nb = nb
         nb.pack(fill="both", expand=True)
 
         # Onglet Identification — extrait dans son propre pane (cf.
@@ -418,7 +457,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         bar = ttk.Frame(self, style="Side.TFrame")
         bar.pack(side="bottom", fill="x")
         self.lbl_status = ttk.Label(bar, text="Prêt.", style="Side.TLabel",
-                                    font=("Helvetica", 9))
+                                    font=ui_font("Helvetica", 9))
         self.lbl_status.pack(side="left", padx=12, pady=3)
         self._btn_open_folder = ttk.Button(
             bar, text="Ouvrir le dossier", style="Ghost.TButton",
@@ -622,6 +661,27 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # touchent pas la liste d'arbres autrement. Sans ce refresh,
         # passer de 0 à 2 sondages laisserait la pastille rouge.
         self._refresh_current_arbre_etat()
+        self._refresh_tab_progress()
+
+    def _refresh_tab_progress(self) -> None:
+        """Préfixe les onglets de l'étape par un glyphe d'avancement
+        (même vocabulaire que les pastilles : `○` à faire · `◐` en cours
+        · `●` prêt). La FORME porte l'info (lisible en daltonisme), les
+        onglets ttk n'autorisant de toute façon pas de couleur par
+        onglet. Donne au notebook le sens de progression du protocole
+        (Identification → Sondages → Diagnostic) que de simples libellés
+        ne transmettaient pas. Dégradations/Contreforts restent sans
+        glyphe : étapes optionnelles, un `○` y suggérerait à tort un
+        manque."""
+        a = self._current_arbre()
+        if a is None:
+            return
+        g_ident = "●" if (a.rayon_tronc_cm > 0 and a.essence.strip()) else "○"
+        g_sond = self._arbre_etat(a)[0]
+        g_diag = "●" if self._arbre_diag_fiable(a) else "○"
+        self.nb.tab(self.pane_id, text=f"{g_ident} Identification")
+        self.nb.tab(self.pane_s, text=f"{g_sond} Sondages")
+        self.nb.tab(self.pane_diag, text=f"{g_diag} Diagnostic")
 
     # Liste d'arbres (filtre, Treeview, pastilles d'état, navigation,
     # CRUD ajouter/dupliquer/supprimer/renommer) : cf.

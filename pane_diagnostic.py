@@ -33,6 +33,7 @@ from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre
 from palette import COLOR_PANEL
 from tooltip import Tooltip
+from ui_fonts import font as ui_font
 
 
 class _DiagnosticHost(Protocol):
@@ -140,7 +141,7 @@ class DiagnosticPane(ttk.Frame):
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         self.lbl_diag = ttk.Label(
             parent, text="", style="Panel.TLabel",
-            wraplength=400, justify="left", font=("Helvetica", 10))
+            wraplength=400, justify="left", font=ui_font("Helvetica", 10))
         self.lbl_diag.pack(anchor="w", fill="x", pady=(0, 10))
 
         # --- Tableau PRBS par sondage ---

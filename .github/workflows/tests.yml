@@ -56,7 +56,8 @@ jobs:
           bareme.py geometry.py palette.py model.py diagnostic.py
           persistence.py export.py pil_render.py fiche_pdf.py
           app_exports.py app_menu.py
-          app_recent.py app_arbres.py app_recovery.py app_export_actions.py
+          app_recent.py app_settings.py ui_fonts.py
+          app_arbres.py app_recovery.py app_export_actions.py
           pane_identification.py pane_sondages.py pane_degradations.py
           pane_contreforts.py pane_diagnostic.py
           dialogs.py section_canvas.py

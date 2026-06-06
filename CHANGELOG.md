@@ -3,6 +3,32 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## 3.6.0
+
+### Fonctionnel (accessibilité & ergonomie)
+
+- **Taille du texte réglable** (menu **Affichage → Taille du texte** :
+  Petit / Normal / Grand / Très grand). Agrandit tout le texte de
+  l'interface pour rester lisible sur écran HiDPI ou laptop de terrain
+  en plein soleil. Réglage persisté dans `~/.penetrometre/settings.json`
+  (`app_settings.SettingsStore`, pur). Implémenté en multipliant la
+  taille des polices (`ui_fonts`) — `tk scaling` s'avérant inopérant sur
+  plusieurs builds Tk/Linux. Appliqué à chaud ; un redémarrage garantit
+  une mise à jour complète. Le dessin de section n'est pas affecté.
+- **Progression visible dans les onglets** : les onglets de l'étape sont
+  préfixés d'un glyphe d'avancement (`○` à faire · `◐` en cours · `●`
+  prêt) — Identification, Sondages, Diagnostic. Le notebook transmet
+  désormais le sens du protocole (identifier → sonder → diagnostiquer),
+  avec le même vocabulaire de formes que les pastilles de la liste
+  d'arbres (lisible en daltonisme).
+
+### Interne
+
+- `app_settings.py` et `ui_fonts.py` (sections mypy strictes) ; tests
+  `TestSettingsStore` (défaut, persistance, bornage, JSON corrompu),
+  `TestUiFonts` (mise à l'échelle, identité à 1.0) et test de
+  progression des onglets (`_refresh_tab_progress`). Total : 221 tests.
+
 ## 3.5.0
 
 ### Fonctionnel (accessibilité & lisibilité)

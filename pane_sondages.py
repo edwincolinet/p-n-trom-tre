@@ -40,6 +40,7 @@ from aide_repliable import AideRepliable
 from dialogs import edit_sondage, to_float, validate_numeric
 from geometry import GRADES
 from model import Arbre, Sondage
+from ui_fonts import font as ui_font
 
 # Rose des vents 16 directions — libellé affiché par ligne de la grille.
 # (DIRECTION_LABELS ne nomme que les 8 cardinales/intercardinales ; ici on
@@ -91,7 +92,7 @@ class SondagesPane(ttk.Frame):
                  "Compart."]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
-                      font=("Helvetica", 9, "bold")).grid(
+                      font=ui_font("Helvetica", 9, "bold")).grid(
                 row=0, column=c, sticky="w", padx=6, pady=(0, 4))
 
         vcmd = (self.register(validate_numeric), "%P")
@@ -102,7 +103,7 @@ class SondagesPane(ttk.Frame):
 
             lbl_dir = ttk.Label(grid, text=_WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
-                                font=("Helvetica", 10, "bold"))
+                                font=ui_font("Helvetica", 10, "bold"))
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
                                width=7)

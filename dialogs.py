@@ -32,6 +32,7 @@ from typing import List, Optional
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_MUTED, COLOR_PANEL
+from ui_fonts import font as ui_font
 
 
 def _grade_choices() -> list[str]:
@@ -161,7 +162,7 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
     if info:
         ttk.Label(dlg, text=info, background=COLOR_PANEL,
                   foreground=COLOR_MUTED,
-                  font=("Helvetica", 9, "italic"),
+                  font=ui_font("Helvetica", 9, "italic"),
                   wraplength=320, justify="left"
                   ).grid(row=2, column=0, sticky="w", padx=12, pady=(0, 6))
 
@@ -224,7 +225,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
         rappel = ("⚠ Rayon du tronc non renseigné : le calcul auto "
                   "entre bois sain et bois altéré est désactivé.")
     ttk.Label(dlg, text=rappel, background=COLOR_PANEL,
-              foreground=COLOR_MUTED, font=("Helvetica", 9, "italic"),
+              foreground=COLOR_MUTED, font=ui_font("Helvetica", 9, "italic"),
               wraplength=300, justify="left"
               ).grid(row=0, column=0, columnspan=2, sticky="we",
                      padx=10, pady=(10, 4))
@@ -396,7 +397,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
                  ).grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
     ttk.Label(dlg, text="— ou —", background=COLOR_PANEL,
-              foreground=COLOR_MUTED, font=("Helvetica", 9, "italic")
+              foreground=COLOR_MUTED, font=ui_font("Helvetica", 9, "italic")
               ).grid(row=2, column=0, columnspan=2, pady=(2, 2))
 
     ttk.Label(dlg, text="Largeur en grades",
