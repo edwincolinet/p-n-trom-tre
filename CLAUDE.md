@@ -155,6 +155,7 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
 > faire `mypy .` : il agrège ce bruit + les tests. S'en tenir à la liste.
 
 Golden-tests :
+
 - PIL : `python -m tests.test_render --update`
 - Tk : `xvfb-run -a python -m tests.test_section_canvas --update`
 
@@ -179,5 +180,6 @@ Golden-tests :
 5. **Valider** : lancer l'app + sauvegarder/recharger un `.json`.
 
 Pour les détails d'architecture, de rendu et les pièges, voir :
+
 - `.claude/docs/architecture.md` — description détaillée de chaque module
 - `.claude/docs/rendu-et-pieges.md` — pendants Tk↔PIL, pièges, ordre des couches
