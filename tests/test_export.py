@@ -184,6 +184,73 @@ class XlsxSmokeTests(unittest.TestCase):
             if os.path.exists(path):
                 os.unlink(path)
 
+    def test_legendes_calquees_sur_la_fiche_du_cabinet(self):
+        """Verrouille la conformité du tableau XLSX (1 arbre) à la fiche
+        de référence du cabinet (`Communication/export excel attendu.xlsx`) :
+
+        - 3e entrée de légende expliquant le glyphe « — » (la colonne
+          Compartimentation l'emploie : la légende doit le couvrir) ;
+        - légende des classes « Classe verte/orange/rouge » colorée,
+          sous le pied, expliquant le code couleur de la colonne
+          proportion ;
+        - légende collée au tableau (ligne juste après le dernier
+          sondage, sans ligne vide intercalée).
+        """
+        import os
+        import tempfile
+
+        import openpyxl
+
+        from export import export_prbs_xlsx
+        from model import Arbre, Chantier, Sondage
+        from palette import COULEUR_CLASSE
+
+        a = Arbre(numero_arbre="1", essence="Platane", port_arbre="libre",
+                  rayon_tronc_cm=40.0)
+        for n, g in enumerate((0, 100, 200), start=1):
+            a.sondages.append(Sondage(numero=n, grade=g,
+                                      bois_sain_cm=20.0, bois_altere_cm=20.0))
+        c = Chantier(nom="test", arbres=[a])
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx",
+                                         delete=False) as tmp:
+            path = tmp.name
+        try:
+            export_prbs_xlsx(a, c, path, couleur_classe=COULEUR_CLASSE,
+                             classer_prbs=classer_prbs)
+            with open(path, "rb") as f:
+                ws = openpyxl.load_workbook(f).active
+
+            header_row = next(r for r in range(1, 30)
+                              if ws.cell(row=r, column=1).value == "Sondage")
+            # Légende collée : ligne juste après le dernier sondage (3).
+            legend_row = header_row + 1 + len(a.sondages)
+            self.assertEqual(ws.cell(row=legend_row, column=1).value,
+                             "Légende :")
+            # 3e entrée : glyphe — + libellé (orthographe corrigée).
+            self.assertEqual(ws.cell(row=legend_row, column=6).value, "—")
+            self.assertEqual(ws.cell(row=legend_row, column=7).value,
+                             "Non renseignée/pas d'altération")
+
+            # Légende des classes : 3 libellés en colonne D, chacun coloré
+            # de la couleur de sa classe.
+            labels = {}
+            for r in range(legend_row, legend_row + 12):
+                v = ws.cell(row=r, column=4).value
+                if isinstance(v, str) and v.startswith("Classe "):
+                    labels[v] = ws.cell(row=r, column=4).font.color.rgb
+            self.assertEqual(set(labels),
+                             {"Classe verte", "Classe orange", "Classe rouge"})
+            # Couleur de texte = couleur de classe (suffixe hex, openpyxl
+            # préfixe l'alpha "00").
+            self.assertTrue(labels["Classe verte"].endswith(
+                COULEUR_CLASSE["Vert"].lstrip("#")))
+            self.assertTrue(labels["Classe rouge"].endswith(
+                COULEUR_CLASSE["Rouge"].lstrip("#")))
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
 
 class MissionSynthesisRowsTests(unittest.TestCase):
     """Synthèse mission : une ligne par arbre + masquage des champs non

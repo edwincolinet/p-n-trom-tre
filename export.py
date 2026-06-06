@@ -234,6 +234,17 @@ _NCOLS = len(_HEADERS)
 # colonnes du tableau, total = 7).
 _META_SPANS = [1, 2, 2, 2]
 
+# Libellés (féminins) de la légende des classes, sous le pied de page —
+# explique le code couleur de la colonne « Proportion de bois sain ».
+# Keyé par les labels de classe de `bareme` (Vert/Orange/Rouge), tels
+# qu'ils arrivent dans `couleur_classe`. Fallback générique si un label
+# inattendu apparaît.
+_CLASSE_LEGENDE = {
+    "Vert": "Classe verte",
+    "Orange": "Classe orange",
+    "Rouge": "Classe rouge",
+}
+
 
 def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                      couleur_classe: Mapping[str, str],
@@ -378,28 +389,32 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         ws.row_dimensions[row].height = 24
         row += 1
 
-    # --- Ligne légende sous le tableau ---
-    row += 1
+    # --- Ligne légende sous le tableau (collée au tableau, sans ligne
+    # vide intercalée — calquée sur la fiche Excel d'origine du cabinet).
+    # Les 7 colonnes : | "Légende :" | ✓ | "Compartimentation active" |
+    # ✗ | "Pas de compartimentation" | — | "Non renseignée/pas
+    # d'altération" |. Les glyphes (✓/✗/—) sont centrés et colorés comme
+    # dans la colonne Compartimentation du tableau ; le reste est aligné
+    # à gauche.
     legend_row = row
-    # Légende : | "Légende :" | ✓ | "Compartimentation active" | ✗ |
-    # "Pas de compartimentation" | (rien) | (rien) |
+    GLYPH_CELLS = ("✓", "✗", "—")
     legend_cells = [
-        ("Légende :", LEGEND_FONT, None),
+        ("Légende :", LEGEND_FONT),
         ("✓", Font(name="Calibri", size=14, bold=True,
-                    color=_COMPART_GLYPH["active"][1]), None),
-        ("Compartimentation active", LEGEND_FONT, None),
+                   color=_COMPART_GLYPH["active"][1])),
+        ("Compartimentation active", LEGEND_FONT),
         ("✗", Font(name="Calibri", size=14, bold=True,
-                    color=_COMPART_GLYPH["absente"][1]), None),
-        ("Pas de compartimentation", LEGEND_FONT, None),
+                   color=_COMPART_GLYPH["absente"][1])),
+        ("Pas de compartimentation", LEGEND_FONT),
+        ("—", Font(name="Calibri", size=14, bold=True,
+                   color=_COMPART_NEUTRE[1])),
+        ("Non renseignée/pas d'altération", LEGEND_FONT),
     ]
-    for i, (value, font, _) in enumerate(legend_cells, start=1):
+    for i, (value, font) in enumerate(legend_cells, start=1):
         c = ws.cell(row=legend_row, column=i, value=value)
         c.font = font
-        c.alignment = CENTER if value in ("✓", "✗") else LEFT
+        c.alignment = CENTER if value in GLYPH_CELLS else LEFT
         c.border = BORDER
-    # Bordures sur les colonnes 6-7 même si vides
-    for k in (6, 7):
-        ws.cell(row=legend_row, column=k).border = BORDER
     ws.row_dimensions[legend_row].height = 24
     row += 2
 
@@ -410,6 +425,18 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         Font(name="Calibri", size=9, italic=True, color="6E7B73")
     ws.merge_cells(start_row=row, start_column=1,
                    end_row=row, end_column=last)
+
+    # --- Légende des classes (code couleur de la colonne proportion) ---
+    # Calquée sur la fiche d'origine : sous le pied, après deux lignes
+    # vides, une ligne par classe en colonne D, texte coloré de la
+    # couleur de la classe.
+    row += 3  # pied + 2 lignes vides
+    for class_key, hex_ in couleur_classe.items():
+        label = _CLASSE_LEGENDE.get(class_key, f"Classe {class_key}")
+        c = ws.cell(row=row, column=4, value=label)
+        c.font = Font(name="Calibri", size=11,
+                      color=hex_.lstrip("#"))
+        row += 1
 
     # --- Largeurs de colonnes auto-fit ---
     min_widths = [10, 12, 14, 14, 14, 16, 16]
