@@ -38,7 +38,7 @@ palette.py             ← couleurs partagées Tk ↔ PIL
 export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (XLSX/CSV)
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
-tests/                 ← 209 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
+tests/                 ← 210 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** Pour contenir la classe
@@ -125,7 +125,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 209 tests
+python -m unittest discover tests           # 210 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

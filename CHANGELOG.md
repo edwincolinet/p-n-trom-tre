@@ -5,6 +5,15 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ## 3.4.0
 
+### Fonctionnel
+
+- **Export XLSX (tableau d'un arbre)** aligné cellule pour cellule sur la
+  fiche de référence du cabinet : 3ᵉ entrée de légende pour le glyphe
+  « — » (« Non renseignée/pas d'altération »), légende des classes
+  « Classe verte/orange/rouge » colorée sous le pied, et légende collée
+  au tableau (sans ligne vide). Données et calculs inchangés (déjà
+  conformes). Verrouillé par `test_legendes_calquees_sur_la_fiche_du_cabinet`.
+
 ### Interne (pas de changement fonctionnel)
 
 - **Découpage de la classe `App`** (`penetrometre.py` : ~1370 → ~940 l.)

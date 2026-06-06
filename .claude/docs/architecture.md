@@ -167,7 +167,12 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
 - `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures.
 - `export_prbs_xlsx(…)` — Excel stylé (openpyxl). En-têtes et méta sur
   fond vert Silvavenir, alternance de lignes, largeurs auto-fit,
-  compartimentation ✓/✗, t/R coloré par classe.
+  compartimentation ✓/✗/— (glyphe coloré), t/R coloré par classe.
+  Sous le tableau : légende des 3 glyphes (collée, sans ligne vide) puis
+  légende des classes « Classe verte/orange/rouge » (texte coloré).
+  Calqué cellule pour cellule sur la fiche de référence du cabinet
+  (`Communication/export excel attendu.xlsx`) — verrouillé par
+  `test_legendes_calquees_sur_la_fiche_du_cabinet`.
 - `export_prbs_html(…)` — HTML autonome imprimable, même thème vert.
 - Injection de `couleur_classe` + `classer_prbs` pour éviter cycles.
 
