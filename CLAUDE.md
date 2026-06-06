@@ -155,10 +155,13 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   undo.py tooltip.py aide_repliable.py penetrometre.py
 ```
 
-> NB mypy : sous mypy ≥ 1.20, `pane_sondages`, `pane_identification` et
-> `app_style` remontent quelques « Cannot infer type of lambda » dus à
-> l'évolution des stubs tkinter (bruit connu, hors cœur typé). Ne **pas**
-> faire `mypy .` : il agrège ce bruit + les tests. S'en tenir à la liste.
+> NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy
+> ≥ 1.20. Le bruit « Cannot infer type of lambda » des callbacks Tk
+> (`pane_sondages`, `pane_identification`) est neutralisé par module via
+> `disable_error_code = misc` dans `mypy.ini` ; le faux positif du
+> workaround bpo de `app_style` est réglé par `_fixed_map -> list[Any]`.
+> Ne **pas** faire `mypy .` : il agrège les tests (hors périmètre typé).
+> S'en tenir à la liste.
 
 Golden-tests :
 

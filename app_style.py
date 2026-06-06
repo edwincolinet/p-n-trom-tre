@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
+from typing import Any
 
 from palette import (
     COLOR_ACCENT,
@@ -139,7 +140,11 @@ def apply_ttk_styles(root: tk.Misc) -> None:
     # background/foreground pour que les tags prennent enfin la main.
     # Réf. https://bugs.python.org/issue36468
     # ------------------------------------------------------------------
-    def _fixed_map(style_name: str, option: str) -> list[tuple[str, ...]]:
+    # Retour `list[Any]` : `Style.map(query_opt=…)` renvoie des
+    # state-specs hétérogènes (tuples d'états + valeur) que les stubs
+    # tkinter typent en `Any` ; forcer `list[tuple[str, ...]]` créait un
+    # faux positif (la liste est ré-injectée telle quelle dans `map()`).
+    def _fixed_map(style_name: str, option: str) -> list[Any]:
         return [elm for elm in s.map(style_name, query_opt=option)
                 if elm[:2] != ("!disabled", "!selected")]
 
