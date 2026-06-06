@@ -134,11 +134,16 @@ class TestArbreEtat(unittest.TestCase):
         from app_arbres import ArbreListMixin
         self.etat = ArbreListMixin._arbre_etat
 
-    def _arbre(self, rayon: float, n_sondages: int) -> Arbre:
+    def _arbre(self, rayon: float, n_sondages: int,
+               sain: float | None = None) -> Arbre:
+        """Arbre de test : `n_sondages` directions, PRBS = `sain` (ou le
+        rayon = tronc sain par défaut → classe Vert)."""
+        bois_sain = rayon if sain is None else sain
         a = Arbre(numero_arbre="1", rayon_tronc_cm=rayon)
         for i in range(n_sondages):
-            a.sondages.append(Sondage(numero=i + 1, grade=i * 25,
-                                      bois_sain_cm=rayon, bois_altere_cm=0.0))
+            a.sondages.append(
+                Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=bois_sain,
+                        bois_altere_cm=max(0.0, rayon - bois_sain)))
         return a
 
     def test_rayon_nul_est_vide(self) -> None:
@@ -151,11 +156,20 @@ class TestArbreEtat(unittest.TestCase):
         self.assertEqual(self.etat(self._arbre(20.0, 1))[1], "etat_partiel")
         self.assertEqual(self.etat(self._arbre(20.0, 2))[1], "etat_partiel")
 
-    def test_trois_sondages_ok(self) -> None:
-        # Seuil métier : >= 3 directions => diagnostic fiable.
-        self.assertEqual(self.etat(self._arbre(20.0, 3))[1], "etat_ok")
+    def test_trois_sondages_fiable_colore_par_classe(self) -> None:
+        # Seuil métier : >= 3 directions => diagnostic fiable. La couleur
+        # du `●` encode alors la classe de risque globale.
+        # Tronc sain (PRBS = rayon → t/R = 1.0) => classe Vert.
+        self.assertEqual(self.etat(self._arbre(20.0, 3))[1], "etat_ok_vert")
+        # Tronc très dégradé (PRBS = 1 cm sur 20 → t/R ≈ 5 %) => Rouge.
+        self.assertEqual(
+            self.etat(self._arbre(20.0, 3, sain=1.0))[1], "etat_ok_rouge")
 
-    def test_glyphe_toujours_pastille(self) -> None:
+    def test_glyphes_distincts_par_completude(self) -> None:
+        # La forme (pas seulement la couleur) distingue les 3 états :
+        # accessible en cas de daltonisme rouge-vert.
+        self.assertEqual(self.etat(self._arbre(0.0, 0))[0], "○")
+        self.assertEqual(self.etat(self._arbre(20.0, 1))[0], "◐")
         self.assertEqual(self.etat(self._arbre(20.0, 3))[0], "●")
 
 

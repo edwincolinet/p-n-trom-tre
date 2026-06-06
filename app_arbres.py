@@ -20,6 +20,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Optional
 
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from diagnostic import repartition_classes
 from dialogs import ask_string
 from model import Arbre
 
@@ -29,6 +31,16 @@ if TYPE_CHECKING:
     _MixinBase = tk.Tk
 else:
     _MixinBase = object
+
+# Tags de classe de risque pour un arbre au diagnostic fiable (≥3
+# sondages) : la couleur du `●` plein encode alors la classe globale
+# Silvavenir. Les couleurs hexa associées sont posées dans `App`
+# (`tag_configure`, cf. penetrometre.py) — ici on ne nomme que les tags.
+_CLASSE_TAG = {
+    CLASSE_VERT: "etat_ok_vert",
+    CLASSE_ORANGE: "etat_ok_orange",
+    CLASSE_ROUGE: "etat_ok_rouge",
+}
 
 
 class ArbreListMixin(_MixinBase):
@@ -71,7 +83,7 @@ class ArbreListMixin(_MixinBase):
         # Le compteur footer reste sur TOUTE la mission (vue macro), pas
         # sur la sous-liste filtrée.
         n_ok = sum(1 for a in self.chantier.arbres
-                   if self._arbre_etat(a)[1] == "etat_ok")
+                   if self._arbre_diag_fiable(a))
         for i, a in enumerate(self.chantier.arbres):
             if not self._arbre_matches_filter(a):
                 continue
@@ -102,32 +114,47 @@ class ArbreListMixin(_MixinBase):
             text=f"● {n_ok}/{n_total} arbres avec diagnostic fiable")
 
     @staticmethod
+    def _arbre_diag_fiable(a: Arbre) -> bool:
+        """Diagnostic global publiable : rayon défini ET ≥3 directions
+        sondées. Seuil métier de fiabilité (cf. `_arbre_etat`), utilisé
+        pour le compteur du footer."""
+        return a.rayon_tronc_cm > 0 and len(a.sondages) >= 3
+
+    @staticmethod
     def _arbre_etat(a: Arbre) -> tuple[str, str]:
         """Renvoie `(glyphe, tag)` pour la colonne État d'un arbre.
 
-        Le glyphe est un caractère universellement disponible (●),
-        c'est le tag — appliqué à toute la ligne via `tag_configure` —
-        qui colorise (rouge/orange/vert) le foreground et permet la
-        distinction visuelle. On évite les emojis couleur (🔴🟠🟢)
-        qui s'affichent souvent en monochrome dans ttk.Treeview selon
-        la police système : trois pastilles devenaient indistinguables.
+        **Glyphes distincts** : la FORME porte la complétude, donc reste
+        lisible même en cas de daltonisme rouge-vert (fréquent chez les
+        opérateurs de terrain) — la couleur ne fait que renforcer.
+          - `○` (cercle vide)  : pas de rayon OU aucun sondage
+          - `◐` (demi-cercle)  : 1-2 sondages (diagnostic non fiable)
+          - `●` (cercle plein) : ≥3 sondages (diagnostic fiable)
 
-        Seuil de complétude aligné sur la règle métier : un diagnostic
-        global n'est publié (t/R moyen + classe) qu'à partir de 3
-        directions sondées (cf. `diagnostic.DiagnosticSnapshot`). La
-        pastille verte signale donc exactement les arbres dont le
-        diagnostic est fiable et exportable.
+        On évite les emojis couleur (🔴🟠🟢) qui s'affichent souvent en
+        monochrome dans ttk.Treeview selon la police système.
 
-        Règles :
-          - `etat_vide`    : pas de rayon OU pas de sondage
-          - `etat_partiel` : 1 ou 2 sondages (diagnostic non fiable)
-          - `etat_ok`      : 3 sondages ou plus (diagnostic fiable)
+        **Couleur du `●` plein = classe de risque.** Dès que le
+        diagnostic est fiable (≥3 sondages, seuil aligné sur
+        `diagnostic.DiagnosticSnapshot`), la couleur du `●` encode la
+        classe globale Silvavenir (vert/orange/rouge) via les tags
+        `etat_ok_<classe>` : l'opérateur repère les arbres à risque d'un
+        coup d'œil dans la liste, sans ouvrir l'onglet Diagnostic. Repli
+        sur `etat_ok` (vert) si la classe est indisponible.
+
+        NB : l'extrapolation géométrique de la cavité reste active dès 2
+        sondages (son minimum mathématique) — découplé du seuil de
+        fiabilité à 3.
         """
         if a.rayon_tronc_cm <= 0 or not a.sondages:
-            return "●", "etat_vide"
+            return "○", "etat_vide"
         if len(a.sondages) < 3:
-            return "●", "etat_partiel"
-        return "●", "etat_ok"
+            return "◐", "etat_partiel"
+        diag = repartition_classes(a).diagnostic_global
+        if diag is None:
+            return "●", "etat_ok"
+        _, classe = diag
+        return "●", _CLASSE_TAG.get(classe, "etat_ok")
 
     def _refresh_current_arbre_etat(self) -> None:
         """Met à jour la pastille d'état + le footer après une mutation
@@ -145,7 +172,7 @@ class ArbreListMixin(_MixinBase):
                                   values=(a.essence, glyph),
                                   tags=(tag,))
         n_ok = sum(1 for x in self.chantier.arbres
-                   if self._arbre_etat(x)[1] == "etat_ok")
+                   if self._arbre_diag_fiable(x))
         self._update_etat_footer(n_ok, len(self.chantier.arbres))
 
     def _on_tree_arbres_right_click(self, event: "tk.Event[tk.Misc]") -> None:

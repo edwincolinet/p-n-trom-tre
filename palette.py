@@ -34,7 +34,13 @@ COLOR_BG         = "#F7F3EA"   # fond général
 COLOR_PANEL      = "#FFFFFF"   # panneaux blancs
 COLOR_SIDE_PANEL = "#EAE5D8"   # bandeau latéral (liste des arbres)
 COLOR_INK        = "#1A2E22"
-COLOR_MUTED      = "#6E7B73"
+# Texte secondaire (libellés d'aide ⓘ, sous-titres, labels d'échelle du
+# dessin). Assombri de #6E7B73 à #55605A pour repasser au-dessus du
+# seuil de contraste WCAG AA (≈6.5:1 sur blanc, ≈5.8:1 sur le fond
+# beige) : l'ancienne teinte (~4.0-4.4:1) rendait le texte d'aide en
+# 9 px peu lisible sur un laptop de terrain en plein jour. Couleur
+# partagée Tk ↔ PIL → les exports PNG/PDF en bénéficient aussi.
+COLOR_MUTED      = "#55605A"
 
 # `COLOR_ACCENT` est la couleur de marque utilisée pour les boutons,
 # titres et chrome UI. Elle vaut actuellement le même hex que

@@ -32,9 +32,10 @@ from app_recovery import (
     RecoveryMixin,
 )
 from app_style import apply_ttk_styles
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from dialogs import edit_contrefort, edit_degradation, edit_sondage
 from model import Arbre, Chantier, Contrefort, DegradationExterne, Sondage
-from palette import COLOR_BG
+from palette import COLOR_BG, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
@@ -51,7 +52,7 @@ from section_canvas import SectionCanvas
 from tooltip import Tooltip
 from undo import UndoStack
 
-__version__ = "3.4.0"
+__version__ = "3.5.0"
 
 # Fichiers récents : on en garde 8, persistés en JSON dans le même
 # répertoire que le log (~/.penetrometre/). 8 est un bon compromis :
@@ -280,6 +281,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                                         foreground="#D97706")
         self.tree_arbres.tag_configure("etat_ok",
                                         foreground="#1A5A2A")
+        # Arbre au diagnostic fiable (≥3 sondages) : le `●` plein est
+        # coloré selon la CLASSE DE RISQUE globale (cf. _arbre_etat) —
+        # repérage du risque dans la liste sans ouvrir l'onglet Diagnostic.
+        self.tree_arbres.tag_configure("etat_ok_vert",
+                                        foreground=COULEUR_CLASSE[CLASSE_VERT])
+        self.tree_arbres.tag_configure(
+            "etat_ok_orange", foreground=COULEUR_CLASSE[CLASSE_ORANGE])
+        self.tree_arbres.tag_configure(
+            "etat_ok_rouge", foreground=COULEUR_CLASSE[CLASSE_ROUGE])
         self.tree_arbres.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(lst_frame, orient="vertical",
                            command=self.tree_arbres.yview)
@@ -584,7 +594,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             # Recalcule le footer (le passage d'un arbre orange→vert
             # change le compteur global).
             n_ok = sum(1 for x in self.chantier.arbres
-                       if self._arbre_etat(x)[1] == "etat_ok")
+                       if self._arbre_diag_fiable(x))
             self._update_etat_footer(n_ok, len(self.chantier.arbres))
 
     def _load_arbre_to_ui(self) -> None:

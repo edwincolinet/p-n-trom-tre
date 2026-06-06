@@ -3,6 +3,32 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## 3.5.0
+
+### Fonctionnel (accessibilité & lisibilité)
+
+- **Pastilles d'état à glyphes distincts** : la liste d'arbres utilise
+  désormais `○` (vide) · `◐` (partiel) · `●` (fiable) au lieu d'un `●`
+  unique coloré. La **forme** porte la complétude → lisible même en cas
+  de daltonisme rouge-vert (fréquent chez les opérateurs) ; la couleur
+  ne fait que renforcer.
+- **Classe de risque dans la liste d'arbres** : dès qu'un arbre est
+  fiable (≥3 sondages), la couleur de son `●` encode la **classe globale
+  Silvavenir** (vert/orange/rouge) — on repère les arbres à risque d'un
+  coup d'œil sans ouvrir l'onglet Diagnostic.
+- **Contraste du texte secondaire** : `COLOR_MUTED` assombri
+  (`#6E7B73` → `#55605A`) pour repasser au-dessus du seuil WCAG AA
+  (≈6.5:1 sur blanc). Les libellés d'aide ⓘ en 9 px et les labels
+  d'échelle du dessin (Tk + exports PNG/PDF) deviennent lisibles sur un
+  laptop de terrain en plein jour. Golden-tests Tk régénérés
+  (changement de couleur uniquement).
+
+### Interne
+
+- `_arbre_diag_fiable(a)` extrait pour le compteur du footer (≥3
+  sondages) ; `_arbre_etat` consulte `repartition_classes` pour la
+  couleur de classe. Tests `_arbre_etat` étendus (glyphes + classe).
+
 ## 3.4.0
 
 ### Fonctionnel

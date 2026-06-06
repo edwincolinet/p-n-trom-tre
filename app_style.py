@@ -130,7 +130,8 @@ def apply_ttk_styles(root: tk.Misc) -> None:
     # silencieusement le `foreground` posé par `tag_configure` à cause
     # d'entrées par défaut dans le mapping de style qui priment sur le
     # tag. Sans ce patch, les tags d'état (`etat_vide`, `etat_partiel`,
-    # `etat_ok`) sont sans effet et la pastille reste blanche/grise.
+    # `etat_ok` et ses variantes de classe `etat_ok_{vert,orange,rouge}`)
+    # sont sans effet et la pastille reste blanche/grise.
     # On retire les entrées `("!disabled", "!selected", …)` du mapping
     # background/foreground pour que les tags prennent enfin la main.
     # Réf. https://bugs.python.org/issue36468
