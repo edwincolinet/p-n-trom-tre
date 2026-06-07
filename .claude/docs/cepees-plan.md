@@ -59,11 +59,16 @@ le cadrage multi-brins (Étape 2).
 ## 5. Étape 2 — Rendu multi-brins (lecture seule)
 
 **But** : afficher une cépée (N brins positionnés) dans le canvas Tk et le PNG
-PIL. Aucune édition de position encore (vient en Étape 4) — les positions sont
-lues du modèle (fixtures/JSON). **Livrable visible** : prévoir une action
-minimale « ＋ Brin » qui ajoute un brin décalé par défaut (sinon invisible à
-l'utilisateur) — *à confirmer avec Edwin : action minimale en Étape 2, ou
-attendre l'éditeur Étape 4 ?*
+PIL. Aucune édition fine de position encore (vient en Étape 4) — les positions
+sont lues du modèle.
+
+**Livrable visible — DÉCIDÉ (Edwin, 2026-06-07)** : action minimale **« ＋ Brin »**
+dans l'onglet Identification (à côté de « Forme du tronc… »). Elle ajoute un brin
+hérité (forme/essence du brin courant) décalé d'un offset par défaut sur l'axe
+E-O : `pos_x = R(courant) + R(nouveau) + marge`, `pos_y = 0`. Placement grossier
+(non déplaçable avant l'Étape 4) mais l'opérateur **voit** une cépée et peut la
+saisir. Prévoir aussi « Supprimer brin » (au moins via menu/éditeur) et le
+sélecteur de brin pour la grille de saisie (peut glisser en Étape 4).
 
 **Invariant CRITIQUE** : un genet **à brin unique** (99 % des arbres) doit
 rendre **strictement comme aujourd'hui** → goldens byte-identiques. Donc :
@@ -101,9 +106,21 @@ trancher). x → Est, y → Sud (cohérent avec l'écran ; grade 0 = Nord = -y).
 PIL + Tk. Vérifier que les 5 fixtures existantes restent byte-identiques
 (genet 1 brin). Test unitaire `extent_cm` + cadrage (bbox attendue).
 
+**⚠ Trouvaille technique (à ne pas redécouvrir)** : `_draw_brin` a besoin du
+**genet ET du brin**. Les couches de contour (bois/écorce/cernes/contreforts/
+dégradations) ne lisent que des attributs présents sur `Brin`
+(`est_ovale`, `rayon_a_grade`, `contreforts`, `epaisseur_ecorce_cm`,
+`rayon_tronc_cm`) → changer leur signature `arbre` → `brin` (duck-typing : un
+`Arbre` via shims ou un `Brin` natif marchent tous deux, donc mono-brin reste
+identique). **MAIS** `sondage_render_data` lit aussi `port_arbre` et `meche_cm`
+qui sont **GENET-level** (sur `Arbre`, pas `Brin`) : il faut lui passer le brin
+**et** le port/mèche du genet (signature à étendre, p. ex.
+`sondage_render_data(brin, port, meche, cx, cy, scale, …)`). Le point central du
+dessin (la moelle, `d.ellipse` COLOR_INK) se trace par brin à son centre.
+
 **Risque** : le refactor `_draw_brin` est la partie sensible aux goldens.
-Faire l'extraction d'abord à comportement constant (1 brin), committer, PUIS
-ajouter le multi-brins.
+Faire l'extraction d'abord à comportement constant (1 brin), committer (vérifier
+goldens inchangés), PUIS ajouter le cadrage multi-brins et le « ＋ Brin ».
 
 ## 6. Étape 3 — Diagnostic par brin + classe globale + exports
 
@@ -157,11 +174,17 @@ Faire grandir `ask_forme_tronc` (ou un nouveau Toplevel plus large) en
   sur cette machine — utiliser `DISPLAY=:0`). Golden PIL : `python -m
   tests.test_render`. Régénération : `--update`.
 
-## 9. Points ouverts (à trancher avec Edwin au fil de l'eau)
+## 9. Points ouverts & défauts retenus
 
-- Étape 2 : action minimale « ＋ Brin » dès maintenant (pour voir une cépée),
-  ou rendu seul testé par fixtures jusqu'à l'éditeur Étape 4 ?
-- Origine du repère de position : cœur du brin[0] ou centroïde des brins ?
-- Ticks de graduation : autour de la bbox globale ou de chaque brin ?
-- Étape 3 : un genet est-il « non fiable » dès qu'UN brin a < 3 sondages, ou
-  fiabilité par brin seulement ? Rayon « représentatif » du genet en synthèse.
+- [x] **Étape 2 : action « ＋ Brin » minimale dès maintenant** (DÉCIDÉ Edwin
+  2026-06-07) — cf. § 5.
+- [ ] *Défaut retenu (révisable)* **Origine du repère de position** = cœur du
+  `brins[0]` (le 1er brin reste en (0,0) ; les suivants se placent autour). Plus
+  simple que le centroïde et stable quand on ajoute/retire des brins.
+- [ ] *Défaut retenu (révisable)* **Cardinales/ticks** dessinés **une fois**
+  globalement (boussole partagée par tous les brins, même orientation) autour de
+  la bbox globale ; la **moelle et les pastilles** restent par brin. Règle
+  graduée : une seule, globale.
+- [ ] **Étape 3 (à trancher quand on y arrive)** : un genet est-il « non fiable »
+  dès qu'UN brin a < 3 sondages, ou fiabilité par brin seulement ? Rayon
+  « représentatif » du genet en synthèse (max des brins ? proposé par défaut).
