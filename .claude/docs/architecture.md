@@ -14,32 +14,76 @@
 - `catmull_rom_closed` — spline fermée Catmull-Rom.
 - `bell_max_at_grade(grade, contreforts)` — hauteur max de cloche cosinus².
 - `contrefort_zones(contreforts)` — fusion des arcs qui se chevauchent.
+- `ellipse_radius(a, b, orientation_grade, grade)` — rayon polaire d'une
+  ellipse (demi-grand-axe `a`, demi-petit-axe `b`) dans une direction.
+  Robuste aux axes nuls (jamais de division par zéro).
+
+**Rayon scalaire ou par direction (`RadiusSpec`)** : `RadiusSpec = Union[float,
+Callable[[float], float]]`. Les primitives de contour ci-dessous acceptent un
+rayon **scalaire** (section circulaire — calcul strictement identique à l'ancien)
+**ou une fonction `grade→rayon`** (section ovale, p. ex. `Brin.rayon_a_grade`).
+Helper interne `_radius_at(R, grade)`.
 
 **Primitives de rendu partagées Tk ↔ PIL** (points `(x, y)` en coord. écran) :
 - `polar_to_xy`, `polar_idx_to_xy` — polaire → écran (grade 0 = Nord, horaire).
 - `cavity_polygon(alteration_par_grade, cx, cy, scale)` — polygone lissé cavité.
-- `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy, scale)` —
-  dict `{wood_outer, base, bark_outer?, bark_inner?}`.
-- `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy, scale)`.
+- `contour_polygon(r_of, cx, cy, scale, n_samples=160)` — contour fermé
+  échantillonné finement (cercle ou ellipse) ; sert au **remplissage** ovale
+  (bois/écorce/cernes). Le cas circulaire garde la primitive native des
+  renderers (`d.ellipse` / `create_oval`) → goldens byte-identiques.
+- `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy, scale, R_inner=None)`
+  — dict `{wood_outer, base, bark_outer?, bark_inner?}`. `R` (et `R_inner`) =
+  `RadiusSpec`.
+- `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy, scale)` —
+  `R` = `RadiusSpec`.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
-- `tick_endpoints`, `cardinal_label_positions`, `ruler_graduation_positions`.
+- `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`),
+  `ruler_graduation_positions`.
 
 ## `model.py` — dataclasses + mutateurs de cohérence
+
+Vocabulaire (écologie des plantes clonales) : `Arbre` = **genet** (individu
+inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
+= un genet à brin unique ; une **cépée** = plusieurs brins. Voir CLAUDE.md
+« Genet / brin » et la mémoire `project_cepees-formes`.
 
 - `Sondage` — `.prbs_cm` (alias), `.ratio_tR_brut(R)` (CSV uniquement).
 - `DegradationExterne` — `.largeur_grades()`, `.couvre_grade(grade)`.
 - `Contrefort` — `.grade_debut()`, `.grade_fin()`, `.largeur_cm(R)`.
-- `Arbre` — mutateurs : `set_rayon(new_R)` (PRBS invariante, bois altéré ajusté),
-  `renumeroter_sondages/degradations/contreforts()`. Prop : `display_name`.
+- `Brin` (= ramet) — porte la **géométrie et les mesures propres à la tige** :
+  `rayon_tronc_cm` (= demi-grand-axe si ovale), `rayon_petit_axe_cm`
+  (0 = circulaire, sentinelle), `orientation_grade`, `diametre_sous_ecorce_cm`,
+  `epaisseur_ecorce_cm`, `sondages`, `degradations_externes`, `contreforts`,
+  position `pos_x_cm/pos_y_cm/rotation_grades` (réservée aux cépées, Étapes 2-4).
+  Propriété `est_ovale` ; `rayon_a_grade(grade)` (rayon LOCAL — constant si
+  circulaire, ellipse sinon). Mutateurs : `set_rayon(new_R)` et
+  `set_forme_ovale(petit_axe, orientation)` (tous deux → `_resync_sondages_local()`
+  qui réaligne le bois altéré sur le rayon local **en préservant la PRBS**) ;
+  `renumeroter_sondages/degradations/contreforts()`.
+- `Arbre` (= genet) — identité partagée (`numero_arbre`, `essence`,
+  `hauteur_sondage_cm`, `hauteur_arbre_m`, `port_arbre`, `meche_cm`,
+  `commentaire`) + `brins: List[Brin]` (≥ 1). **Propriétés-relais et méthodes-relais**
+  (`rayon_tronc_cm`, `sondages`, `set_rayon`, `set_forme_ovale`, `rayon_a_grade`,
+  …) délèguent au **brin courant** (`brins[0]`) pour que le code écrit avant les
+  cépées (≈140 accès) tourne inchangé. Constructeur **rétro-compatible** : les
+  kwargs de géométrie/mesures sont routés vers `brins[0]`. Prop : `display_name`,
+  `brin_courant`. *Couche de compat temporaire (« Étape 0 ») : à retirer quand
+  l'UI saura cibler un brin explicite.*
 - `Chantier` — nom, adresse, opérateur, date, arbres.
 
 ## `diagnostic.py` — calculs purs sur Arbre
 
 Toutes les fonctions sont **pures** (pas de mutation, pas de cache sur l'arbre).
 
-- `compute_alteration_par_grade(arbre)` — extrapolation pondérée linéaire.
+- `compute_alteration_par_grade(arbre)` — extrapolation pondérée linéaire
+  (lit `bois_altere_cm`, **indépendant du rayon**).
 - `degradation_externe_par_grade(arbre)` — profondeur max par direction.
-- `prbs_par_grade(arbre)`, `ratio_tR_par_grade(arbre)` — composent les deux.
+- `rayon_par_grade(arbre)` — 16 rayons extérieurs (constant = `rayon_tronc_cm`
+  si circulaire, ellipse sinon via `arbre.rayon_a_grade`).
+- `prbs_par_grade(arbre)`, `ratio_tR_par_grade(arbre)` — composent les trois ;
+  le dénominateur du t/R est le **rayon LOCAL** de chaque direction (apport
+  Étape 1 ovale). `sondage_render_data` calcule aussi pastille et t/R au rayon
+  local du grade sondé.
 - `repartition_classes(arbre)` → `DiagnosticSnapshot` (self-contained :
   répartition, ratios, direction critique, t/R moyen, classe globale,
   `diagnostic_fiable`, `extrapolation_text`).
@@ -55,12 +99,16 @@ Convention : classe globale = t/R **moyen** (confirmé Silvavenir mai 2026).
 
 ## `persistence.py` — I/O JSON des missions
 
-- `FORMAT_VERSION = 2` — versionne le format.
-- `chantier_to_dict` / `chantier_from_dict` — sérialisation symétrique.
+- `FORMAT_VERSION = 3` — versionne le format. v3 = introduction des **brins** :
+  la géométrie/mesures qui vivaient sur `arbre` passent dans `arbre.brins[i]`.
+- `chantier_to_dict` / `chantier_from_dict` — sérialisation symétrique. Helper
+  `_brin_from_dict(bd)` reconstruit un `Brin` ; il sert pour les **deux** formats :
+  v3+ (`bd` = `arbre["brins"][i]`) **et** v≤2 (`bd` = l'arbre lui-même, dont la
+  géométrie/mesures à plat sont migrées en un **brin unique** centré).
 - `save_chantier` / `load_chantier` — wrappers fichier UTF-8.
   **Écriture atomique** : write dans `.tmp` puis `os.replace` — le fichier
   original survit en cas de crash (disque plein, coupure de courant).
-- Migration ascendante : anciens libellés de port (v3.1 → v3.2).
+- Migration ascendante : anciens libellés de port (v3.1 → v3.2) ; v≤2 → brins.
 - Migration descendante : filtre par `__dataclass_fields__` + WARNING logged.
 
 ## `pane_*.py` — onglets Tk autonomes
@@ -75,6 +123,11 @@ revert au focus-out en filet de sécurité, et le `_commit_rayon` différé
 (set_rayon uniquement au focus-out, pas pendant la frappe — protège les
 PRBS des valeurs intermédiaires). Form groupé en 4 `ttk.LabelFrame`
 (Arbre / Tronc / Sondage / Notes) pour clarifier les unités (m vs cm).
+La **forme ovale** n'est PAS en ligne (pour ne pas alourdir le cas
+circulaire courant) : un bouton « Forme du tronc (ovale)… » dans le groupe
+Tronc ouvre l'éditeur avancé `dialogs.ask_forme_tronc` ; `_open_forme_editor`
+applique le résultat via `push_undo` + `set_forme_ovale`. Pensé comme point
+d'entrée du futur éditeur de cépées / brins (Étape 4).
 `DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
 individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
 pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
@@ -126,6 +179,12 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   sans affecter les petits dessins (vignette PDF ~600 px, `_ds = 1.0`).
 - Helpers exposés : `_pil_load_fonts()`, `_draw_horizontal_legend_pil()`.
 - `HAS_PIL` : False si Pillow absent.
+- **Section ovale** : chaque couche de contour (bois/cernes/écorce) **branche
+  sur `arbre.est_ovale`** — circulaire → primitive native `d.ellipse` (rendu
+  inchangé, goldens stables) ; ovale → polygone via `contour_polygon`. Les
+  contreforts/dégradations/ticks/cardinales reçoivent `arbre.rayon_a_grade`
+  (constant si circulaire → byte-identique). La règle horizontale utilise le
+  rayon de l'axe E-O (`rayon_a_grade(100)`).
 
 ## `fiche_pdf.py` — layout fiche PDF A4
 
@@ -139,7 +198,10 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 
 `SectionCanvas(tk.Canvas)` : `redraw()` orchestre les `_draw_*` (ordre =
 superposition). Pendant Tk de `pil_render` — géométrie partagée, visuels
-spécifiques (polices, outline+width, smooth, flèches).
+spécifiques (polices, outline+width, smooth, flèches). Même gestion de la
+**section ovale** que PIL (branche `est_ovale` : `create_oval` natif si
+circulaire, `contour_polygon` via `create_polygon` si ellipse ;
+`rayon_a_grade` passé aux helpers de contour).
 
 **Canvas interactif** : accepte un `host: _CanvasHost` optionnel. Quand
 fourni, chaque pastille de sondage, arc de dégradation externe et zone
@@ -188,6 +250,13 @@ saisie texte thémé (look ttk Silvavenir) qui remplace
 `simpledialog.askstring`. Renvoie `None` si annulé, la chaîne (sans
 `strip`) si validé — `""` validé ≠ `None`. Utilisé par
 `App.action_rename_arbre`.
+
+`ask_forme_tronc(parent, *, grand_axe_cm, petit_axe_cm, orientation_grade)` :
+**éditeur avancé de la forme de section** (tronc ovale). Affiche le grand axe
+(= rayon du tronc) en référence et édite demi-petit-axe + orientation. Renvoie
+`(petit_axe_cm, orientation_grade)` si validé, `None` si annulé ; petit axe
+vide/0 ⟹ section circulaire. Volontairement séparé du formulaire pour ne pas
+alourdir le cas circulaire courant ; appelé par `IdentificationPane`.
 
 Helpers publics réutilisés par `pane_identification` :
 
