@@ -27,10 +27,12 @@ from diagnostic import (
     sondage_render_data,
 )
 from geometry import (
+    RadiusSpec,
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
+    contour_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -260,9 +262,9 @@ class SectionCanvas(tk.Canvas):
         return cx, cy, scale
 
     def _draw_contreforts_canvas(self, cx: float, cy: float, scale: float,
-                                  R: float, contreforts: Any,
+                                  R: "RadiusSpec", contreforts: Any,
                                   ep_cm: float = 0.0,
-                                  R_inner: Optional[float] = None) -> None:
+                                  R_inner: Any = None) -> None:
         """Dessine TOUS les contreforts en utilisant les polygones fusionnés
         renvoyés par `contrefort_zone_outline` (cf. geometry.py). Évite
         l'encoche en V à la jonction de deux contreforts proches.
@@ -272,7 +274,7 @@ class SectionCanvas(tk.Canvas):
         usages). Pour les zones multi-CF, le clic ouvre le 1er ;
         l'utilisateur peut éditer les autres via l'onglet Contreforts.
         """
-        if R <= 0 or not contreforts:
+        if not contreforts:
             return
         for zone in contrefort_zones(contreforts):
             poly = contrefort_zone_outline(zone, contreforts, R, ep_cm,
@@ -324,7 +326,8 @@ class SectionCanvas(tk.Canvas):
         return -1
 
     def _draw_degradation_externe_canvas(self, cx: float, cy: float,
-                                          scale: float, R: float, ep_cm: float,
+                                          scale: float, R: "RadiusSpec",
+                                          ep_cm: float,
                                           contreforts: Any, deg: Any,
                                           idx: int = -1) -> None:
         """Dessine une dégradation externe sur le canvas Tkinter à partir
@@ -365,25 +368,35 @@ class SectionCanvas(tk.Canvas):
         cx, cy, scale = self._center_and_scale(R, expansion_cm=expansion)
         self._geom = (cx, cy, scale, R, R_ext)
 
-        self._draw_bois_sain(cx, cy, R, scale)
-        self._draw_cernes(cx, cy, R, scale)
+        # Fournisseurs de rayon par direction : constants si circulaire
+        # (rendu identique à l'ancien), variables si ellipse. R reste le
+        # demi-grand-axe (= rayon le plus grand) pour le cadrage et la
+        # conversion clic→grade.
+        r_of = A.rayon_a_grade
+        r_ext_of: "RadiusSpec" = (
+            (lambda g: A.rayon_a_grade(g) + ep) if ep else r_of)
+        R_h = A.rayon_a_grade(100)  # règle horizontale → axe E-O
+
+        self._draw_bois_sain(A, cx, cy, R, scale)
+        self._draw_cernes(A, cx, cy, R, scale)
         self._draw_cavite(A, cx, cy, scale)
-        self._draw_ecorce(cx, cy, R, ep, scale)
-        # Contreforts : R_inner descend de 1 px sous R pour qu'aucun
-        # pixel de trou n'apparaisse entre polygone bois et disque.
-        self._draw_contreforts_canvas(cx, cy, scale, R, A.contreforts,
-                                       ep_cm=ep, R_inner=R - 1.0 / scale)
+        self._draw_ecorce(A, cx, cy, R, ep, scale)
+        # Contreforts : R_inner descend de 1 px sous le rayon LOCAL pour
+        # qu'aucun pixel de trou n'apparaisse entre polygone bois et disque.
+        self._draw_contreforts_canvas(
+            cx, cy, scale, r_of, A.contreforts, ep_cm=ep,
+            R_inner=(lambda g: A.rayon_a_grade(g) - 1.0 / scale))
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
         for idx, deg in enumerate(A.degradations_externes):
-            self._draw_degradation_externe_canvas(cx, cy, scale, R, ep,
+            self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep,
                                                    A.contreforts, deg,
                                                    idx=idx)
-        self._draw_ticks(cx, cy, R_ext, scale)
-        self._draw_cardinales(cx, cy, R_ext, scale)
+        self._draw_ticks(cx, cy, r_ext_of, scale)
+        self._draw_cardinales(cx, cy, r_ext_of, scale)
         if self.show_sondages:
             self._draw_sondages(A, cx, cy, R, scale)
 
-        self._draw_regle(cx, cy, R, ep, R_ext, scale)
+        self._draw_regle(cx, cy, R_h, ep, R_h + ep, scale)
         self._draw_titre(A, R)
 
     # ------------------------------------------------------------------
@@ -420,13 +433,32 @@ class SectionCanvas(tk.Canvas):
                          font=("Georgia", 14, "italic"),
                          fill=COLOR_MUTED, justify="center")
 
-    def _draw_bois_sain(self, cx: float, cy: float, R: float, scale: float) -> None:
+    def _draw_bois_sain(self, A: Arbre, cx: float, cy: float,
+                        R: float, scale: float) -> None:
+        if A.est_ovale:
+            flat = [c for p in contour_polygon(A.rayon_a_grade, cx, cy, scale)
+                    for c in p]
+            self.create_polygon(*flat, fill=COLOR_WOOD, outline="", width=0)
+            return
         radius_px = R * scale
         self.create_oval(cx - radius_px, cy - radius_px,
                          cx + radius_px, cy + radius_px,
                          fill=COLOR_WOOD, outline="", width=0)
 
-    def _draw_cernes(self, cx: float, cy: float, R: float, scale: float) -> None:
+    def _draw_cernes(self, A: Arbre, cx: float, cy: float,
+                     R: float, scale: float) -> None:
+        if A.est_ovale:
+            for k in range(1, self.N_CERNES + 1):
+                frac = k / (self.N_CERNES + 1)
+
+                def r_cerne(g: float, frac: float = frac) -> float:
+                    return A.rayon_a_grade(g) * frac
+
+                flat = [c for p in contour_polygon(r_cerne, cx, cy, scale)
+                        for c in p]
+                self.create_polygon(*flat, fill="", outline=COLOR_CERNE,
+                                    width=1)
+            return
         for rr in cerne_radii_px(R, scale, self.N_CERNES):
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
@@ -447,10 +479,25 @@ class SectionCanvas(tk.Canvas):
         self.create_polygon(*flat, fill=COLOR_ROT,
                             outline="", smooth=False)
 
-    def _draw_ecorce(self, cx: float, cy: float, R: float, ep: float, scale: float) -> None:
+    def _draw_ecorce(self, A: Arbre, cx: float, cy: float, R: float,
+                     ep: float, scale: float) -> None:
         # Si une épaisseur est renseignée, anneau brun épais entre R et
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
+        if A.est_ovale:
+            inner = contour_polygon(A.rayon_a_grade, cx, cy, scale)
+            if ep > 0:
+                def r_outer(g: float) -> float:
+                    return A.rayon_a_grade(g) + ep
+
+                outer = contour_polygon(r_outer, cx, cy, scale)
+                flat = [c for p in (outer + inner[::-1]) for c in p]
+                self.create_polygon(*flat, fill=COLOR_BARK, outline="")
+            else:
+                flat = [c for p in (inner + [inner[0]]) for c in p]
+                self.create_line(*flat, fill=COLOR_BARK, width=3,
+                                 smooth=True)
+            return
         if ep > 0:
             ep_px = max(1.0, ep * scale)
             mid_radius = (R + ep / 2) * scale
@@ -463,7 +510,8 @@ class SectionCanvas(tk.Canvas):
                              cx + radius_px, cy + radius_px,
                              outline=COLOR_BARK, width=3)
 
-    def _draw_ticks(self, cx: float, cy: float, R_ext: float, scale: float) -> None:
+    def _draw_ticks(self, cx: float, cy: float, R_ext: "RadiusSpec",
+                    scale: float) -> None:
         # Graduations des 16 grades, tirets à l'extérieur de l'écorce.
         tick_len_cm = self.TICK_LEN_PX / scale
         for x1, y1, x2, y2, major in tick_endpoints(
@@ -472,7 +520,8 @@ class SectionCanvas(tk.Canvas):
                              fill=COLOR_BARK if major else COLOR_BARK_LIGHT,
                              width=2 if major else 1)
 
-    def _draw_cardinales(self, cx: float, cy: float, R_ext: float, scale: float) -> None:
+    def _draw_cardinales(self, cx: float, cy: float, R_ext: "RadiusSpec",
+                         scale: float) -> None:
         # Lettres cardinales à `CARDINALES_OFFSET_PX` au-delà de l'écorce.
         offset_cm = self.CARDINALES_OFFSET_PX / scale
         for lx, ly, lbl in cardinal_label_positions(

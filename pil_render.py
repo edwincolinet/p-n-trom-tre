@@ -36,10 +36,12 @@ from diagnostic import (
     sondage_render_data,
 )
 from geometry import (
+    RadiusSpec,
     adaptive_ruler_step_cm,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
+    contour_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -209,19 +211,26 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                           default=0.0)
     scale = radius_px_max / (R + expansion)
 
-    _pil_draw_bois_sain(d, cx, cy, R, scale)
-    _pil_draw_cernes(d, cx, cy, R, scale)
+    # Fournisseurs de rayon par direction : constants pour une section
+    # circulaire (rendu strictement identique à l'ancien), variables pour
+    # une ellipse. Les helpers de contour (ticks/cardinales/contreforts/
+    # dégradations) acceptent indifféremment scalaire ou fonction.
+    r_ext_of = (lambda g: arbre.rayon_a_grade(g) + ep) if ep else arbre.rayon_a_grade
+    # Règle horizontale → rayon le long de l'axe E-O (grade 100).
+    R_h = arbre.rayon_a_grade(100)
+    _pil_draw_bois_sain(d, arbre, cx, cy, R, scale)
+    _pil_draw_cernes(d, arbre, cx, cy, R, scale)
     _pil_draw_cavite(d, arbre, cx, cy, scale)
-    _pil_draw_ecorce(d, cx, cy, R, ep, R_ext, scale)
-    _pil_draw_contreforts(d, arbre, cx, cy, R, ep, scale)
+    _pil_draw_ecorce(d, arbre, cx, cy, R, ep, R_ext, scale)
+    _pil_draw_contreforts(d, arbre, cx, cy, ep, scale)
     # Dégradations EN DERNIER (cf. CLAUDE.md « Ordre global des couches »).
-    _pil_draw_degradations(d, arbre, cx, cy, R, ep, scale)
-    _pil_draw_ticks(d, cx, cy, R_ext, scale)
-    _pil_draw_cardinales(d, f, cx, cy, R_ext, scale)
+    _pil_draw_degradations(d, arbre, cx, cy, ep, scale)
+    _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
+    _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
     bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * _ds))
     if show_sondages:
         _pil_draw_sondages(d, f, arbre, cx, cy, R, scale, bullet_r)
-    y_axis = _pil_draw_regle(d, f, cx, cy, R, ep, R_ext, scale, height,
+    y_axis = _pil_draw_regle(d, f, cx, cy, R_h, ep, R_h + ep, scale, height,
                               _ds)
     dot_r = max(5, int(5 * _ds))
     d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
@@ -275,17 +284,32 @@ def _pil_draw_placeholder(d: "ImageDraw.ImageDraw", f: FontFn,
            font=f(28, "sans"), anchor="mm")
 
 
-def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw",
+def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                         cx: float, cy: float,
                         R: float, scale: float) -> None:
+    if arbre.est_ovale:
+        d.polygon(contour_polygon(arbre.rayon_a_grade, cx, cy, scale),
+                  fill=COLOR_WOOD)
+        return
     radius_px = R * scale
     d.ellipse([cx-radius_px, cy-radius_px, cx+radius_px, cy+radius_px],
               fill=COLOR_WOOD)
 
 
-def _pil_draw_cernes(d: "ImageDraw.ImageDraw",
+def _pil_draw_cernes(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                      cx: float, cy: float,
                      R: float, scale: float) -> None:
+    if arbre.est_ovale:
+        # Cernes = contours homothétiques (k/(N+1) du rayon local).
+        for k in range(1, N_CERNES + 1):
+            frac = k / (N_CERNES + 1)
+
+            def r_cerne(g: float, frac: float = frac) -> float:
+                return arbre.rayon_a_grade(g) * frac
+
+            d.polygon(contour_polygon(r_cerne, cx, cy, scale),
+                      outline=COLOR_CERNE, width=1)
+        return
     for rr in cerne_radii_px(R, scale, N_CERNES):
         d.ellipse([cx-rr, cy-rr, cx+rr, cy+rr],
                   outline=COLOR_CERNE, width=1)
@@ -301,10 +325,23 @@ def _pil_draw_cavite(d: "ImageDraw.ImageDraw", arbre: "Arbre",
     d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
 
-def _pil_draw_ecorce(d: "ImageDraw.ImageDraw",
+def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                      cx: float, cy: float,
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
+    if arbre.est_ovale:
+        inner = contour_polygon(arbre.rayon_a_grade, cx, cy, scale)
+        if ep > 0:
+            def r_outer(g: float) -> float:
+                return arbre.rayon_a_grade(g) + ep
+
+            outer = contour_polygon(r_outer, cx, cy, scale)
+            # Anneau d'écorce : contour externe + contour interne inversé
+            # (même technique que la bande d'écorce des contreforts).
+            d.polygon(outer + inner[::-1], fill=COLOR_BARK)
+        else:
+            d.line(inner + [inner[0]], fill=COLOR_BARK, width=4, joint="curve")
+        return
     # Note PIL : `d.ellipse(outline, width)` trace l'outline À L'INTÉRIEUR
     # du bounding box (pas centré sur la frontière comme Tkinter). Avec
     # bbox de rayon R_ext et width=ep_px, l'outline va de R_ext-ep à
@@ -324,12 +361,14 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw",
 
 def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                           cx: float, cy: float,
-                          R: float, ep: float, scale: float) -> None:
+                          ep: float, scale: float) -> None:
     # Fusionnés par zones connectées : plusieurs contreforts qui se
     # touchent sont rendus comme une seule cloche unifiée (max des
-    # hauteurs), ce qui évite l'encoche en V.
+    # hauteurs), ce qui évite l'encoche en V. La base des cloches suit le
+    # rayon LOCAL (constant si circulaire, ellipse sinon).
     for zone in contrefort_zones(arbre.contreforts):
-        poly = contrefort_zone_outline(zone, arbre.contreforts, R, ep,
+        poly = contrefort_zone_outline(zone, arbre.contreforts,
+                                        arbre.rayon_a_grade, ep,
                                         cx, cy, scale)
         wood_outer = poly["wood_outer"]
         if ep > 0:
@@ -342,20 +381,21 @@ def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", arbre: "Arbre",
 
 def _pil_draw_degradations(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                            cx: float, cy: float,
-                           R: float, ep: float, scale: float) -> None:
-    # Le bord externe du polygone suit la surface réelle (R + ep + cloche).
-    # Une dégradation qui passe sur un contrefort y mord à concurrence
-    # de sa profondeur.
+                           ep: float, scale: float) -> None:
+    # Le bord externe du polygone suit la surface réelle (rayon local +
+    # ep + cloche). Une dégradation qui passe sur un contrefort y mord à
+    # concurrence de sa profondeur.
     for deg in arbre.degradations_externes:
         pts_arc = degradation_externe_outline(deg, arbre.contreforts,
-                                               R, ep, cx, cy, scale)
+                                               arbre.rayon_a_grade, ep,
+                                               cx, cy, scale)
         if pts_arc:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
 
 
 def _pil_draw_ticks(d: "ImageDraw.ImageDraw",
                     cx: float, cy: float,
-                    R_ext: float, scale: float) -> None:
+                    R_ext: "RadiusSpec", scale: float) -> None:
     # 16 grades — tirets à l'extérieur de l'écorce.
     tick_len_cm = TICK_LEN_PX / scale
     for x1, y1, x2, y2, maj in tick_endpoints(
@@ -367,7 +407,7 @@ def _pil_draw_ticks(d: "ImageDraw.ImageDraw",
 
 def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
                          cx: float, cy: float,
-                         R_ext: float, scale: float) -> None:
+                         R_ext: "RadiusSpec", scale: float) -> None:
     # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
     offset_cm = CARDINALES_OFFSET_PX / scale
     for lx, ly, lbl in cardinal_label_positions(

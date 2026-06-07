@@ -26,7 +26,19 @@ Le barème métier (`classer_prbs` + labels de classe + ports) vit dans
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
+
+# Un rayon peut être donné soit comme un scalaire (section circulaire,
+# `rayon_tronc_cm`), soit comme une fonction `grade -> rayon_cm` (section
+# ovale, `Brin.rayon_a_grade`). Les primitives de rendu partagées acceptent
+# les deux : pour un scalaire le calcul est strictement identique à l'ancien
+# (aucun golden touché), pour une fonction le contour suit l'ellipse.
+RadiusSpec = Union[float, Callable[[float], float]]
+
+
+def _radius_at(R: "RadiusSpec", grade: float) -> float:
+    """Résout un `RadiusSpec` à une direction donnée (scalaire ou fonction)."""
+    return R(grade) if callable(R) else R
 
 # ----------------------------------------------------------------------
 # Constantes métier des 16 directions
@@ -217,6 +229,25 @@ def ellipse_radius(a: float, b: float,
     return a * b / denom
 
 
+def contour_polygon(r_of: "RadiusSpec",
+                    cx: float, cy: float, scale: float,
+                    n_samples: int = 160) -> List[Tuple[float, float]]:
+    """Polygone fermé du contour du tronc, échantillonné finement.
+
+    `r_of` = rayon (cm) par direction (scalaire = cercle, fonction =
+    ellipse). Renvoie `n_samples` points répartis sur 400 gr ; le contour
+    est implicitement fermé par les API de dessin (PIL `polygon`, Tk
+    `create_polygon`). Utilisé pour le **remplissage** bois/écorce/cernes
+    d'une section OVALE — le cas circulaire continue d'utiliser la
+    primitive ellipse native des renderers (rendu lisse, goldens stables).
+    """
+    pts: List[Tuple[float, float]] = []
+    for k in range(n_samples):
+        g = k * 400.0 / n_samples
+        pts.append(polar_to_xy(cx, cy, scale, _radius_at(r_of, g), g))
+    return pts
+
+
 def cavity_polygon(alteration_par_grade: List[float],
                    cx: float, cy: float, scale: float,
                    samples_per_segment: int = 28
@@ -234,7 +265,7 @@ def cavity_polygon(alteration_par_grade: List[float],
 
 def contrefort_zone_outline(zone: Tuple[float, float],
                             contreforts: List[Any],
-                            R: float, ep_cm: float,
+                            R: "RadiusSpec", ep_cm: float,
                             cx: float, cy: float, scale: float,
                             R_inner: Any = None
                             ) -> Dict[str, List[Tuple[float, float]]]:
@@ -260,8 +291,6 @@ def contrefort_zone_outline(zone: Tuple[float, float],
     a, b = zone
     span = b - a
     n_steps = max(32, int(span) + 1)
-    if R_inner is None:
-        R_inner = R - 1.0 / scale
 
     wood_outer: List[Tuple[float, float]] = []
     bark_outer: List[Tuple[float, float]] = []
@@ -269,7 +298,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         t = a + k * span / n_steps
         g = t % 400
         bell = bell_max_at_grade(g, contreforts)
-        r_wood = R + bell
+        r_wood = _radius_at(R, g) + bell
         wood_outer.append(polar_to_xy(cx, cy, scale, r_wood, g))
         if ep_cm > 0:
             bark_outer.append(polar_to_xy(cx, cy, scale, r_wood + ep_cm, g))
@@ -278,7 +307,11 @@ def contrefort_zone_outline(zone: Tuple[float, float],
     for k in range(n_steps, -1, -1):
         t = a + k * span / n_steps
         g = t % 400
-        base.append(polar_to_xy(cx, cy, scale, R_inner, g))
+        # Bord interne du polygone : légèrement en-deçà du rayon LOCAL pour
+        # masquer la couture (R_inner explicite l'emporte si fourni).
+        r_in = (_radius_at(R_inner, g) if R_inner is not None
+                else _radius_at(R, g) - 1.0 / scale)
+        base.append(polar_to_xy(cx, cy, scale, r_in, g))
 
     out = {"wood_outer": wood_outer, "base": base}
     if ep_cm > 0:
@@ -286,7 +319,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         for k in range(n_steps, -1, -1):
             t = a + k * span / n_steps
             g = t % 400
-            bark_inner.append(polar_to_xy(cx, cy, scale, R, g))
+            bark_inner.append(polar_to_xy(cx, cy, scale, _radius_at(R, g), g))
         out["bark_outer"] = bark_outer
         out["bark_inner"] = bark_inner
     return out
@@ -294,7 +327,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
 
 def degradation_externe_outline(deg: Any,
                                 contreforts: List[Any],
-                                R: float, ep_cm: float,
+                                R: "RadiusSpec", ep_cm: float,
                                 cx: float, cy: float, scale: float
                                 ) -> List[Tuple[float, float]]:
     """Renvoie le polygone d'une dégradation externe : bord externe
@@ -308,7 +341,7 @@ def degradation_externe_outline(deg: Any,
     Renvoie une liste vide si la dégradation est dégénérée (profondeur
     nulle ou rayon nul).
     """
-    if deg.profondeur_cm <= 0 or R <= 0:
+    if deg.profondeur_cm <= 0 or _radius_at(R, deg.grade_debut) <= 0:
         return []
     largeur = deg.largeur_grades()
     n_steps = max(16, int(largeur) + 1)
@@ -317,7 +350,7 @@ def degradation_externe_outline(deg: Any,
     for k in range(n_steps + 1):
         g = (deg.grade_debut + k * largeur / n_steps) % 400
         bell = bell_max_at_grade(g, contreforts)
-        r_out = R + ep_cm + bell
+        r_out = _radius_at(R, g) + ep_cm + bell
         r_in = max(0.0, r_out - deg.profondeur_cm)
         outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g))
         inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g))
@@ -356,36 +389,40 @@ def adaptive_ruler_step_cm(scale_px_per_cm: float,
 # eux-mêmes (`create_line` / `d.line`) restent dans chaque renderer.
 
 def tick_endpoints(cx: float, cy: float, scale: float,
-                   R_ext: float, tick_len_cm: float
+                   R_ext: "RadiusSpec", tick_len_cm: float
                    ) -> List[Tuple[float, float, float, float, bool]]:
     """Positions des 16 tirets de graduation autour du tronc.
 
     Renvoie `[(x1, y1, x2, y2, is_major), ...]` : segment du tick et
     si c'est un tick majeur (grade multiple de 50). Le renderer choisit
-    couleur/épaisseur selon `is_major`.
+    couleur/épaisseur selon `is_major`. `R_ext` peut être un scalaire
+    (cercle) ou une fonction `grade->rayon` (ellipse) : les tirets se
+    posent alors sur le contour local.
     """
     out: List[Tuple[float, float, float, float, bool]] = []
     for i, g in enumerate(GRADES):
-        x1, y1 = polar_idx_to_xy(cx, cy, scale, R_ext, i)
-        x2, y2 = polar_idx_to_xy(cx, cy, scale, R_ext + tick_len_cm, i)
+        rext = _radius_at(R_ext, g)
+        x1, y1 = polar_idx_to_xy(cx, cy, scale, rext, i)
+        x2, y2 = polar_idx_to_xy(cx, cy, scale, rext + tick_len_cm, i)
         out.append((x1, y1, x2, y2, g % 50 == 0))
     return out
 
 
 def cardinal_label_positions(cx: float, cy: float, scale: float,
-                              R_ext: float, offset_cm: float
+                              R_ext: "RadiusSpec", offset_cm: float
                               ) -> List[Tuple[float, float, str]]:
     """Positions des lettres cardinales (N, NE, E, …) autour du tronc.
 
     Renvoie `[(x, y, label), ...]` : ne contient QUE les grades qui ont
     un libellé non vide (les inter-quadrants 25/75/125/… sont absents).
+    `R_ext` scalaire (cercle) ou fonction `grade->rayon` (ellipse).
     """
     out: List[Tuple[float, float, str]] = []
     for i, g in enumerate(GRADES):
         lbl = DIRECTION_LABELS.get(g, "")
         if not lbl:
             continue
-        lx, ly = polar_idx_to_xy(cx, cy, scale, R_ext + offset_cm, i)
+        lx, ly = polar_idx_to_xy(cx, cy, scale, _radius_at(R_ext, g) + offset_cm, i)
         out.append((lx, ly, lbl))
     return out
 

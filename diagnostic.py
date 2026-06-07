@@ -597,13 +597,18 @@ def sondage_render_data(
         if s.grade not in GRADES:
             continue
         i = GRADES.index(s.grade)
+        # Rayon LOCAL de la direction (= R pour un tronc circulaire, rayon
+        # de l'ellipse pour un tronc ovale) : la flèche et la pastille se
+        # posent sur le contour réel, et le t/R de la pastille est rapporté
+        # au rayon de SA direction.
+        r_loc = arbre.rayon_a_grade(s.grade)
         penetration = min(s.bois_sain_cm + s.bois_altere_cm, meche)
-        penetration = max(0.0, min(penetration, R))
-        end_radius = R - penetration
+        penetration = max(0.0, min(penetration, r_loc))
+        end_radius = r_loc - penetration
         prbs_adj = max(0.0, s.prbs_cm - deg_ext[i])
-        ratio_adj = prbs_adj / R
+        ratio_adj = prbs_adj / r_loc if r_loc > 0 else 0.0
         col = couleur_classe[classer_prbs(ratio_adj, port)]
-        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, R - inset_cm, i)
+        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, r_loc - inset_cm, i)
         x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
         items.append(SondageRenderItem(
             numero=s.numero,

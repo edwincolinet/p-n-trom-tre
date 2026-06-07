@@ -18,7 +18,7 @@ from __future__ import annotations
 from model import Arbre, Contrefort, DegradationExterne, Sondage
 
 SCENARIOS = ("nu", "avec_ecorce", "contreforts",
-             "degradation_sur_contrefort")
+             "degradation_sur_contrefort", "ovale")
 
 
 def build_arbre(scenario: str) -> Arbre:
@@ -65,6 +65,25 @@ def build_arbre(scenario: str) -> Arbre:
         a.degradations_externes.append(
             DegradationExterne(numero=1, grade_debut=75, grade_fin=125,
                                 profondeur_cm=4.0))
+        return a
+
+    if scenario == "ovale":
+        # Section elliptique : grand axe N-S (demi = 30), petit axe E-O
+        # (demi = 18). Exerce les chemins ovales de TOUTES les couches :
+        # bois, écorce, cernes, ticks, cardinales, contrefort sur ellipse,
+        # pastilles de sondage rapportées au rayon local.
+        a = Arbre(numero_arbre="5", essence="Peuplier", port_arbre="libre")
+        a.rayon_tronc_cm = 30.0
+        a.rayon_petit_axe_cm = 18.0
+        a.orientation_grade = 0
+        a.epaisseur_ecorce_cm = 1.0
+        # PRBS cohérente avec le rayon LOCAL (altéré = R_local − sain) :
+        a.sondages.append(Sondage(numero=1, grade=0,
+                                    bois_sain_cm=22.0, bois_altere_cm=8.0))
+        a.sondages.append(Sondage(numero=2, grade=100,
+                                    bois_sain_cm=10.0, bois_altere_cm=8.0))
+        a.contreforts.append(Contrefort(numero=1, grade_centre=200,
+                                          largeur_grades=75, longueur_cm=8.0))
         return a
 
     raise ValueError(f"scenario inconnu : {scenario!r}")
