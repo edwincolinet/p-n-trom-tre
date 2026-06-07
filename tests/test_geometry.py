@@ -19,6 +19,7 @@ from geometry import (
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
+    ellipse_radius,
     polar_idx_to_xy,
     polar_to_xy,
     ruler_graduation_positions,
@@ -205,6 +206,41 @@ class PolarConversionsTests(unittest.TestCase):
                 x, y = polar_to_xy(self.CX, self.CY, self.SCALE, 0, grade)
                 self.assertAlmostEqual(x, self.CX, places=6)
                 self.assertAlmostEqual(y, self.CY, places=6)
+
+
+class EllipseRadiusTests(unittest.TestCase):
+
+    def test_cercle_quand_axes_egaux(self):
+        # a == b → rayon constant (cercle) quelle que soit la direction.
+        for g in (0, 50, 137, 300, 375):
+            with self.subTest(grade=g):
+                self.assertAlmostEqual(ellipse_radius(20.0, 20.0, 0, g), 20.0)
+
+    def test_rayon_vaut_a_le_long_du_grand_axe(self):
+        # Sur l'orientation du grand axe (et à 200 gr = même droite),
+        # le rayon vaut le demi-grand-axe a.
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 0, 0), 30.0)
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 0, 200), 30.0)
+
+    def test_rayon_vaut_b_perpendiculairement(self):
+        # À 100 gr (90°) du grand axe orienté à 0 : demi-petit-axe b.
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 0, 100), 18.0)
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 0, 300), 18.0)
+
+    def test_orientation_decale_le_grand_axe(self):
+        # Grand axe orienté à 50 gr : rayon = a à 50 gr, = b à 150 gr.
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 50, 50), 30.0)
+        self.assertAlmostEqual(ellipse_radius(30.0, 18.0, 50, 150), 18.0)
+
+    def test_rayon_intermediaire_borne_par_les_axes(self):
+        # À 45° le rayon est strictement entre b et a.
+        r = ellipse_radius(30.0, 18.0, 0, 50)
+        self.assertTrue(18.0 < r < 30.0)
+
+    def test_axe_degenere_renvoie_l_autre(self):
+        # Un axe nul ne doit jamais diviser par zéro.
+        self.assertAlmostEqual(ellipse_radius(30.0, 0.0, 0, 137), 30.0)
+        self.assertAlmostEqual(ellipse_radius(0.0, 0.0, 0, 0), 0.0)
 
 
 class CavityPolygonTests(unittest.TestCase):

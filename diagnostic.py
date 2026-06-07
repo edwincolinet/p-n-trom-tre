@@ -217,34 +217,53 @@ def degradation_externe_par_grade(arbre: "Arbre") -> List[float]:
     return out
 
 
+def rayon_par_grade(arbre: "Arbre") -> List[float]:
+    """Pour chaque direction (16 grades), retourne le rayon extérieur du
+    bois en cm.
+
+    Section circulaire (cas par défaut) → `rayon_tronc_cm` constant dans
+    les 16 directions (comportement historique strictement préservé).
+    Section ovale → rayon LOCAL de l'ellipse, qui rend le t/R par direction
+    plus juste (un grand axe a plus de marge qu'un petit axe à PRBS égale).
+    """
+    return [arbre.rayon_a_grade(g) for g in GRADES]
+
+
 def prbs_par_grade(arbre: "Arbre") -> List[float]:
     """Pour chaque direction (16 grades), retourne la PRBS réelle :
     rayon - altération interne - dégradation externe.
 
     C'est l'épaisseur de bois sain effectivement disponible, qui
-    intègre les deux types de dégradation. Fonction pure.
+    intègre les deux types de dégradation. Le rayon utilisé est le rayon
+    LOCAL de la direction (cf. `rayon_par_grade` — constant si circulaire).
+    Fonction pure.
     """
-    R = arbre.rayon_tronc_cm
-    if R <= 0:
+    if arbre.rayon_tronc_cm <= 0:
         return [0.0] * 16
+    rayons = rayon_par_grade(arbre)
     alt_int = compute_alteration_par_grade(arbre)
     deg_ext = degradation_externe_par_grade(arbre)
-    return [max(0.0, R - alt_int[i] - deg_ext[i]) for i in range(16)]
+    return [max(0.0, rayons[i] - alt_int[i] - deg_ext[i]) for i in range(16)]
 
 
 def ratio_tR_par_grade(arbre: "Arbre") -> List[float]:
     """Pour chaque direction, ratio t/R = PRBS / Rayon (entre 0 et 1).
 
+    Le rayon dénominateur est le rayon LOCAL de la direction
+    (`rayon_par_grade`) : pour une section ovale, chaque direction est
+    rapportée à son propre rayon — c'est l'apport métier de l'Étape 1.
+    Pour une section circulaire, c'est `rayon_tronc_cm` partout (inchangé).
+
     Clamp défensif `min(1.0, …)` : `prbs_par_grade` borne déjà à
-    `[0, R]`, mais on aligne explicitement le contrat de sortie sur
-    `Sondage.ratio_tR_brut` (qui clampe aussi). Évite qu'un futur
-    changement de `prbs_par_grade` ne fasse silencieusement dériver
-    le ratio au-dessus de 1.
+    `[0, R_local]`, mais on aligne explicitement le contrat de sortie sur
+    `Sondage.ratio_tR_brut` (qui clampe aussi).
     """
-    R = arbre.rayon_tronc_cm
-    if R <= 0:
+    if arbre.rayon_tronc_cm <= 0:
         return [0.0] * 16
-    return [min(1.0, p / R) for p in prbs_par_grade(arbre)]
+    rayons = rayon_par_grade(arbre)
+    prbs = prbs_par_grade(arbre)
+    return [min(1.0, prbs[i] / rayons[i]) if rayons[i] > 0 else 0.0
+            for i in range(16)]
 
 
 def extrapolation_summary(arbre: "Arbre") -> Dict[str, int]:

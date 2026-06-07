@@ -29,6 +29,8 @@ from diagnostic import (
     diagnostic_summary_lines,
     extrapolation_summary,
     prbs_par_grade,
+    ratio_tR_par_grade,
+    rayon_par_grade,
     repartition_classes,
 )
 from geometry import GRADES
@@ -318,6 +320,58 @@ class PrbsParGradeTests(unittest.TestCase):
         self.assertNotIn("alteration_par_grade",
                          Arbre.__dataclass_fields__)
         self.assertFalse(hasattr(Arbre, "recompute_alteration_from_sondages"))
+
+
+class SectionOvaleTests(unittest.TestCase):
+    """Section ovale (ellipse) — Étape 1 : rayon et t/R par direction."""
+
+    def test_section_circulaire_par_defaut(self):
+        # rayon_petit_axe_cm == 0 ⟹ circulaire : rayon constant partout.
+        a = Arbre(rayon_tronc_cm=30.0)
+        self.assertFalse(a.est_ovale)
+        self.assertEqual(rayon_par_grade(a), [30.0] * 16)
+
+    def test_petit_axe_egal_grand_reste_circulaire(self):
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.rayon_petit_axe_cm = 30.0
+        self.assertFalse(a.est_ovale)
+        self.assertEqual(rayon_par_grade(a), [30.0] * 16)
+
+    def test_rayon_par_grade_suit_l_ellipse(self):
+        # Grand axe 30 (N-S, orientation 0), petit axe 18 (E-O).
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.rayon_petit_axe_cm = 18.0
+        self.assertTrue(a.est_ovale)
+        rayons = rayon_par_grade(a)
+        self.assertAlmostEqual(rayons[0], 30.0)   # N (grand axe)
+        self.assertAlmostEqual(rayons[8], 30.0)   # S (grand axe)
+        self.assertAlmostEqual(rayons[4], 18.0)   # E (petit axe)
+        self.assertAlmostEqual(rayons[12], 18.0)  # O (petit axe)
+
+    def test_tR_local_par_direction_sur_ovale(self):
+        # À PRBS identique (10 cm) sur grand et petit axe, le t/R est PLUS
+        # FAVORABLE sur le petit axe (rayon plus court) — apport métier
+        # de l'Étape 1 : chaque direction rapportée à son propre rayon.
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.rayon_petit_axe_cm = 18.0
+        # bois_altere tel que PRBS = rayon_local - alteration = 10 partout
+        # N (grand axe, R=30) : altération 20 → PRBS 10 → t/R = 10/30
+        a.sondages.append(Sondage(grade=0, bois_altere_cm=20.0))
+        # E (petit axe, R=18) : altération 8 → PRBS 10 → t/R = 10/18
+        a.sondages.append(Sondage(grade=100, bois_altere_cm=8.0))
+        a.sondages.append(Sondage(grade=200, bois_altere_cm=20.0))
+        ratios = ratio_tR_par_grade(a)
+        self.assertAlmostEqual(ratios[0], 10.0 / 30.0, places=4)
+        self.assertAlmostEqual(ratios[4], 10.0 / 18.0, places=4)
+        self.assertGreater(ratios[4], ratios[0])
+
+    def test_rayon_tronc_reste_le_demi_grand_axe(self):
+        # Compat : rayon_tronc_cm garde son sens (= le plus grand rayon),
+        # ce que lisent les exports/synthèse comme « rayon représentatif ».
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.rayon_petit_axe_cm = 18.0
+        self.assertEqual(a.rayon_tronc_cm, 30.0)
+        self.assertEqual(max(rayon_par_grade(a)), 30.0)
 
 
 class SetRayonTests(unittest.TestCase):

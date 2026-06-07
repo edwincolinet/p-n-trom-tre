@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 
-from geometry import GRADES
+from geometry import GRADES, ellipse_radius
 
 
 @dataclass
@@ -211,6 +211,14 @@ class Brin:
     pos_y_cm: float = 0.0            # (0, 0) pour un brin unique, centré)
     rotation_grades: int = 0        # rotation du repère local (réservé v2)
     rayon_tronc_cm: float = 20.0
+    # Section ovale (ellipse). `rayon_petit_axe_cm == 0` ⟹ section CIRCULAIRE
+    # (rayon = `rayon_tronc_cm` dans toutes les directions, comportement
+    # historique inchangé). Si `> 0`, le tronc est une ellipse :
+    # `rayon_tronc_cm` devient le **demi-grand-axe**, `rayon_petit_axe_cm` le
+    # **demi-petit-axe**, et `orientation_grade` le grade du grand axe. Le
+    # diagnostic calcule alors un t/R par direction avec le rayon LOCAL.
+    rayon_petit_axe_cm: float = 0.0
+    orientation_grade: int = 0
     diametre_sous_ecorce_cm: float = 0.0
     epaisseur_ecorce_cm: float = 0.0  # épaisseur radiale de l'écorce, ajoutée
     # vers l'extérieur du tronc — purement visuel, n'intervient pas dans la
@@ -219,6 +227,24 @@ class Brin:
     degradations_externes: List[DegradationExterne] = field(
         default_factory=list)
     contreforts: List[Contrefort] = field(default_factory=list)
+
+    @property
+    def est_ovale(self) -> bool:
+        """Vrai si la section est une ellipse (petit axe renseigné et ≠ grand).
+
+        Un petit axe nul, ou égal au grand axe, vaut section circulaire."""
+        return (self.rayon_petit_axe_cm > 0
+                and abs(self.rayon_petit_axe_cm - self.rayon_tronc_cm) > 1e-9)
+
+    def rayon_a_grade(self, grade: float) -> float:
+        """Rayon extérieur du bois (cm) dans la direction `grade`.
+
+        Section circulaire → `rayon_tronc_cm` constant (chemin historique).
+        Section ovale → rayon de l'ellipse (cf. `geometry.ellipse_radius`)."""
+        if not self.est_ovale:
+            return self.rayon_tronc_cm
+        return ellipse_radius(self.rayon_tronc_cm, self.rayon_petit_axe_cm,
+                              self.orientation_grade, grade)
 
     def set_rayon(self, new_R: float) -> bool:
         """Modifie le rayon et propage la cohérence aux sondages et
@@ -373,6 +399,29 @@ class Arbre:
     @rayon_tronc_cm.setter
     def rayon_tronc_cm(self, value: float) -> None:
         self.brin_courant.rayon_tronc_cm = value
+
+    @property
+    def rayon_petit_axe_cm(self) -> float:
+        return self.brin_courant.rayon_petit_axe_cm
+
+    @rayon_petit_axe_cm.setter
+    def rayon_petit_axe_cm(self, value: float) -> None:
+        self.brin_courant.rayon_petit_axe_cm = value
+
+    @property
+    def orientation_grade(self) -> int:
+        return self.brin_courant.orientation_grade
+
+    @orientation_grade.setter
+    def orientation_grade(self, value: int) -> None:
+        self.brin_courant.orientation_grade = value
+
+    @property
+    def est_ovale(self) -> bool:
+        return self.brin_courant.est_ovale
+
+    def rayon_a_grade(self, grade: float) -> float:
+        return self.brin_courant.rayon_a_grade(grade)
 
     @property
     def diametre_sous_ecorce_cm(self) -> float:

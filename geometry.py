@@ -194,6 +194,29 @@ def polar_idx_to_xy(cx: float, cy: float, scale: float,
             cy + r_cm * scale * math.sin(a))
 
 
+def ellipse_radius(a: float, b: float,
+                   orientation_grade: float, grade: float) -> float:
+    """Rayon polaire (cm) d'une ellipse dans la direction `grade`.
+
+    `a` = demi-grand-axe, `b` = demi-petit-axe, `orientation_grade` = grade
+    du grand axe (0–400). Équation polaire de l'ellipse centrée, mesurée
+    depuis le centre : à `grade == orientation_grade` le rayon vaut `a`, à
+    90° de là il vaut `b`.
+
+    Robuste aux dégénérescences : si l'un des axes est nul/négatif, renvoie
+    l'autre (cercle) — jamais de division par zéro.
+    """
+    if a <= 0 or b <= 0:
+        return max(a, b, 0.0)
+    phi = math.radians((grade - orientation_grade) * 360.0 / 400.0)
+    ca = b * math.cos(phi)
+    sa = a * math.sin(phi)
+    denom = math.hypot(ca, sa)
+    if denom == 0:
+        return max(a, b)
+    return a * b / denom
+
+
 def cavity_polygon(alteration_par_grade: List[float],
                    cx: float, cy: float, scale: float,
                    samples_per_segment: int = 28
