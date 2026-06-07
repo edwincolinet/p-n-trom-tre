@@ -28,11 +28,11 @@ pane_diagnostic.py     ← onglet Diagnostic (exports + résumé)
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
-dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort)
-model.py               ← dataclasses + mutateurs + __post_init__ validation
+dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort, Forme du tronc)
+model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
-persistence.py         ← I/O JSON (save/load + migration)
-geometry.py            ← briques géométriques pures (spline, polaire, cernes)
+persistence.py         ← I/O JSON (save/load + migration ; v3 = brins)
+geometry.py            ← briques géométriques pures (spline, polaire, cernes, ellipse)
 bareme.py              ← barème métier (classer_prbs, ports)
 pil_render.py          ← rendu PNG de la section transversale
 fiche_pdf.py           ← layout fiche expertise PDF (page A4)
@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 218 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins)
+tests/                 ← 236 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -96,7 +96,20 @@ penetrometre.py  (Tk + main) ← undo.py
   Afficher `100 gr` (pas de symbole °).
 - **PRBS** = Paroi Résiduelle de Bois Sain (mesure physique invariante).
   Quand le rayon change, la PRBS reste, `bois_altéré` s'ajuste.
-- **t/R** = PRBS / Rayon (0–1). **Classe globale** = barème sur t/R **moyen** 16 dir.
+- **t/R** = PRBS / Rayon **local** (0–1). **Classe globale** = barème sur t/R **moyen** 16 dir.
+- **Genet / brin (ramet)** : `Arbre` = individu inventorié (= *genet*) ; il porte
+  l'identité partagée + une liste de `Brin` (= *ramets*, ≥ 1). Un arbre mono-caule
+  = un genet à brin unique ; une **cépée** = plusieurs brins. La géométrie et les
+  mesures (rayon, sondages, dégradations, contreforts, position) vivent sur le
+  **brin** ; des propriétés-relais sur `Arbre` (→ `brins[0]`) gardent le code écrit
+  avant les cépées fonctionnel. **Chantier en cours** (cépées + formes) : voir la
+  mémoire `project_cepees-formes` — Étapes 0-1 faites (brin + ovale), 2-4 à venir.
+- **Section ovale (ellipse)** : `Brin.rayon_petit_axe_cm` (0 = circulaire,
+  sentinelle) + `orientation_grade`. Si renseigné, `rayon_tronc_cm` devient le
+  demi-**grand** axe et le rayon est **local par direction** (`Brin.rayon_a_grade`
+  / `geometry.ellipse_radius`) — d'où le t/R local ci-dessus. Saisie via l'**éditeur
+  avancé** `dialogs.ask_forme_tronc` (bouton « Forme du tronc… » de l'onglet
+  Identification), pas en ligne, pour ne pas alourdir le cas circulaire courant.
 - **Diagnostic non fiable si < 3 sondages** → exports masquent t/R moyen + classe.
 - **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain − profondeur_deg`.
 - **Pastille sondage = PRBS ajustée** (jamais brute).
@@ -113,7 +126,8 @@ penetrometre.py  (Tk + main) ← undo.py
 - Tout en français (UI + docstrings).
 - Pas de `print` — logger applicatif (`~/.penetrometre/penetrometre.log`).
 - Exports : `log.exception(...)` avant `messagebox.showerror`.
-- Compat fichier bidirectionnelle : ajout champ = OK (default) ; renommage/suppression = migration explicite dans `persistence.chantier_from_dict`.
+- Compat fichier bidirectionnelle : ajout champ = OK (default) ; renommage/suppression = migration explicite dans `persistence.chantier_from_dict`. **Format v3** : la géométrie/mesures sont passées d'`arbre` à `arbre.brins[i]` ; un fichier v≤2 (champs à plat) est migré en un genet à **brin unique** (cf. `_brin_from_dict`).
+- **Rendu de forme (cercle vs ellipse)** : les primitives partagées de `geometry` (`contrefort_zone_outline`, `degradation_externe_outline`, `tick_endpoints`, `cardinal_label_positions`) acceptent un rayon `RadiusSpec` = **scalaire OU fonction `grade→rayon`** ; `contour_polygon` échantillonne le contour ovale. Les renderers passent `arbre.rayon_a_grade` (constant si circulaire). **Cas circulaire = chemin primitif natif** (`d.ellipse` / `create_oval`) conservé sous une branche `if est_ovale` → rendu **byte-identique**, goldens intacts (seule la fixture `ovale` s'ajoute). Toute évolution du contour doit garder cette branche pour ne pas casser les goldens circulaires.
 - Écriture atomique : `save_chantier` écrit dans un `.tmp` puis `os.replace` — le fichier original survit en cas de crash.
 - **Autosave anti-crash** (`persistence.save_recovery`/`load_recovery`/`clear_recovery`, câblage dans `App`) : tick `after` toutes les 60 s (`_AUTOSAVE_INTERVAL_MS`) qui n'écrit `~/.penetrometre/recovery/autosave.json` **que si `_dirty`**. Le fichier enveloppe `chantier_to_dict` + métadonnées (`saved_at`, `original_file`). **Invariant clé** : l'autosave est effacé dès qu'on atteint un état propre (`action_save`, `action_new`, `_open_path`) **et à la fermeture normale** (`_on_close`, même en abandonnant des modifs) — donc sa seule présence au démarrage ⟺ crash précédent avec travail non enregistré. `_check_recovery_on_startup` (programmé via `after(200, …)` pour s'afficher sur une UI déjà mappée) propose la reprise ; `_restore_recovery` recharge l'UI, repointe `current_file` sur l'original s'il existe encore, et remet `_dirty=True`. Écriture atomique (`.tmp` + `os.replace`) comme `save_chantier`.
 - **Champs numériques UI** : filtrage à la frappe via `dialogs.validate_numeric` (validateur Tk `validate="key"`) — seuls chiffres + un séparateur décimal `.`/`,` acceptés. Parsing via `dialogs.to_float` (accepte `2,5` et `2.5`). Branché sur les 3 dialogues (Sondage/Dégradation/Contrefort) + les 6 champs numériques de `pane_identification`. `_parse_float("")` renvoie `None` (pas `0.0`). `set_rayon` n'est appelé qu'au focus-out (jamais pendant la frappe) pour éviter la destruction irréversible des PRBS par valeurs intermédiaires.
@@ -145,7 +159,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 210 tests
+python -m unittest discover tests           # 236 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
