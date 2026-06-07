@@ -27,7 +27,7 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre, Contrefort, DegradationExterne, Sondage
@@ -182,6 +182,91 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
 
     _make_modal(dlg, parent)
     entry.focus_set()
+    dlg.wait_window()
+    return result["val"]
+
+
+# ---------------------------------------------------------------------
+# Dialog : Forme du tronc (éditeur avancé — section ovale)
+# ---------------------------------------------------------------------
+
+def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
+                    petit_axe_cm: float, orientation_grade: int
+                    ) -> Optional[Tuple[float, int]]:
+    """Éditeur avancé de la forme de la section du tronc.
+
+    Volontairement séparé du formulaire Identification pour ne pas alourdir
+    la saisie courante (cas par défaut = section circulaire). Permet de
+    définir une section **ovale** (ellipse) : demi-petit-axe + orientation
+    du grand axe. Le grand axe (= rayon du tronc) est affiché en référence
+    et reste piloté par le formulaire — on ne l'édite pas ici pour garder
+    une source de vérité unique.
+
+    Renvoie `(petit_axe_cm, orientation_grade)` si validé, `None` si annulé.
+    Petit axe vide ou 0 ⟹ section circulaire. (Pensé comme point d'entrée
+    du futur éditeur de cépées / brins.)
+    """
+    dlg = tk.Toplevel(parent)
+    dlg.title("Forme du tronc")
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.resizable(False, False)
+    dlg.columnconfigure(0, weight=1)
+    result: dict[str, Optional[Tuple[float, int]]] = {"val": None}
+
+    v_petit = tk.StringVar(value=f"{petit_axe_cm:g}" if petit_axe_cm else "")
+    v_orient = tk.StringVar(
+        value=f"{orientation_grade:g}" if petit_axe_cm else "")
+    vcmd = (dlg.register(validate_numeric), "%P")
+
+    ttk.Label(dlg, text=f"Grand axe (rayon du tronc) : {grand_axe_cm:g} cm",
+              background=COLOR_PANEL, justify="left").grid(
+        row=0, column=0, columnspan=2, sticky="w", padx=12, pady=(12, 8))
+
+    form = ttk.Frame(dlg, style="Panel.TFrame")
+    form.grid(row=1, column=0, sticky="we", padx=12)
+    form.columnconfigure(1, weight=1)
+    ttk.Label(form, text="Petit axe — rayon (cm)",
+              style="Panel.TLabel").grid(row=0, column=0, sticky="w",
+                                         pady=4, padx=(0, 10))
+    e_petit = ttk.Entry(form, textvariable=v_petit, width=14,
+                        validate="key", validatecommand=vcmd)
+    e_petit.grid(row=0, column=1, sticky="we", pady=4)
+    ttk.Label(form, text="Orientation grand axe (gr)",
+              style="Panel.TLabel").grid(row=1, column=0, sticky="w",
+                                         pady=4, padx=(0, 10))
+    ttk.Entry(form, textvariable=v_orient, width=14,
+              validate="key", validatecommand=vcmd).grid(
+        row=1, column=1, sticky="we", pady=4)
+
+    ttk.Label(dlg,
+              text="Laissez le petit axe vide pour une section circulaire.\n"
+                   "Sinon : ellipse de demi-grand-axe = rayon du tronc,\n"
+                   "orientée selon l'orientation (0 gr = Nord-Sud).",
+              background=COLOR_PANEL, foreground=COLOR_MUTED,
+              font=ui_font("Helvetica", 9, "italic"),
+              justify="left").grid(row=2, column=0, sticky="w",
+                                   padx=12, pady=(8, 6))
+
+    def ok() -> None:
+        rp = v_petit.get().strip()
+        ro = v_orient.get().strip()
+        petit = to_float(rp) if rp else 0.0
+        orient = to_float(ro) if ro else 0.0
+        result["val"] = (max(0.0, petit), int(round(orient)) % 400)
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg, style="Panel.TFrame")
+    btns.grid(row=3, column=0, sticky="e", padx=12, pady=(8, 12))
+    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+               command=dlg.destroy).pack(side="right", padx=6)
+    ttk.Button(btns, text="Valider", style="Accent.TButton",
+               command=ok).pack(side="right")
+
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    _make_modal(dlg, parent)
+    e_petit.focus_set()
     dlg.wait_window()
     return result["val"]
 
