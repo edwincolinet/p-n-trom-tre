@@ -206,3 +206,6 @@ Pour les détails d'architecture, de rendu et les pièges, voir :
 
 - `.claude/docs/architecture.md` — description détaillée de chaque module
 - `.claude/docs/rendu-et-pieges.md` — pendants Tk↔PIL, pièges, ordre des couches
+- `.claude/docs/cepees-plan.md` — **chantier cépées/formes** : plan
+  d'implémentation par étape (0-1 faites, 2-4 à venir), décisions métier,
+  garde-fous. À lire/mettre à jour avant de toucher au rendu multi-brins.
