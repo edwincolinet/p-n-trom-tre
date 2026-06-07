@@ -276,11 +276,42 @@ class Brin:
         self.rayon_tronc_cm = new_R
         if old_R <= 0 or abs(new_R - old_R) <= 1e-9:
             return False
+        self._resync_sondages_local()
+        return True
+
+    def _resync_sondages_local(self) -> None:
+        """Réaligne le bois altéré (et la profondeur des dégradations) sur le
+        rayon LOCAL de chaque direction, en **préservant la PRBS**.
+
+        Pour une section circulaire, le rayon local vaut `rayon_tronc_cm`
+        partout → comportement strictement identique à l'ancien `set_rayon`.
+        Pour une section ovale, chaque sondage est borné par le rayon de SA
+        direction (`rayon_a_grade`). À appeler après tout changement de
+        forme (rayon, petit axe, orientation)."""
         for s in self.sondages:
-            s.bois_sain_cm = min(s.bois_sain_cm, new_R)
-            s.bois_altere_cm = max(0.0, new_R - s.bois_sain_cm)
+            r_loc = self.rayon_a_grade(s.grade)
+            s.bois_sain_cm = min(s.bois_sain_cm, r_loc)
+            s.bois_altere_cm = max(0.0, r_loc - s.bois_sain_cm)
         for deg in self.degradations_externes:
-            deg.profondeur_cm = min(deg.profondeur_cm, new_R)
+            deg.profondeur_cm = min(deg.profondeur_cm,
+                                    self.rayon_a_grade(deg.grade_debut))
+
+    def set_forme_ovale(self, petit_axe_cm: float,
+                        orientation_grade: int) -> bool:
+        """Définit la section ovale (demi-petit-axe + orientation du grand
+        axe) et réaligne le bois altéré sur le rayon local (PRBS préservée).
+
+        `petit_axe_cm <= 0` (ou == grand axe) ⟹ section circulaire. Renvoie
+        `True` si la forme a effectivement changé (l'UI rafraîchit alors les
+        tables dépendantes du rayon)."""
+        old = (self.rayon_petit_axe_cm, self.orientation_grade)
+        self.rayon_petit_axe_cm = max(0.0, petit_axe_cm)
+        self.orientation_grade = orientation_grade
+        if (abs(self.rayon_petit_axe_cm - old[0]) <= 1e-9
+                and self.orientation_grade == old[1]):
+            return False
+        if self.rayon_tronc_cm > 0:
+            self._resync_sondages_local()
         return True
 
     def renumeroter_sondages(self) -> None:
@@ -466,6 +497,13 @@ class Arbre:
     def set_rayon(self, new_R: float) -> bool:
         """Relais : modifie le rayon du brin courant (cf. `Brin.set_rayon`)."""
         return self.brin_courant.set_rayon(new_R)
+
+    def set_forme_ovale(self, petit_axe_cm: float,
+                        orientation_grade: int) -> bool:
+        """Relais : définit la section ovale du brin courant
+        (cf. `Brin.set_forme_ovale`)."""
+        return self.brin_courant.set_forme_ovale(petit_axe_cm,
+                                                 orientation_grade)
 
     def renumeroter_sondages(self) -> None:
         self.brin_courant.renumeroter_sondages()

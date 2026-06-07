@@ -373,6 +373,43 @@ class SectionOvaleTests(unittest.TestCase):
         self.assertEqual(a.rayon_tronc_cm, 30.0)
         self.assertEqual(max(rayon_par_grade(a)), 30.0)
 
+    def test_set_forme_ovale_realigne_altere_et_preserve_prbs(self):
+        # Tronc circulaire R=30 avec un sondage à l'E (grade 100) :
+        # PRBS=10, altéré=20. On passe en ovale petit axe 18 à l'E.
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.sondages.append(Sondage(grade=100, bois_sain_cm=10.0,
+                                   bois_altere_cm=20.0))
+        changed = a.set_forme_ovale(18.0, 0)
+        self.assertTrue(changed)
+        s = a.sondages[0]
+        # PRBS (mesure physique) inchangée…
+        self.assertAlmostEqual(s.bois_sain_cm, 10.0)
+        # …mais l'altéré se réaligne sur le rayon LOCAL (18 à l'E) : 18-10=8.
+        self.assertAlmostEqual(s.bois_altere_cm, 8.0)
+
+    def test_set_forme_ovale_clampe_prbs_au_rayon_local(self):
+        # Si la PRBS dépasse le petit axe, elle est bornée au rayon local.
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.sondages.append(Sondage(grade=100, bois_sain_cm=25.0,
+                                   bois_altere_cm=5.0))
+        a.set_forme_ovale(18.0, 0)
+        s = a.sondages[0]
+        self.assertAlmostEqual(s.bois_sain_cm, 18.0)   # borné au rayon E
+        self.assertAlmostEqual(s.bois_altere_cm, 0.0)
+
+    def test_set_forme_ovale_inchange_renvoie_false(self):
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.set_forme_ovale(18.0, 0)
+        self.assertFalse(a.set_forme_ovale(18.0, 0))
+
+    def test_set_forme_ovale_zero_revient_circulaire(self):
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.set_forme_ovale(18.0, 0)
+        self.assertTrue(a.est_ovale)
+        a.set_forme_ovale(0.0, 0)
+        self.assertFalse(a.est_ovale)
+        self.assertEqual(rayon_par_grade(a), [30.0] * 16)
+
 
 class SetRayonTests(unittest.TestCase):
     """Règle métier : quand le rayon change, la PRBS (mesure physique

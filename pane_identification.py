@@ -54,6 +54,7 @@ class IdentificationPane(ttk.Frame):
         self._entry_widgets: Dict[str, tk.Widget] = {}
         self._rayon_at_focus_in: Optional[float] = None
         self._diam_at_focus_in: Optional[float] = None
+        self._forme_at_focus_in: Optional[Tuple[float, int]] = None
         self._numeric_snapshots: Dict[str, str] = {}
 
         self.var_num = tk.StringVar()
@@ -63,6 +64,8 @@ class IdentificationPane(ttk.Frame):
         self.var_h_arb = tk.StringVar()
         self.var_port = tk.StringVar(value="libre")
         self.var_rayon = tk.StringVar(value="20")
+        self.var_petit_axe = tk.StringVar()   # vide = section circulaire
+        self.var_orientation = tk.StringVar()  # grade du grand axe (si ovale)
         self.var_meche = tk.StringVar(value="40")
         self.var_ep_ecorce = tk.StringVar(value="0")
         self.var_comm = tk.StringVar()
@@ -88,6 +91,8 @@ class IdentificationPane(ttk.Frame):
             ("Tronc", [
                 ("Diamètre sous écorce (cm)", self.var_diam, None),
                 ("Rayon du tronc (cm)",       self.var_rayon, None),
+                ("Petit axe — rayon (cm)",    self.var_petit_axe, None),
+                ("Orientation grand axe (gr)", self.var_orientation, None),
                 ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
             ]),
             ("Sondage", [
@@ -99,6 +104,7 @@ class IdentificationPane(ttk.Frame):
             ]),
         ]
         numeric_var_names = {str(self.var_diam), str(self.var_rayon),
+                             str(self.var_petit_axe), str(self.var_orientation),
                              str(self.var_meche), str(self.var_ep_ecorce),
                              str(self.var_h_s), str(self.var_h_arb)}
         vcmd = (self.register(validate_numeric), "%P")
@@ -128,6 +134,13 @@ class IdentificationPane(ttk.Frame):
             w.bind("<FocusIn>", lambda e: self._on_rayon_field_focus_in())
             w.bind("<FocusOut>", lambda e: self._on_rayon_field_focus_out())
 
+        # Champs de forme ovale : commit au focus-out (comme le rayon) pour
+        # ne pas réaligner le bois altéré sur des valeurs intermédiaires.
+        for var in (self.var_petit_axe, self.var_orientation):
+            w = self._entry_widgets[str(var)]
+            w.bind("<FocusIn>", lambda e: self._on_forme_field_focus_in())
+            w.bind("<FocusOut>", lambda e: self._on_forme_field_focus_out())
+
         for var in (self.var_meche, self.var_ep_ecorce,
                     self.var_h_s, self.var_h_arb):
             key = str(var)
@@ -149,6 +162,11 @@ class IdentificationPane(ttk.Frame):
             "PRBS (bois sain) reste inchangée car elle correspond à la "
             "mesure physique du pénétromètre. Le bois altéré est recalculé "
             "automatiquement (= rayon − bois sain).",
+            "Tronc ovale : laissez « Petit axe » vide pour une section "
+            "circulaire. Renseignez-le pour une ellipse — « Rayon du tronc » "
+            "est alors le demi-GRAND axe, orienté selon « Orientation grand "
+            "axe » (en grades, 0 = Nord-Sud). Le t/R de chaque direction est "
+            "rapporté à son rayon local.",
         ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
         self.columnconfigure(0, weight=1)
 
@@ -165,6 +183,7 @@ class IdentificationPane(ttk.Frame):
         """Recharge les vars depuis l'arbre courant du host (avec
         synchro suspendue pour ne pas boucler)."""
         self._commit_rayon()
+        self._commit_forme()
         a = self._host._current_arbre()
         if not a:
             return
@@ -172,6 +191,10 @@ class IdentificationPane(ttk.Frame):
             self.var_num.set(a.numero_arbre)
             self.var_essence.set(a.essence)
             self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+            self.var_petit_axe.set(
+                f"{a.rayon_petit_axe_cm:g}" if a.rayon_petit_axe_cm else "")
+            self.var_orientation.set(
+                f"{a.orientation_grade:g}" if a.rayon_petit_axe_cm else "")
             self.var_h_s.set(f"{a.hauteur_sondage_cm:g}"
                               if a.hauteur_sondage_cm else "")
             self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}"
@@ -276,6 +299,50 @@ class IdentificationPane(ttk.Frame):
         a.rayon_tronc_cm = old_R
         self._host.push_undo()
         adjusted = a.set_rayon(new_R)
+        self._host.on_identification_changed(rayon_adjusted=adjusted)
+
+    def _on_forme_field_focus_in(self) -> None:
+        a = self._host._current_arbre()
+        if a:
+            self._forme_at_focus_in = (a.rayon_petit_axe_cm,
+                                       a.orientation_grade)
+
+    def _on_forme_field_focus_out(self) -> None:
+        self._commit_forme()
+
+    def _commit_forme(self) -> None:
+        """Finalise un changement de forme ovale (petit axe / orientation) :
+        push undo + `set_forme_ovale` (réaligne le bois altéré sur le rayon
+        local). Petit axe vide ⟹ section circulaire. Valeurs invalides au
+        focus-out ⟹ revert à l'état d'avant l'édition."""
+        a = self._host._current_arbre()
+        if not a or self._forme_at_focus_in is None:
+            return
+        old_petit, old_orient = self._forme_at_focus_in
+        self._forme_at_focus_in = None
+
+        raw_petit = self.var_petit_axe.get().strip()
+        raw_orient = self.var_orientation.get().strip()
+        petit = self._parse_float(self.var_petit_axe)
+        orient = self._parse_float(self.var_orientation)
+        if (raw_petit and petit is None) or (raw_orient and orient is None):
+            with self._suspend_sync_block():
+                self.var_petit_axe.set(f"{old_petit:g}" if old_petit else "")
+                self.var_orientation.set(
+                    f"{old_orient:g}" if old_petit else "")
+            return
+
+        petit_v = max(0.0, petit) if petit is not None else 0.0
+        orient_v = int(round(orient)) % 400 if orient is not None else 0
+        if abs(petit_v - old_petit) <= 1e-9 and orient_v == old_orient:
+            return
+        self._host.push_undo()
+        adjusted = a.set_forme_ovale(petit_v, orient_v)
+        with self._suspend_sync_block():
+            self.var_petit_axe.set(
+                f"{a.rayon_petit_axe_cm:g}" if a.rayon_petit_axe_cm else "")
+            self.var_orientation.set(
+                f"{a.orientation_grade:g}" if a.rayon_petit_axe_cm else "")
         self._host.on_identification_changed(rayon_adjusted=adjusted)
 
     def _sync_to_model(self) -> None:
