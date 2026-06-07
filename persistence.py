@@ -37,6 +37,7 @@ from typing import Any, Dict, Union
 from bareme import normaliser_port
 from model import (
     Arbre,
+    Brin,
     Chantier,
     Contrefort,
     DegradationExterne,
@@ -54,7 +55,11 @@ _log = logging.getLogger("penetrometre")
 # Historique :
 #   1 — format initial (sondages + dégradations externes)
 #   2 — ajout contreforts + port normalisé (v3.3)
-FORMAT_VERSION = 2
+#   3 — introduction des brins (cépées) : la géométrie et les mesures
+#       (rayon, diamètre, écorce, sondages, dégradations, contreforts) qui
+#       vivaient au niveau `arbre` passent dans `arbre.brins[i]`. Un fichier
+#       v≤2 est migré en un arbre à brin unique (cf. `chantier_from_dict`).
+FORMAT_VERSION = 3
 
 
 def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
@@ -205,33 +210,50 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
     # à une ancienne version de l'app, ou inversement). Sans ce
     # filtre, `Arbre(**a)` lèverait TypeError sur clé inattendue.
     arbre_fields = set(Arbre.__dataclass_fields__)
+    brin_fields = set(Brin.__dataclass_fields__)
     sondage_fields = set(Sondage.__dataclass_fields__)
     deg_fields = set(DegradationExterne.__dataclass_fields__)
     cf_fields = set(Contrefort.__dataclass_fields__)
 
-    arbres = []
-    for a in d.get("arbres", []):
-        # Lecture non destructive : `get`, pas `pop`. Le filtre par
-        # `__dataclass_fields__` plus bas exclut de toute façon ces
-        # clés du dict passé à `Arbre(**...)`, et le caller conserve
-        # son dict d'origine intact (pas d'effet de bord).
-        sondages_raw = []
-        for s in a.get("sondages", []):
+    def _brin_from_dict(bd: Dict[str, Any]) -> Brin:
+        """Reconstruit un `Brin` (géométrie + mesures) à partir d'un dict.
+
+        Sert pour les **deux** axes de compat :
+        - format v3+ : `bd` est un dict de `arbre["brins"][i]` ;
+        - format v≤2 : `bd` est le dict `arbre` lui-même, qui porte encore
+          la géométrie et les mesures à plat (migration vers brin unique).
+        Dans les deux cas, seules les clés connues de `Brin` sont retenues
+        (compat descendante : un champ futur est ignoré silencieusement).
+        """
+        sondages = []
+        for s in bd.get("sondages", []):
             s = {k: v for k, v in s.items() if k in sondage_fields}
             # Migration libellé compartimentation : "-" → "non renseignée"
             if s.get("compartimentation") == "-":
                 s["compartimentation"] = "non renseignée"
-            sondages_raw.append(s)
-        sondages = [Sondage(**s) for s in sondages_raw]
+            sondages.append(Sondage(**s))
         degs = [DegradationExterne(**{k: v for k, v in dg.items()
-                                       if k in deg_fields})
-                for dg in a.get("degradations_externes", [])]
+                                      if k in deg_fields})
+                for dg in bd.get("degradations_externes", [])]
         # Contreforts : ajout v3.3 — anciens fichiers → liste vide
         contreforts = [Contrefort(**{k: v for k, v in c.items()
-                                      if k in cf_fields})
-                       for c in a.get("contreforts", [])]
+                                     if k in cf_fields})
+                       for c in bd.get("contreforts", [])]
+        geom = {k: v for k, v in bd.items()
+                if k in brin_fields
+                and k not in ("sondages", "degradations_externes",
+                              "contreforts")}
+        brin = Brin(**geom)
+        brin.sondages = sondages
+        brin.degradations_externes = degs
+        brin.contreforts = contreforts
+        return brin
+
+    arbres = []
+    for a in d.get("arbres", []):
         # Migration du port si ancien format. On copie le dict pour
-        # appliquer la migration sans toucher à l'entrée du caller.
+        # appliquer la migration sans toucher à l'entrée du caller
+        # (lecture non destructive).
         a_norm = dict(a)
         if "port_arbre" in a_norm:
             raw_port = a_norm["port_arbre"]
@@ -249,11 +271,19 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                     a_norm.get("numero_arbre", "?"), raw_port)
                 normalized = "libre"
             a_norm["port_arbre"] = normalized
+        # Identité du genet : on exclut `brins` (reconstruit en objets
+        # ci-dessous) et les anciens champs de géométrie/mesures (qui ne
+        # sont plus des champs d'`Arbre` et seraient filtrés de toute façon).
         arb = Arbre(**{k: v for k, v in a_norm.items()
-                       if k in arbre_fields})
-        arb.sondages = sondages
-        arb.degradations_externes = degs
-        arb.contreforts = contreforts
+                       if k in arbre_fields and k != "brins"})
+        if "brins" in a:
+            # Format v3+ : brins explicites. Au moins un brin garanti.
+            arb.brins = [_brin_from_dict(bd)
+                         for bd in a.get("brins", [])] or [Brin()]
+        else:
+            # Format v≤2 : géométrie et mesures à plat sur l'arbre →
+            # migration en un brin unique centré.
+            arb.brins = [_brin_from_dict(a_norm)]
         arbres.append(arb)
     c = Chantier(nom=d.get("nom", ""), adresse=d.get("adresse", ""),
                   operateur=d.get("operateur", ""),

@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from geometry import GRADES
 
@@ -183,15 +183,35 @@ class Contrefort:
 
 
 @dataclass
-class Arbre:
-    numero_arbre: str = "1"
-    essence: str = ""
-    hauteur_sondage_cm: float = 0.0
-    diametre_sous_ecorce_cm: float = 0.0
-    hauteur_arbre_m: float = 0.0
-    port_arbre: str = "libre"
+class Brin:
+    """Un brin (= un *ramet*) : une tige individuelle d'un arbre.
+
+    Au sens de l'écologie des plantes clonales, un `Brin` est un **ramet** :
+    une unité physiquement distincte et mécaniquement autonome. Un arbre
+    ordinaire (mono-caule) est modélisé comme un genet (`Arbre`) ne portant
+    qu'**un seul** brin ; une **cépée** porte plusieurs brins, chacun avec sa
+    géométrie, sa cavité et sa position propres.
+
+    Le brin porte donc tout ce qui est **physique et propre à la tige** :
+    - sa géométrie (rayon, diamètre sous écorce, épaisseur d'écorce) ;
+    - ses mesures (sondages, dégradations externes, contreforts) ;
+    - sa **position** `(pos_x_cm, pos_y_cm)` et son orientation
+      (`rotation_grades`) dans le plan du genet — (0, 0) et 0° pour un
+      brin unique, centré.
+
+    Le genet (`Arbre`) porte l'identité partagée (n° d'inventaire, essence,
+    port, hauteurs, longueur de mèche) — voir `Arbre`.
+
+    Porte UNIQUEMENT les mutateurs de cohérence (`set_rayon`,
+    `renumeroter_*`). Les **calculs** (PRBS par grade, t/R, classe) restent
+    dans `diagnostic.py` sous forme de fonctions pures.
+    """
+    label: str = ""                  # libellé du brin ("a", "b", … ; "" = unique)
+    pos_x_cm: float = 0.0            # position du centre dans le plan du genet
+    pos_y_cm: float = 0.0            # (0, 0) pour un brin unique, centré)
+    rotation_grades: int = 0        # rotation du repère local (réservé v2)
     rayon_tronc_cm: float = 20.0
-    meche_cm: float = 40.0   # longueur de la mèche du pénétromètre (cm)
+    diametre_sous_ecorce_cm: float = 0.0
     epaisseur_ecorce_cm: float = 0.0  # épaisseur radiale de l'écorce, ajoutée
     # vers l'extérieur du tronc — purement visuel, n'intervient pas dans la
     # PRBS ni le diagnostic. 0 = pas d'épaisseur (trait fin classique).
@@ -199,7 +219,6 @@ class Arbre:
     degradations_externes: List[DegradationExterne] = field(
         default_factory=list)
     contreforts: List[Contrefort] = field(default_factory=list)
-    commentaire: str = ""
 
     def set_rayon(self, new_R: float) -> bool:
         """Modifie le rayon et propage la cohérence aux sondages et
@@ -254,6 +273,160 @@ class Arbre:
         for i, c in enumerate(self.contreforts, 1):
             c.numero = i
 
+
+@dataclass
+class Arbre:
+    """Un arbre inventorié (= un *genet*) : l'individu génétique.
+
+    Au sens de l'écologie des plantes clonales, un `Arbre` est un **genet** :
+    tout ce qui descend d'un seul événement sexué (une graine), donc un
+    génotype unique. C'est l'unité **inventoriée** (« arbre n°12 »). Il porte
+    l'**identité partagée** (n° d'inventaire, essence, port, hauteurs, mèche)
+    et un ou plusieurs **brins** (`Brin`, = ramets) qui portent, eux, la
+    géométrie et les mesures physiques propres à chaque tige.
+
+    Un arbre ordinaire (mono-caule) a exactement **un** brin ; une **cépée**
+    en a plusieurs.
+
+    Compatibilité (transition Étape 0) : la géométrie et les mesures vivaient
+    auparavant directement sur `Arbre`. Pour ne pas réécrire les ~140 points
+    d'accès du code (panes, renderers, exports, diagnostic) tant que l'UI ne
+    gère qu'un brin, des **propriétés-relais** (`rayon_tronc_cm`, `sondages`,
+    …) et des méthodes-relais (`set_rayon`, `renumeroter_*`) délèguent au
+    **premier brin** (`brins[0]`). Ces relais sont des points de couplage
+    *temporaires* — ils disparaîtront quand l'UI saura sélectionner un brin.
+    """
+    numero_arbre: str = "1"
+    essence: str = ""
+    hauteur_sondage_cm: float = 0.0
+    hauteur_arbre_m: float = 0.0
+    port_arbre: str = "libre"
+    meche_cm: float = 40.0   # longueur de la mèche du pénétromètre (cm)
+    commentaire: str = ""
+    brins: List[Brin] = field(default_factory=lambda: [Brin()])
+
+    def __init__(
+        self,
+        numero_arbre: str = "1",
+        essence: str = "",
+        hauteur_sondage_cm: float = 0.0,
+        hauteur_arbre_m: float = 0.0,
+        port_arbre: str = "libre",
+        meche_cm: float = 40.0,
+        commentaire: str = "",
+        brins: "Optional[List[Brin]]" = None,
+        *,
+        # --- Compat Étape 0 : kwargs de géométrie/mesures qui vivaient sur
+        # `Arbre` avant l'introduction des brins. Routés vers le brin courant
+        # (brins[0]). À retirer quand les appelants construiront des `Brin`.
+        rayon_tronc_cm: "Optional[float]" = None,
+        diametre_sous_ecorce_cm: "Optional[float]" = None,
+        epaisseur_ecorce_cm: "Optional[float]" = None,
+        sondages: "Optional[List[Sondage]]" = None,
+        degradations_externes: "Optional[List[DegradationExterne]]" = None,
+        contreforts: "Optional[List[Contrefort]]" = None,
+    ) -> None:
+        # `@dataclass` n'engendre PAS d'__init__ quand la classe en définit
+        # un (cf. doc dataclasses) : ces défauts doivent rester en phase avec
+        # les défauts des champs déclarés ci-dessus.
+        self.numero_arbre = numero_arbre
+        self.essence = essence
+        self.hauteur_sondage_cm = hauteur_sondage_cm
+        self.hauteur_arbre_m = hauteur_arbre_m
+        self.port_arbre = port_arbre
+        self.meche_cm = meche_cm
+        self.commentaire = commentaire
+        self.brins = list(brins) if brins is not None else [Brin()]
+        b = self.brins[0]
+        if rayon_tronc_cm is not None:
+            b.rayon_tronc_cm = rayon_tronc_cm
+        if diametre_sous_ecorce_cm is not None:
+            b.diametre_sous_ecorce_cm = diametre_sous_ecorce_cm
+        if epaisseur_ecorce_cm is not None:
+            b.epaisseur_ecorce_cm = epaisseur_ecorce_cm
+        if sondages is not None:
+            b.sondages = sondages
+        if degradations_externes is not None:
+            b.degradations_externes = degradations_externes
+        if contreforts is not None:
+            b.contreforts = contreforts
+
+    # ---- Relais de compatibilité vers le premier brin (Étape 0) ----------
+    # Délèguent au brin courant (brins[0]) pour que tout le code écrit avant
+    # l'introduction des cépées continue de fonctionner sans changement. À
+    # retirer progressivement quand chaque appelant ciblera un brin explicite.
+
+    @property
+    def brin_courant(self) -> Brin:
+        """Le brin actuellement piloté par les relais de compat (brins[0]).
+
+        Garantit la présence d'au moins un brin (auto-réparation défensive si
+        une désérialisation produisait une liste vide)."""
+        if not self.brins:
+            self.brins = [Brin()]
+        return self.brins[0]
+
+    @property
+    def rayon_tronc_cm(self) -> float:
+        return self.brin_courant.rayon_tronc_cm
+
+    @rayon_tronc_cm.setter
+    def rayon_tronc_cm(self, value: float) -> None:
+        self.brin_courant.rayon_tronc_cm = value
+
+    @property
+    def diametre_sous_ecorce_cm(self) -> float:
+        return self.brin_courant.diametre_sous_ecorce_cm
+
+    @diametre_sous_ecorce_cm.setter
+    def diametre_sous_ecorce_cm(self, value: float) -> None:
+        self.brin_courant.diametre_sous_ecorce_cm = value
+
+    @property
+    def epaisseur_ecorce_cm(self) -> float:
+        return self.brin_courant.epaisseur_ecorce_cm
+
+    @epaisseur_ecorce_cm.setter
+    def epaisseur_ecorce_cm(self, value: float) -> None:
+        self.brin_courant.epaisseur_ecorce_cm = value
+
+    @property
+    def sondages(self) -> List[Sondage]:
+        return self.brin_courant.sondages
+
+    @sondages.setter
+    def sondages(self, value: List[Sondage]) -> None:
+        self.brin_courant.sondages = value
+
+    @property
+    def degradations_externes(self) -> List[DegradationExterne]:
+        return self.brin_courant.degradations_externes
+
+    @degradations_externes.setter
+    def degradations_externes(self, value: List[DegradationExterne]) -> None:
+        self.brin_courant.degradations_externes = value
+
+    @property
+    def contreforts(self) -> List[Contrefort]:
+        return self.brin_courant.contreforts
+
+    @contreforts.setter
+    def contreforts(self, value: List[Contrefort]) -> None:
+        self.brin_courant.contreforts = value
+
+    def set_rayon(self, new_R: float) -> bool:
+        """Relais : modifie le rayon du brin courant (cf. `Brin.set_rayon`)."""
+        return self.brin_courant.set_rayon(new_R)
+
+    def renumeroter_sondages(self) -> None:
+        self.brin_courant.renumeroter_sondages()
+
+    def renumeroter_degradations(self) -> None:
+        self.brin_courant.renumeroter_degradations()
+
+    def renumeroter_contreforts(self) -> None:
+        self.brin_courant.renumeroter_contreforts()
+
     @property
     def display_name(self) -> str:
         """Nom affiché : 'Arbre n°X' ou 'Arbre n°X — Essence'."""
@@ -261,6 +434,7 @@ class Arbre:
         if self.essence:
             return f"{base} — {self.essence}"
         return base
+
 
 @dataclass
 class Chantier:

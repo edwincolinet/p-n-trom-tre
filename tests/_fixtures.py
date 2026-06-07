@@ -28,13 +28,15 @@ def build_arbre(scenario: str) -> Arbre:
     ici, les fixtures PIL ET Tk doivent être régénérées.
     """
     if scenario == "nu":
-        return Arbre(numero_arbre="1", essence="Platane",
-                     rayon_tronc_cm=20.0, port_arbre="libre")
+        a = Arbre(numero_arbre="1", essence="Platane", port_arbre="libre")
+        a.rayon_tronc_cm = 20.0
+        return a
 
     if scenario == "avec_ecorce":
-        a = Arbre(numero_arbre="2", essence="Chêne",
-                  rayon_tronc_cm=20.0, port_arbre="libre",
-                  epaisseur_ecorce_cm=1.5, meche_cm=40.0)
+        a = Arbre(numero_arbre="2", essence="Chêne", port_arbre="libre",
+                  meche_cm=40.0)
+        a.rayon_tronc_cm = 20.0
+        a.epaisseur_ecorce_cm = 1.5
         a.sondages.append(Sondage(numero=1, grade=0,
                                     bois_sain_cm=15.0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(numero=2, grade=200,
@@ -42,9 +44,9 @@ def build_arbre(scenario: str) -> Arbre:
         return a
 
     if scenario == "contreforts":
-        a = Arbre(numero_arbre="3", essence="Hêtre",
-                  rayon_tronc_cm=20.0, port_arbre="libre",
-                  epaisseur_ecorce_cm=1.0)
+        a = Arbre(numero_arbre="3", essence="Hêtre", port_arbre="libre")
+        a.rayon_tronc_cm = 20.0
+        a.epaisseur_ecorce_cm = 1.0
         a.contreforts.append(Contrefort(numero=1, grade_centre=75,
                                           largeur_grades=50,
                                           longueur_cm=8.0))
@@ -54,9 +56,9 @@ def build_arbre(scenario: str) -> Arbre:
         return a
 
     if scenario == "degradation_sur_contrefort":
-        a = Arbre(numero_arbre="4", essence="Frêne",
-                  rayon_tronc_cm=20.0, port_arbre="semi-libre",
-                  epaisseur_ecorce_cm=1.0)
+        a = Arbre(numero_arbre="4", essence="Frêne", port_arbre="semi-libre")
+        a.rayon_tronc_cm = 20.0
+        a.epaisseur_ecorce_cm = 1.0
         a.contreforts.append(Contrefort(numero=1, grade_centre=100,
                                           largeur_grades=100,
                                           longueur_cm=10.0))
