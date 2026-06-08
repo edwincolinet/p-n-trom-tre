@@ -38,7 +38,19 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
 - [x] **Étape 1** — tronc **ovale** : modèle/diagnostic (t/R local),
   rendu elliptique PIL+Tk (goldens préservés), éditeur avancé `ask_forme_tronc`.
   (`059fed6` `7ede5bb` `d5c8515` `d6291e2`)
-- [ ] **Étape 2** — rendu **multi-brins** (lecture seule). ← PROCHAINE
+- [~] **Étape 2** — rendu **multi-brins** (lecture seule). ← EN COURS
+  - [x] 2a — extraction `_draw_brin` (Tk + PIL) à comportement constant,
+    goldens byte-identiques. (`e1f48fe`)
+  - [x] 2b — généralisation `_draw_brin` **par brin** (helpers retypés
+    `Brin`, `sondage_render_data(section, port, meche, …)`,
+    `Section = Union[Arbre, Brin]` dans `diagnostic`), plus
+    `Brin.extent_cm()` et `geometry.brins_layout()` (cadrage pur, testé).
+    Mono-brin byte-identique ; +8 tests. (`edf3d8e`)
+  - [ ] 2c — **câbler** la boucle multi-brins dans les orchestrateurs
+    (mono-brin = branche verbatim ; cépée → `brins_layout`), trancher les
+    décorations globales (cardinales/règle), fixture `cepee` + goldens. ←
+    PROCHAINE
+  - [ ] 2d — action **« ＋ Brin »** (cf. § 5) + « Supprimer brin ».
 - [ ] **Étape 3** — diagnostic par brin + classe globale (pire brin) + exports.
 - [ ] **Étape 4** — éditeur souris (ajouter/déplacer/pivoter brins ; sélecteur
   de brin pour la grille de saisie 16 directions).
