@@ -46,11 +46,17 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     `Section = Union[Arbre, Brin]` dans `diagnostic`), plus
     `Brin.extent_cm()` et `geometry.brins_layout()` (cadrage pur, testé).
     Mono-brin byte-identique ; +8 tests. (`edf3d8e`)
-  - [ ] 2c — **câbler** la boucle multi-brins dans les orchestrateurs
-    (mono-brin = branche verbatim ; cépée → `brins_layout`), trancher les
-    décorations globales (cardinales/règle), fixture `cepee` + goldens. ←
+  - [x] 2c — **câblage** multi-brins (PIL `_pil_draw_cepee` + Tk
+    `_draw_cepee`) : branche dérivée tôt (mono-brin centré = chemin
+    verbatim, goldens intacts), cadrage via `brins_layout`, label par
+    brin, **boussole globale** sur le rectangle de la bbox (cardinales
+    globales ; ticks restent par brin). Interaction laissée mono-brin
+    (`_geom=None` en cépée). Fixture `cepee` + goldens PIL/Tk. (`2b883b2`)
+  - [ ] 2d — action **« ＋ Brin »** (cf. § 5) + « Supprimer brin ». ←
     PROCHAINE
-  - [ ] 2d — action **« ＋ Brin »** (cf. § 5) + « Supprimer brin ».
+  - *Reporté (révisable)* : **règle/échelle globale** d'une cépée (la
+    `_draw_regle` mono reste section-centrée ; une cépée n'a pas encore de
+    barre d'échelle). À reprendre quand l'édition souris arrivera.
 - [ ] **Étape 3** — diagnostic par brin + classe globale (pire brin) + exports.
 - [ ] **Étape 4** — éditeur souris (ajouter/déplacer/pivoter brins ; sélecteur
   de brin pour la grille de saisie 16 directions).
