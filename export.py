@@ -79,6 +79,15 @@ class SondageLike(Protocol):
     def prbs_cm(self) -> float: ...
 
 
+class BrinLike(Protocol):
+    """Surface d'un brin (ramet) pour le tableau PRBS par brin."""
+    rayon_tronc_cm: float
+    label: str
+
+    @property
+    def sondages(self) -> Sequence[SondageLike]: ...
+
+
 class ArbreLike(Protocol):
     rayon_tronc_cm: float
     port_arbre: str
@@ -95,6 +104,11 @@ class ArbreLike(Protocol):
     # le même type).
     @property
     def sondages(self) -> Sequence[SondageLike]: ...
+
+    # Brins (ramets) du genet : ≥ 1. Le tableau PRBS itère les brins pour
+    # une cépée (N° de sondage préfixé par le label « a1 », « b2 »).
+    @property
+    def brins(self) -> Sequence[BrinLike]: ...
 
     # `ratio_tR_par_grade` n'est plus une méthode d'`Arbre` (extraite
     # dans `diagnostic.py` sous forme de fonction pure). Le Protocol
@@ -140,18 +154,39 @@ def prbs_table_rows_par_sondage(arbre: ArbreLike,
     - `classe` (str: Vert/Orange/Rouge)
     - `commentaire` (str)
     """
-    R = arbre.rayon_tronc_cm
-    # `diagnostic.ratio_tR_par_grade` retire la dégradation externe
-    # avant le ratio → on prend la même valeur que celle affichée par
-    # la pastille du sondage sur le dessin (cf. CLAUDE.md « Pastille du
-    # sondage = PRBS ajustée »). Le `cast` bridge structurellement
-    # `ArbreLike` → `Arbre` au point d'entrée du module diagnostic :
-    # en pratique tous les callers d'`export.py` passent un `Arbre`
-    # concret, l'abstraction Protocol reste utile pour la documentation
-    # de la surface attendue.
-    ratios_par_grade = _diag_ratio_tR_par_grade(cast("Arbre", arbre))
+    # Itère les brins (ramets) : une cépée a un tableau combiné où le N° de
+    # sondage est préfixé par le label du brin (« a1 », « b2 »). Un genet
+    # mono-caule (ou un stub sans `brins`) garde un N° simple. Chaque brin a
+    # son propre rayon et ses propres dégradations externes ; le port est
+    # genet-level.
+    brins = list(getattr(arbre, "brins", []) or [])
+    multi = len(brins) > 1
     rows: List[dict] = []
-    for s in sorted(arbre.sondages, key=lambda x: x.numero):
+    if not brins:
+        # Stub ArbreLike sans `brins` : comportement mono historique.
+        rows.extend(_brin_table_rows(arbre, arbre.rayon_tronc_cm,
+                                     arbre.port_arbre, "", False,
+                                     classer_prbs))
+        return rows
+    for b in brins:
+        if b.rayon_tronc_cm <= 0:
+            continue
+        rows.extend(_brin_table_rows(b, b.rayon_tronc_cm, arbre.port_arbre,
+                                     b.label, multi, classer_prbs))
+    return rows
+
+
+def _brin_table_rows(section: Any, R: float, port: str, label: str,
+                     multi: bool, classer_prbs: ClasserPrbs) -> List[dict]:
+    """Lignes PRBS d'UNE section (brin). `multi` préfixe le N° par le label.
+
+    `diagnostic.ratio_tR_par_grade` retire la dégradation externe avant le
+    ratio → même valeur que la pastille du sondage sur le dessin
+    (cf. CLAUDE.md « Pastille du sondage = PRBS ajustée »). Le `cast` bridge
+    structurellement vers la surface `Section` du module diagnostic."""
+    ratios_par_grade = _diag_ratio_tR_par_grade(cast("Arbre", section))
+    rows: List[dict] = []
+    for s in sorted(section.sondages, key=lambda x: x.numero):
         try:
             idx = GRADES.index(s.grade)
             ratio = ratios_par_grade[idx]
@@ -159,13 +194,17 @@ def prbs_table_rows_par_sondage(arbre: ArbreLike,
             ratio = 0.0
         rows.append({
             "numero": s.numero,
+            # Mono : entier (cellule XLSX numérique, inchangé). Cépée :
+            # chaîne préfixée par le label du brin (« a1 »).
+            "sondage_id": f"{label}{s.numero}" if multi and label
+            else s.numero,
             "grade": s.grade,
             "rayon_cm": R,
             "prbs_cm": s.prbs_cm,
             "bois_altere_cm": s.bois_altere_cm,
             "compartimentation": s.compartimentation or "non renseignée",
             "ratio_tR": ratio,
-            "classe": classer_prbs(ratio, arbre.port_arbre),
+            "classe": classer_prbs(ratio, port),
             "commentaire": s.commentaire,
         })
     return rows
@@ -357,7 +396,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     compart_col = 6      # colonne Compartimentation = glyphe coloré
     for row_idx, r in enumerate(rows_data):
         values = [
-            r["numero"],
+            r["sondage_id"],
             r["grade"],
             round(r["rayon_cm"], 2),
             round(r["prbs_cm"], 2),
@@ -578,7 +617,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
                 comp_html = '<td class="compart-neutre">—</td>'
             body_rows.append(
                 "<tr>"
-                f'<td>{r["numero"]}</td>'
+                f'<td>{r["sondage_id"]}</td>'
                 f'<td>{r["grade"]}</td>'
                 f'<td>{round(r["rayon_cm"], 2):g}</td>'
                 f'<td>{round(r["prbs_cm"], 2):g}</td>'
@@ -681,8 +720,15 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
         w = csv.writer(f, delimiter=";")
         w.writerow(_SYNTH_HEADERS)
         for r in rows:
+            # Sous-ligne de brin (cépée) : N° décalé « ↳ brin a », identité
+            # genet laissée vide (déjà sur la ligne de tête).
+            if r.brin_label:
+                num: object = f"↳ brin {r.brin_label}"
+                ess, port = "", ""
+            else:
+                num, ess, port = r.numero, r.essence, r.port
             w.writerow([
-                r.numero, r.essence, r.port, r.n_sondees,
+                num, ess, port, r.n_sondees,
                 f"{r.rayon_cm:g}",
                 _synth_pct_text(r.tR_moyen_pct),
                 _synth_classe_text(r),
@@ -758,8 +804,14 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     for k, row in enumerate(rows):
         r_idx += 1
         classe_txt = _synth_classe_text(row)
+        # Sous-ligne de brin (cépée) : N° décalé, identité genet vide.
+        if row.brin_label:
+            num: object = f"↳ brin {row.brin_label}"
+            ess, prt = "", ""
+        else:
+            num, ess, prt = row.numero, row.essence, row.port
         values = [
-            row.numero, row.essence, row.port, row.n_sondees,
+            num, ess, prt, row.n_sondees,
             f"{row.rayon_cm:g}",
             _synth_pct_text(row.tR_moyen_pct),
             classe_txt,
@@ -791,12 +843,14 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                           f"{get_column_letter(last)}{last_data_row}")
     ws.freeze_panes = f"A{header_row + 1}"
 
-    # --- Ligne de bilan ---
-    n_total = len(rows)
-    n_fiable = sum(1 for r in rows if r.fiable)
-    n_v = sum(1 for r in rows if r.classe_globale == "Vert")
-    n_o = sum(1 for r in rows if r.classe_globale == "Orange")
-    n_r = sum(1 for r in rows if r.classe_globale == "Rouge")
+    # --- Ligne de bilan (ne compte que les genets, pas les sous-lignes
+    # de brin d'une cépée). ---
+    genets = [r for r in rows if not r.brin_label]
+    n_total = len(genets)
+    n_fiable = sum(1 for r in genets if r.fiable)
+    n_v = sum(1 for r in genets if r.classe_globale == "Vert")
+    n_o = sum(1 for r in genets if r.classe_globale == "Orange")
+    n_r = sum(1 for r in genets if r.classe_globale == "Rouge")
     footer_row = last_data_row + 2
     ws.cell(row=footer_row, column=1,
             value=(f"{n_total} arbre(s)  •  {n_fiable} diagnostic(s) fiable(s)"

@@ -30,6 +30,7 @@ from diagnostic import (
     extrapolation_summary,
     genet_diagnostic,
     genet_summary_lines,
+    mission_synthesis_rows,
     pire_classe,
     prbs_par_grade,
     ratio_tR_par_grade,
@@ -924,6 +925,34 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertIn("Classe globale (pire brin fiable)", txt)
         self.assertIn("──── Brin a ────", txt)
         self.assertIn("──── Brin b ────", txt)
+
+    def test_synthese_cepee_ligne_genet_plus_sous_lignes(self):
+        from model import Chantier
+        a = Arbre(numero_arbre="12", essence="Charme", port_arbre="libre",
+                  brins=[
+                      self._brin(16.0, [(0, 14.0), (100, 14.0), (200, 14.0)]),
+                      self._brin(16.0, [(0, 2.0), (100, 2.0), (200, 2.0)]),
+                  ])
+        a._relabel_brins()
+        rows = mission_synthesis_rows(Chantier(arbres=[a]))
+        # 1 ligne genet (brin_label="") + 2 sous-lignes (a, b).
+        self.assertEqual([r.brin_label for r in rows], ["", "a", "b"])
+        genet = rows[0]
+        # Classe genet = pire brin ; t/R moyen non publié au niveau genet.
+        self.assertIsNone(genet.tR_moyen_pct)
+        cls_brins = [r.classe_globale for r in rows[1:]]
+        from diagnostic import pire_classe
+        self.assertEqual(genet.classe_globale, pire_classe(cls_brins))
+
+    def test_synthese_mono_reste_une_seule_ligne(self):
+        from model import Chantier
+        a = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre")
+        for g in (0, 100, 200):
+            a.sondages.append(Sondage(grade=g, bois_sain_cm=18.0,
+                                       bois_altere_cm=2.0))
+        rows = mission_synthesis_rows(Chantier(arbres=[a]))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].brin_label, "")
 
     def test_brin_rayon_nul_non_fiable(self):
         a = Arbre(port_arbre="libre", brins=[

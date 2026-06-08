@@ -631,46 +631,96 @@ class MissionSynthesisRow(NamedTuple):
     tR_min_pct: Optional[float]
     crit_grade: Optional[int]
     crit_dir: str
+    # "" pour une ligne genet (mono-caule, ou ligne de tête d'une cépée) ;
+    # "a"/"b"/… pour une sous-ligne de brin d'une cépée.
+    brin_label: str = ""
+
+
+def _synthesis_row_for_section(numero: str, essence: str, port: str,
+                               section: "Section", brin_label: str = ""
+                               ) -> MissionSynthesisRow:
+    """Ligne de synthèse pour une **section** (brin) : t/R moyen, classe,
+    direction critique, en respectant le masquage < 3 sondages."""
+    n = len([s for s in section.sondages if s.grade in GRADES])
+    if section.rayon_tronc_cm <= 0 or n == 0:
+        return MissionSynthesisRow(
+            numero=numero, essence=essence, port=port, n_sondees=n,
+            rayon_cm=section.rayon_tronc_cm, fiable=False,
+            tR_moyen_pct=None, classe_globale=None,
+            tR_min_pct=None, crit_grade=None, crit_dir="",
+            brin_label=brin_label)
+    snap = repartition_classes_brin(section, port)
+    diag = snap.diagnostic_global
+    tR_moyen_pct = 100.0 * diag[0] if diag is not None else None
+    classe = diag[1] if diag is not None else None
+    if snap.tR_min >= 0.999:  # aucune altération → pas de direction critique
+        tR_min_pct: Optional[float] = None
+        crit_grade: Optional[int] = None
+        crit_dir = ""
+    else:
+        tR_min_pct = 100.0 * snap.tR_min
+        crit_grade = snap.tR_min_grade
+        crit_dir = snap.tR_min_dir
+    return MissionSynthesisRow(
+        numero=numero, essence=essence, port=port,
+        n_sondees=snap.n_sondees, rayon_cm=section.rayon_tronc_cm,
+        fiable=snap.diagnostic_fiable,
+        tR_moyen_pct=tR_moyen_pct, classe_globale=classe,
+        tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
+        brin_label=brin_label)
+
+
+def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
+    """Ligne de tête d'une cépée : classe globale = pire brin (via
+    `genet_diagnostic`), rayon = plus gros brin, point critique = pire t/R
+    parmi les brins. `tR_moyen_pct` reste `None` (la moyenne inter-brins
+    n'a pas de sens — l'agrégat porte sur les classes)."""
+    gd = genet_diagnostic(arbre)
+    port = arbre.port_arbre
+    n_total = sum(extrapolation_summary(b)["n_sondees"] for b in arbre.brins)
+    rayon = max((b.rayon_tronc_cm for b in arbre.brins), default=0.0)
+    worst: Optional[DiagnosticSnapshot] = None
+    for b in arbre.brins:
+        if b.rayon_tronc_cm <= 0:
+            continue
+        snap = repartition_classes_brin(b, port)
+        if snap.tR_min < 0.999 and (worst is None or snap.tR_min < worst.tR_min):
+            worst = snap
+    if worst is not None:
+        tR_min_pct: Optional[float] = 100.0 * worst.tR_min
+        crit_grade: Optional[int] = worst.tR_min_grade
+        crit_dir = worst.tR_min_dir
+    else:
+        tR_min_pct = crit_grade = None
+        crit_dir = ""
+    return MissionSynthesisRow(
+        numero=arbre.numero_arbre, essence=arbre.essence, port=port,
+        n_sondees=n_total, rayon_cm=rayon, fiable=gd.fiable,
+        tR_moyen_pct=None, classe_globale=gd.classe_globale,
+        tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
+        brin_label="")
 
 
 def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
-    """Construit la synthèse de la mission : une `MissionSynthesisRow`
-    par arbre, dans l'ordre de la liste d'arbres.
+    """Synthèse de la mission, dans l'ordre de la liste d'arbres.
 
-    Fonction pure (réutilise `repartition_classes` et respecte la règle
-    « pas de diagnostic global < 3 sondages »). Sert de source unique aux
-    exports de synthèse (XLSX/CSV) et à tout récap à l'écran.
+    Un genet **mono-caule** = une ligne (comportement historique). Une
+    **cépée** = une ligne de tête (classe globale = pire brin) suivie d'une
+    sous-ligne par brin (`brin_label` renseigné). Fonction pure ; respecte
+    la règle « pas de diagnostic global < 3 sondages ». Source unique des
+    exports de synthèse (XLSX/CSV) et de tout récap à l'écran.
     """
     rows: List[MissionSynthesisRow] = []
     for a in chantier.arbres:
-        n = len([s for s in a.sondages if s.grade in GRADES])
-        if a.rayon_tronc_cm <= 0 or n == 0:
-            rows.append(MissionSynthesisRow(
-                numero=a.numero_arbre, essence=a.essence,
-                port=a.port_arbre, n_sondees=n,
-                rayon_cm=a.rayon_tronc_cm, fiable=False,
-                tR_moyen_pct=None, classe_globale=None,
-                tR_min_pct=None, crit_grade=None, crit_dir=""))
+        if len(a.brins) <= 1:
+            rows.append(_synthesis_row_for_section(
+                a.numero_arbre, a.essence, a.port_arbre, a.brin_courant))
             continue
-        snap = repartition_classes(a)
-        diag = snap.diagnostic_global
-        tR_moyen_pct = 100.0 * diag[0] if diag is not None else None
-        classe = diag[1] if diag is not None else None
-        if snap.tR_min >= 0.999:  # aucune altération → pas de dir. critique
-            tR_min_pct: Optional[float] = None
-            crit_grade: Optional[int] = None
-            crit_dir = ""
-        else:
-            tR_min_pct = 100.0 * snap.tR_min
-            crit_grade = snap.tR_min_grade
-            crit_dir = snap.tR_min_dir
-        rows.append(MissionSynthesisRow(
-            numero=a.numero_arbre, essence=a.essence, port=a.port_arbre,
-            n_sondees=snap.n_sondees, rayon_cm=a.rayon_tronc_cm,
-            fiable=snap.diagnostic_fiable,
-            tR_moyen_pct=tR_moyen_pct, classe_globale=classe,
-            tR_min_pct=tR_min_pct, crit_grade=crit_grade,
-            crit_dir=crit_dir))
+        rows.append(_synthesis_genet_row(a))
+        for b in a.brins:
+            rows.append(_synthesis_row_for_section(
+                a.numero_arbre, a.essence, a.port_arbre, b,
+                brin_label=b.label or "?"))
     return rows
 
 
