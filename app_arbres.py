@@ -21,7 +21,7 @@ from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
-from diagnostic import repartition_classes
+from diagnostic import genet_diagnostic
 from dialogs import ask_string
 from model import Arbre
 
@@ -115,10 +115,12 @@ class ArbreListMixin(_MixinBase):
 
     @staticmethod
     def _arbre_diag_fiable(a: Arbre) -> bool:
-        """Diagnostic global publiable : rayon défini ET ≥3 directions
-        sondées. Seuil métier de fiabilité (cf. `_arbre_etat`), utilisé
-        pour le compteur du footer."""
-        return a.rayon_tronc_cm > 0 and len(a.sondages) >= 3
+        """Diagnostic global publiable : **au moins un brin** avec rayon
+        défini ET ≥3 directions sondées (fiabilité par brin — cf. décision
+        cépées). Pour un genet mono-caule, c'est le critère historique sur
+        le brin unique. Calcul léger (pas de snapshot) pour le footer."""
+        return any(b.rayon_tronc_cm > 0 and len(b.sondages) >= 3
+                   for b in a.brins)
 
     @staticmethod
     def _arbre_etat(a: Arbre) -> tuple[str, str]:
@@ -145,16 +147,21 @@ class ArbreListMixin(_MixinBase):
         NB : l'extrapolation géométrique de la cavité reste active dès 2
         sondages (son minimum mathématique) — découplé du seuil de
         fiabilité à 3.
+
+        **Cépée** : l'état agrège les brins (`genet_diagnostic`) — `●`
+        coloré par la **classe globale = pire brin fiable**, `◐` si des
+        sondages existent mais aucun brin n'atteint 3 directions, `○` si
+        aucun brin n'a de rayon ni de sondage. Mono-caule = inchangé.
         """
-        if a.rayon_tronc_cm <= 0 or not a.sondages:
+        has_data = any(b.rayon_tronc_cm > 0 and b.sondages for b in a.brins)
+        if not has_data:
             return "○", "etat_vide"
-        if len(a.sondages) < 3:
+        gd = genet_diagnostic(a)
+        if not gd.fiable:
             return "◐", "etat_partiel"
-        diag = repartition_classes(a).diagnostic_global
-        if diag is None:
+        if gd.classe_globale is None:
             return "●", "etat_ok"
-        _, classe = diag
-        return "●", _CLASSE_TAG.get(classe, "etat_ok")
+        return "●", _CLASSE_TAG.get(gd.classe_globale, "etat_ok")
 
     def _refresh_current_arbre_etat(self) -> None:
         """Met à jour la pastille d'état + le footer après une mutation

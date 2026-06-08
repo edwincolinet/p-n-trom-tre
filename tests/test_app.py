@@ -242,6 +242,24 @@ class TestArbreEtat(unittest.TestCase):
         self.assertEqual(self.etat(self._arbre(20.0, 1))[0], "◐")
         self.assertEqual(self.etat(self._arbre(20.0, 3))[0], "●")
 
+    def test_cepee_etat_colore_par_le_pire_brin(self) -> None:
+        # Genet à 2 brins : un sain (Vert), un très dégradé (Rouge). La
+        # pastille du genet prend la classe du PIRE brin fiable.
+        a = self._arbre(20.0, 3)              # brin a : sain → Vert
+        rouge = self._arbre(20.0, 3, sain=1.0).brins[0]  # brin b : Rouge
+        a.brins.append(rouge)
+        a._relabel_brins()
+        glyph, tag = self.etat(a)
+        self.assertEqual(glyph, "●")
+        self.assertEqual(tag, "etat_ok_rouge")
+
+    def test_cepee_partiel_si_aucun_brin_fiable(self) -> None:
+        # 2 brins à 2 sondages chacun : aucun n'atteint 3 → genet « en cours ».
+        a = self._arbre(20.0, 2)
+        a.brins.append(self._arbre(20.0, 2).brins[0])
+        a._relabel_brins()
+        self.assertEqual(self.etat(a)[0], "◐")
+
 
 # ========================================================================
 # App + mixins — headless (skipped sans display)
