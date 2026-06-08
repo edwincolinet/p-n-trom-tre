@@ -13,6 +13,7 @@ import unittest
 
 from geometry import (
     bell_max_at_grade,
+    brins_layout,
     cardinal_label_positions,
     catmull_rom_closed,
     cavity_polygon,
@@ -389,3 +390,59 @@ class RulerGraduationPositionsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BrinsLayoutTests(unittest.TestCase):
+    """Cadrage global d'une cépée (`brins_layout`)."""
+
+    # Marges arbitraires de test (indépendantes des renderers).
+    W, H = 1000.0, 800.0
+    MT, MB, MS = 100.0, 120.0, 60.0
+
+    def _avail(self):
+        return (self.W - 2 * self.MS, self.H - self.MT - self.MB)
+
+    def test_liste_vide_renvoie_des_defauts(self):
+        scale, ox, oy = brins_layout([], self.W, self.H,
+                                     self.MT, self.MB, self.MS)
+        self.assertEqual(scale, 1.0)
+        self.assertEqual(ox, self.W / 2)
+        self.assertEqual(oy, self.MT)
+
+    def test_brin_unique_centre_top_aligne_et_centre_horizontalement(self):
+        # Un brin unique en (0,0) d'encombrement e : cadrage top-aligné,
+        # centré en largeur — reproduit le placement mono-brin historique.
+        e = 20.0
+        scale, ox, oy = brins_layout([(0.0, 0.0, e)], self.W, self.H,
+                                     self.MT, self.MB, self.MS)
+        avail_h, avail_v = self._avail()
+        expected_scale = min(avail_h / (2 * e), avail_v / (2 * e))
+        self.assertAlmostEqual(scale, expected_scale)
+        # Origine = cœur du brin : centré en largeur, haut à margin_top.
+        self.assertAlmostEqual(ox, self.W / 2)
+        self.assertAlmostEqual(oy, self.MT + e * scale)
+
+    def test_deux_brins_symetriques_autour_du_centre(self):
+        # Deux brins identiques de part et d'autre de l'origine : leurs
+        # centres écran sont symétriques autour de W/2.
+        e = 10.0
+        d = 15.0
+        pe = [(-d, 0.0, e), (d, 0.0, e)]
+        scale, ox, oy = brins_layout(pe, self.W, self.H,
+                                     self.MT, self.MB, self.MS)
+        cx_left = ox + (-d) * scale
+        cx_right = ox + d * scale
+        self.assertAlmostEqual((cx_left + cx_right) / 2, self.W / 2)
+        # bbox large de 2*(d+e) cm doit tenir dans la zone dispo.
+        avail_h, _ = self._avail()
+        self.assertLessEqual(2 * (d + e) * scale, avail_h + 1e-6)
+
+    def test_scale_limite_par_la_dimension_contrainte(self):
+        # Cépée très large : le scale est borné par la largeur dispo.
+        e = 5.0
+        pe = [(-200.0, 0.0, e), (200.0, 0.0, e)]
+        scale, _ox, _oy = brins_layout(pe, self.W, self.H,
+                                       self.MT, self.MB, self.MS)
+        avail_h, _ = self._avail()
+        width_cm = 2 * (200.0 + e)
+        self.assertAlmostEqual(scale, avail_h / width_cm)

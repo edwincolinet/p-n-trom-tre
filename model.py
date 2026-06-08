@@ -246,6 +246,19 @@ class Brin:
         return ellipse_radius(self.rayon_tronc_cm, self.rayon_petit_axe_cm,
                               self.orientation_grade, grade)
 
+    def extent_cm(self) -> float:
+        """Rayon d'encombrement (cm) : distance maximale du cœur du brin à sa
+        surface, **écorce et contreforts compris**.
+
+        Sert au cadrage d'une cépée : la *bounding box* d'un brin est son
+        centre `(pos_x_cm, pos_y_cm)` ± `extent_cm` (cf.
+        `geometry.brins_layout`). Pour une section circulaire ça vaut
+        `rayon_tronc_cm + écorce + plus longue saillie de contrefort`."""
+        r_max = max((self.rayon_a_grade(g) for g in GRADES),
+                    default=self.rayon_tronc_cm)
+        saillie = max((c.longueur_cm for c in self.contreforts), default=0.0)
+        return r_max + max(0.0, self.epaisseur_ecorce_cm) + saillie
+
     def set_rayon(self, new_R: float) -> bool:
         """Modifie le rayon et propage la cohérence aux sondages et
         dégradations.

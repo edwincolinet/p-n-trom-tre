@@ -39,7 +39,7 @@ from geometry import (
     ruler_graduation_positions,
     tick_endpoints,
 )
-from model import Arbre, Contrefort, DegradationExterne, Sondage
+from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 from palette import (
     COLOR_ACCENT,
     COLOR_BARK,
@@ -372,12 +372,15 @@ class SectionCanvas(tk.Canvas):
         # Section elle-même (bois → pastilles), centrée en (cx, cy). Isolée
         # dans `_draw_brin` pour préparer la composition multi-brins (cépées) :
         # un appel par brin à son propre centre. Le repère partagé (règle,
-        # titre) reste global, dessiné ensuite.
-        self._draw_brin(A, cx, cy, R, ep, scale)
+        # titre) reste global, dessiné ensuite. `port`/`meche` sont genet-level
+        # (partagés par tous les brins) → passés explicitement à la section.
+        self._draw_brin(A.brin_courant, A.port_arbre, A.meche_cm,
+                        cx, cy, R, ep, scale)
         self._draw_regle(cx, cy, R_h, ep, R_h + ep, scale)
         self._draw_titre(A, R)
 
-    def _draw_brin(self, A: Arbre, cx: float, cy: float,
+    def _draw_brin(self, brin: "Brin", port: str, meche: float,
+                   cx: float, cy: float,
                    R: float, ep: float, scale: float) -> None:
         """Dessine UNE section (bois → pastilles) centrée en (cx, cy).
 
@@ -385,30 +388,33 @@ class SectionCanvas(tk.Canvas):
         superposition. Pour une cépée, `redraw` appellera ce helper une fois
         par brin à son centre écran ; pour un genet mono-brin centré, le
         rendu est strictement identique à l'ancien (goldens préservés).
+
+        `port`/`meche` sont genet-level (sur l'`Arbre`) : passés explicitement
+        pour positionner les sondages par brin.
         """
         # Fournisseurs de rayon par direction : constants si circulaire
         # (rendu identique à l'ancien), variables si ellipse.
-        r_of = A.rayon_a_grade
+        r_of = brin.rayon_a_grade
         r_ext_of: "RadiusSpec" = (
-            (lambda g: A.rayon_a_grade(g) + ep) if ep else r_of)
-        self._draw_bois_sain(A, cx, cy, R, scale)
-        self._draw_cernes(A, cx, cy, R, scale)
-        self._draw_cavite(A, cx, cy, scale)
-        self._draw_ecorce(A, cx, cy, R, ep, scale)
+            (lambda g: brin.rayon_a_grade(g) + ep) if ep else r_of)
+        self._draw_bois_sain(brin, cx, cy, R, scale)
+        self._draw_cernes(brin, cx, cy, R, scale)
+        self._draw_cavite(brin, cx, cy, scale)
+        self._draw_ecorce(brin, cx, cy, R, ep, scale)
         # Contreforts : R_inner descend de 1 px sous le rayon LOCAL pour
         # qu'aucun pixel de trou n'apparaisse entre polygone bois et disque.
         self._draw_contreforts_canvas(
-            cx, cy, scale, r_of, A.contreforts, ep_cm=ep,
-            R_inner=(lambda g: A.rayon_a_grade(g) - 1.0 / scale))
+            cx, cy, scale, r_of, brin.contreforts, ep_cm=ep,
+            R_inner=(lambda g: brin.rayon_a_grade(g) - 1.0 / scale))
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
-        for idx, deg in enumerate(A.degradations_externes):
+        for idx, deg in enumerate(brin.degradations_externes):
             self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep,
-                                                   A.contreforts, deg,
+                                                   brin.contreforts, deg,
                                                    idx=idx)
         self._draw_ticks(cx, cy, r_ext_of, scale)
         self._draw_cardinales(cx, cy, r_ext_of, scale)
         if self.show_sondages:
-            self._draw_sondages(A, cx, cy, R, scale)
+            self._draw_sondages(brin, port, meche, cx, cy, R, scale)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.
@@ -444,10 +450,10 @@ class SectionCanvas(tk.Canvas):
                          font=("Georgia", 14, "italic"),
                          fill=COLOR_MUTED, justify="center")
 
-    def _draw_bois_sain(self, A: Arbre, cx: float, cy: float,
+    def _draw_bois_sain(self, brin: "Brin", cx: float, cy: float,
                         R: float, scale: float) -> None:
-        if A.est_ovale:
-            flat = [c for p in contour_polygon(A.rayon_a_grade, cx, cy, scale)
+        if brin.est_ovale:
+            flat = [c for p in contour_polygon(brin.rayon_a_grade, cx, cy, scale)
                     for c in p]
             self.create_polygon(*flat, fill=COLOR_WOOD, outline="", width=0)
             return
@@ -456,14 +462,14 @@ class SectionCanvas(tk.Canvas):
                          cx + radius_px, cy + radius_px,
                          fill=COLOR_WOOD, outline="", width=0)
 
-    def _draw_cernes(self, A: Arbre, cx: float, cy: float,
+    def _draw_cernes(self, brin: "Brin", cx: float, cy: float,
                      R: float, scale: float) -> None:
-        if A.est_ovale:
+        if brin.est_ovale:
             for k in range(1, self.N_CERNES + 1):
                 frac = k / (self.N_CERNES + 1)
 
                 def r_cerne(g: float, frac: float = frac) -> float:
-                    return A.rayon_a_grade(g) * frac
+                    return brin.rayon_a_grade(g) * frac
 
                 flat = [c for p in contour_polygon(r_cerne, cx, cy, scale)
                         for c in p]
@@ -474,11 +480,11 @@ class SectionCanvas(tk.Canvas):
             self.create_oval(cx - rr, cy - rr, cx + rr, cy + rr,
                              outline=COLOR_CERNE, width=1)
 
-    def _draw_cavite(self, A: Arbre, cx: float, cy: float, scale: float) -> None:
+    def _draw_cavite(self, brin: "Brin", cx: float, cy: float, scale: float) -> None:
         # bois_altéré = épaisseur d'altération mesurée au résistographe,
         # qui correspond à une zone centrale de rayon égal à cette
         # épaisseur. La couronne externe de bois sain fait (R - altéré).
-        alt = compute_alteration_par_grade(A)
+        alt = compute_alteration_par_grade(brin)
         if not any(a > 0 for a in alt):
             return
         smooth = cavity_polygon(alt, cx, cy, scale,
@@ -490,16 +496,16 @@ class SectionCanvas(tk.Canvas):
         self.create_polygon(*flat, fill=COLOR_ROT,
                             outline="", smooth=False)
 
-    def _draw_ecorce(self, A: Arbre, cx: float, cy: float, R: float,
+    def _draw_ecorce(self, brin: "Brin", cx: float, cy: float, R: float,
                      ep: float, scale: float) -> None:
         # Si une épaisseur est renseignée, anneau brun épais entre R et
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
-        if A.est_ovale:
-            inner = contour_polygon(A.rayon_a_grade, cx, cy, scale)
+        if brin.est_ovale:
+            inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale)
             if ep > 0:
                 def r_outer(g: float) -> float:
-                    return A.rayon_a_grade(g) + ep
+                    return brin.rayon_a_grade(g) + ep
 
                 outer = contour_polygon(r_outer, cx, cy, scale)
                 flat = [c for p in (outer + inner[::-1]) for c in p]
@@ -544,15 +550,16 @@ class SectionCanvas(tk.Canvas):
             self.create_text(lx, ly, text=lbl,
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
 
-    def _draw_sondages(self, A: Arbre, cx: float, cy: float, R: float, scale: float) -> None:
+    def _draw_sondages(self, brin: "Brin", port: str, meche: float,
+                       cx: float, cy: float, R: float, scale: float) -> None:
         inset_cm = self.SONDAGE_INSET_PX / scale
         r_bul = self.BULLET_RADIUS_PX
-        items = sondage_render_data(A, cx, cy, R, scale, inset_cm,
-                                    COULEUR_CLASSE)
+        items = sondage_render_data(brin, port, meche, cx, cy, R, scale,
+                                    inset_cm, COULEUR_CLASSE)
         # Pour le tag click, on retrouve l'index du sondage dans la
         # liste métier via son numéro (numero = position+1 en pratique,
         # cf. `renumeroter_sondages`).
-        numero_to_idx = {s.numero: i for i, s in enumerate(A.sondages)}
+        numero_to_idx = {s.numero: i for i, s in enumerate(brin.sondages)}
         for item in items:
             x_ext, y_ext = item.arrow_start
             x_end, y_end = item.arrow_end

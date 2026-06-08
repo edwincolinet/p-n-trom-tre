@@ -72,7 +72,7 @@ if TYPE_CHECKING:
     from PIL import ImageDraw, ImageFont  # noqa: F401
     from PIL.Image import Image as PILImage  # noqa: F401
 
-    from model import Arbre  # noqa: F401
+    from model import Arbre, Brin  # noqa: F401
 
 # Type alias pour la factory de polices retournée par `_pil_load_fonts`.
 # Signature côté appel : `f(size, variant="sans" | "sans_bold" | "serif_bold")`.
@@ -217,7 +217,10 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # Isolée dans `_pil_draw_brin` pour préparer la composition multi-brins
     # (cépées) : un appel par brin à son propre centre. Les décorations de
     # repère (règle, titre, légende) restent globales, dessinées ci-dessous.
-    _pil_draw_brin(d, f, arbre, cx, cy, R, ep, scale,
+    # `port`/`meche` sont genet-level (partagés par tous les brins) → passés
+    # explicitement à la section.
+    _pil_draw_brin(d, f, arbre.brin_courant, arbre.port_arbre, arbre.meche_cm,
+                   cx, cy, R, ep, scale,
                    show_sondages=show_sondages, bullet_r=bullet_r, ds=_ds)
     y_axis = _pil_draw_regle(d, f, cx, cy, R_h, ep, R_h + ep, scale, height,
                               _ds)
@@ -233,7 +236,8 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     return img
 
 
-def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
+def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
+                   port: str, meche: float,
                    cx: float, cy: float, R: float, ep: float, scale: float,
                    *, show_sondages: bool, bullet_r: int,
                    ds: float = 1.0) -> None:
@@ -244,23 +248,26 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
     charge de l'orchestrateur. Pour une cépée, l'orchestrateur appellera ce
     helper une fois par brin à son propre centre écran ; pour un genet
     mono-brin centré, le rendu est strictement identique à l'ancien.
+
+    `port`/`meche` sont genet-level (sur l'`Arbre`, partagés par tous les
+    brins) : passés explicitement pour positionner les sondages par brin.
     """
     R_ext = R + ep
     # Fournisseur de rayon par direction : constant pour une section
     # circulaire (rendu identique à l'ancien), variable pour une ellipse.
-    r_ext_of = (lambda g: arbre.rayon_a_grade(g) + ep) if ep \
-        else arbre.rayon_a_grade
-    _pil_draw_bois_sain(d, arbre, cx, cy, R, scale)
-    _pil_draw_cernes(d, arbre, cx, cy, R, scale)
-    _pil_draw_cavite(d, arbre, cx, cy, scale)
-    _pil_draw_ecorce(d, arbre, cx, cy, R, ep, R_ext, scale)
-    _pil_draw_contreforts(d, arbre, cx, cy, ep, scale)
+    r_ext_of = (lambda g: brin.rayon_a_grade(g) + ep) if ep \
+        else brin.rayon_a_grade
+    _pil_draw_bois_sain(d, brin, cx, cy, R, scale)
+    _pil_draw_cernes(d, brin, cx, cy, R, scale)
+    _pil_draw_cavite(d, brin, cx, cy, scale)
+    _pil_draw_ecorce(d, brin, cx, cy, R, ep, R_ext, scale)
+    _pil_draw_contreforts(d, brin, cx, cy, ep, scale)
     # Dégradations EN DERNIER des couches de surface (cf. CLAUDE.md).
-    _pil_draw_degradations(d, arbre, cx, cy, ep, scale)
+    _pil_draw_degradations(d, brin, cx, cy, ep, scale)
     _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
     _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
     if show_sondages:
-        _pil_draw_sondages(d, f, arbre, cx, cy, R, scale, bullet_r)
+        _pil_draw_sondages(d, f, brin, port, meche, cx, cy, R, scale, bullet_r)
     # Moelle (point central) du brin.
     dot_r = max(5, int(5 * ds))
     d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
@@ -304,11 +311,11 @@ def _pil_draw_placeholder(d: "ImageDraw.ImageDraw", f: FontFn,
            font=f(28, "sans"), anchor="mm")
 
 
-def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
                         cx: float, cy: float,
                         R: float, scale: float) -> None:
-    if arbre.est_ovale:
-        d.polygon(contour_polygon(arbre.rayon_a_grade, cx, cy, scale),
+    if brin.est_ovale:
+        d.polygon(contour_polygon(brin.rayon_a_grade, cx, cy, scale),
                   fill=COLOR_WOOD)
         return
     radius_px = R * scale
@@ -316,16 +323,16 @@ def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", arbre: "Arbre",
               fill=COLOR_WOOD)
 
 
-def _pil_draw_cernes(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_cernes(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, scale: float) -> None:
-    if arbre.est_ovale:
+    if brin.est_ovale:
         # Cernes = contours homothétiques (k/(N+1) du rayon local).
         for k in range(1, N_CERNES + 1):
             frac = k / (N_CERNES + 1)
 
             def r_cerne(g: float, frac: float = frac) -> float:
-                return arbre.rayon_a_grade(g) * frac
+                return brin.rayon_a_grade(g) * frac
 
             d.polygon(contour_polygon(r_cerne, cx, cy, scale),
                       outline=COLOR_CERNE, width=1)
@@ -335,9 +342,9 @@ def _pil_draw_cernes(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                   outline=COLOR_CERNE, width=1)
 
 
-def _pil_draw_cavite(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_cavite(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float, scale: float) -> None:
-    alt = compute_alteration_par_grade(arbre)
+    alt = compute_alteration_par_grade(brin)
     if not any(a > 0 for a in alt):
         return
     smooth = cavity_polygon(alt, cx, cy, scale,
@@ -345,15 +352,15 @@ def _pil_draw_cavite(d: "ImageDraw.ImageDraw", arbre: "Arbre",
     d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
 
-def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
-    if arbre.est_ovale:
-        inner = contour_polygon(arbre.rayon_a_grade, cx, cy, scale)
+    if brin.est_ovale:
+        inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale)
         if ep > 0:
             def r_outer(g: float) -> float:
-                return arbre.rayon_a_grade(g) + ep
+                return brin.rayon_a_grade(g) + ep
 
             outer = contour_polygon(r_outer, cx, cy, scale)
             # Anneau d'écorce : contour externe + contour interne inversé
@@ -379,16 +386,16 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                   outline=COLOR_BARK, width=4)
 
 
-def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", brin: "Brin",
                           cx: float, cy: float,
                           ep: float, scale: float) -> None:
     # Fusionnés par zones connectées : plusieurs contreforts qui se
     # touchent sont rendus comme une seule cloche unifiée (max des
     # hauteurs), ce qui évite l'encoche en V. La base des cloches suit le
     # rayon LOCAL (constant si circulaire, ellipse sinon).
-    for zone in contrefort_zones(arbre.contreforts):
-        poly = contrefort_zone_outline(zone, arbre.contreforts,
-                                        arbre.rayon_a_grade, ep,
+    for zone in contrefort_zones(brin.contreforts):
+        poly = contrefort_zone_outline(zone, brin.contreforts,
+                                        brin.rayon_a_grade, ep,
                                         cx, cy, scale)
         wood_outer = poly["wood_outer"]
         if ep > 0:
@@ -399,15 +406,15 @@ def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", arbre: "Arbre",
             d.line(wood_outer, fill=COLOR_BARK, width=4, joint="curve")
 
 
-def _pil_draw_degradations(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _pil_draw_degradations(d: "ImageDraw.ImageDraw", brin: "Brin",
                            cx: float, cy: float,
                            ep: float, scale: float) -> None:
     # Le bord externe du polygone suit la surface réelle (rayon local +
     # ep + cloche). Une dégradation qui passe sur un contrefort y mord à
     # concurrence de sa profondeur.
-    for deg in arbre.degradations_externes:
-        pts_arc = degradation_externe_outline(deg, arbre.contreforts,
-                                               arbre.rayon_a_grade, ep,
+    for deg in brin.degradations_externes:
+        pts_arc = degradation_externe_outline(deg, brin.contreforts,
+                                               brin.rayon_a_grade, ep,
                                                cx, cy, scale)
         if pts_arc:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
@@ -441,12 +448,13 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
                fill=COLOR_INK, anchor="mm")
 
 
-def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
+def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
+                       port: str, meche: float,
                        cx: float, cy: float,
                        R: float, scale: float,
                        bullet_radius: int = BULLET_RADIUS_PX) -> None:
     inset_cm = SONDAGE_INSET_PX / scale
-    items = sondage_render_data(arbre, cx, cy, R, scale, inset_cm,
+    items = sondage_render_data(brin, port, meche, cx, cy, R, scale, inset_cm,
                                 COULEUR_CLASSE)
     r_b = bullet_radius
     ds_ratio = r_b / BULLET_RADIUS_PX

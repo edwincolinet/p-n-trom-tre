@@ -36,6 +36,7 @@ from diagnostic import (
 from geometry import GRADES
 from model import (
     Arbre,
+    Brin,
     Contrefort,
     DegradationExterne,
     Sondage,
@@ -743,6 +744,33 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         # t/R minimal reste affiché : c'est une mesure réelle sur la
         # seule direction sondée.
         self.assertIn("t/R minimal", joined)
+
+
+class BrinExtentTests(unittest.TestCase):
+    """Rayon d'encombrement d'un brin (`Brin.extent_cm`), pour le cadrage."""
+
+    def test_circulaire_nu_vaut_le_rayon(self):
+        b = Brin(rayon_tronc_cm=20.0)
+        self.assertAlmostEqual(b.extent_cm(), 20.0)
+
+    def test_ajoute_l_ecorce(self):
+        b = Brin(rayon_tronc_cm=20.0, epaisseur_ecorce_cm=2.0)
+        self.assertAlmostEqual(b.extent_cm(), 22.0)
+
+    def test_ajoute_la_plus_longue_saillie_de_contrefort(self):
+        b = Brin(rayon_tronc_cm=20.0, epaisseur_ecorce_cm=1.0)
+        b.contreforts.append(
+            Contrefort(grade_centre=100, largeur_grades=50, longueur_cm=8.0))
+        b.contreforts.append(
+            Contrefort(grade_centre=200, largeur_grades=50, longueur_cm=5.0))
+        # rayon + écorce + max(saillies) = 20 + 1 + 8
+        self.assertAlmostEqual(b.extent_cm(), 29.0)
+
+    def test_ovale_utilise_le_grand_axe(self):
+        # Le demi-grand-axe (rayon_tronc_cm) est le rayon maximal.
+        b = Brin(rayon_tronc_cm=20.0, rayon_petit_axe_cm=12.0,
+                 orientation_grade=0)
+        self.assertAlmostEqual(b.extent_cm(), 20.0)
 
 
 if __name__ == "__main__":

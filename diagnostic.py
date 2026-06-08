@@ -36,13 +36,20 @@ l'historique git, mais cible désormais ce module).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from bareme import classer_prbs
 from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy
 
 if TYPE_CHECKING:
-    from model import Arbre, Chantier  # noqa: F401
+    from model import Arbre, Brin, Chantier  # noqa: F401
+
+    # Une « section » = tout ce qui expose la surface géométrique d'une tige
+    # (rayon par direction, sondages, dégradations) : un `Brin` (= ramet,
+    # natif) ou un `Arbre` (= genet, qui relaie vers `brins[0]` via shims).
+    # Les fonctions de calcul/rendu acceptent indifféremment les deux, ce qui
+    # permet d'opérer par brin sans casser les ~nombreux appels genet-level.
+    Section = Union[Arbre, Brin]
 
 
 @dataclass(frozen=True)
@@ -136,7 +143,7 @@ class DiagnosticSnapshot:
         return (self.tR_moyen, self.classe_globale)
 
 
-def compute_alteration_par_grade(arbre: "Arbre") -> List[float]:
+def compute_alteration_par_grade(arbre: "Section") -> List[float]:
     """Calcule les 16 épaisseurs d'altération à partir des sondages :
 
     - directions sondées : valeur la plus défavorable des sondages,
@@ -204,7 +211,7 @@ def compute_alteration_par_grade(arbre: "Arbre") -> List[float]:
     return new_vals
 
 
-def degradation_externe_par_grade(arbre: "Arbre") -> List[float]:
+def degradation_externe_par_grade(arbre: "Section") -> List[float]:
     """Pour chaque direction (16 grades), retourne la profondeur
     maximale de dégradation externe qui couvre cette direction.
     0 si aucune dégradation ne la couvre.
@@ -578,7 +585,8 @@ class SondageRenderItem(NamedTuple):
 
 
 def sondage_render_data(
-    arbre: "Arbre", cx: float, cy: float, R: float, scale: float,
+    arbre: "Section", port: str, meche: float,
+    cx: float, cy: float, R: float, scale: float,
     inset_cm: float, couleur_classe: Dict[str, str],
 ) -> List[SondageRenderItem]:
     """Calcule les données de rendu de chaque sondage (position, couleur).
@@ -586,11 +594,16 @@ def sondage_render_data(
     Partage la logique entre les deux renderers (Tk et PIL) : même
     classification, même positionnement, même pénétration. Les renderers
     n'ont plus qu'à dessiner avec leur propre API.
+
+    `arbre` est une **section** (un `Brin`, ou un `Arbre` mono-brin via
+    shims) : on y lit la géométrie et les sondages. `port` et `meche` sont
+    des données **genet-level** (portées par l'`Arbre`, partagées par tous
+    les brins) — passées explicitement pour que ce calcul opère par brin
+    dans une cépée sans avoir à remonter au genet.
     """
     if R <= 0:
         return []
-    port = arbre.port_arbre
-    meche = arbre.meche_cm if arbre.meche_cm > 0 else float("inf")
+    meche = meche if meche > 0 else float("inf")
     deg_ext = degradation_externe_par_grade(arbre)
     items: List[SondageRenderItem] = []
     for s in arbre.sondages:

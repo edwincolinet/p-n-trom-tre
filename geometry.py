@@ -454,3 +454,48 @@ def ruler_graduation_positions(cx: float, scale: float,
     for r in range(step_cm, int(R), step_cm):
         out.append((cx + r * scale, str(r)))
     return out
+
+
+def brins_layout(positions_extents: List[Tuple[float, float, float]],
+                 width: float, height: float,
+                 margin_top: float, margin_bottom: float,
+                 margin_side: float) -> Tuple[float, float, float]:
+    """Cadrage global d'une cépée : place N brins dans la zone de dessin.
+
+    `positions_extents` = `[(pos_x_cm, pos_y_cm, extent_cm), ...]` pour chaque
+    brin (`extent_cm` = rayon d'encombrement, cf. `Brin.extent_cm`). Renvoie
+    `(scale, origin_x, origin_y)` :
+
+    - `scale` = facteur px/cm commun à tous les brins ;
+    - `(origin_x, origin_y)` = position écran (px) de l'origine du repère cm
+      (le cœur du brin[0], en (0, 0) cm).
+
+    La position écran d'un point cm `(X, Y)` est alors
+    `(origin_x + X * scale, origin_y + Y * scale)` (x → Est, y → Sud).
+
+    Cadrage **top-aligné, centré horizontalement** : c'est le placement
+    historique mono-brin (haut de la section à `margin_top`, section centrée
+    en largeur). Pour un brin unique centré, il reproduit donc l'ancien cadre.
+    Le `scale` mono-brin n'est PAS recalculé via ce helper (l'ordre des
+    divisions diffère, au risque d'un écart d'un ULP) : les orchestrateurs
+    gardent leur arithmétique mono-brin dédiée et n'appellent ce helper que
+    pour une vraie cépée.
+    """
+    if not positions_extents:
+        return 1.0, width / 2.0, margin_top
+    x0 = min(px - e for px, _py, e in positions_extents)
+    x1 = max(px + e for px, _py, e in positions_extents)
+    y0 = min(py - e for _px, py, e in positions_extents)
+    y1 = max(py + e for _px, py, e in positions_extents)
+    width_cm = x1 - x0
+    height_cm = y1 - y0
+    available_h = max(1.0, width - 2.0 * margin_side)
+    available_v = max(1.0, height - margin_top - margin_bottom)
+    if width_cm <= 0 or height_cm <= 0:
+        return 1.0, width / 2.0, margin_top
+    scale = min(available_h / width_cm, available_v / height_cm)
+    # Centrage horizontal de la bbox, top-alignement vertical.
+    bbox_center_x = (x0 + x1) / 2.0
+    origin_x = width / 2.0 - bbox_center_x * scale
+    origin_y = margin_top - y0 * scale
+    return scale, origin_x, origin_y
