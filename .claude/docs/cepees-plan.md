@@ -38,7 +38,7 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
 - [x] **Étape 1** — tronc **ovale** : modèle/diagnostic (t/R local),
   rendu elliptique PIL+Tk (goldens préservés), éditeur avancé `ask_forme_tronc`.
   (`059fed6` `7ede5bb` `d5c8515` `d6291e2`)
-- [~] **Étape 2** — rendu **multi-brins** (lecture seule). ← EN COURS
+- [x] **Étape 2** — rendu **multi-brins** (lecture seule) + saisie « ＋ Brin ».
   - [x] 2a — extraction `_draw_brin` (Tk + PIL) à comportement constant,
     goldens byte-identiques. (`e1f48fe`)
   - [x] 2b — généralisation `_draw_brin` **par brin** (helpers retypés
@@ -52,8 +52,11 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     brin, **boussole globale** sur le rectangle de la bbox (cardinales
     globales ; ticks restent par brin). Interaction laissée mono-brin
     (`_geom=None` en cépée). Fixture `cepee` + goldens PIL/Tk. (`2b883b2`)
-  - [ ] 2d — action **« ＋ Brin »** (cf. § 5) + « Supprimer brin ». ←
-    PROCHAINE
+  - [x] 2d — action **« ＋ Brin » / « − Brin »** (onglet Identification) :
+    `Arbre.ajouter_brin` (hérite la forme, place à l'Est, pas les mesures),
+    `supprimer_brin`, `_relabel_brins` (a/b/c…) ; `App.add_brin` /
+    `remove_last_brin` (undo + redraw). Le formulaire édite toujours le 1er
+    brin (sélecteur de brin pour la grille = Étape 4). (`92a32ba`)
   - *Reporté (révisable)* : **règle/échelle globale** d'une cépée (la
     `_draw_regle` mono reste section-centrée ; une cépée n'a pas encore de
     barre d'échelle). À reprendre quand l'édition souris arrivera.
