@@ -33,7 +33,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from bareme import classer_prbs
-from diagnostic import degradation_externe_par_grade, repartition_classes
+from diagnostic import (
+    degradation_externe_par_grade,
+    genet_diagnostic,
+    repartition_classes,
+    repartition_classes_brin,
+)
 from geometry import DIRECTION_LABELS, GRADES
 from palette import (
     COLOR_ACCENT,
@@ -154,7 +159,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # (entre 480 et 900 px). Évite que la page déborde quand l'arbre a
     # beaucoup de sondages, sans rapetisser inutilement le dessin quand
     # il en a peu.
-    n_sond = len(arbre.sondages) if R > 0 else 0
+    # Total des sondages sur tous les brins (cépée) pour dimensionner la
+    # hauteur du tableau et du dessin.
+    n_sond = sum(len(b.sondages) for b in arbre.brins
+                 if b.rayon_tronc_cm > 0)
     # Hauteur de ligne adaptative : on resserre les lignes du tableau
     # quand l'arbre a beaucoup de sondages, pour éviter de déborder de la
     # page. La police reste lisible (15 pt minimum).
@@ -196,12 +204,15 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                      show_classes=False)
         y += est_legend_h
 
-    # --- Tableau PRBS ajustée par sondage ---
-    if R > 0 and arbre.sondages:
-        d.text((margin, y), "Paroi Résiduelle de Bois Sain par sondage",
+    # --- Tableau PRBS ajustée par sondage (par brin pour une cépée) ---
+    multi_brins = len(arbre.brins) > 1
+    if n_sond > 0:
+        titre_tbl = ("Paroi Résiduelle de Bois Sain par sondage et par brin"
+                     if multi_brins
+                     else "Paroi Résiduelle de Bois Sain par sondage")
+        d.text((margin, y), titre_tbl,
                font=f(22, "serif_bold"), fill=COLOR_ACCENT)
         y += 36
-        deg_ext_par_grade = degradation_externe_par_grade(arbre)
         # Largeurs de colonnes redistribuées : Direction et PRBS plus
         # généreuses (où les valeurs sont les plus longues), Compart.
         # rétrécie (souvent juste « - » ou « active »).
@@ -229,41 +240,73 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                        font=f(17, "sans_bold"), fill="white",
                        anchor="lm")
         y += header_h_row
-        for k, s in enumerate(arbre.sondages):
-            dir_lbl = DIRECTION_LABELS.get(s.grade, "")
-            direction = f"{dir_lbl} ({s.grade} gr)" if dir_lbl \
-                else f"{s.grade} gr"
-            idx_g = GRADES.index(s.grade) if s.grade in GRADES else 0
-            deg_ext = deg_ext_par_grade[idx_g]
-            prbs_adj = max(0.0, s.prbs_cm - deg_ext)
-            ratio = prbs_adj / R
-            classe = classer_prbs(ratio, arbre.port_arbre)
-            col_c = COULEUR_CLASSE[classe]
-            if k % 2 == 0:
-                d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
-                            fill=COLOR_BG)
-            prbs_txt = f"{prbs_adj:g}"
-            vals = [str(s.numero), direction, prbs_txt,
-                    f"{100*ratio:.1f}", classe, s.compartimentation]
-            for i, v in enumerate(vals):
-                col = col_c if i == 4 else COLOR_INK
-                wt = "sans_bold" if i == 4 else "sans"
-                font_v = f(row_font_size, wt)
-                col_w = col_widths[i] - 24  # padding 12 de chaque côté
-                txt = _fit_text(v, font_v, col_w, d)
-                if i in right_align_data:
-                    d.text((cols_x[i+1]-12, y+row_h/2), txt,
-                           font=font_v, fill=col, anchor="rm")
-                else:
-                    d.text((cols_x[i]+12, y+row_h/2), txt,
-                           font=font_v, fill=col, anchor="lm")
-            y += row_h
+        # Itère tous les brins ; le N° est préfixé par le label en cépée
+        # (« a1 », « b2 »). Chaque brin a son propre rayon et ses propres
+        # dégradations externes (port partagé au niveau genet).
+        k = 0
+        for b in arbre.brins:
+            R_b = b.rayon_tronc_cm
+            if R_b <= 0:
+                continue
+            deg_ext_par_grade = degradation_externe_par_grade(b)
+            for s in b.sondages:
+                dir_lbl = DIRECTION_LABELS.get(s.grade, "")
+                direction = f"{dir_lbl} ({s.grade} gr)" if dir_lbl \
+                    else f"{s.grade} gr"
+                idx_g = GRADES.index(s.grade) if s.grade in GRADES else 0
+                deg_ext = deg_ext_par_grade[idx_g]
+                prbs_adj = max(0.0, s.prbs_cm - deg_ext)
+                ratio = prbs_adj / R_b
+                classe = classer_prbs(ratio, arbre.port_arbre)
+                col_c = COULEUR_CLASSE[classe]
+                if k % 2 == 0:
+                    d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
+                                fill=COLOR_BG)
+                k += 1
+                prbs_txt = f"{prbs_adj:g}"
+                num_txt = (f"{b.label}{s.numero}" if multi_brins and b.label
+                           else str(s.numero))
+                vals = [num_txt, direction, prbs_txt,
+                        f"{100*ratio:.1f}", classe, s.compartimentation]
+                for i, v in enumerate(vals):
+                    col = col_c if i == 4 else COLOR_INK
+                    wt = "sans_bold" if i == 4 else "sans"
+                    font_v = f(row_font_size, wt)
+                    col_w = col_widths[i] - 24  # padding 12 de chaque côté
+                    txt = _fit_text(v, font_v, col_w, d)
+                    if i in right_align_data:
+                        d.text((cols_x[i+1]-12, y+row_h/2), txt,
+                               font=font_v, fill=col, anchor="rm")
+                    else:
+                        d.text((cols_x[i]+12, y+row_h/2), txt,
+                               font=font_v, fill=col, anchor="lm")
+                y += row_h
         y += 18
 
-    # --- Diagnostic global enrichi (répartition par classe) ---
+    # --- Diagnostic ---
     d.text((margin, y), "Diagnostic",
            font=f(22, "serif_bold"), fill=COLOR_ACCENT)
     y += 36
+    if multi_brins:
+        # Cépée : classe globale (pire brin) + une ligne de synthèse par brin.
+        y = int(_draw_cepee_diagnostic(d, f, arbre, margin, W, y))
+    else:
+        y = int(_draw_mono_diagnostic(d, f, arbre, margin, W, R, y))
+
+    # --- Pied de page ---
+    d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
+    d.text((W/2, H-24),
+           f"Pénétromètre — Silvavenir, Foresterie urbaine   •   "
+           f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
+    return page
+
+
+def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
+                          margin: int, W: int, R: float, y: float) -> float:
+    """Bloc diagnostic d'un genet mono-caule (comportement historique) :
+    t/R moyen + min, barre de répartition Vert/Orange/Rouge, encadré classe
+    globale. Renvoie l'ordonnée après le bloc."""
     # `repartition_classes` renvoie un DiagnosticSnapshot self-contained
     # (ratios + extrapolation_text inclus) : pas besoin de rappeler
     # `ratio_tR_par_grade` / `extrapolation_summary_text` ici (chacun
@@ -392,11 +435,55 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     else:
         d.text((margin, y), "Aucune altération saisie.",
                font=f(18, "sans"), fill=COLOR_INK)
+        y += 28
+    return y
 
-    # --- Pied de page ---
-    d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
-    d.text((W/2, H-24),
-           f"Pénétromètre — Silvavenir, Foresterie urbaine   •   "
-           f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
-    return page
+
+def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
+                           margin: int, W: int, y: float) -> float:
+    """Bloc diagnostic d'une cépée : encadré classe globale (pire brin
+    fiable) puis une ligne de synthèse par brin (classe + t/R moyen/min, ou
+    « non fiable »). Renvoie l'ordonnée après le bloc."""
+    gd = genet_diagnostic(arbre)
+    port = arbre.port_arbre
+    if gd.classe_globale is not None:
+        col_g = COULEUR_CLASSE[gd.classe_globale]
+        box_w, box_h = 560, 60
+        d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
+        d.text((margin+box_w/2, y+box_h/2),
+               f"Classe globale (pire brin) : {gd.classe_globale}",
+               font=f(22, "sans_bold"), fill="white", anchor="mm")
+        y += box_h + 16
+    else:
+        d.text((margin, y),
+               "⚠ Classe globale indisponible : aucun brin avec au moins "
+               "3 directions sondées.",
+               font=f(18, "sans_bold"), fill=(176, 0, 32))
+        y += 36
+    d.text((margin, y), "Détail par brin :",
+           font=f(18, "sans_bold"), fill=COLOR_INK)
+    y += 32
+    for b in arbre.brins:
+        lbl = b.label or "?"
+        prefix = f"Brin {lbl} :  "
+        d.text((margin, y), prefix, font=f(17, "sans_bold"), fill=COLOR_INK)
+        px = margin + d.textbbox((0, 0), prefix, font=f(17, "sans_bold"))[2]
+        if b.rayon_tronc_cm <= 0:
+            d.text((px, y), "rayon non renseigné.",
+                   font=f(17, "sans"), fill=COLOR_MUTED)
+            y += 28
+            continue
+        snap = repartition_classes_brin(b, port)
+        diag = snap.diagnostic_global
+        if diag is not None:
+            tR_moyen_b, classe_b = diag
+            txt = (f"{classe_b}   •   t/R moyen {100*tR_moyen_b:.1f} %"
+                   f"   •   t/R min {100*snap.tR_min:.1f} %")
+            d.text((px, y), txt, font=f(17, "sans"),
+                   fill=COULEUR_CLASSE[classe_b])
+        else:
+            d.text((px, y),
+                   f"non fiable ({snap.n_sondees}/16 directions sondées).",
+                   font=f(17, "sans"), fill=COLOR_MUTED)
+        y += 28
+    return y
