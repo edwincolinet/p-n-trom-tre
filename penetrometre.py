@@ -637,6 +637,29 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                        if self._arbre_diag_fiable(x))
             self._update_etat_footer(n_ok, len(self.chantier.arbres))
 
+    def add_brin(self) -> None:
+        """Ajoute un brin (ramet) à l'arbre courant (cépée) : push undo,
+        mutation modèle, dirty + redraw. Le formulaire d'identification
+        continue d'éditer le 1er brin ; le nouveau brin apparaît dans le
+        dessin (lecture seule jusqu'à l'éditeur multi-brins)."""
+        a = self._current_arbre()
+        if not a:
+            return
+        self.push_undo()
+        a.ajouter_brin()
+        self._debounced_redraw()
+        self.pane_id.refresh_brin_buttons()
+
+    def remove_last_brin(self) -> None:
+        """Retire le dernier brin de la cépée (no-op si genet mono-caule)."""
+        a = self._current_arbre()
+        if not a or len(a.brins) <= 1:
+            return
+        self.push_undo()
+        a.supprimer_brin(len(a.brins) - 1)
+        self._debounced_redraw()
+        self.pane_id.refresh_brin_buttons()
+
     def _load_arbre_to_ui(self) -> None:
         """Recharge l'UI complète depuis l'arbre courant : identification
         + tables Sondages/Dégradations/Contreforts + redraw du dessin."""

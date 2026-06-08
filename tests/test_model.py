@@ -773,5 +773,63 @@ class BrinExtentTests(unittest.TestCase):
         self.assertAlmostEqual(b.extent_cm(), 20.0)
 
 
+class CepeeManagementTests(unittest.TestCase):
+    """Ajout / suppression / étiquetage des brins d'une cépée."""
+
+    def test_genet_mono_caule_a_un_brin_sans_label(self):
+        a = Arbre(rayon_tronc_cm=20.0)
+        self.assertEqual(len(a.brins), 1)
+        self.assertEqual(a.brins[0].label, "")
+
+    def test_ajouter_brin_herite_la_forme_pas_les_mesures(self):
+        a = Arbre(rayon_tronc_cm=18.0, epaisseur_ecorce_cm=1.5)
+        a.brins[0].rayon_petit_axe_cm = 12.0
+        a.brins[0].orientation_grade = 100
+        a.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=10.0,
+                                   bois_altere_cm=8.0))
+        nouveau = a.ajouter_brin()
+        # Forme héritée
+        self.assertAlmostEqual(nouveau.rayon_tronc_cm, 18.0)
+        self.assertAlmostEqual(nouveau.rayon_petit_axe_cm, 12.0)
+        self.assertEqual(nouveau.orientation_grade, 100)
+        self.assertAlmostEqual(nouveau.epaisseur_ecorce_cm, 1.5)
+        # Mesures NON héritées
+        self.assertEqual(nouveau.sondages, [])
+        self.assertEqual(nouveau.degradations_externes, [])
+        self.assertEqual(nouveau.contreforts, [])
+
+    def test_ajouter_brin_place_a_l_est_sans_recouvrement(self):
+        a = Arbre(rayon_tronc_cm=16.0)
+        b = a.ajouter_brin()
+        # Le nouveau brin est à droite : son bord gauche dépasse le bord
+        # droit du brin existant (pas de recouvrement).
+        bord_droit_a = a.brins[0].pos_x_cm + a.brins[0].extent_cm()
+        bord_gauche_b = b.pos_x_cm - b.extent_cm()
+        self.assertGreater(bord_gauche_b, bord_droit_a)
+
+    def test_labels_passent_a_abc_en_cepee(self):
+        a = Arbre(rayon_tronc_cm=16.0)
+        a.ajouter_brin()
+        a.ajouter_brin()
+        self.assertEqual([b.label for b in a.brins], ["a", "b", "c"])
+
+    def test_supprimer_brin_reetiquette_et_refuse_sous_un(self):
+        a = Arbre(rayon_tronc_cm=16.0)
+        a.ajouter_brin()  # 2 brins : a, b
+        self.assertTrue(a.supprimer_brin(1))
+        self.assertEqual(len(a.brins), 1)
+        # Retour mono-caule : label remis à vide.
+        self.assertEqual(a.brins[0].label, "")
+        # On ne descend pas sous 1 brin.
+        self.assertFalse(a.supprimer_brin(0))
+        self.assertEqual(len(a.brins), 1)
+
+    def test_supprimer_brin_index_hors_bornes(self):
+        a = Arbre(rayon_tronc_cm=16.0)
+        a.ajouter_brin()
+        self.assertFalse(a.supprimer_brin(5))
+        self.assertEqual(len(a.brins), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -280,6 +280,29 @@ class TestAppMixins(unittest.TestCase):
         self.assertEqual(len(self.app.chantier.arbres), 2)
         self.assertEqual(self.app.current_idx, 1)
 
+    def test_add_brin_cree_une_cepee_et_undo(self) -> None:
+        a = self.app.chantier.arbres[0]
+        a.rayon_tronc_cm = 16.0
+        self.assertEqual(len(a.brins), 1)
+        self.app.add_brin()
+        self.assertEqual(len(a.brins), 2)
+        self.assertEqual([b.label for b in a.brins], ["a", "b"])
+        # 2e brin placé à l'Est (pos_x > 0).
+        self.assertGreater(a.brins[1].pos_x_cm, 0.0)
+        # Undo retire le brin ajouté.
+        self.app._perform_undo()
+        self.assertEqual(len(self.app.chantier.arbres[0].brins), 1)
+
+    def test_remove_last_brin_refuse_de_descendre_sous_un(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.add_brin()
+        self.assertEqual(len(a.brins), 2)
+        self.app.remove_last_brin()
+        self.assertEqual(len(a.brins), 1)
+        # Genet mono-caule : nouvel appel sans effet.
+        self.app.remove_last_brin()
+        self.assertEqual(len(a.brins), 1)
+
     def test_progression_onglets_reflete_l_avancement(self) -> None:
         a = self.app.chantier.arbres[0]
         a.essence = "Platane"

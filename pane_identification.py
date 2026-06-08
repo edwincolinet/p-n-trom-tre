@@ -31,6 +31,7 @@ from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import ask_forme_tronc, to_float, validate_numeric
 from model import Arbre
+from tooltip import Tooltip
 
 _log = logging.getLogger("penetrometre")
 
@@ -39,6 +40,8 @@ class _IdentificationHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None: ...
     def push_undo(self) -> None: ...
+    def add_brin(self) -> None: ...
+    def remove_last_brin(self) -> None: ...
 
 
 class IdentificationPane(ttk.Frame):
@@ -140,6 +143,27 @@ class IdentificationPane(ttk.Frame):
                 style="Ghost.TButton", command=self._open_forme_editor)
             self.btn_forme.grid(row=99, column=0,
                                 columnspan=2, sticky="w", pady=(6, 0))
+            # Cépée : ajouter / retirer un brin (ramet). Le formulaire ci-dessus
+            # édite le 1er brin ; « ＋ Brin » crée une tige héritée placée à
+            # l'Est (mesures à relever séparément — la saisie par brin arrivera
+            # avec l'éditeur). Lecture seule du dessin pour l'instant.
+            brin_bar = ttk.Frame(self._tronc_box, style="Panel.TFrame")
+            brin_bar.grid(row=100, column=0, columnspan=2, sticky="w",
+                          pady=(6, 0))
+            self.btn_add_brin = ttk.Button(
+                brin_bar, text="＋ Brin", style="Ghost.TButton",
+                command=self._add_brin)
+            self.btn_add_brin.pack(side="left")
+            self.btn_del_brin = ttk.Button(
+                brin_bar, text="− Brin", style="Ghost.TButton",
+                command=self._remove_last_brin)
+            self.btn_del_brin.pack(side="left", padx=(6, 0))
+            self.lbl_brins = ttk.Label(brin_bar, text="", style="Muted.TLabel")
+            self.lbl_brins.pack(side="left", padx=(10, 0))
+            Tooltip(self.btn_add_brin,
+                    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+                    "La nouvelle tige hérite la forme de la précédente et se "
+                    "place à l'Est ; ses mesures sont à relever séparément.")
 
         for var in (self.var_meche, self.var_ep_ecorce,
                     self.var_h_s, self.var_h_arb):
@@ -201,6 +225,28 @@ class IdentificationPane(ttk.Frame):
                                     if a.epaisseur_ecorce_cm else "0")
             self.var_port.set(a.port_arbre)
             self.var_comm.set(a.commentaire)
+        self.refresh_brin_buttons()
+
+    def refresh_brin_buttons(self) -> None:
+        """Met à jour l'état des boutons de cépée et le compteur de brins :
+        « − Brin » désactivé sur un genet mono-caule (≥ 1 brin garanti)."""
+        if not hasattr(self, "btn_del_brin"):
+            return
+        a = self._host._current_arbre()
+        n = len(a.brins) if a else 1
+        self.btn_del_brin.configure(
+            state=("normal" if n > 1 else "disabled"))
+        self.lbl_brins.configure(
+            text=(f"Cépée : {n} brins" if n > 1 else "1 brin (tige unique)"))
+
+    def _add_brin(self) -> None:
+        """Ajoute un brin à la cépée (flush d'un rayon en cours d'abord, pour
+        que le nouveau brin hérite de la forme à jour)."""
+        self._commit_rayon()
+        self._host.add_brin()
+
+    def _remove_last_brin(self) -> None:
+        self._host.remove_last_brin()
 
     def _mark_field(self, var: tk.StringVar, valid: bool) -> None:
         w = self._entry_widgets.get(str(var))

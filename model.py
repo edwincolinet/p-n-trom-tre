@@ -527,6 +527,53 @@ class Arbre:
     def renumeroter_contreforts(self) -> None:
         self.brin_courant.renumeroter_contreforts()
 
+    # ---- Gestion des brins de la cépée -----------------------------------
+
+    def _relabel_brins(self) -> None:
+        """Réétiquette les brins : `""` pour un genet mono-caule (un seul
+        brin), sinon `"a"`, `"b"`, `"c"`… dans l'ordre de la liste. Appelé
+        après tout ajout/suppression de brin."""
+        if len(self.brins) <= 1:
+            for b in self.brins:
+                b.label = ""
+        else:
+            for i, b in enumerate(self.brins):
+                b.label = chr(ord("a") + i) if i < 26 else str(i + 1)
+
+    def ajouter_brin(self) -> Brin:
+        """Ajoute un brin à la cépée et le renvoie.
+
+        Le nouveau brin **hérite de la forme** du brin le plus à l'Est
+        (rayon, ellipse, écorce, diamètre) mais PAS de ses mesures (sondages,
+        dégradations, contreforts — à relever sur la nouvelle tige). Il est
+        placé à l'**Est** de la cépée, sans recouvrement (`pos_x` au-delà du
+        bord droit + marge). Les labels sont remis à jour (a, b, c…)."""
+        ref = self.brins[-1] if self.brins else Brin()
+        nouveau = Brin(
+            rayon_tronc_cm=ref.rayon_tronc_cm,
+            rayon_petit_axe_cm=ref.rayon_petit_axe_cm,
+            orientation_grade=ref.orientation_grade,
+            epaisseur_ecorce_cm=ref.epaisseur_ecorce_cm,
+            diametre_sous_ecorce_cm=ref.diametre_sous_ecorce_cm,
+        )
+        if self.brins:
+            marge = 4.0
+            bord_est = max(b.pos_x_cm + b.extent_cm() for b in self.brins)
+            nouveau.pos_x_cm = bord_est + nouveau.extent_cm() + marge
+        self.brins.append(nouveau)
+        self._relabel_brins()
+        return nouveau
+
+    def supprimer_brin(self, index: int) -> bool:
+        """Supprime le brin d'indice `index`. Refuse de descendre sous 1 brin
+        (un genet a toujours ≥ 1 brin) ou un index hors bornes. Renvoie
+        `True` si un brin a été retiré (les restants sont réétiquetés)."""
+        if len(self.brins) <= 1 or not (0 <= index < len(self.brins)):
+            return False
+        del self.brins[index]
+        self._relabel_brins()
+        return True
+
     @property
     def display_name(self) -> str:
         """Nom affiché : 'Arbre n°X' ou 'Arbre n°X — Essence'."""
