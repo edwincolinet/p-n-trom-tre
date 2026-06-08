@@ -27,7 +27,7 @@ from typing import Any, Optional, Protocol
 from bareme import classer_prbs
 from diagnostic import (
     degradation_externe_par_grade,
-    diagnostic_summary_lines,
+    genet_summary_lines,
 )
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre
@@ -180,46 +180,54 @@ class DiagnosticPane(ttk.Frame):
         l'arbre courant. Appelé par App._redraw_all après le debounce."""
         a = self._host._current_arbre()
 
-        # --- Tableau PRBS par sondage ---
+        # --- Tableau PRBS par sondage (par brin pour une cépée) ---
         self.tbl_prbs.delete(*self.tbl_prbs.get_children())
-        if a and a.rayon_tronc_cm > 0:
-            R = a.rayon_tronc_cm
+        if a:
+            # Une cépée préfixe le N° par le label du brin (« a1 », « b2 »).
+            multi = len(a.brins) > 1
             port = a.port_arbre
-            deg_ext_par_grade = degradation_externe_par_grade(a)
-            for s in a.sondages:
-                direction = DIRECTION_LABELS.get(s.grade, "")
-                if not direction and s.grade in GRADES:
-                    idx = GRADES.index(s.grade)
-                    for delta in (1, -1, 2, -2):
-                        g2 = GRADES[(idx + delta) % 16]
-                        if DIRECTION_LABELS.get(g2):
-                            direction = f"~{DIRECTION_LABELS[g2]}"
-                            break
-                # PRBS ajustée = bois sain mesuré - dégradation externe
-                # qui couvre cette direction.
-                idx_grade = GRADES.index(s.grade) if s.grade in GRADES else 0
-                deg_ext = deg_ext_par_grade[idx_grade]
-                prbs_adj = max(0.0, s.prbs_cm - deg_ext)
-                ratio = prbs_adj / R if R > 0 else 0.0
-                classe = classer_prbs(ratio, port)
-                tag = classe.lower()
-                if deg_ext > 0:
-                    prbs_txt = f"{prbs_adj:g} (–{deg_ext:g} ext.)"
-                else:
-                    prbs_txt = f"{prbs_adj:g}"
-                self.tbl_prbs.insert(
-                    "", "end",
-                    values=(s.numero, f"{direction} ({s.grade} gr)",
-                            prbs_txt,
-                            f"{100*ratio:.1f}",
-                            classe),
-                    tags=(tag,))
+            for b in a.brins:
+                R = b.rayon_tronc_cm
+                if R <= 0:
+                    continue
+                deg_ext_par_grade = degradation_externe_par_grade(b)
+                for s in b.sondages:
+                    direction = DIRECTION_LABELS.get(s.grade, "")
+                    if not direction and s.grade in GRADES:
+                        idx = GRADES.index(s.grade)
+                        for delta in (1, -1, 2, -2):
+                            g2 = GRADES[(idx + delta) % 16]
+                            if DIRECTION_LABELS.get(g2):
+                                direction = f"~{DIRECTION_LABELS[g2]}"
+                                break
+                    # PRBS ajustée = bois sain mesuré - dégradation externe
+                    # qui couvre cette direction.
+                    idx_grade = (GRADES.index(s.grade)
+                                 if s.grade in GRADES else 0)
+                    deg_ext = deg_ext_par_grade[idx_grade]
+                    prbs_adj = max(0.0, s.prbs_cm - deg_ext)
+                    ratio = prbs_adj / R if R > 0 else 0.0
+                    classe = classer_prbs(ratio, port)
+                    tag = classe.lower()
+                    if deg_ext > 0:
+                        prbs_txt = f"{prbs_adj:g} (–{deg_ext:g} ext.)"
+                    else:
+                        prbs_txt = f"{prbs_adj:g}"
+                    num = (f"{b.label}{s.numero}" if multi and b.label
+                           else str(s.numero))
+                    self.tbl_prbs.insert(
+                        "", "end",
+                        values=(num, f"{direction} ({s.grade} gr)",
+                                prbs_txt,
+                                f"{100*ratio:.1f}",
+                                classe),
+                        tags=(tag,))
 
-        # --- Texte de résumé enrichi ---
+        # --- Texte de résumé enrichi (agrégé par brin pour une cépée) ---
         if not a:
             self.lbl_diag.configure(
                 text="Renseignez le rayon du tronc et ajoutez des "
                      "sondages pour obtenir un résumé.")
             return
         self.lbl_diag.configure(
-            text="\n".join(diagnostic_summary_lines(a)))
+            text="\n".join(genet_summary_lines(a)))

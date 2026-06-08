@@ -495,42 +495,42 @@ def genet_diagnostic(arbre: "Arbre") -> GenetDiagnostic:
 
 
 def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
-    """Renvoie les lignes textuelles du résumé diagnostic, prêtes à
-    être jointes par `"\\n".join(...)` pour un widget Label Tk.
+    """Résumé diagnostic du **brin courant** du genet (compat mono-brin,
+    inchangé). Pour une cépée, voir `genet_summary_lines` (résumé agrégé
+    avec un bloc par brin). Lignes prêtes à `"\\n".join(...)` pour un Label
+    Tk. Fonction pure."""
+    return _section_summary_lines(arbre.brin_courant, arbre.port_arbre,
+                                  arbre.display_name)
 
-    Couvre :
-    - identité de l'arbre + comptes de sondages/dégradations/contreforts ;
-    - fiabilité de l'extrapolation (n/16 directions, écart angulaire max) ;
-    - direction critique (t/R minimal) ;
-    - répartition Vert/Orange/Rouge sur les 16 directions ;
-    - t/R moyen et classe globale.
 
-    Cas particuliers :
-    - rayon nul → une seule ligne d'aide à l'utilisateur ;
-    - aucune altération saisie → un message court remplace la
-      répartition.
+def _section_summary_lines(section: "Section", port: str, titre: str, *,
+                           show_port: bool = True) -> List[str]:
+    """Cœur du résumé textuel pour UNE section (brin), paramétré par son
+    titre et le port (genet-level).
 
-    Fonction pure, testable. Les widgets Tk sont mis à jour par
-    l'appelant (`pane_diagnostic.refresh`).
-    """
-    if arbre.rayon_tronc_cm <= 0:
+    Couvre : identité/comptes, fiabilité de l'extrapolation, direction
+    critique (t/R min), répartition Vert/Orange/Rouge, t/R moyen + classe.
+    Rayon nul → ligne d'aide ; aucune altération → message court.
+    `show_port=False` masque la ligne « Port » (redondante dans un bloc de
+    brin où le port du genet est déjà affiché en tête)."""
+    if section.rayon_tronc_cm <= 0:
         return ["Renseignez le rayon du tronc et ajoutez des "
                 "sondages pour obtenir un résumé."]
 
-    R = arbre.rayon_tronc_cm
-    # Un seul appel à repartition_classes : le snapshot porte aussi
+    R = section.rayon_tronc_cm
+    # Un seul appel à repartition_classes_brin : le snapshot porte aussi
     # `ratios` et `extrapolation_text` pour qu'on n'ait pas à rejouer
-    # `ratio_tR_par_grade` ni `extrapolation_summary_text` (qui
-    # repassent par compute_alteration_par_grade et ses copains).
-    snap = repartition_classes(arbre)
+    # `ratio_tR_par_grade` ni `extrapolation_summary_text`.
+    snap = repartition_classes_brin(section, port)
     lignes: List[str] = [
-        f"« {arbre.display_name} »",
-        f"Rayon : {R:g} cm   •   Sondages : {len(arbre.sondages)}"
-        f"   •   Dégrad. ext. : {len(arbre.degradations_externes)}"
-        f"   •   Contreforts : {len(arbre.contreforts)}",
-        f"Port : {arbre.port_arbre}",
-        "",
+        f"« {titre} »",
+        f"Rayon : {R:g} cm   •   Sondages : {len(section.sondages)}"
+        f"   •   Dégrad. ext. : {len(section.degradations_externes)}"
+        f"   •   Contreforts : {len(section.contreforts)}",
     ]
+    if show_port:
+        lignes.append(f"Port : {port}")
+    lignes.append("")
     if snap.extrapolation_text:
         lignes.append(snap.extrapolation_text)
         lignes.append("")
@@ -549,9 +549,6 @@ def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
     # trop peu de mesures réelles sur le pourtour (les directions non
     # sondées sont extrapolées ou supposées saines), ce qui ferait
     # afficher un t/R moyen et une classe globale faussement rassurants.
-    # La propriété `diagnostic_global` retourne `None` dans ce cas — un
-    # seul point d'entrée à respecter (par tous les exports) au lieu de
-    # tester `diagnostic_fiable` à la main.
     diag = snap.diagnostic_global
     if diag is None:
         lignes.append(
@@ -572,6 +569,36 @@ def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
     lignes.append(
         f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %")
     lignes.append(f"→ Classe globale : {classe_globale}")
+    return lignes
+
+
+def genet_summary_lines(arbre: "Arbre") -> List[str]:
+    """Résumé diagnostic d'un genet, prêt à `"\\n".join(...)`.
+
+    Mono-caule → identique à `diagnostic_summary_lines`. Cépée → en-tête
+    (classe globale = pire brin fiable) puis un **bloc par brin** (a, b, …).
+    Fonction pure."""
+    if len(arbre.brins) <= 1:
+        return diagnostic_summary_lines(arbre)
+    gd = genet_diagnostic(arbre)
+    lignes: List[str] = [
+        f"« {arbre.display_name} » — cépée à {len(arbre.brins)} brins",
+        f"Port : {arbre.port_arbre}",
+    ]
+    if gd.classe_globale is not None:
+        lignes.append(
+            f"→ Classe globale (pire brin fiable) : {gd.classe_globale}")
+    else:
+        lignes.append(
+            "⚠ Classe globale indisponible : aucun brin avec au moins "
+            "3 directions sondées.")
+    lignes.append("")
+    for b in arbre.brins:
+        lbl = b.label or "?"
+        lignes.append(f"──── Brin {lbl} ────")
+        lignes.extend(_section_summary_lines(
+            b, arbre.port_arbre, f"Brin {lbl}", show_port=False))
+        lignes.append("")
     return lignes
 
 

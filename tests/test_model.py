@@ -29,6 +29,7 @@ from diagnostic import (
     diagnostic_summary_lines,
     extrapolation_summary,
     genet_diagnostic,
+    genet_summary_lines,
     pire_classe,
     prbs_par_grade,
     ratio_tR_par_grade,
@@ -905,6 +906,24 @@ class GenetDiagnosticTests(unittest.TestCase):
         gd = genet_diagnostic(a)
         self.assertIsNone(gd.classe_globale)
         self.assertFalse(gd.fiable)
+
+    def test_genet_summary_mono_brin_identique(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_sain_cm=15.0,
+                                   bois_altere_cm=5.0))
+        self.assertEqual(genet_summary_lines(a), diagnostic_summary_lines(a))
+
+    def test_genet_summary_cepee_a_un_bloc_par_brin(self):
+        a = Arbre(port_arbre="libre", brins=[
+            self._brin(20.0, [(0, 18.0), (25, 18.0), (50, 18.0)]),
+            self._brin(20.0, [(0, 2.0), (25, 2.0), (50, 2.0)]),
+        ])
+        a._relabel_brins()
+        txt = "\n".join(genet_summary_lines(a))
+        self.assertIn("cépée à 2 brins", txt)
+        self.assertIn("Classe globale (pire brin fiable)", txt)
+        self.assertIn("──── Brin a ────", txt)
+        self.assertIn("──── Brin b ────", txt)
 
     def test_brin_rayon_nul_non_fiable(self):
         a = Arbre(port_arbre="libre", brins=[
