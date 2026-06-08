@@ -28,10 +28,13 @@ from diagnostic import (
     degradation_externe_par_grade,
     diagnostic_summary_lines,
     extrapolation_summary,
+    genet_diagnostic,
+    pire_classe,
     prbs_par_grade,
     ratio_tR_par_grade,
     rayon_par_grade,
     repartition_classes,
+    repartition_classes_brin,
 )
 from geometry import GRADES
 from model import (
@@ -829,6 +832,90 @@ class CepeeManagementTests(unittest.TestCase):
         a.ajouter_brin()
         self.assertFalse(a.supprimer_brin(5))
         self.assertEqual(len(a.brins), 2)
+
+
+class GenetDiagnosticTests(unittest.TestCase):
+    """Agrégation pire-brin du diagnostic d'un genet (cépée)."""
+
+    def _brin(self, rayon: float, mesures: list) -> Brin:
+        """Brin avec des sondages (grade, bois_sain) ; altéré = rayon − sain."""
+        b = Brin(rayon_tronc_cm=rayon)
+        for i, (g, sain) in enumerate(mesures):
+            b.sondages.append(Sondage(numero=i + 1, grade=g, bois_sain_cm=sain,
+                                       bois_altere_cm=max(0.0, rayon - sain)))
+        return b
+
+    def test_pire_classe(self):
+        self.assertEqual(pire_classe(["Vert", "Rouge", "Orange"]), "Rouge")
+        self.assertEqual(pire_classe(["Vert", "Orange"]), "Orange")
+        self.assertEqual(pire_classe(["Vert"]), "Vert")
+        self.assertIsNone(pire_classe([]))
+
+    def test_mono_brin_coincide_avec_repartition_classes(self):
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        for i, g in enumerate((0, 25, 50)):
+            a.sondages.append(Sondage(numero=i + 1, grade=g,
+                                       bois_sain_cm=18.0, bois_altere_cm=2.0))
+        gd = genet_diagnostic(a)
+        snap = repartition_classes(a)
+        self.assertEqual(len(gd.brins), 1)
+        self.assertEqual(gd.fiable, snap.diagnostic_fiable)
+        assert snap.diagnostic_global is not None
+        self.assertEqual(gd.classe_globale, snap.diagnostic_global[1])
+
+    def test_repartition_classes_delegue_au_brin_courant(self):
+        # repartition_classes(arbre) == repartition_classes_brin(brin[0], port)
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_sain_cm=10.0,
+                                   bois_altere_cm=10.0))
+        self.assertEqual(repartition_classes(a),
+                         repartition_classes_brin(a.brins[0], a.port_arbre))
+
+    def test_cepee_classe_globale_est_le_pire_brin(self):
+        a = Arbre(port_arbre="libre", brins=[
+            self._brin(20.0, [(0, 18.0), (25, 18.0), (50, 18.0)]),
+            self._brin(20.0, [(0, 1.0), (25, 1.0), (50, 1.0),
+                              (75, 1.0), (100, 1.0)]),
+        ])
+        gd = genet_diagnostic(a)
+        cls = [bd.snapshot.diagnostic_global[1] for bd in gd.brins
+               if bd.snapshot.diagnostic_global is not None]
+        self.assertEqual(gd.classe_globale, pire_classe(cls))
+        self.assertTrue(gd.fiable)
+
+    def test_brin_non_fiable_exclu_de_la_classe_globale(self):
+        # Un brin à 1 sondage très altéré ne doit PAS déclasser le genet.
+        a = Arbre(port_arbre="libre", brins=[
+            self._brin(20.0, [(0, 18.0), (25, 18.0), (50, 18.0)]),
+            Brin(rayon_tronc_cm=20.0, sondages=[
+                Sondage(grade=0, bois_sain_cm=1.0, bois_altere_cm=19.0)]),
+        ])
+        gd = genet_diagnostic(a)
+        self.assertFalse(gd.brins[1].fiable)
+        self.assertTrue(gd.fiable)  # le 1er brin est fiable
+        assert gd.brins[0].snapshot.diagnostic_global is not None
+        self.assertEqual(gd.classe_globale,
+                         gd.brins[0].snapshot.diagnostic_global[1])
+
+    def test_aucun_brin_fiable_classe_none(self):
+        a = Arbre(port_arbre="libre", brins=[
+            Brin(rayon_tronc_cm=20.0, sondages=[
+                Sondage(grade=0, bois_sain_cm=10.0, bois_altere_cm=10.0)]),
+        ])
+        gd = genet_diagnostic(a)
+        self.assertIsNone(gd.classe_globale)
+        self.assertFalse(gd.fiable)
+
+    def test_brin_rayon_nul_non_fiable(self):
+        a = Arbre(port_arbre="libre", brins=[
+            Brin(rayon_tronc_cm=0.0, sondages=[
+                Sondage(grade=0, bois_sain_cm=0.0, bois_altere_cm=0.0),
+                Sondage(grade=25, bois_sain_cm=0.0, bois_altere_cm=0.0),
+                Sondage(grade=50, bois_sain_cm=0.0, bois_altere_cm=0.0)]),
+        ])
+        gd = genet_diagnostic(a)
+        self.assertFalse(gd.brins[0].fiable)
+        self.assertFalse(gd.fiable)
 
 
 if __name__ == "__main__":

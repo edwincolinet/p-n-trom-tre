@@ -224,7 +224,7 @@ def degradation_externe_par_grade(arbre: "Section") -> List[float]:
     return out
 
 
-def rayon_par_grade(arbre: "Arbre") -> List[float]:
+def rayon_par_grade(arbre: "Section") -> List[float]:
     """Pour chaque direction (16 grades), retourne le rayon extérieur du
     bois en cm.
 
@@ -236,7 +236,7 @@ def rayon_par_grade(arbre: "Arbre") -> List[float]:
     return [arbre.rayon_a_grade(g) for g in GRADES]
 
 
-def prbs_par_grade(arbre: "Arbre") -> List[float]:
+def prbs_par_grade(arbre: "Section") -> List[float]:
     """Pour chaque direction (16 grades), retourne la PRBS réelle :
     rayon - altération interne - dégradation externe.
 
@@ -253,7 +253,7 @@ def prbs_par_grade(arbre: "Arbre") -> List[float]:
     return [max(0.0, rayons[i] - alt_int[i] - deg_ext[i]) for i in range(16)]
 
 
-def ratio_tR_par_grade(arbre: "Arbre") -> List[float]:
+def ratio_tR_par_grade(arbre: "Section") -> List[float]:
     """Pour chaque direction, ratio t/R = PRBS / Rayon (entre 0 et 1).
 
     Le rayon dénominateur est le rayon LOCAL de la direction
@@ -273,7 +273,7 @@ def ratio_tR_par_grade(arbre: "Arbre") -> List[float]:
             for i in range(16)]
 
 
-def extrapolation_summary(arbre: "Arbre") -> Dict[str, int]:
+def extrapolation_summary(arbre: "Section") -> Dict[str, int]:
     """Indicateurs bruts de fiabilité de l'extrapolation.
 
     Renvoie un dict :
@@ -311,7 +311,7 @@ def extrapolation_summary(arbre: "Arbre") -> Dict[str, int]:
             "ecart_max_grades": ecart_max}
 
 
-def extrapolation_summary_text(arbre: "Arbre") -> str:
+def extrapolation_summary_text(arbre: "Section") -> str:
     """Phrase prête à afficher pour le diagnostic. Renvoie une chaîne
     vide si aucun sondage n'a été saisi (auquel cas le diagnostic
     affiche déjà « aucune altération »)."""
@@ -329,7 +329,19 @@ def extrapolation_summary_text(arbre: "Arbre") -> str:
 
 
 def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
-    """Construit un `DiagnosticSnapshot` self-contained pour l'arbre.
+    """Diagnostic du **brin courant** du genet (compat : `brins[0]` + port
+    du genet). Point d'entrée historique, inchangé pour tous les appelants
+    mono-brin. Pour une cépée, voir `repartition_classes_brin` (par brin) et
+    `genet_diagnostic` (agrégation pire-brin)."""
+    return repartition_classes_brin(arbre.brin_courant, arbre.port_arbre)
+
+
+def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapshot:
+    """Construit un `DiagnosticSnapshot` self-contained pour une **section**
+    (un `Brin`, ou un `Arbre` mono-brin via shims).
+
+    `port` est genet-level (partagé par tous les brins de la cépée) → passé
+    explicitement, comme `sondage_render_data`.
 
     Snapshot self-contained : la dataclass porte aussi `ratios` et
     `extrapolation_text` pour que les callers (fiche PDF, diagnostic
@@ -340,12 +352,13 @@ def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
     Voir `DiagnosticSnapshot` pour le détail du contrat (en
     particulier `diagnostic_fiable`).
     """
+    arbre = section  # alias local : le corps lit la géométrie de la section
     ratios = ratio_tR_par_grade(arbre)
     # Compteurs par classe, construits localement puis figés dans le
     # dataclass à la fin.
     n_par_classe = {"Vert": 0, "Orange": 0, "Rouge": 0}
     for r in ratios:
-        n_par_classe[classer_prbs(r, arbre.port_arbre)] += 1
+        n_par_classe[classer_prbs(r, port)] += 1
     # Chaque secteur = 25 gr ; pourcentage du périmètre = grades/400.
     repartitions = {
         cls: ClasseRepartition(
@@ -385,7 +398,7 @@ def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
     # l'utilisateur métier — la fiche PDF, XLSX et HTML s'alignent
     # toutes sur ce choix.
     tR_moyen = sum(ratios) / len(ratios) if ratios else 1.0
-    classe_globale = classer_prbs(tR_moyen, arbre.port_arbre)
+    classe_globale = classer_prbs(tR_moyen, port)
     # Pire classe ponctuelle (info complémentaire)
     if repartitions["Rouge"].n > 0:
         classe_pire = "Rouge"
@@ -416,6 +429,69 @@ def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
         diagnostic_fiable=n_sondees >= 3,
         extrapolation_text=extrapolation_summary_text(arbre),
     )
+
+
+# ---------------------------------------------------------------------
+# Agrégation genet (cépée) : un diagnostic par brin + classe globale
+# ---------------------------------------------------------------------
+
+# Ordre de gravité des classes : le « pire brin » d'une cépée est celui de
+# classe maximale selon cet ordre (approche sécuritaire validée Silvavenir —
+# l'agrégat porte sur les CLASSES des brins, jamais sur un t/R moyen
+# inter-brins, dont les repères polaires distincts n'ont pas de sens commun).
+_GRAVITE_CLASSE = {"Vert": 0, "Orange": 1, "Rouge": 2}
+
+
+def pire_classe(classes: List[str]) -> Optional[str]:
+    """Classe la plus défavorable d'une liste (Rouge > Orange > Vert).
+    `None` si la liste est vide."""
+    if not classes:
+        return None
+    return max(classes, key=lambda c: _GRAVITE_CLASSE.get(c, 0))
+
+
+class BrinDiagnostic(NamedTuple):
+    """Diagnostic d'un brin dans le contexte d'un genet."""
+    label: str                      # « a », « b », … ("" si genet mono-caule)
+    snapshot: DiagnosticSnapshot    # diagnostic complet du brin
+    fiable: bool                    # rayon défini ET ≥ 3 directions sondées
+
+
+class GenetDiagnostic(NamedTuple):
+    """Diagnostic agrégé d'un genet (cépée) : un snapshot par brin + la
+    synthèse pire-brin.
+
+    `classe_globale` = pire classe parmi les brins **fiables** (≥ 3 sondages
+    ET rayon défini) ; `None` si aucun brin n'est fiable. `fiable` = au moins
+    un brin fiable (le genet a alors une classe publiable). Règle métier :
+    un brin non fiable est **rapporté** (dans `brins`) mais n'entre PAS dans
+    la classe globale et ne rend pas le genet non publiable.
+    """
+    brins: List[BrinDiagnostic]
+    classe_globale: Optional[str]
+    fiable: bool
+
+
+def genet_diagnostic(arbre: "Arbre") -> GenetDiagnostic:
+    """Agrège le diagnostic d'un genet (mono-caule ou cépée).
+
+    Un `BrinDiagnostic` par brin (diagnostic du brin + sa fiabilité), et la
+    classe globale = pire classe parmi les brins fiables. Pour un genet
+    mono-brin, `classe_globale`/`fiable` coïncident avec le diagnostic du
+    brin unique (comportement historique préservé)."""
+    port = arbre.port_arbre
+    brins_diag: List[BrinDiagnostic] = []
+    for b in arbre.brins:
+        snap = repartition_classes_brin(b, port)
+        fiable = b.rayon_tronc_cm > 0 and snap.diagnostic_fiable
+        brins_diag.append(BrinDiagnostic(label=b.label, snapshot=snap,
+                                         fiable=fiable))
+    classes = [bd.snapshot.diagnostic_global[1]
+               for bd in brins_diag
+               if bd.fiable and bd.snapshot.diagnostic_global is not None]
+    return GenetDiagnostic(brins=brins_diag,
+                           classe_globale=pire_classe(classes),
+                           fiable=any(bd.fiable for bd in brins_diag))
 
 
 def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
