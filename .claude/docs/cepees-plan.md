@@ -60,9 +60,22 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
   - *Reporté (révisable)* : **règle/échelle globale** d'une cépée (la
     `_draw_regle` mono reste section-centrée ; une cépée n'a pas encore de
     barre d'échelle). À reprendre quand l'édition souris arrivera.
-- [ ] **Étape 3** — diagnostic par brin + classe globale (pire brin) + exports.
+- [x] **Étape 3** — diagnostic par brin + classe globale (pire brin) + exports.
+  - **Décisions Edwin** : fiabilité **par brin** (genet fiable dès qu'un brin
+    a rayon + ≥3 sondages ; classe globale = pire classe parmi brins fiables ;
+    un brin non fiable est rapporté mais ne bloque pas) ; **détail par brin**
+    partout (un bloc/ligne par brin + global).
+  - Cœur : `repartition_classes_brin(section, port)` + `genet_diagnostic` →
+    `GenetDiagnostic(brins, classe_globale, fiable)` + `pire_classe`. (`829105d`)
+  - Liste d'arbres : pastille colorée par pire brin (`2cf7134`).
+  - Onglet Diagnostic : `genet_summary_lines` (bloc/brin) + PRBS par brin
+    (`6cc77a7`). Fiche PDF : tableau + diag par brin (`3f8cd6e`).
+  - Synthèse mission (ligne genet + sous-lignes brin) + PRBS XLSX/HTML par
+    brin (`f4317a3`).
+  - *Reporté (révisable)* : rayon « représentatif » du genet en synthèse =
+    **max des brins** (choix par défaut, à confirmer si besoin).
 - [ ] **Étape 4** — éditeur souris (ajouter/déplacer/pivoter brins ; sélecteur
-  de brin pour la grille de saisie 16 directions).
+  de brin pour la grille de saisie 16 directions). ← PROCHAINE
 
 ## 4. Modèle de données (déjà en place)
 

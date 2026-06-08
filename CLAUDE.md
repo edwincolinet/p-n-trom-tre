@@ -106,9 +106,14 @@ penetrometre.py  (Tk + main) ← undo.py
   (boutons « ＋ Brin » / « − Brin » de l'onglet Identification) ; les brins sont
   composés par `_pil_draw_cepee` / `SectionCanvas._draw_cepee` via le cadrage pur
   `geometry.brins_layout` (mono-brin centré = chemin verbatim → goldens intacts).
-  **Chantier en cours** (cépées + formes) : voir la mémoire `project_cepees-formes`
-  — Étapes 0-2 faites (brin + ovale + rendu/saisie multi-brins), 3-4 à venir
-  (diagnostic par brin, éditeur souris).
+  **Diagnostic cépée** : `diagnostic.genet_diagnostic(arbre)` agrège un
+  `repartition_classes_brin(section, port)` par brin → classe globale = **pire
+  classe parmi les brins fiables** (rayon + ≥3 sondages) ; un brin non fiable
+  est rapporté mais ne bloque pas (fiabilité par brin). Propagé partout
+  (pastille de liste, onglet, fiche PDF, synthèse mission, exports PRBS) avec
+  un détail par brin. **Chantier en cours** (cépées + formes) : voir la mémoire
+  `project_cepees-formes` — Étapes 0-3 faites (brin + ovale + rendu/saisie +
+  diagnostic multi-brins), Étape 4 à venir (éditeur souris + sélecteur de brin).
 - **Section ovale (ellipse)** : `Brin.rayon_petit_axe_cm` (0 = circulaire,
   sentinelle) + `orientation_grade`. Si renseigné, `rayon_tronc_cm` devient le
   demi-**grand** axe et le rayon est **local par direction** (`Brin.rayon_a_grade`
@@ -212,5 +217,5 @@ Pour les détails d'architecture, de rendu et les pièges, voir :
 - `.claude/docs/architecture.md` — description détaillée de chaque module
 - `.claude/docs/rendu-et-pieges.md` — pendants Tk↔PIL, pièges, ordre des couches
 - `.claude/docs/cepees-plan.md` — **chantier cépées/formes** : plan
-  d'implémentation par étape (0-2 faites, 3-4 à venir), décisions métier,
+  d'implémentation par étape (0-3 faites, 4 à venir), décisions métier,
   garde-fous. À lire/mettre à jour avant de toucher au rendu multi-brins.
