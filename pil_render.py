@@ -38,6 +38,7 @@ from diagnostic import (
 from geometry import (
     RadiusSpec,
     adaptive_ruler_step_cm,
+    brins_layout,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
@@ -186,6 +187,16 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     img = Image.new("RGB", (width, height), COLOR_PANEL)
     d = ImageDraw.Draw(img, "RGBA")
 
+    # Cépée (≥ 2 brins, ou un brin décentré) : chemin de composition
+    # multi-brins, dérivé tôt pour laisser le cas mono-brin centré (99 %)
+    # strictement inchangé en dessous (goldens byte-identiques).
+    brins = arbre.brins
+    if not (len(brins) == 1 and brins[0].pos_x_cm == 0.0
+            and brins[0].pos_y_cm == 0.0):
+        _pil_draw_cepee(d, f, f_base, arbre, width, height, _ds,
+                        show_sondages=show_sondages, show_title=show_title)
+        return img
+
     if arbre.rayon_tronc_cm <= 0:
         _pil_draw_placeholder(d, f_base, width, height)
         return img
@@ -240,7 +251,7 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
                    port: str, meche: float,
                    cx: float, cy: float, R: float, ep: float, scale: float,
                    *, show_sondages: bool, bullet_r: int,
-                   ds: float = 1.0) -> None:
+                   ds: float = 1.0, draw_cardinales: bool = True) -> None:
     """Dessine UNE section (bois → pastilles + moelle) centrée en (cx, cy).
 
     Regroupe toutes les couches **propres à un brin** dans l'ordre de
@@ -251,6 +262,11 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
 
     `port`/`meche` sont genet-level (sur l'`Arbre`, partagés par tous les
     brins) : passés explicitement pour positionner les sondages par brin.
+
+    `draw_cardinales=False` omet les lettres N/E/S/O de CE brin : pour une
+    cépée, la boussole est dessinée **une seule fois**, globalement (les
+    brins partagent la même orientation). Les ticks restent par brin (ils
+    marquent les 16 directions de sondage propres à chaque tige).
     """
     R_ext = R + ep
     # Fournisseur de rayon par direction : constant pour une section
@@ -265,12 +281,102 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
     # Dégradations EN DERNIER des couches de surface (cf. CLAUDE.md).
     _pil_draw_degradations(d, brin, cx, cy, ep, scale)
     _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
-    _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
+    if draw_cardinales:
+        _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
     if show_sondages:
         _pil_draw_sondages(d, f, brin, port, meche, cx, cy, R, scale, bullet_r)
     # Moelle (point central) du brin.
     dot_r = max(5, int(5 * ds))
     d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
+
+
+def _pil_draw_brin_label(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
+                         cx: float, cy: float, R: float, scale: float,
+                         ds: float) -> None:
+    """Étiquette d'un brin (« a », « b », …) au-dessus de sa moelle, avec
+    halo blanc pour rester lisible sur le bois. Rien si le brin n'a pas de
+    label (brin unique d'un genet mono-caule)."""
+    if not brin.label:
+        return
+    y = cy - max(6.0, R * scale * 0.45)
+    size = max(22, int(30 * ds))
+    for dx in (-3, 0, 3):
+        for dy in (-3, 0, 3):
+            if dx or dy:
+                d.text((cx + dx, y + dy), brin.label,
+                       font=f(size, "serif_bold"), fill="white", anchor="mm")
+    d.text((cx, y), brin.label, font=f(size, "serif_bold"),
+           fill=COLOR_ACCENT, anchor="mm")
+
+
+def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
+                    arbre: "Arbre", width: int, height: int, ds: float, *,
+                    show_sondages: bool, show_title: bool) -> None:
+    """Compose une cépée : N brins positionnés dans un cadrage commun.
+
+    Pendant multi-brins de la branche mono-brin de `render_arbre_to_pil_image`.
+    Chaque brin est dessiné à son centre écran (via `geometry.brins_layout`)
+    SANS sa boussole ; une seule boussole globale (orientation partagée) et
+    le titre du genet sont ajoutés autour de la bounding box.
+    """
+    drawable = [b for b in arbre.brins if b.rayon_tronc_cm > 0]
+    if not drawable:
+        _pil_draw_placeholder(d, f_base, width, height)
+        return
+    margin_top = max(100, int(height * 0.065)) if show_title else 70
+    margin_bottom = max(120, int(height * 0.11))
+    margin_side = max(60, int(width * 0.055))
+    # Réserver la place de la boussole globale (offset + demi-largeur d'une
+    # lettre) pour qu'elle ne déborde pas du canvas sur les bords/coins.
+    clear = CARDINALES_OFFSET_PX + int(32 * ds)
+    margin_top = max(margin_top, clear)
+    margin_bottom = max(margin_bottom, clear)
+    margin_side = max(margin_side, clear)
+    pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
+    scale, origin_x, origin_y = brins_layout(
+        pe, width, height, margin_top, margin_bottom, margin_side)
+    bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * ds))
+    port = arbre.port_arbre
+    meche = arbre.meche_cm
+    for b in drawable:
+        cxb = origin_x + b.pos_x_cm * scale
+        cyb = origin_y + b.pos_y_cm * scale
+        epb = max(0.0, b.epaisseur_ecorce_cm)
+        _pil_draw_brin(d, f, b, port, meche, cxb, cyb, b.rayon_tronc_cm, epb,
+                       scale, show_sondages=show_sondages, bullet_r=bullet_r,
+                       ds=ds, draw_cardinales=False)
+        _pil_draw_brin_label(d, f, b, cxb, cyb, b.rayon_tronc_cm, scale, ds)
+    # Boussole globale autour de la bounding box : orientation commune à
+    # tous les brins. Placée sur le RECTANGLE de la bbox (N/S/E/O sur les
+    # bords, diagonales aux coins) plutôt que sur un cercle — une cépée
+    # large déborderait verticalement d'un cercle de rayon = demi-diagonale.
+    x0 = min(px - e for px, _py, e in pe)
+    x1 = max(px + e for px, _py, e in pe)
+    y0 = min(py - e for _px, py, e in pe)
+    y1 = max(py + e for _px, py, e in pe)
+    x0s = origin_x + x0 * scale
+    x1s = origin_x + x1 * scale
+    y0s = origin_y + y0 * scale
+    y1s = origin_y + y1 * scale
+    cxg = (x0s + x1s) / 2.0
+    cyg = (y0s + y1s) / 2.0
+    off = CARDINALES_OFFSET_PX
+    compass = (
+        ("N", cxg, y0s - off), ("S", cxg, y1s + off),
+        ("E", x1s + off, cyg), ("O", x0s - off, cyg),
+        ("NE", x1s + off, y0s - off), ("NO", x0s - off, y0s - off),
+        ("SE", x1s + off, y1s + off), ("SO", x0s - off, y1s + off),
+    )
+    for lbl, lx, ly in compass:
+        for dx in (-4, -3, 0, 3, 4):
+            for dy in (-4, -3, 0, 3, 4):
+                if dx or dy:
+                    d.text((lx + dx, ly + dy), lbl, font=f(44, "serif_bold"),
+                           fill="white", anchor="mm")
+        d.text((lx, ly), lbl, font=f(44, "serif_bold"),
+               fill=COLOR_INK, anchor="mm")
+    if show_title:
+        _pil_draw_titre(d, f, arbre, drawable[0].rayon_tronc_cm, width, height)
 
 
 # ----------------------------------------------------------------------

@@ -29,6 +29,7 @@ from diagnostic import (
 from geometry import (
     RadiusSpec,
     adaptive_ruler_step_cm,
+    brins_layout,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
@@ -353,11 +354,25 @@ class SectionCanvas(tk.Canvas):
         """
         self.delete("all")
         self._geom = None
-        if not self.arbre or self.arbre.rayon_tronc_cm <= 0:
+        if not self.arbre:
             self._draw_placeholder()
             return
 
         A = self.arbre
+        # Cépée (≥ 2 brins, ou un brin décentré) : composition multi-brins.
+        # Dérivée tôt pour laisser le cas mono-brin centré (99 %) strictement
+        # inchangé en dessous (goldens préservés). `_geom` reste None : le
+        # clic-pour-éditer est mono-brin (interaction multi-brins = Étape 4).
+        brins = A.brins
+        if not (len(brins) == 1 and brins[0].pos_x_cm == 0.0
+                and brins[0].pos_y_cm == 0.0):
+            self._draw_cepee(A)
+            return
+
+        if A.rayon_tronc_cm <= 0:
+            self._draw_placeholder()
+            return
+
         R = A.rayon_tronc_cm
         ep = max(0.0, A.epaisseur_ecorce_cm)
         R_ext = R + ep   # rayon externe = bois + écorce
@@ -381,7 +396,8 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_brin(self, brin: "Brin", port: str, meche: float,
                    cx: float, cy: float,
-                   R: float, ep: float, scale: float) -> None:
+                   R: float, ep: float, scale: float,
+                   draw_cardinales: bool = True) -> None:
         """Dessine UNE section (bois → pastilles) centrée en (cx, cy).
 
         Regroupe les couches **propres à un brin** dans l'ordre de
@@ -390,7 +406,9 @@ class SectionCanvas(tk.Canvas):
         rendu est strictement identique à l'ancien (goldens préservés).
 
         `port`/`meche` sont genet-level (sur l'`Arbre`) : passés explicitement
-        pour positionner les sondages par brin.
+        pour positionner les sondages par brin. `draw_cardinales=False` omet
+        les lettres N/E/S/O de CE brin (la cépée a une boussole globale ; les
+        ticks restent par brin).
         """
         # Fournisseurs de rayon par direction : constants si circulaire
         # (rendu identique à l'ancien), variables si ellipse.
@@ -412,9 +430,85 @@ class SectionCanvas(tk.Canvas):
                                                    brin.contreforts, deg,
                                                    idx=idx)
         self._draw_ticks(cx, cy, r_ext_of, scale)
-        self._draw_cardinales(cx, cy, r_ext_of, scale)
+        if draw_cardinales:
+            self._draw_cardinales(cx, cy, r_ext_of, scale)
         if self.show_sondages:
             self._draw_sondages(brin, port, meche, cx, cy, R, scale)
+
+    def _draw_brin_label(self, brin: "Brin", cx: float, cy: float,
+                         R: float, scale: float) -> None:
+        """Étiquette d'un brin (« a », « b », …) au-dessus de sa moelle, halo
+        blanc pour rester lisible sur le bois. Rien si le brin n'a pas de
+        label (brin unique d'un genet mono-caule)."""
+        if not brin.label:
+            return
+        y = cy - max(6.0, R * scale * 0.45)
+        for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
+                       (-2, 0), (2, 0), (0, -2), (0, 2)):
+            self.create_text(cx + dx, y + dy, text=brin.label,
+                             font=("Georgia", 13, "bold"), fill="white")
+        self.create_text(cx, y, text=brin.label,
+                         font=("Georgia", 13, "bold"), fill=COLOR_ACCENT)
+
+    def _draw_cepee(self, A: Arbre) -> None:
+        """Compose une cépée : N brins positionnés dans un cadrage commun.
+
+        Pendant Tk de `pil_render._pil_draw_cepee`. Chaque brin est dessiné à
+        son centre écran (via `geometry.brins_layout`) SANS sa boussole ; une
+        seule boussole globale (orientation partagée) et le titre du genet
+        sont ajoutés autour de la bounding box.
+        """
+        drawable = [b for b in A.brins if b.rayon_tronc_cm > 0]
+        if not drawable:
+            self._draw_placeholder()
+            return
+        w = max(self.winfo_width(), 1)
+        h = max(self.winfo_height(), 1)
+        # Réserver la place de la boussole globale (offset + demi-largeur
+        # d'une lettre) pour qu'elle ne déborde pas du canvas.
+        clear = self.CARDINALES_OFFSET_PX + 18
+        margin_top = max(self.MARGIN_TOP_PX, clear)
+        margin_bottom = max(self.MARGIN_BOTTOM_PX, clear)
+        margin_side = max(self.MARGIN_SIDE_PX, clear)
+        pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
+        scale, origin_x, origin_y = brins_layout(
+            pe, w, h, margin_top, margin_bottom, margin_side)
+        port = A.port_arbre
+        meche = A.meche_cm
+        for b in drawable:
+            cxb = origin_x + b.pos_x_cm * scale
+            cyb = origin_y + b.pos_y_cm * scale
+            epb = max(0.0, b.epaisseur_ecorce_cm)
+            self._draw_brin(b, port, meche, cxb, cyb, b.rayon_tronc_cm, epb,
+                            scale, draw_cardinales=False)
+            self._draw_brin_label(b, cxb, cyb, b.rayon_tronc_cm, scale)
+        # Boussole globale sur le rectangle de la bounding box (N/S/E/O sur
+        # les bords, diagonales aux coins) — cf. _pil_draw_cepee.
+        x0 = min(px - e for px, _py, e in pe)
+        x1 = max(px + e for px, _py, e in pe)
+        y0 = min(py - e for _px, py, e in pe)
+        y1 = max(py + e for _px, py, e in pe)
+        x0s = origin_x + x0 * scale
+        x1s = origin_x + x1 * scale
+        y0s = origin_y + y0 * scale
+        y1s = origin_y + y1 * scale
+        cxg = (x0s + x1s) / 2.0
+        cyg = (y0s + y1s) / 2.0
+        off = self.CARDINALES_OFFSET_PX
+        compass = (
+            ("N", cxg, y0s - off), ("S", cxg, y1s + off),
+            ("E", x1s + off, cyg), ("O", x0s - off, cyg),
+            ("NE", x1s + off, y0s - off), ("NO", x0s - off, y0s - off),
+            ("SE", x1s + off, y1s + off), ("SO", x0s - off, y1s + off),
+        )
+        for lbl, lx, ly in compass:
+            for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
+                           (-2, 0), (2, 0), (0, -2), (0, 2)):
+                self.create_text(lx + dx, ly + dy, text=lbl,
+                                 font=("Georgia", 13, "bold"), fill="white")
+            self.create_text(lx, ly, text=lbl,
+                             font=("Georgia", 13, "bold"), fill=COLOR_INK)
+        self._draw_titre(A, drawable[0].rayon_tronc_cm)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.

@@ -149,6 +149,9 @@ class SectionCanvasGoldenTests(unittest.TestCase):
     def test_degradation_traverse_contrefort(self):
         self._assert_matches_fixture("degradation_sur_contrefort")
 
+    def test_cepee_multi_brins(self):
+        self._assert_matches_fixture("cepee")
+
 
 def _regenerate_fixtures() -> None:
     if not _DISPLAY_OK:

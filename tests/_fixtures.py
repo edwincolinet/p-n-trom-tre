@@ -15,10 +15,10 @@ Module privé (préfixe `_`) : pas destiné à être importé en dehors de
 
 from __future__ import annotations
 
-from model import Arbre, Contrefort, DegradationExterne, Sondage
+from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 
 SCENARIOS = ("nu", "avec_ecorce", "contreforts",
-             "degradation_sur_contrefort", "ovale")
+             "degradation_sur_contrefort", "ovale", "cepee")
 
 
 def build_arbre(scenario: str) -> Arbre:
@@ -85,5 +85,32 @@ def build_arbre(scenario: str) -> Arbre:
         a.contreforts.append(Contrefort(numero=1, grade_centre=200,
                                           largeur_grades=75, longueur_cm=8.0))
         return a
+
+    if scenario == "cepee":
+        # Cépée à 2 brins : « a » circulaire centré, « b » ovale décalé à
+        # l'Est. Exerce le cadrage multi-brins (`brins_layout`), la boussole
+        # globale, les labels de brin, et un brin ovale + contrefort hors
+        # centre. La géométrie/mesures vivent sur chaque `Brin` ; le port et
+        # la mèche restent genet-level (partagés).
+        return Arbre(
+            numero_arbre="6", essence="Charme", port_arbre="libre",
+            meche_cm=40.0,
+            brins=[
+                Brin(label="a", rayon_tronc_cm=16.0, epaisseur_ecorce_cm=1.0,
+                     sondages=[
+                         Sondage(numero=1, grade=0,
+                                 bois_sain_cm=12.0, bois_altere_cm=4.0),
+                         Sondage(numero=2, grade=200,
+                                 bois_sain_cm=9.0, bois_altere_cm=7.0)]),
+                Brin(label="b", pos_x_cm=48.0, pos_y_cm=0.0,
+                     rayon_tronc_cm=18.0, rayon_petit_axe_cm=11.0,
+                     orientation_grade=100, epaisseur_ecorce_cm=1.0,
+                     sondages=[
+                         Sondage(numero=1, grade=100,
+                                 bois_sain_cm=8.0, bois_altere_cm=3.0)],
+                     contreforts=[
+                         Contrefort(numero=1, grade_centre=200,
+                                    largeur_grades=75, longueur_cm=7.0)]),
+            ])
 
     raise ValueError(f"scenario inconnu : {scenario!r}")
