@@ -192,7 +192,6 @@ def render_arbre_to_pil_image(arbre: "Arbre",
 
     R = arbre.rayon_tronc_cm
     ep = max(0.0, arbre.epaisseur_ecorce_cm)
-    R_ext = R + ep
     # Marges adaptées à la taille (responsive) :
     # - haut : titre+méta+lettre N hors écorce (proportionnel)
     # - bas : pastille S à l'intérieur, règle graduée + label
@@ -211,29 +210,17 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                           default=0.0)
     scale = radius_px_max / (R + expansion)
 
-    # Fournisseurs de rayon par direction : constants pour une section
-    # circulaire (rendu strictement identique à l'ancien), variables pour
-    # une ellipse. Les helpers de contour (ticks/cardinales/contreforts/
-    # dégradations) acceptent indifféremment scalaire ou fonction.
-    r_ext_of = (lambda g: arbre.rayon_a_grade(g) + ep) if ep else arbre.rayon_a_grade
     # Règle horizontale → rayon le long de l'axe E-O (grade 100).
     R_h = arbre.rayon_a_grade(100)
-    _pil_draw_bois_sain(d, arbre, cx, cy, R, scale)
-    _pil_draw_cernes(d, arbre, cx, cy, R, scale)
-    _pil_draw_cavite(d, arbre, cx, cy, scale)
-    _pil_draw_ecorce(d, arbre, cx, cy, R, ep, R_ext, scale)
-    _pil_draw_contreforts(d, arbre, cx, cy, ep, scale)
-    # Dégradations EN DERNIER (cf. CLAUDE.md « Ordre global des couches »).
-    _pil_draw_degradations(d, arbre, cx, cy, ep, scale)
-    _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
-    _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
     bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * _ds))
-    if show_sondages:
-        _pil_draw_sondages(d, f, arbre, cx, cy, R, scale, bullet_r)
+    # Section elle-même (bois → pastilles + moelle), centrée en (cx, cy).
+    # Isolée dans `_pil_draw_brin` pour préparer la composition multi-brins
+    # (cépées) : un appel par brin à son propre centre. Les décorations de
+    # repère (règle, titre, légende) restent globales, dessinées ci-dessous.
+    _pil_draw_brin(d, f, arbre, cx, cy, R, ep, scale,
+                   show_sondages=show_sondages, bullet_r=bullet_r, ds=_ds)
     y_axis = _pil_draw_regle(d, f, cx, cy, R_h, ep, R_h + ep, scale, height,
                               _ds)
-    dot_r = max(5, int(5 * _ds))
-    d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
     if show_title:
         _pil_draw_titre(d, f, arbre, R, width, height)
     if show_legend:
@@ -244,6 +231,39 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                                      show_sondage_item=False,
                                      show_classes=False)
     return img
+
+
+def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
+                   cx: float, cy: float, R: float, ep: float, scale: float,
+                   *, show_sondages: bool, bullet_r: int,
+                   ds: float = 1.0) -> None:
+    """Dessine UNE section (bois → pastilles + moelle) centrée en (cx, cy).
+
+    Regroupe toutes les couches **propres à un brin** dans l'ordre de
+    superposition. Le repère partagé (règle, titre, légende) reste à la
+    charge de l'orchestrateur. Pour une cépée, l'orchestrateur appellera ce
+    helper une fois par brin à son propre centre écran ; pour un genet
+    mono-brin centré, le rendu est strictement identique à l'ancien.
+    """
+    R_ext = R + ep
+    # Fournisseur de rayon par direction : constant pour une section
+    # circulaire (rendu identique à l'ancien), variable pour une ellipse.
+    r_ext_of = (lambda g: arbre.rayon_a_grade(g) + ep) if ep \
+        else arbre.rayon_a_grade
+    _pil_draw_bois_sain(d, arbre, cx, cy, R, scale)
+    _pil_draw_cernes(d, arbre, cx, cy, R, scale)
+    _pil_draw_cavite(d, arbre, cx, cy, scale)
+    _pil_draw_ecorce(d, arbre, cx, cy, R, ep, R_ext, scale)
+    _pil_draw_contreforts(d, arbre, cx, cy, ep, scale)
+    # Dégradations EN DERNIER des couches de surface (cf. CLAUDE.md).
+    _pil_draw_degradations(d, arbre, cx, cy, ep, scale)
+    _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
+    _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
+    if show_sondages:
+        _pil_draw_sondages(d, f, arbre, cx, cy, R, scale, bullet_r)
+    # Moelle (point central) du brin.
+    dot_r = max(5, int(5 * ds))
+    d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
 
 
 # ----------------------------------------------------------------------

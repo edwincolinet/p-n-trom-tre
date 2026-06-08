@@ -368,15 +368,29 @@ class SectionCanvas(tk.Canvas):
         cx, cy, scale = self._center_and_scale(R, expansion_cm=expansion)
         self._geom = (cx, cy, scale, R, R_ext)
 
+        R_h = A.rayon_a_grade(100)  # règle horizontale → axe E-O
+        # Section elle-même (bois → pastilles), centrée en (cx, cy). Isolée
+        # dans `_draw_brin` pour préparer la composition multi-brins (cépées) :
+        # un appel par brin à son propre centre. Le repère partagé (règle,
+        # titre) reste global, dessiné ensuite.
+        self._draw_brin(A, cx, cy, R, ep, scale)
+        self._draw_regle(cx, cy, R_h, ep, R_h + ep, scale)
+        self._draw_titre(A, R)
+
+    def _draw_brin(self, A: Arbre, cx: float, cy: float,
+                   R: float, ep: float, scale: float) -> None:
+        """Dessine UNE section (bois → pastilles) centrée en (cx, cy).
+
+        Regroupe les couches **propres à un brin** dans l'ordre de
+        superposition. Pour une cépée, `redraw` appellera ce helper une fois
+        par brin à son centre écran ; pour un genet mono-brin centré, le
+        rendu est strictement identique à l'ancien (goldens préservés).
+        """
         # Fournisseurs de rayon par direction : constants si circulaire
-        # (rendu identique à l'ancien), variables si ellipse. R reste le
-        # demi-grand-axe (= rayon le plus grand) pour le cadrage et la
-        # conversion clic→grade.
+        # (rendu identique à l'ancien), variables si ellipse.
         r_of = A.rayon_a_grade
         r_ext_of: "RadiusSpec" = (
             (lambda g: A.rayon_a_grade(g) + ep) if ep else r_of)
-        R_h = A.rayon_a_grade(100)  # règle horizontale → axe E-O
-
         self._draw_bois_sain(A, cx, cy, R, scale)
         self._draw_cernes(A, cx, cy, R, scale)
         self._draw_cavite(A, cx, cy, scale)
@@ -395,9 +409,6 @@ class SectionCanvas(tk.Canvas):
         self._draw_cardinales(cx, cy, r_ext_of, scale)
         if self.show_sondages:
             self._draw_sondages(A, cx, cy, R, scale)
-
-        self._draw_regle(cx, cy, R_h, ep, R_h + ep, scale)
-        self._draw_titre(A, R)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.
