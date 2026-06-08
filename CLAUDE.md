@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 236 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse)
+tests/                 ← 267 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -169,7 +169,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 236 tests
+python -m unittest discover tests           # 267 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

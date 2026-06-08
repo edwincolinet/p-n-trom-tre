@@ -39,6 +39,12 @@ Helper interne `_radius_at(R, grade)`.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
 - `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`),
   `ruler_graduation_positions`.
+- `brins_layout(positions_extents, width, height, margin_top, margin_bottom,
+  margin_side)` → `(scale, origin_x, origin_y)` — **cadrage d'une cépée** :
+  bounding box cm de N brins (`(pos_x, pos_y, extent_cm)`) → facteur px/cm
+  commun + position écran de l'origine (cœur du brin[0]). Top-aligné, centré
+  horizontalement. Le mono-brin garde son cadrage dédié (à l'ULP près) → la
+  fonction n'est appelée que pour une vraie cépée.
 
 ## `model.py` — dataclasses + mutateurs de cohérence
 
@@ -56,7 +62,9 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
   `epaisseur_ecorce_cm`, `sondages`, `degradations_externes`, `contreforts`,
   position `pos_x_cm/pos_y_cm/rotation_grades` (réservée aux cépées, Étapes 2-4).
   Propriété `est_ovale` ; `rayon_a_grade(grade)` (rayon LOCAL — constant si
-  circulaire, ellipse sinon). Mutateurs : `set_rayon(new_R)` et
+  circulaire, ellipse sinon) ; `extent_cm()` = rayon d'**encombrement** (rayon
+  max + écorce + plus longue saillie de contrefort), pour le cadrage cépée.
+  `label` (« a »/« b »/… ; "" si brin unique). Mutateurs : `set_rayon(new_R)` et
   `set_forme_ovale(petit_axe, orientation)` (tous deux → `_resync_sondages_local()`
   qui réaligne le bois altéré sur le rayon local **en préservant la PRBS**) ;
   `renumeroter_sondages/degradations/contreforts()`.
@@ -67,35 +75,55 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
   …) délèguent au **brin courant** (`brins[0]`) pour que le code écrit avant les
   cépées (≈140 accès) tourne inchangé. Constructeur **rétro-compatible** : les
   kwargs de géométrie/mesures sont routés vers `brins[0]`. Prop : `display_name`,
-  `brin_courant`. *Couche de compat temporaire (« Étape 0 ») : à retirer quand
-  l'UI saura cibler un brin explicite.*
+  `brin_courant`. **Gestion de cépée** : `ajouter_brin()` (nouveau brin héritant
+  la forme du brin le plus à l'Est, placé à l'Est sans recouvrement, PAS les
+  mesures), `supprimer_brin(i)` (≥ 1 garanti), `_relabel_brins()` (a/b/c… ou ""
+  si mono-caule). *Les relais `brins[0]` restent une couche de compat temporaire
+  (« Étape 0 ») : à retirer quand l'UI saura cibler un brin explicite (Étape 4).*
 - `Chantier` — nom, adresse, opérateur, date, arbres.
 
-## `diagnostic.py` — calculs purs sur Arbre
+## `diagnostic.py` — calculs purs par section + agrégation genet
 
 Toutes les fonctions sont **pures** (pas de mutation, pas de cache sur l'arbre).
+Type `Section = Union[Arbre, Brin]` : la chaîne de calcul opère sur une
+**section** (un `Brin` natif, ou un `Arbre` mono-brin via shims), le `port`
+genet-level étant passé explicitement quand il intervient.
 
-- `compute_alteration_par_grade(arbre)` — extrapolation pondérée linéaire
+- `compute_alteration_par_grade(section)` — extrapolation pondérée linéaire
   (lit `bois_altere_cm`, **indépendant du rayon**).
-- `degradation_externe_par_grade(arbre)` — profondeur max par direction.
-- `rayon_par_grade(arbre)` — 16 rayons extérieurs (constant = `rayon_tronc_cm`
-  si circulaire, ellipse sinon via `arbre.rayon_a_grade`).
-- `prbs_par_grade(arbre)`, `ratio_tR_par_grade(arbre)` — composent les trois ;
-  le dénominateur du t/R est le **rayon LOCAL** de chaque direction (apport
-  Étape 1 ovale). `sondage_render_data` calcule aussi pastille et t/R au rayon
+- `degradation_externe_par_grade(section)` — profondeur max par direction.
+- `rayon_par_grade(section)` — 16 rayons extérieurs (constant = `rayon_tronc_cm`
+  si circulaire, ellipse sinon via `section.rayon_a_grade`).
+- `prbs_par_grade(section)`, `ratio_tR_par_grade(section)` — composent les
+  trois ; dénominateur t/R = **rayon LOCAL** de chaque direction (apport ovale).
+  `sondage_render_data(section, port, meche, …)` calcule pastille + t/R au rayon
   local du grade sondé.
-- `repartition_classes(arbre)` → `DiagnosticSnapshot` (self-contained :
+- `repartition_classes_brin(section, port)` → `DiagnosticSnapshot` (self-contained :
   répartition, ratios, direction critique, t/R moyen, classe globale,
-  `diagnostic_fiable`, `extrapolation_text`).
+  `diagnostic_fiable`, `extrapolation_text`). `repartition_classes(arbre)`
+  **délègue** au brin courant (compat mono-brin).
   - `snap.diagnostic_global` → `Optional[Tuple[float, str]]` — point
     d'entrée unique ; renvoie `None` (t/R moyen + classe masqués) tant
     que `diagnostic_fiable` est faux, c.-à-d. **< 3 directions sondées**
     (seuil métier, découplé du minimum d'extrapolation de la cavité = 2).
   - `snap.par_classe(cls)` — accès indexé par label.
-- `extrapolation_summary(arbre)` / `extrapolation_summary_text(arbre)`.
-- `diagnostic_summary_lines(arbre)` — résumé textuel (onglet Diag + fiche PDF).
+- **Agrégation cépée** : `genet_diagnostic(arbre)` → `GenetDiagnostic(brins:
+  List[BrinDiagnostic], classe_globale, fiable)`. `classe_globale` = **pire
+  classe parmi les brins FIABLES** (rayon + ≥3 sondages) via `pire_classe()`
+  (ordre Rouge > Orange > Vert) ; `None` si aucun brin fiable. `fiable` = au
+  moins un brin fiable. Un brin non fiable est rapporté (`BrinDiagnostic`) mais
+  n'entre PAS dans la classe globale (décision : **fiabilité par brin**).
+- `extrapolation_summary(section)` / `extrapolation_summary_text(section)`.
+- `diagnostic_summary_lines(arbre)` (brin courant) et `genet_summary_lines(arbre)`
+  (mono = idem ; cépée = en-tête classe globale + un bloc par brin), via le cœur
+  `_section_summary_lines(section, port, titre)`.
+- `mission_synthesis_rows(chantier)` → une ligne genet par arbre mono-caule ;
+  une cépée = **ligne de tête** (classe globale = pire brin) + une **sous-ligne
+  par brin** (`MissionSynthesisRow.brin_label`).
 
-Convention : classe globale = t/R **moyen** (confirmé Silvavenir mai 2026).
+Convention : classe globale d'un **brin** = t/R **moyen** (confirmé Silvavenir
+mai 2026) ; classe globale d'un **genet** = **pire classe** parmi ses brins
+fiables (jamais une moyenne inter-brins — repères polaires distincts).
 
 ## `persistence.py` — I/O JSON des missions
 
@@ -127,12 +155,18 @@ La **forme ovale** n'est PAS en ligne (pour ne pas alourdir le cas
 circulaire courant) : un bouton « Forme du tronc (ovale)… » dans le groupe
 Tronc ouvre l'éditeur avancé `dialogs.ask_forme_tronc` ; `_open_forme_editor`
 applique le résultat via `push_undo` + `set_forme_ovale`. Pensé comme point
-d'entrée du futur éditeur de cépées / brins (Étape 4).
+d'entrée du futur éditeur de cépées / brins (Étape 4). Sous ce bouton,
+les actions **« ＋ Brin » / « − Brin »** (`App.add_brin` / `remove_last_brin`,
+via `Arbre.ajouter_brin` / `supprimer_brin`) construisent une cépée + un
+compteur de brins (« − Brin » désactivé en mono-caule). Le formulaire édite
+toujours le 1er brin (sélecteur de brin = Étape 4).
 `DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
 individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
 pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
 mission, CSV mission). La checkbox « Afficher sondages » a été déplacée
-hors de ce pane et vit désormais sous le canvas (`App._build_right`).
+hors de ce pane et vit désormais sous le canvas (`App._build_right`). Pour
+une **cépée**, le résumé passe par `genet_summary_lines` (un bloc par brin +
+classe globale) et le tableau PRBS itère tous les brins (N° préfixé « a1 »).
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -180,11 +214,18 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 - Helpers exposés : `_pil_load_fonts()`, `_draw_horizontal_legend_pil()`.
 - `HAS_PIL` : False si Pillow absent.
 - **Section ovale** : chaque couche de contour (bois/cernes/écorce) **branche
-  sur `arbre.est_ovale`** — circulaire → primitive native `d.ellipse` (rendu
+  sur `brin.est_ovale`** — circulaire → primitive native `d.ellipse` (rendu
   inchangé, goldens stables) ; ovale → polygone via `contour_polygon`. Les
-  contreforts/dégradations/ticks/cardinales reçoivent `arbre.rayon_a_grade`
+  contreforts/dégradations/ticks/cardinales reçoivent `brin.rayon_a_grade`
   (constant si circulaire → byte-identique). La règle horizontale utilise le
   rayon de l'axe E-O (`rayon_a_grade(100)`).
+- **Cépée** : `_pil_draw_brin(d, f, brin, port, meche, cx, cy, R, ep, scale, …)`
+  dessine UNE section centrée (toutes les couches per-brin) ; l'orchestrateur
+  dérive tôt vers `_pil_draw_cepee` dès que `len(brins) > 1` ou un brin décentré
+  (le mono-brin centré garde le chemin verbatim → goldens intacts). `_pil_draw_cepee`
+  compose les brins via `geometry.brins_layout`, ajoute un label par brin
+  (`_pil_draw_brin_label`) et **une seule boussole globale** sur le rectangle de
+  la bbox (les ticks restent par brin). Fixture golden `cepee`.
 
 ## `fiche_pdf.py` — layout fiche PDF A4
 
@@ -193,6 +234,10 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   légende, tableau PRBS, diagnostic (t/R moyen+min, barre répartition, classe).
 - Dimensionnement adaptatif : au-delà de 8/12 sondages, police et hauteur
   de ligne se resserrent pour rester sur 1 page.
+- **Cépée** : tableau PRBS itère tous les brins (N° préfixé « a1 ») ; le bloc
+  diagnostic est routé — mono-caule = `_draw_mono_diagnostic` (verbatim, barre
+  + encadré classe), cépée = `_draw_cepee_diagnostic` (encadré « Classe globale
+  (pire brin) » + une ligne de synthèse par brin).
 
 ## `section_canvas.py` — rendu Tk de la section
 
@@ -201,7 +246,12 @@ superposition). Pendant Tk de `pil_render` — géométrie partagée, visuels
 spécifiques (polices, outline+width, smooth, flèches). Même gestion de la
 **section ovale** que PIL (branche `est_ovale` : `create_oval` natif si
 circulaire, `contour_polygon` via `create_polygon` si ellipse ;
-`rayon_a_grade` passé aux helpers de contour).
+`rayon_a_grade` passé aux helpers de contour). **Cépée** : `_draw_brin(brin,
+port, meche, …)` pour une section ; `redraw` dérive vers `_draw_cepee` dès
+qu'il y a plusieurs brins / un brin décentré (mono-brin centré = verbatim,
+golden `section_canvas_cepee`). `_draw_cepee` : `brins_layout` + label par brin
++ boussole globale ; l'interaction (clic-pour-éditer) reste mono-brin
+(`_geom=None` en cépée — l'édition multi-brins viendra à l'Étape 4).
 
 **Canvas interactif** : accepte un `host: _CanvasHost` optionnel. Quand
 fourni, chaque pastille de sondage, arc de dégradation externe et zone
@@ -226,7 +276,12 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
 
 ## `export.py` — exports tableau PRBS (XLSX/HTML)
 
-- `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures.
+- `prbs_table_rows_par_sondage(arbre, classer_prbs)` — données pures ; itère
+  les **brins** (protocoles `BrinLike` + `brins` sur `ArbreLike`), N° de sondage
+  préfixé par le label du brin en cépée (« a1 »), entier simple en mono.
+- Synthèse mission (`export_synthesis_csv/xlsx`) : les sous-lignes de brin
+  (`MissionSynthesisRow.brin_label`) s'affichent « ↳ brin a », identité genet
+  laissée vide ; le bilan ne compte que les genets.
 - `export_prbs_xlsx(…)` — Excel stylé (openpyxl). En-têtes et méta sur
   fond vert Silvavenir, alternance de lignes, largeurs auto-fit,
   compartimentation ✓/✗/— (glyphe coloré), t/R coloré par classe.

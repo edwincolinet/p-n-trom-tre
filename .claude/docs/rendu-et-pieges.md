@@ -18,9 +18,14 @@ Chaque couche a deux implémentations parallèles, à modifier ensemble :
 | sondages             | `_draw_sondages`                      | `_pil_draw_sondages`       |
 | règle graduée        | `_draw_regle`                         | `_pil_draw_regle`          |
 | titre + méta         | `_draw_titre`                         | `_pil_draw_titre`          |
+| section d'1 brin     | `_draw_brin`                          | `_pil_draw_brin`           |
+| label de brin        | `_draw_brin_label`                    | `_pil_draw_brin_label`     |
+| composition cépée    | `_draw_cepee`                         | `_pil_draw_cepee`          |
 
 Géométrie partagée via `geometry.py`. Constantes de layout tunées
 indépendamment (hinting, épaisseurs de trait, semantics outline+width).
+`_draw_brin` regroupe les couches per-brin (bois → pastilles) centrées sur
+`(cx, cy)` ; `_draw_cepee` les compose pour une cépée. **Toujours les DEUX.**
 
 ## Ordre global des couches (Tk et PIL alignés)
 
@@ -46,6 +51,19 @@ absolus** (pas en cm) pour rester constantes quel que soit le rayon.
 ### Titre et lettre N
 Le titre + méta sont au-dessus de la zone de la lettre N. Toujours
 laisser une marge suffisante pour ne pas tronquer N.
+
+### Cépée : mono-brin centré = chemin verbatim (goldens)
+`render_arbre_to_pil_image` / `SectionCanvas.redraw` **dérivent tôt** vers le
+chemin cépée (`_pil_draw_cepee` / `_draw_cepee`) dès que `len(brins) > 1` OU
+qu'un brin est décentré. Le cas mono-brin centré (99 %) garde son cadrage et
+son arithmétique **dédiés** (à l'ULP près) → fixtures circulaires/ovales
+byte-identiques. Ne JAMAIS router le mono-brin par `brins_layout` (l'ordre des
+divisions diffère, ce qui décalerait d'un pixel et casserait les goldens). La
+**boussole globale** d'une cépée est tracée sur le RECTANGLE de la bbox (N/S/E/O
+sur les bords, diagonales aux coins) — une cépée large déborderait d'un cercle
+de rayon = demi-diagonale ; la place de la boussole est réservée dans les marges
+passées à `brins_layout`. Les **ticks** restent par brin ; les **cardinales**
+sont globales (`_draw_brin(..., draw_cardinales=False)` par brin).
 
 ### Différence `outline + width` sur ellipse (Tk vs PIL)
 - **Tkinter** : trait centré sur la frontière du bounding box →
