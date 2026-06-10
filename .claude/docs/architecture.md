@@ -78,8 +78,10 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
   `brin_courant`. **Gestion de cépée** : `ajouter_brin()` (nouveau brin héritant
   la forme du brin le plus à l'Est, placé à l'Est sans recouvrement, PAS les
   mesures), `supprimer_brin(i)` (≥ 1 garanti), `_relabel_brins()` (a/b/c… ou ""
-  si mono-caule). *Les relais `brins[0]` restent une couche de compat temporaire
-  (« Étape 0 ») : à retirer quand l'UI saura cibler un brin explicite (Étape 4).*
+  si mono-caule). *Les relais `brins[0]` sont une couche de compat (« Étape 0 »).
+  L'Étape 4a a commencé à les retirer côté UI : les onglets de saisie ciblent
+  désormais le brin courant explicite (`App._current_brin()`). Les relais restent
+  pour les nombreux autres appelants (rendu, exports, diagnostic mono-brin).*
 - `Chantier` — nom, adresse, opérateur, date, arbres.
 
 ## `diagnostic.py` — calculs purs par section + agrégation genet
@@ -154,12 +156,22 @@ PRBS des valeurs intermédiaires). Form groupé en 4 `ttk.LabelFrame`
 La **forme ovale** n'est PAS en ligne (pour ne pas alourdir le cas
 circulaire courant) : un bouton « Forme du tronc (ovale)… » dans le groupe
 Tronc ouvre l'éditeur avancé `dialogs.ask_forme_tronc` ; `_open_forme_editor`
-applique le résultat via `push_undo` + `set_forme_ovale`. Pensé comme point
-d'entrée du futur éditeur de cépées / brins (Étape 4). Sous ce bouton,
+applique le résultat via `push_undo` + `set_forme_ovale`. Sous ce bouton,
 les actions **« ＋ Brin » / « − Brin »** (`App.add_brin` / `remove_last_brin`,
 via `Arbre.ajouter_brin` / `supprimer_brin`) construisent une cépée + un
-compteur de brins (« − Brin » désactivé en mono-caule). Le formulaire édite
-toujours le 1er brin (sélecteur de brin = Étape 4).
+compteur de brins (« − Brin » désactivé en mono-caule), et **« Disposition… »**
+ouvre l'éditeur de placement des brins à la souris (`dialogs.ask_cepee_layout`,
+activé si ≥ 2 brins).
+
+**Saisie par brin (Étape 4a)** : la géométrie de l'onglet Identification
+(rayon/diamètre/écorce/forme) et les onglets **Sondages / Dégradations /
+Contreforts** éditent le **brin courant** (`App._current_brin()`), pas
+forcément `brins[0]` ; l'identité (n°, essence, port, hauteurs, mèche) reste
+au niveau **genet**. Le brin courant est choisi par une barre « Brin a/b/c »
+au-dessus des onglets (`App._refresh_brin_selector` / `set_current_brin`,
+masquée en mono-caule) ; il est remis à 0 à chaque changement d'arbre.
+Avant de basculer de brin, `IdentificationPane.flush()` commite un rayon en
+cours d'édition (sinon il s'appliquerait au mauvais brin).
 `DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
 individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
 pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
@@ -296,9 +308,12 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
 ## `dialogs.py` — boîtes de dialogue Tk
 
 `edit_sondage`, `edit_degradation`, `edit_contrefort` : reçoivent
-`(parent, arbre, obj)`, mutent en place, renvoient `True/False`. Chacun
+`(parent, section, obj)`, mutent en place, renvoient `True/False`. Chacun
 bind `<Return>`→Valider, `<Escape>`→Annuler, et pose le focus initial
-sur son 1er champ utile (la combobox Direction/Orientation).
+sur son 1er champ utile (la combobox Direction/Orientation). Le paramètre
+`section` est typé `Section = Union[Arbre, Brin]` (ils ne lisent que
+`rayon_tronc_cm` + la liste de mesures, présentes sur les deux) → ils
+peuvent éditer un brin précis d'une cépée.
 
 `ask_string(parent, title, prompt, initial, info=…)` : dialogue de
 saisie texte thémé (look ttk Silvavenir) qui remplace
@@ -312,6 +327,16 @@ saisie texte thémé (look ttk Silvavenir) qui remplace
 `(petit_axe_cm, orientation_grade)` si validé, `None` si annulé ; petit axe
 vide/0 ⟹ section circulaire. Volontairement séparé du formulaire pour ne pas
 alourdir le cas circulaire courant ; appelé par `IdentificationPane`.
+
+`ask_cepee_layout(parent, arbre) -> Optional[List[Tuple[float, float]]]` :
+**éditeur de disposition d'une cépée** (Étape 4b). Canvas qui dessine chaque
+brin (contour fidèle via `geometry.contour_polygon` — cercle ou ellipse
+orientée), cadrage **figé à l'ouverture** par `geometry.brins_layout` (le dessin
+ne saute pas pendant le glissement). Glisser-déposer un brin fixe sa position
+`(pos_x_cm, pos_y_cm)` ; le brin « a » est l'**ancre** (fixe, en (0,0)).
+Travaille sur une copie → renvoie les positions par brin si validé, `None` si
+annulé (Annuler = no-op). Appliqué par `App.edit_cepee_layout` (push_undo +
+redraw) ; déclenché par le bouton « Disposition… » de `IdentificationPane`.
 
 Helpers publics réutilisés par `pane_identification` :
 
