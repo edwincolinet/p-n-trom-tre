@@ -46,6 +46,7 @@ class _IdentificationHost(Protocol):
     def push_undo(self) -> None: ...
     def add_brin(self) -> None: ...
     def remove_last_brin(self) -> None: ...
+    def edit_cepee_layout(self) -> None: ...
 
 
 class IdentificationPane(ttk.Frame):
@@ -162,8 +163,17 @@ class IdentificationPane(ttk.Frame):
                 brin_bar, text="− Brin", style="Ghost.TButton",
                 command=self._remove_last_brin)
             self.btn_del_brin.pack(side="left", padx=(6, 0))
+            # Disposition (placement des brins à la souris) — pertinente
+            # seulement pour une cépée (≥ 2 brins) : désactivée sinon.
+            self.btn_layout = ttk.Button(
+                brin_bar, text="Disposition…", style="Ghost.TButton",
+                command=self._edit_cepee_layout)
+            self.btn_layout.pack(side="left", padx=(6, 0))
             self.lbl_brins = ttk.Label(brin_bar, text="", style="Muted.TLabel")
             self.lbl_brins.pack(side="left", padx=(10, 0))
+            Tooltip(self.btn_layout,
+                    "Place les brins de la cépée à la souris (glisser-"
+                    "déposer). Le brin « a » est l'ancre du repère.")
             Tooltip(self.btn_add_brin,
                     "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
                     "La nouvelle tige hérite la forme de la précédente et se "
@@ -241,8 +251,10 @@ class IdentificationPane(ttk.Frame):
             return
         a = self._host._current_arbre()
         n = len(a.brins) if a else 1
-        self.btn_del_brin.configure(
-            state=("normal" if n > 1 else "disabled"))
+        cepee_state = "normal" if n > 1 else "disabled"
+        self.btn_del_brin.configure(state=cepee_state)
+        if hasattr(self, "btn_layout"):
+            self.btn_layout.configure(state=cepee_state)
         self.lbl_brins.configure(
             text=(f"Cépée : {n} brins" if n > 1 else "1 brin (tige unique)"))
 
@@ -260,6 +272,11 @@ class IdentificationPane(ttk.Frame):
 
     def _remove_last_brin(self) -> None:
         self._host.remove_last_brin()
+
+    def _edit_cepee_layout(self) -> None:
+        """Flush d'un rayon en cours puis ouvre l'éditeur de disposition."""
+        self._commit_rayon()
+        self._host.edit_cepee_layout()
 
     def _mark_field(self, var: tk.StringVar, valid: bool) -> None:
         w = self._entry_widgets.get(str(var))

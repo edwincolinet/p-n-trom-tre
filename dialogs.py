@@ -27,11 +27,11 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
-from geometry import DIRECTION_LABELS, GRADES
+from geometry import DIRECTION_LABELS, GRADES, brins_layout, contour_polygon
 from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
-from palette import COLOR_MUTED, COLOR_PANEL
+from palette import COLOR_ACCENT, COLOR_ACCENT_SOFT, COLOR_BG, COLOR_INK, COLOR_MUTED, COLOR_PANEL, COLOR_WOOD
 from ui_fonts import font as ui_font
 
 # Les dialogues d'édition (sondage/dégradation/contrefort) ne lisent que de la
@@ -274,6 +274,139 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
 
     _make_modal(dlg, parent)
     e_petit.focus_set()
+    dlg.wait_window()
+    return result["val"]
+
+
+# ---------------------------------------------------------------------
+# Dialog : Disposition d'une cépée (placement des brins à la souris)
+# ---------------------------------------------------------------------
+
+def ask_cepee_layout(parent: tk.Misc,
+                     arbre: Arbre) -> Optional[List[Tuple[float, float]]]:
+    """Éditeur de disposition d'une cépée : place les brins à la souris.
+
+    Affiche tous les brins du genet (contour fidèle — cercle ou ellipse
+    orientée) dans un canvas. On **glisse** un brin pour fixer sa position
+    `(pos_x_cm, pos_y_cm)` dans le plan du genet. Le 1er brin (« a ») est
+    l'**ancre** du repère (origine en (0, 0)) : il reste fixe, les autres se
+    placent autour de lui (cf. décision du plan cépées).
+
+    Travaille sur une **copie** des positions → « Annuler » n'a aucun effet.
+    Renvoie la liste `[(pos_x_cm, pos_y_cm), ...]` (un couple par brin, dans
+    l'ordre des brins) si validé, `None` si annulé.
+
+    L'échelle et l'origine du dessin sont figées à l'ouverture (calculées sur
+    les positions initiales, avec une marge généreuse) : le dessin ne « saute »
+    pas pendant le glissement.
+    """
+    brins = arbre.brins
+    positions: List[List[float]] = [[b.pos_x_cm, b.pos_y_cm] for b in brins]
+    extents = [max(1.0, b.extent_cm()) for b in brins]
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Disposition de la cépée")
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.resizable(False, False)
+    dlg.columnconfigure(0, weight=1)
+    result: dict[str, Optional[List[Tuple[float, float]]]] = {"val": None}
+
+    W = H = 440.0
+    MARGIN = 70.0  # marge large → headroom pour glisser hors de la bbox initiale
+    scale, origin_x, origin_y = brins_layout(
+        [(positions[i][0], positions[i][1], extents[i])
+         for i in range(len(brins))],
+        W, H, MARGIN, MARGIN, MARGIN)
+
+    cv = tk.Canvas(dlg, width=int(W), height=int(H), bg=COLOR_BG,
+                   highlightthickness=0, cursor="hand2")
+    cv.grid(row=0, column=0, padx=12, pady=(12, 6))
+
+    state: dict[str, Any] = {"drag": None, "gx": 0.0, "gy": 0.0}
+
+    def to_px(x: float, y: float) -> Tuple[float, float]:
+        return origin_x + x * scale, origin_y + y * scale
+
+    def to_cm(px: float, py: float) -> Tuple[float, float]:
+        return (px - origin_x) / scale, (py - origin_y) / scale
+
+    def redraw() -> None:
+        cv.delete("all")
+        for i, b in enumerate(brins):
+            cx, cy = to_px(positions[i][0], positions[i][1])
+            pts = contour_polygon(b.rayon_a_grade, cx, cy, scale)
+            flat = [c for p in pts for c in p]
+            anchor = (i == 0)
+            fill = COLOR_ACCENT_SOFT if anchor else COLOR_WOOD
+            outline = COLOR_ACCENT if i == state["drag"] else COLOR_INK
+            cv.create_polygon(*flat, fill=fill, outline=outline, width=2)
+            label = b.label or chr(ord("a") + i)
+            txt = f"{label} · ancre" if anchor else label
+            cv.create_text(cx, cy, text=txt, fill=COLOR_INK,
+                           font=ui_font("Helvetica", 11, "bold"))
+
+    def brin_at(px: float, py: float) -> Optional[int]:
+        # Brins dessinés dans l'ordre ; on teste du dernier au premier pour
+        # attraper celui « au-dessus » en cas de chevauchement.
+        for i in reversed(range(len(brins))):
+            cx, cy = to_px(positions[i][0], positions[i][1])
+            rr = max(brins[i].rayon_tronc_cm, 1.0) * scale
+            if (px - cx) ** 2 + (py - cy) ** 2 <= rr * rr:
+                return i
+        return None
+
+    def on_press(e: "tk.Event[tk.Misc]") -> None:
+        i = brin_at(e.x, e.y)
+        if i is None or i == 0:  # rien, ou l'ancre (non déplaçable)
+            return
+        mx, my = to_cm(e.x, e.y)
+        state["drag"] = i
+        state["gx"] = mx - positions[i][0]
+        state["gy"] = my - positions[i][1]
+        redraw()
+
+    def on_motion(e: "tk.Event[tk.Misc]") -> None:
+        i = state["drag"]
+        if i is None:
+            return
+        mx, my = to_cm(e.x, e.y)
+        positions[i][0] = mx - state["gx"]
+        positions[i][1] = my - state["gy"]
+        redraw()
+
+    def on_release(_e: "tk.Event[tk.Misc]") -> None:
+        state["drag"] = None
+        redraw()
+
+    cv.bind("<Button-1>", on_press)
+    cv.bind("<B1-Motion>", on_motion)
+    cv.bind("<ButtonRelease-1>", on_release)
+
+    ttk.Label(
+        dlg,
+        text="Glissez un brin pour le positionner. Le brin « a » est "
+             "l'ancre du repère (fixe) ; les autres se placent autour.",
+        background=COLOR_PANEL, foreground=COLOR_MUTED,
+        font=ui_font("Helvetica", 9, "italic"),
+        wraplength=int(W), justify="left").grid(
+        row=1, column=0, sticky="w", padx=12, pady=(0, 6))
+
+    def ok() -> None:
+        result["val"] = [(round(x, 3), round(y, 3)) for x, y in positions]
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg, style="Panel.TFrame")
+    btns.grid(row=2, column=0, sticky="e", padx=12, pady=(2, 12))
+    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+               command=dlg.destroy).pack(side="right", padx=6)
+    ttk.Button(btns, text="Valider", style="Accent.TButton",
+               command=ok).pack(side="right")
+
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    redraw()
+    _make_modal(dlg, parent)
     dlg.wait_window()
     return result["val"]
 

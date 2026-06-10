@@ -74,7 +74,7 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     brin (`f4317a3`).
   - *Reporté (révisable)* : rayon « représentatif » du genet en synthèse =
     **max des brins** (choix par défaut, à confirmer si besoin).
-- [~] **Étape 4** — éditeur souris + sélecteur de brin pour la saisie.
+- [x] **Étape 4** — éditeur souris + sélecteur de brin pour la saisie.
   - [x] 4a — **sélecteur de brin** (saisie par brin) : `App._current_brin()`
     + `_current_brin_idx` (brin courant explicite, remis à 0 au changement
     d'arbre, borné si un brin est retiré) + `set_current_brin(idx)` ;
@@ -87,9 +87,22 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     acceptent un `Section = Union[Arbre, Brin]`. « ＋ Brin » sélectionne le
     brin neuf. Premiers shims `brins[0]` retirés des panes de saisie.
     +5 tests (`tests/test_app.py`).
-  - [ ] 4b — **éditeur souris** : faire grandir `ask_forme_tronc` en éditeur
-    de cépée (déplacer/pivoter les brins à la souris, ＋/− brin, label). ←
-    PROCHAINE
+  - [x] 4b — **éditeur souris** de la disposition : `dialogs.ask_cepee_layout`
+    (nouveau Toplevel, **pas** une extension de `ask_forme_tronc` qui édite
+    une seule forme). Canvas qui dessine chaque brin via `contour_polygon`
+    (cercle OU ellipse orientée, fidèle), cadrage figé à l'ouverture par
+    `geometry.brins_layout` (le dessin ne saute pas pendant le glissement).
+    **Glisser-déposer** un brin pour fixer `pos_x_cm`/`pos_y_cm` ; le brin
+    « a » est l'**ancre** du repère (fixe, non déplaçable) → invariant
+    « brins[0] en (0,0) » respecté. Travaille sur une copie → Annuler =
+    no-op. `App.edit_cepee_layout` applique (push_undo + dirty + redraw) ;
+    bouton « Disposition… » dans l'onglet Identification (activé si ≥ 2
+    brins). +2 tests. **274 tests**.
+    - *Reporté (révisable)* : **rotation** d'un brin (`rotation_grades` est
+      un champ réservé, **pas encore appliqué au rendu** `_draw_cepee` — y
+      ajouter d'abord la rotation rendrait l'édition de rotation utile) ;
+      édition de la **forme par brin** depuis cet éditeur (déjà possible via
+      le sélecteur de brin + « Forme du tronc… » de l'onglet Identification).
 
 ## 4. Modèle de données (déjà en place)
 

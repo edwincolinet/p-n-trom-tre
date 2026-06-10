@@ -36,7 +36,7 @@ from app_recovery import (
 from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
-from dialogs import edit_contrefort, edit_degradation, edit_sondage
+from dialogs import ask_cepee_layout, edit_contrefort, edit_degradation, edit_sondage
 from model import Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_BG, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
@@ -711,6 +711,31 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # mais on recharge les vues pour resynchroniser sélecteur + tables.
         self._current_brin_idx = min(self._current_brin_idx, len(a.brins) - 1)
         self._reload_current_views()
+
+    def edit_cepee_layout(self) -> None:
+        """Ouvre l'éditeur de disposition de la cépée (placement des brins à
+        la souris) et applique les nouvelles positions. No-op si moins de
+        2 brins ou si l'utilisateur annule / ne déplace rien."""
+        a = self._current_arbre()
+        if a is None or len(a.brins) < 2:
+            return
+        # Flush d'une édition de rayon en cours (le contour dessiné doit être
+        # à jour) avant d'ouvrir l'éditeur.
+        self.pane_id.flush()
+        res = ask_cepee_layout(self, a)
+        if res is None or len(res) != len(a.brins):
+            return
+        changed = any(
+            abs(res[i][0] - b.pos_x_cm) > 1e-9
+            or abs(res[i][1] - b.pos_y_cm) > 1e-9
+            for i, b in enumerate(a.brins))
+        if not changed:
+            return
+        self.push_undo()
+        for i, b in enumerate(a.brins):
+            b.pos_x_cm, b.pos_y_cm = res[i]
+        self._mark_dirty()
+        self._debounced_redraw()
 
     def _refresh_brin_selector(self) -> None:
         """Reconstruit la barre « Brin a / b / c » au-dessus des onglets.

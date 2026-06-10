@@ -344,14 +344,12 @@ class TestAppMixins(unittest.TestCase):
         self.assertEqual(len(a.brins[0].sondages), 0)
 
     def test_changer_d_arbre_remet_le_brin_courant_a_zero(self) -> None:
-        a = self.app.chantier.arbres[0]
         self.app.add_brin()
         self.assertEqual(self.app._current_brin_idx, 1)
         self.app.action_add_arbre()  # nouvel arbre courant
         self.assertEqual(self.app._current_brin_idx, 0)
 
     def test_remove_last_brin_borne_le_brin_courant(self) -> None:
-        a = self.app.chantier.arbres[0]
         self.app.add_brin()            # idx -> 1
         self.assertEqual(self.app._current_brin_idx, 1)
         self.app.remove_last_brin()    # le brin courant n'existe plus
@@ -365,6 +363,45 @@ class TestAppMixins(unittest.TestCase):
         self.app.update_idletasks()
         self.assertTrue(self.app.brin_bar.winfo_ismapped())
         self.assertEqual(len(self.app._brin_btns), 2)
+
+    def test_edit_cepee_layout_applique_les_positions_et_undo(self) -> None:
+        import penetrometre
+        a = self.app.chantier.arbres[0]
+        a.rayon_tronc_cm = 16.0
+        self.app.add_brin()  # 2 brins ; brin b à l'Est
+        old_b = (a.brins[1].pos_x_cm, a.brins[1].pos_y_cm)
+        # Stub du dialogue modal : renvoie de nouvelles positions (a ancré).
+        orig = penetrometre.ask_cepee_layout
+        penetrometre.ask_cepee_layout = lambda parent, arbre: [
+            (0.0, 0.0), (50.0, -30.0)]
+        try:
+            self.app.edit_cepee_layout()
+        finally:
+            penetrometre.ask_cepee_layout = orig
+        self.assertEqual((a.brins[0].pos_x_cm, a.brins[0].pos_y_cm), (0.0, 0.0))
+        self.assertEqual((a.brins[1].pos_x_cm, a.brins[1].pos_y_cm),
+                         (50.0, -30.0))
+        # Undo restaure la position précédente du brin b.
+        self.app._perform_undo()
+        self.assertEqual(
+            (self.app.chantier.arbres[0].brins[1].pos_x_cm,
+             self.app.chantier.arbres[0].brins[1].pos_y_cm), old_b)
+
+    def test_edit_cepee_layout_noop_si_mono_caule(self) -> None:
+        import penetrometre
+        called = {"n": 0}
+
+        def _spy(parent: object, arbre: object) -> None:
+            called["n"] += 1
+            return None
+
+        orig = penetrometre.ask_cepee_layout
+        penetrometre.ask_cepee_layout = _spy
+        try:
+            self.app.edit_cepee_layout()  # 1 seul brin → ne doit pas ouvrir
+        finally:
+            penetrometre.ask_cepee_layout = orig
+        self.assertEqual(called["n"], 0)
 
     def test_progression_onglets_reflete_l_avancement(self) -> None:
         a = self.app.chantier.arbres[0]
