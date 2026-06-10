@@ -6,7 +6,8 @@ possède sa table, ses boutons, son refresh et ses actions. La fenêtre
 `App` instancie le pane et appelle `refresh()` quand l'arbre change.
 
 Contrat host (Protocol structural) :
-- `_current_arbre()` : renvoie l'arbre courant ou None.
+- `_current_brin()` : renvoie le brin (ramet) courant à éditer, ou None
+  (mono-caule = `brins[0]` ; cépée = le brin du sélecteur).
 - `_debounced_redraw()` : déclenche un redraw du dessin de section.
 """
 
@@ -17,11 +18,11 @@ from tkinter import ttk
 from typing import Any, Optional, Protocol
 
 from dialogs import edit_degradation
-from model import Arbre, DegradationExterne
+from model import Brin, DegradationExterne
 
 
 class _DegradationsHost(Protocol):
-    def _current_arbre(self) -> Optional[Arbre]: ...
+    def _current_brin(self) -> Optional[Brin]: ...
     def _debounced_redraw(self) -> None: ...
     def push_undo(self) -> None: ...
 
@@ -80,11 +81,11 @@ class DegradationsPane(ttk.Frame):
     def refresh(self) -> None:
         """Recharge le contenu de la table depuis l'arbre courant."""
         self.tbl.delete(*self.tbl.get_children())
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        R = a.rayon_tronc_cm
-        for i, deg in enumerate(a.degradations_externes):
+        R = b.rayon_tronc_cm
+        for i, deg in enumerate(b.degradations_externes):
             self.tbl.insert(
                 "", "end", iid=f"d{i}",
                 values=(deg.numero,
@@ -102,16 +103,16 @@ class DegradationsPane(ttk.Frame):
         return int(sel[0][1:])
 
     def _on_add(self) -> None:
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
         deg = DegradationExterne(
-            numero=len(a.degradations_externes) + 1,
+            numero=len(b.degradations_externes) + 1,
             grade_debut=0, grade_fin=50, profondeur_cm=2.0)
-        if edit_degradation(self, a, deg):
+        if edit_degradation(self, b, deg):
             self._host.push_undo()
-            a.degradations_externes.append(deg)
-            a.renumeroter_degradations()
+            b.degradations_externes.append(deg)
+            b.renumeroter_degradations()
             self.refresh()
             self._host._debounced_redraw()
 
@@ -119,11 +120,11 @@ class DegradationsPane(ttk.Frame):
         idx = self._selected_index()
         if idx is None:
             return
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        deg = a.degradations_externes[idx]
-        if edit_degradation(self, a, deg):
+        deg = b.degradations_externes[idx]
+        if edit_degradation(self, b, deg):
             self._host.push_undo()
             self.refresh()
             self._host._debounced_redraw()
@@ -132,11 +133,11 @@ class DegradationsPane(ttk.Frame):
         idx = self._selected_index()
         if idx is None:
             return
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
         self._host.push_undo()
-        del a.degradations_externes[idx]
-        a.renumeroter_degradations()
+        del b.degradations_externes[idx]
+        b.renumeroter_degradations()
         self.refresh()
         self._host._debounced_redraw()

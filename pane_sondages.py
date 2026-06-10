@@ -21,7 +21,9 @@ L'unicité « un seul sondage par direction » est garantie par construction
 (une ligne par grade), donc plus aucune validation d'unicité nécessaire.
 
 Contrat host (Protocol structural) :
-- `_current_arbre()`            : arbre courant ou None.
+- `_current_brin()`             : brin (ramet) courant à éditer, ou None.
+                                  Mono-caule = `brins[0]` (inchangé) ;
+                                  cépée = le brin du sélecteur.
 - `on_sondages_changed()`       : notifie l'App d'une mutation (marque
                                   dirty + redraw debouncé + maj diag/état).
 - `push_undo()`                 : snapshot avant une mutation discrète.
@@ -39,7 +41,7 @@ from typing import Any, Dict, Optional, Protocol
 from aide_repliable import AideRepliable
 from dialogs import edit_sondage, to_float, validate_numeric
 from geometry import GRADES
-from model import Arbre, Sondage
+from model import Brin, Sondage
 from ui_fonts import font as ui_font
 
 # Rose des vents 16 directions — libellé affiché par ligne de la grille.
@@ -55,7 +57,7 @@ _COMPART_VALUES = ["non renseignée", "active", "absente"]
 
 
 class _SondagesHost(Protocol):
-    def _current_arbre(self) -> Optional[Arbre]: ...
+    def _current_brin(self) -> Optional[Brin]: ...
     def on_sondages_changed(self) -> None: ...
     def push_undo(self) -> None: ...
     def capture_undo_snapshot(self) -> dict: ...
@@ -168,11 +170,11 @@ class SondagesPane(ttk.Frame):
     def refresh(self) -> None:
         """Recharge la grille depuis l'arbre courant. Suspend la synchro
         pour ne pas re-muter le modèle pendant qu'on écrit les vars."""
-        a = self._host._current_arbre()
-        R = a.rayon_tronc_cm if a else 0.0
+        b = self._host._current_brin()
+        R = b.rayon_tronc_cm if b else 0.0
         by_grade: Dict[int, Sondage] = {}
-        if a:
-            for sd in a.sondages:
+        if b:
+            for sd in b.sondages:
                 by_grade[sd.grade] = sd
         self._suspend = True
         try:
@@ -196,42 +198,42 @@ class SondagesPane(ttk.Frame):
 
     # --- Modèle (helpers) ---------------------------------------------
 
-    def _find_sondage(self, a: Arbre, g: int) -> Optional[Sondage]:
-        for s in a.sondages:
+    def _find_sondage(self, b: Brin, g: int) -> Optional[Sondage]:
+        for s in b.sondages:
             if s.grade == g:
                 return s
         return None
 
-    def _get_or_create_sondage(self, a: Arbre, g: int) -> Sondage:
-        s = self._find_sondage(a, g)
+    def _get_or_create_sondage(self, b: Brin, g: int) -> Sondage:
+        s = self._find_sondage(b, g)
         if s is not None:
             return s
         s = Sondage(numero=0, grade=g, bois_sain_cm=0.0, bois_altere_cm=0.0)
-        a.sondages.append(s)
-        a.sondages.sort(key=lambda x: x.grade)
-        a.renumeroter_sondages()
+        b.sondages.append(s)
+        b.sondages.sort(key=lambda x: x.grade)
+        b.renumeroter_sondages()
         return s
 
-    def _remove_sondage(self, a: Arbre, g: int) -> None:
-        before = len(a.sondages)
-        a.sondages[:] = [s for s in a.sondages if s.grade != g]
-        if len(a.sondages) != before:
-            a.renumeroter_sondages()
+    def _remove_sondage(self, b: Brin, g: int) -> None:
+        before = len(b.sondages)
+        b.sondages[:] = [s for s in b.sondages if s.grade != g]
+        if len(b.sondages) != before:
+            b.renumeroter_sondages()
 
     # --- Saisie live --------------------------------------------------
 
     def _on_sain_write(self, g: int) -> None:
         if self._suspend:
             return
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
         row = self._rows[g]
         raw = row["sain"].get().strip()
-        R = a.rayon_tronc_cm
+        R = b.rayon_tronc_cm
 
         if raw == "":
-            self._remove_sondage(a, g)
+            self._remove_sondage(b, g)
             row["alt"].set("—")
             row["comp"].set("non renseignée")
             row["combo"].configure(state="disabled")
@@ -244,7 +246,7 @@ class SondagesPane(ttk.Frame):
             return
         sain = max(0.0, min(sain, R)) if R > 0 else max(0.0, sain)
 
-        s = self._get_or_create_sondage(a, g)
+        s = self._get_or_create_sondage(b, g)
         s.bois_sain_cm = sain
         s.bois_altere_cm = max(0.0, R - sain) if R > 0 else 0.0
         row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
@@ -260,11 +262,11 @@ class SondagesPane(ttk.Frame):
         self._focus_in_value = self._rows[g]["sain"].get()
 
     def _on_focus_out(self, g: int) -> None:
-        a = self._host._current_arbre()
+        b = self._host._current_brin()
         # Normalise l'affichage à la valeur réellement stockée (clamp à R,
         # mise au format `:g`) — ex. "99" sur R=20 redevient "20".
-        if a is not None:
-            s = self._find_sondage(a, g)
+        if b is not None:
+            s = self._find_sondage(b, g)
             if s is not None:
                 self._suspend = True
                 try:
@@ -277,10 +279,10 @@ class SondagesPane(ttk.Frame):
         self._undo_snap = None
 
     def _on_comp_changed(self, g: int) -> None:
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        s = self._find_sondage(a, g)
+        s = self._find_sondage(b, g)
         if s is None:
             # Pas de sondage sur cette direction : la compartimentation n'a
             # pas de sens, on revient à la valeur neutre.
@@ -303,21 +305,21 @@ class SondagesPane(ttk.Frame):
         """Double-clic sur une ligne : ouvre `edit_sondage` pour le détail
         (commentaire, redirection vers un autre grade). Crée le sondage si
         la direction est encore vide."""
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return "break"
-        s = self._find_sondage(a, g)
+        s = self._find_sondage(b, g)
         created = s is None
         if s is None:
-            s = Sondage(numero=len(a.sondages) + 1, grade=g,
-                        bois_sain_cm=a.rayon_tronc_cm, bois_altere_cm=0.0)
+            s = Sondage(numero=len(b.sondages) + 1, grade=g,
+                        bois_sain_cm=b.rayon_tronc_cm, bois_altere_cm=0.0)
         snap = self._host.capture_undo_snapshot()
-        if edit_sondage(self, a, s):
+        if edit_sondage(self, b, s):
             self._host.push_undo_snapshot(snap)
             if created:
-                a.sondages.append(s)
-            a.sondages.sort(key=lambda x: x.grade)
-            a.renumeroter_sondages()
+                b.sondages.append(s)
+            b.sondages.sort(key=lambda x: x.grade)
+            b.renumeroter_sondages()
             self.refresh()
             self._host.on_sondages_changed()
         return "break"

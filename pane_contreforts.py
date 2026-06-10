@@ -7,7 +7,8 @@ plus à connaître le détail des widgets — elle instancie le pane et
 appelle `refresh()` quand l'arbre courant change.
 
 Contrat host (Protocol structural) :
-- `_current_arbre()` : renvoie l'arbre courant ou None.
+- `_current_brin()` : renvoie le brin (ramet) courant à éditer, ou None
+  (mono-caule = `brins[0]` ; cépée = le brin du sélecteur).
 - `_debounced_redraw()` : déclenche un redraw du dessin de section.
 
 Réunit en un seul module la construction du widget, le refresh depuis
@@ -24,11 +25,11 @@ from typing import Any, Optional, Protocol
 
 from dialogs import edit_contrefort
 from geometry import DIRECTION_LABELS
-from model import Arbre, Contrefort
+from model import Brin, Contrefort
 
 
 class _ContrefortsHost(Protocol):
-    def _current_arbre(self) -> Optional[Arbre]: ...
+    def _current_brin(self) -> Optional[Brin]: ...
     def _debounced_redraw(self) -> None: ...
     def push_undo(self) -> None: ...
 
@@ -88,11 +89,11 @@ class ContrefortsPane(ttk.Frame):
     def refresh(self) -> None:
         """Recharge le contenu de la table depuis l'arbre courant."""
         self.tbl.delete(*self.tbl.get_children())
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        R = a.rayon_tronc_cm
-        for i, c in enumerate(a.contreforts):
+        R = b.rayon_tronc_cm
+        for i, c in enumerate(b.contreforts):
             lbl = DIRECTION_LABELS.get(c.grade_centre, "")
             centre_txt = f"{c.grade_centre}" + (f" — {lbl}" if lbl else "")
             self.tbl.insert(
@@ -111,15 +112,15 @@ class ContrefortsPane(ttk.Frame):
         return int(sel[0][1:])
 
     def _on_add(self) -> None:
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        c = Contrefort(numero=len(a.contreforts) + 1,
+        c = Contrefort(numero=len(b.contreforts) + 1,
                        grade_centre=0, largeur_grades=75, longueur_cm=10.0)
-        if edit_contrefort(self, a, c):
+        if edit_contrefort(self, b, c):
             self._host.push_undo()
-            a.contreforts.append(c)
-            a.renumeroter_contreforts()
+            b.contreforts.append(c)
+            b.renumeroter_contreforts()
             self.refresh()
             self._host._debounced_redraw()
 
@@ -127,11 +128,11 @@ class ContrefortsPane(ttk.Frame):
         idx = self._selected_index()
         if idx is None:
             return
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
-        c = a.contreforts[idx]
-        if edit_contrefort(self, a, c):
+        c = b.contreforts[idx]
+        if edit_contrefort(self, b, c):
             self._host.push_undo()
             self.refresh()
             self._host._debounced_redraw()
@@ -140,11 +141,11 @@ class ContrefortsPane(ttk.Frame):
         idx = self._selected_index()
         if idx is None:
             return
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
         self._host.push_undo()
-        del a.contreforts[idx]
-        a.renumeroter_contreforts()
+        del b.contreforts[idx]
+        b.renumeroter_contreforts()
         self.refresh()
         self._host._debounced_redraw()

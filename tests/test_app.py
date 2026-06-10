@@ -321,6 +321,51 @@ class TestAppMixins(unittest.TestCase):
         self.app.remove_last_brin()
         self.assertEqual(len(a.brins), 1)
 
+    # --- Brin courant / sélecteur de cépée ---
+
+    def test_current_brin_est_brins0_pour_mono_caule(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.assertIs(self.app._current_brin(), a.brins[0])
+
+    def test_set_current_brin_repointe_la_saisie(self) -> None:
+        a = self.app.chantier.arbres[0]
+        a.rayon_tronc_cm = 20.0
+        self.app.add_brin()  # brin "b" devient courant
+        self.assertEqual(self.app._current_brin_idx, 1)
+        self.assertIs(self.app._current_brin(), a.brins[1])
+        # Saisir un sondage via la grille écrit sur le brin courant (b),
+        # pas sur brins[0].
+        self.app.pane_s._rows[0]["sain"].set("12")
+        self.assertEqual(len(a.brins[1].sondages), 1)
+        self.assertEqual(len(a.brins[0].sondages), 0)
+        # Revenir au brin a et vérifier l'isolation.
+        self.app.set_current_brin(0)
+        self.assertIs(self.app._current_brin(), a.brins[0])
+        self.assertEqual(len(a.brins[0].sondages), 0)
+
+    def test_changer_d_arbre_remet_le_brin_courant_a_zero(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.add_brin()
+        self.assertEqual(self.app._current_brin_idx, 1)
+        self.app.action_add_arbre()  # nouvel arbre courant
+        self.assertEqual(self.app._current_brin_idx, 0)
+
+    def test_remove_last_brin_borne_le_brin_courant(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.add_brin()            # idx -> 1
+        self.assertEqual(self.app._current_brin_idx, 1)
+        self.app.remove_last_brin()    # le brin courant n'existe plus
+        self.assertEqual(self.app._current_brin_idx, 0)
+        self.assertIsNotNone(self.app._current_brin())
+
+    def test_selecteur_brin_masque_pour_mono_caule(self) -> None:
+        # Genet mono-caule : la barre de sélection n'est pas affichée.
+        self.assertFalse(self.app.brin_bar.winfo_ismapped())
+        self.app.add_brin()
+        self.app.update_idletasks()
+        self.assertTrue(self.app.brin_bar.winfo_ismapped())
+        self.assertEqual(len(self.app._brin_btns), 2)
+
     def test_progression_onglets_reflete_l_avancement(self) -> None:
         a = self.app.chantier.arbres[0]
         a.essence = "Platane"

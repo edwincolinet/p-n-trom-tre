@@ -27,12 +27,19 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from geometry import DIRECTION_LABELS, GRADES
-from model import Arbre, Contrefort, DegradationExterne, Sondage
+from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_MUTED, COLOR_PANEL
 from ui_fonts import font as ui_font
+
+# Les dialogues d'édition (sondage/dégradation/contrefort) ne lisent que de la
+# géométrie (`rayon_tronc_cm`) et la liste de mesures concernée — présentes
+# aussi bien sur un `Arbre` (relais de compat → brins[0]) que sur un `Brin`
+# natif. Accepter les deux permet d'éditer un brin précis d'une cépée (le
+# sélecteur de brin de l'Étape 4) sans passer par les relais brins[0].
+Section = Union[Arbre, Brin]
 
 
 def _grade_choices() -> list[str]:
@@ -275,7 +282,7 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
 # Dialog : Sondage
 # ---------------------------------------------------------------------
 
-def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
+def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
                   sondage: Sondage) -> bool:
     """Édite un sondage en place. Renvoie True si validé."""
     dlg = tk.Toplevel(parent)
@@ -436,7 +443,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Arbre],
 # Dialog : Dégradation externe
 # ---------------------------------------------------------------------
 
-def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
+def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
                       deg: DegradationExterne) -> bool:
     """Édite une dégradation externe en place. Renvoie True si validé.
 
@@ -630,7 +637,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Arbre],
 # Dialog : Contrefort
 # ---------------------------------------------------------------------
 
-def edit_contrefort(parent: tk.Misc, arbre: Optional[Arbre],
+def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
                      cf: Contrefort) -> bool:
     """Édite un contrefort en place. Renvoie True si validé.
 

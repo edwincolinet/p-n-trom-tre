@@ -74,8 +74,22 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     brin (`f4317a3`).
   - *Reporté (révisable)* : rayon « représentatif » du genet en synthèse =
     **max des brins** (choix par défaut, à confirmer si besoin).
-- [ ] **Étape 4** — éditeur souris (ajouter/déplacer/pivoter brins ; sélecteur
-  de brin pour la grille de saisie 16 directions). ← PROCHAINE
+- [~] **Étape 4** — éditeur souris + sélecteur de brin pour la saisie.
+  - [x] 4a — **sélecteur de brin** (saisie par brin) : `App._current_brin()`
+    + `_current_brin_idx` (brin courant explicite, remis à 0 au changement
+    d'arbre, borné si un brin est retiré) + `set_current_brin(idx)` ;
+    barre « Brin a / b / c » (Radiobutton Toolbutton) au-dessus des onglets,
+    masquée pour un genet mono-caule (`_refresh_brin_selector`). Les onglets
+    **Sondages / Dégradations / Contreforts** et la **géométrie** de
+    l'onglet Identification (rayon/diamètre/écorce/forme) éditent désormais
+    `_current_brin()` (l'identité — n°, essence, port, hauteurs, mèche —
+    reste genet) ; les dialogues `edit_sondage/degradation/contrefort`
+    acceptent un `Section = Union[Arbre, Brin]`. « ＋ Brin » sélectionne le
+    brin neuf. Premiers shims `brins[0]` retirés des panes de saisie.
+    +5 tests (`tests/test_app.py`).
+  - [ ] 4b — **éditeur souris** : faire grandir `ask_forme_tronc` en éditeur
+    de cépée (déplacer/pivoter les brins à la souris, ＋/− brin, label). ←
+    PROCHAINE
 
 ## 4. Modèle de données (déjà en place)
 

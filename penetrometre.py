@@ -18,6 +18,7 @@ import logging
 import os
 import tkinter as tk
 from contextlib import contextmanager
+from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -36,7 +37,7 @@ from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from dialogs import edit_contrefort, edit_degradation, edit_sondage
-from model import Arbre, Chantier, Contrefort, DegradationExterne, Sondage
+from model import Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_BG, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -110,6 +111,11 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
+        # Brin (ramet) actuellement piloté par les onglets de saisie
+        # (Identification géométrie / Sondages / Dégradations / Contreforts).
+        # 0 = 1er brin ; remis à 0 à chaque changement d'arbre. Le sélecteur
+        # de brin (cépée) le repointe via `set_current_brin`.
+        self._current_brin_idx = 0
         self.current_file: Optional[Path] = None
         self._dirty = False
         self._suspend_sync = False
@@ -389,6 +395,19 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
     def _build_center(self, parent: ttk.Frame) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
+        # Sélecteur de brin (cépée) : barre de boutons « Brin a / b / c »
+        # au-dessus des onglets, qui repointe la saisie (Identification
+        # géométrie / Sondages / Dégradations / Contreforts) sur le brin
+        # choisi. Masquée pour un genet mono-caule (1 brin) — voir
+        # `_refresh_brin_selector`.
+        self.brin_bar = ttk.Frame(frame, style="Panel.TFrame")
+        self.var_current_brin = tk.IntVar(value=0)
+        self._brin_btns: list[ttk.Radiobutton] = []
+        ttk.Label(self.brin_bar, text="Brin :", style="Panel.TLabel").pack(
+            side="left", padx=(0, 6))
+        self._brin_btns_holder = ttk.Frame(self.brin_bar, style="Panel.TFrame")
+        self._brin_btns_holder.pack(side="left")
+
         nb = ttk.Notebook(frame)
         self.nb = nb
         nb.pack(fill="both", expand=True)
@@ -577,6 +596,35 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             return None
         return self.chantier.arbres[self.current_idx]
 
+    def _current_brin(self) -> Optional[Brin]:
+        """Le brin (ramet) actuellement édité par les onglets de saisie.
+
+        Pour un genet mono-caule, c'est l'unique brin (= `brins[0]`, donc
+        comportement historique inchangé). Pour une cépée, c'est le brin
+        désigné par le sélecteur (`_current_brin_idx`). L'index est borné
+        ici pour rester valide même si des brins ont été retirés."""
+        a = self._current_arbre()
+        if a is None or not a.brins:
+            return None
+        self._current_brin_idx = max(
+            0, min(self._current_brin_idx, len(a.brins) - 1))
+        return a.brins[self._current_brin_idx]
+
+    def set_current_brin(self, idx: int) -> None:
+        """Repointe les onglets de saisie sur le brin `idx` (sélecteur de
+        cépée). Commite d'abord une édition de rayon éventuellement en cours
+        sur le brin ACTUEL, puis recharge les vues sans réinitialiser
+        l'index (contrairement à `_load_arbre_to_ui`)."""
+        a = self._current_arbre()
+        if a is None:
+            return
+        idx = max(0, min(idx, len(a.brins) - 1))
+        if idx == self._current_brin_idx:
+            return
+        self.pane_id.flush()
+        self._current_brin_idx = idx
+        self._reload_current_views()
+
     @contextmanager
     def _suspend_sync_block(self) -> Iterator[None]:
         """Suspend la synchro UI → modèle pendant un bloc d'écriture
@@ -647,8 +695,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             return
         self.push_undo()
         a.ajouter_brin()
-        self._debounced_redraw()
-        self.pane_id.refresh_brin_buttons()
+        # Le brin neuf devient courant : l'opérateur enchaîne directement
+        # sur sa saisie (rayon/sondages). Recharge toutes les vues.
+        self._current_brin_idx = len(a.brins) - 1
+        self._reload_current_views()
 
     def remove_last_brin(self) -> None:
         """Retire le dernier brin de la cépée (no-op si genet mono-caule)."""
@@ -657,16 +707,59 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             return
         self.push_undo()
         a.supprimer_brin(len(a.brins) - 1)
-        self._debounced_redraw()
-        self.pane_id.refresh_brin_buttons()
+        # `_current_brin_idx` est borné par `_current_brin`/`set_current_brin`,
+        # mais on recharge les vues pour resynchroniser sélecteur + tables.
+        self._current_brin_idx = min(self._current_brin_idx, len(a.brins) - 1)
+        self._reload_current_views()
+
+    def _refresh_brin_selector(self) -> None:
+        """Reconstruit la barre « Brin a / b / c » au-dessus des onglets.
+
+        Masquée pour un genet mono-caule (un seul brin → pas de choix à
+        faire). Sinon, un bouton-bascule (Radiobutton style Toolbutton) par
+        brin, le courant coché. Reconstruite à chaque rechargement car le
+        nombre de brins et leurs labels varient (ajout/suppression)."""
+        bar = getattr(self, "brin_bar", None)
+        if bar is None:
+            return
+        for b in self._brin_btns:
+            b.destroy()
+        self._brin_btns = []
+        a = self._current_arbre()
+        n = len(a.brins) if a else 1
+        if a is None or n <= 1:
+            bar.pack_forget()
+            return
+        self.var_current_brin.set(self._current_brin_idx)
+        for i, brin in enumerate(a.brins):
+            label = brin.label or chr(ord("a") + i)
+            rb = ttk.Radiobutton(
+                self._brin_btns_holder, text=f"Brin {label}",
+                value=i, variable=self.var_current_brin, style="Toolbutton",
+                command=partial(self.set_current_brin, i))
+            rb.pack(side="left", padx=(0, 4))
+            self._brin_btns.append(rb)
+        bar.pack(fill="x", pady=(0, 6), before=self.nb)
 
     def _load_arbre_to_ui(self) -> None:
         """Recharge l'UI complète depuis l'arbre courant : identification
-        + tables Sondages/Dégradations/Contreforts + redraw du dessin."""
+        + tables Sondages/Dégradations/Contreforts + redraw du dessin.
+
+        Repointe le brin courant sur le 1er brin (changement d'arbre =
+        on repart du brin a), puis recharge les vues."""
+        self._current_brin_idx = 0
+        self._reload_current_views()
+
+    def _reload_current_views(self) -> None:
+        """Recharge identification + tables + sélecteur de brin + dessin
+        depuis l'arbre/brin courants, SANS toucher `_current_brin_idx`.
+        Mutualisé entre `_load_arbre_to_ui` (changement d'arbre) et
+        `set_current_brin` (changement de brin dans une cépée)."""
         self.pane_id.load_from_arbre()
         self._refresh_sondages_table()
         self._refresh_degradations_table()
         self._refresh_contreforts_table()
+        self._refresh_brin_selector()
         self._debounced_redraw()
 
     def _debounced_redraw(self) -> None:

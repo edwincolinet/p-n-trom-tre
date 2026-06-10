@@ -7,7 +7,10 @@ ces éléments étaient répartis dans `App._build_center`,
 `App._sync_ui_to_model` et `App._load_arbre_to_ui`.
 
 Contrat host (Protocol structural) :
-- `_current_arbre()` : renvoie l'arbre courant (ou None).
+- `_current_arbre()` : renvoie l'arbre courant — le **genet** (ou None).
+  Porte l'identité partagée (n°, essence, port, hauteurs, mèche).
+- `_current_brin()` : renvoie le **brin** (ramet) courant — porte la
+  géométrie (rayon, diamètre, écorce, forme). Mono-caule = `brins[0]`.
 - `on_identification_changed(rayon_adjusted)` : notifie l'App qu'un
   champ a changé. Quand `rayon_adjusted=True`, l'App doit aussi
   rafraîchir les tables Sondages/Dégradations/Contreforts (le rayon
@@ -30,7 +33,7 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple
 from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import ask_forme_tronc, to_float, validate_numeric
-from model import Arbre
+from model import Arbre, Brin
 from tooltip import Tooltip
 
 _log = logging.getLogger("penetrometre")
@@ -38,6 +41,7 @@ _log = logging.getLogger("penetrometre")
 
 class _IdentificationHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
+    def _current_brin(self) -> Optional[Brin]: ...
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None: ...
     def push_undo(self) -> None: ...
     def add_brin(self) -> None: ...
@@ -208,23 +212,26 @@ class IdentificationPane(ttk.Frame):
         synchro suspendue pour ne pas boucler)."""
         self._commit_rayon()
         a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not a or not b:
             return
         with self._suspend_sync_block():
+            # Identité partagée → genet (`Arbre`).
             self.var_num.set(a.numero_arbre)
             self.var_essence.set(a.essence)
-            self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
             self.var_h_s.set(f"{a.hauteur_sondage_cm:g}"
                               if a.hauteur_sondage_cm else "")
-            self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}"
-                               if a.diametre_sous_ecorce_cm else "")
             self.var_h_arb.set(f"{a.hauteur_arbre_m:g}"
                                 if a.hauteur_arbre_m else "")
             self.var_meche.set(f"{a.meche_cm:g}" if a.meche_cm else "40")
-            self.var_ep_ecorce.set(f"{a.epaisseur_ecorce_cm:g}"
-                                    if a.epaisseur_ecorce_cm else "0")
             self.var_port.set(a.port_arbre)
             self.var_comm.set(a.commentaire)
+            # Géométrie → brin courant (`Brin`).
+            self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
+            self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}"
+                               if b.diametre_sous_ecorce_cm else "")
+            self.var_ep_ecorce.set(f"{b.epaisseur_ecorce_cm:g}"
+                                    if b.epaisseur_ecorce_cm else "0")
         self.refresh_brin_buttons()
 
     def refresh_brin_buttons(self) -> None:
@@ -238,6 +245,12 @@ class IdentificationPane(ttk.Frame):
             state=("normal" if n > 1 else "disabled"))
         self.lbl_brins.configure(
             text=(f"Cépée : {n} brins" if n > 1 else "1 brin (tige unique)"))
+
+    def flush(self) -> None:
+        """Finalise une édition de rayon en cours (focus encore dans le
+        champ). Appelé par l'App avant de changer de brin courant, pour que
+        le commit s'applique au brin que l'on quitte, pas au nouveau."""
+        self._commit_rayon()
 
     def _add_brin(self) -> None:
         """Ajoute un brin à la cépée (flush d'un rayon en cours d'abord, pour
@@ -298,10 +311,10 @@ class IdentificationPane(ttk.Frame):
             return None
 
     def _on_rayon_field_focus_in(self) -> None:
-        a = self._host._current_arbre()
-        if a:
-            self._rayon_at_focus_in = a.rayon_tronc_cm
-            self._diam_at_focus_in = a.diametre_sous_ecorce_cm
+        b = self._host._current_brin()
+        if b:
+            self._rayon_at_focus_in = b.rayon_tronc_cm
+            self._diam_at_focus_in = b.diametre_sous_ecorce_cm
 
     def _on_rayon_field_focus_out(self) -> None:
         self._commit_rayon()
@@ -315,8 +328,8 @@ class IdentificationPane(ttk.Frame):
         numérique, champ vide), on REVERT le rayon et le diamètre à
         leur valeur d'avant l'édition — les valeurs intermédiaires
         (ex. "8" en route vers "80") ne doivent pas être commitées."""
-        a = self._host._current_arbre()
-        if not a or self._rayon_at_focus_in is None:
+        b = self._host._current_brin()
+        if not b or self._rayon_at_focus_in is None:
             return
         old_R = self._rayon_at_focus_in
         old_D = self._diam_at_focus_in
@@ -326,55 +339,57 @@ class IdentificationPane(ttk.Frame):
         cur_diam = self._parse_float(self.var_diam)
         cur_rayon = self._parse_float(self.var_rayon)
         if cur_diam is None or cur_rayon is None:
-            a.rayon_tronc_cm = old_R
-            a.diametre_sous_ecorce_cm = old_D if old_D is not None else old_R * 2
+            b.rayon_tronc_cm = old_R
+            b.diametre_sous_ecorce_cm = old_D if old_D is not None else old_R * 2
             with self._suspend_sync_block():
-                self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
-                self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}")
+                self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
+                self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}")
             self._host.on_identification_changed(rayon_adjusted=False)
             return
 
-        new_R = a.rayon_tronc_cm
+        new_R = b.rayon_tronc_cm
         if abs(new_R - old_R) <= 1e-9:
             return
-        a.rayon_tronc_cm = old_R
+        b.rayon_tronc_cm = old_R
         self._host.push_undo()
-        adjusted = a.set_rayon(new_R)
+        adjusted = b.set_rayon(new_R)
         self._host.on_identification_changed(rayon_adjusted=adjusted)
 
     def _open_forme_editor(self) -> None:
         """Ouvre l'éditeur avancé de forme (section ovale) et applique le
         résultat : push undo + `set_forme_ovale` (réaligne le bois altéré
         sur le rayon local, PRBS préservée). Annulation ⟹ aucun effet."""
-        a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not b:
             return
         # Flush d'une édition de rayon en cours avant d'ouvrir l'éditeur,
         # pour que le grand axe affiché soit à jour.
         self._commit_rayon()
         res = ask_forme_tronc(
             self.winfo_toplevel(),
-            grand_axe_cm=a.rayon_tronc_cm,
-            petit_axe_cm=a.rayon_petit_axe_cm,
-            orientation_grade=a.orientation_grade)
+            grand_axe_cm=b.rayon_tronc_cm,
+            petit_axe_cm=b.rayon_petit_axe_cm,
+            orientation_grade=b.orientation_grade)
         if res is None:
             return
         petit_v, orient_v = res
-        if (abs(petit_v - a.rayon_petit_axe_cm) <= 1e-9
-                and orient_v == a.orientation_grade):
+        if (abs(petit_v - b.rayon_petit_axe_cm) <= 1e-9
+                and orient_v == b.orientation_grade):
             return
         self._host.push_undo()
-        adjusted = a.set_forme_ovale(petit_v, orient_v)
+        adjusted = b.set_forme_ovale(petit_v, orient_v)
         self._host.on_identification_changed(rayon_adjusted=adjusted)
 
     def _sync_to_model(self) -> None:
         if self._suspend_sync:
             return
         a = self._host._current_arbre()
-        if not a:
+        b = self._host._current_brin()
+        if not a or not b:
             return
 
         try:
+            # Identité partagée → genet.
             a.numero_arbre = self.var_num.get()
             a.essence = self.var_essence.get()
             a.port_arbre = self.var_port.get()
@@ -391,31 +406,32 @@ class IdentificationPane(ttk.Frame):
                 a.hauteur_arbre_m = h_arb
             if meche is not None:
                 a.meche_cm = meche
+            # Écorce + diamètre + rayon → brin courant (géométrie propre).
             if ep is not None:
-                a.epaisseur_ecorce_cm = max(0.0, ep)
+                b.epaisseur_ecorce_cm = max(0.0, ep)
 
             new_diam = self._parse_float(self.var_diam)
             new_rayon = self._parse_float(self.var_rayon)
 
             if new_diam is not None and new_rayon is not None:
-                diam_changed = abs(new_diam - a.diametre_sous_ecorce_cm) > 1e-9
-                rayon_changed = abs(new_rayon - a.rayon_tronc_cm) > 1e-9
-                a.diametre_sous_ecorce_cm = new_diam
+                diam_changed = abs(new_diam - b.diametre_sous_ecorce_cm) > 1e-9
+                rayon_changed = abs(new_rayon - b.rayon_tronc_cm) > 1e-9
+                b.diametre_sous_ecorce_cm = new_diam
                 if diam_changed and not rayon_changed:
-                    a.rayon_tronc_cm = max(0.0, new_diam / 2.0)
+                    b.rayon_tronc_cm = max(0.0, new_diam / 2.0)
                     with self._suspend_sync_block():
-                        self.var_rayon.set(f"{a.rayon_tronc_cm:g}")
+                        self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
                 elif rayon_changed and not diam_changed:
-                    a.rayon_tronc_cm = max(0.0, new_rayon)
-                    a.diametre_sous_ecorce_cm = new_rayon * 2.0
+                    b.rayon_tronc_cm = max(0.0, new_rayon)
+                    b.diametre_sous_ecorce_cm = new_rayon * 2.0
                     with self._suspend_sync_block():
-                        self.var_diam.set(f"{a.diametre_sous_ecorce_cm:g}")
+                        self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}")
                 else:
-                    a.rayon_tronc_cm = max(0.0, new_rayon)
+                    b.rayon_tronc_cm = max(0.0, new_rayon)
             elif new_diam is not None:
-                a.diametre_sous_ecorce_cm = new_diam
+                b.diametre_sous_ecorce_cm = new_diam
             elif new_rayon is not None:
-                a.rayon_tronc_cm = max(0.0, new_rayon)
+                b.rayon_tronc_cm = max(0.0, new_rayon)
         except Exception:
             _log.exception("Erreur inattendue dans _sync_to_model")
             return

@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 267 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← 272 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -113,7 +113,15 @@ penetrometre.py  (Tk + main) ← undo.py
   (pastille de liste, onglet, fiche PDF, synthèse mission, exports PRBS) avec
   un détail par brin. **Chantier en cours** (cépées + formes) : voir la mémoire
   `project_cepees-formes` — Étapes 0-3 faites (brin + ovale + rendu/saisie +
-  diagnostic multi-brins), Étape 4 à venir (éditeur souris + sélecteur de brin).
+  diagnostic multi-brins) **+ 4a** (sélecteur de brin pour la saisie) ; reste
+  **4b** (éditeur souris). **Brin courant** : `App._current_brin()` /
+  `_current_brin_idx` (remis à 0 au changement d'arbre, borné si un brin est
+  retiré) / `set_current_brin(idx)` ; barre « Brin a/b/c » au-dessus des onglets
+  (`_refresh_brin_selector`, masquée pour un mono-caule). Les onglets
+  **Sondages/Dégradations/Contreforts** et la **géométrie** de l'onglet
+  Identification (rayon/diamètre/écorce/forme) éditent `_current_brin()` ;
+  l'identité (n°, essence, port, hauteurs, mèche) reste **genet**. Les dialogues
+  `edit_sondage/degradation/contrefort` acceptent `Section = Union[Arbre, Brin]`.
 - **Section ovale (ellipse)** : `Brin.rayon_petit_axe_cm` (0 = circulaire,
   sentinelle) + `orientation_grade`. Si renseigné, `rayon_tronc_cm` devient le
   demi-**grand** axe et le rayon est **local par direction** (`Brin.rayon_a_grade`
@@ -169,7 +177,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 267 tests
+python -m unittest discover tests           # 272 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
