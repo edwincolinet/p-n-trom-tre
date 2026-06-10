@@ -728,12 +728,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         changed = any(
             abs(res[i][0] - b.pos_x_cm) > 1e-9
             or abs(res[i][1] - b.pos_y_cm) > 1e-9
+            or res[i][2] != b.rotation_grades
             for i, b in enumerate(a.brins))
         if not changed:
             return
         self.push_undo()
         for i, b in enumerate(a.brins):
-            b.pos_x_cm, b.pos_y_cm = res[i]
+            b.pos_x_cm, b.pos_y_cm, b.rotation_grades = res[i]
         self._mark_dirty()
         self._debounced_redraw()
 

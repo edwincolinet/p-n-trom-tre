@@ -17,6 +17,7 @@ from geometry import (
     cardinal_label_positions,
     catmull_rom_closed,
     cavity_polygon,
+    contour_polygon,
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
@@ -207,6 +208,50 @@ class PolarConversionsTests(unittest.TestCase):
                 x, y = polar_to_xy(self.CX, self.CY, self.SCALE, 0, grade)
                 self.assertAlmostEqual(x, self.CX, places=6)
                 self.assertAlmostEqual(y, self.CY, places=6)
+
+
+class RotationBrinTests(unittest.TestCase):
+    """Rotation d'un brin (cépée) appliquée au rendu : décale l'angle de
+    PLACEMENT tout en évaluant le rayon au grade local."""
+
+    CX, CY, SCALE = 100.0, 100.0, 10.0
+
+    def test_contour_rotation_zero_inchange(self):
+        # rotation_grades=0.0 (défaut) ⟹ `g + 0.0 == g` → byte-identique.
+        base = contour_polygon(5.0, self.CX, self.CY, self.SCALE)
+        same = contour_polygon(5.0, self.CX, self.CY, self.SCALE,
+                               rotation_grades=0.0)
+        self.assertEqual(base, same)
+
+    def test_contour_rotation_decale_le_placement(self):
+        # 1er point d'un contour circulaire : g=0 (Nord) sans rotation ;
+        # placé à l'Est (100 gr) avec rotation_grades=100.
+        nord = contour_polygon(5.0, self.CX, self.CY, self.SCALE)[0]
+        self.assertAlmostEqual(nord[0], self.CX, places=6)
+        self.assertAlmostEqual(nord[1], self.CY - 5.0 * self.SCALE, places=6)
+        est = contour_polygon(5.0, self.CX, self.CY, self.SCALE,
+                              rotation_grades=100)[0]
+        self.assertAlmostEqual(est[0], self.CX + 5.0 * self.SCALE, places=6)
+        self.assertAlmostEqual(est[1], self.CY, places=6)
+
+    def test_contour_ovale_rotation_place_le_grand_axe(self):
+        # Ellipse grand axe (a=8) orienté à 0 gr (Nord-Sud). Le 1er point
+        # échantillonné (g=0) est sur le grand axe, au rayon a=8. Sans
+        # rotation il pointe Nord ; pivoté de 100 gr, il pointe Est, toujours
+        # au rayon a (le rayon reste évalué au grade LOCAL g=0).
+        a, b = 8.0, 4.0
+        r_of = lambda g: ellipse_radius(a, b, 0, g)  # noqa: E731
+        est = contour_polygon(r_of, self.CX, self.CY, self.SCALE,
+                              rotation_grades=100)[0]
+        self.assertAlmostEqual(est[0], self.CX + a * self.SCALE, places=6)
+        self.assertAlmostEqual(est[1], self.CY, places=6)
+
+    def test_cavity_rotation_zero_identique_au_chemin_indexe(self):
+        alt = [3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        base = cavity_polygon(alt, self.CX, self.CY, self.SCALE)
+        same = cavity_polygon(alt, self.CX, self.CY, self.SCALE,
+                              rotation_grades=0.0)
+        self.assertEqual(base, same)
 
 
 class EllipseRadiusTests(unittest.TestCase):

@@ -152,6 +152,9 @@ class SectionCanvasGoldenTests(unittest.TestCase):
     def test_cepee_multi_brins(self):
         self._assert_matches_fixture("cepee")
 
+    def test_cepee_rotation(self):
+        self._assert_matches_fixture("cepee_rotation")
+
 
 def _regenerate_fixtures() -> None:
     if not _DISPLAY_OK:

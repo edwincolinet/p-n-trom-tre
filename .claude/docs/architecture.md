@@ -26,16 +26,27 @@ Helper interne `_radius_at(R, grade)`.
 
 **Primitives de rendu partagées Tk ↔ PIL** (points `(x, y)` en coord. écran) :
 - `polar_to_xy`, `polar_idx_to_xy` — polaire → écran (grade 0 = Nord, horaire).
-- `cavity_polygon(alteration_par_grade, cx, cy, scale)` — polygone lissé cavité.
-- `contour_polygon(r_of, cx, cy, scale, n_samples=160)` — contour fermé
-  échantillonné finement (cercle ou ellipse) ; sert au **remplissage** ovale
-  (bois/écorce/cernes). Le cas circulaire garde la primitive native des
-  renderers (`d.ellipse` / `create_oval`) → goldens byte-identiques.
-- `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy, scale, R_inner=None)`
+- `cavity_polygon(alteration_par_grade, cx, cy, scale, …, rotation_grades=0.0)`
+  — polygone lissé cavité.
+- `contour_polygon(r_of, cx, cy, scale, n_samples=160, rotation_grades=0.0)` —
+  contour fermé échantillonné finement (cercle ou ellipse) ; sert au
+  **remplissage** ovale (bois/écorce/cernes). Le cas circulaire garde la
+  primitive native des renderers (`d.ellipse` / `create_oval`) → goldens
+  byte-identiques.
+- `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy, scale, R_inner=None, rotation_grades=0.0)`
   — dict `{wood_outer, base, bark_outer?, bark_inner?}`. `R` (et `R_inner`) =
   `RadiusSpec`.
-- `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy, scale)` —
-  `R` = `RadiusSpec`.
+- `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy, scale, rotation_grades=0.0)`
+  — `R` = `RadiusSpec`.
+
+**`rotation_grades` (cépée)** : commun aux 4 helpers ci-dessus (+
+`diagnostic.sondage_render_data`). Décale l'**angle de placement** des points
+(`polar_to_xy(..., g + rotation_grades)`) tout en évaluant le rayon/cloche au
+grade **local** `g` → la forme (ovale comprise) et les mesures du brin pivotent
+ensemble. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique (cavité/sondages
+gardent en plus le chemin `polar_idx_to_xy` exact quand `rotation_grades`
+falsy). Les ticks/cardinales (boussole monde) n'ont PAS de rotation. Un cercle
+étant invariant par rotation, seul le chemin ovale est pivoté côté contour.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
 - `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`),
   `ruler_graduation_positions`.
@@ -60,7 +71,9 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
   `rayon_tronc_cm` (= demi-grand-axe si ovale), `rayon_petit_axe_cm`
   (0 = circulaire, sentinelle), `orientation_grade`, `diametre_sous_ecorce_cm`,
   `epaisseur_ecorce_cm`, `sondages`, `degradations_externes`, `contreforts`,
-  position `pos_x_cm/pos_y_cm/rotation_grades` (réservée aux cépées, Étapes 2-4).
+  position `pos_x_cm/pos_y_cm` + `rotation_grades` (cépées) : tous trois édités
+  par l'éditeur de disposition (`dialogs.ask_cepee_layout`) ; `rotation_grades`
+  est appliqué au rendu (cf. § geometry `rotation_grades`).
   Propriété `est_ovale` ; `rayon_a_grade(grade)` (rayon LOCAL — constant si
   circulaire, ellipse sinon) ; `extent_cm()` = rayon d'**encombrement** (rayon
   max + écorce + plus longue saillie de contrefort), pour le cadrage cépée.
@@ -328,15 +341,18 @@ saisie texte thémé (look ttk Silvavenir) qui remplace
 vide/0 ⟹ section circulaire. Volontairement séparé du formulaire pour ne pas
 alourdir le cas circulaire courant ; appelé par `IdentificationPane`.
 
-`ask_cepee_layout(parent, arbre) -> Optional[List[Tuple[float, float]]]` :
-**éditeur de disposition d'une cépée** (Étape 4b). Canvas qui dessine chaque
+`ask_cepee_layout(parent, arbre) -> Optional[List[Tuple[float, float, int]]]` :
+**éditeur de disposition d'une cépée** (Étape 4b/4c). Canvas qui dessine chaque
 brin (contour fidèle via `geometry.contour_polygon` — cercle ou ellipse
-orientée), cadrage **figé à l'ouverture** par `geometry.brins_layout` (le dessin
-ne saute pas pendant le glissement). Glisser-déposer un brin fixe sa position
-`(pos_x_cm, pos_y_cm)` ; le brin « a » est l'**ancre** (fixe, en (0,0)).
-Travaille sur une copie → renvoie les positions par brin si validé, `None` si
-annulé (Annuler = no-op). Appliqué par `App.edit_cepee_layout` (push_undo +
-redraw) ; déclenché par le bouton « Disposition… » de `IdentificationPane`.
+orientée, **rotation incluse**), cadrage **figé à l'ouverture** par
+`geometry.brins_layout` (le dessin ne saute pas pendant le glissement).
+Glisser-déposer un brin fixe sa position `(pos_x_cm, pos_y_cm)` ; la **molette**
+au-dessus d'un brin le fait pivoter par pas de 25 gr (`rotation_grades`). Le
+brin « a » est l'**ancre** (position fixe en (0,0) ; il peut pivoter). Travaille
+sur une copie → renvoie un **triplet** `(pos_x, pos_y, rotation_grades)` par
+brin si validé, `None` si annulé (Annuler = no-op). Appliqué par
+`App.edit_cepee_layout` (push_undo + redraw) ; déclenché par le bouton
+« Disposition… » de `IdentificationPane`.
 
 Helpers publics réutilisés par `pane_identification` :
 

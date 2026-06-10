@@ -283,17 +283,20 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
 # ---------------------------------------------------------------------
 
 def ask_cepee_layout(parent: tk.Misc,
-                     arbre: Arbre) -> Optional[List[Tuple[float, float]]]:
-    """Éditeur de disposition d'une cépée : place les brins à la souris.
+                     arbre: Arbre
+                     ) -> Optional[List[Tuple[float, float, int]]]:
+    """Éditeur de disposition d'une cépée : place et oriente les brins.
 
     Affiche tous les brins du genet (contour fidèle — cercle ou ellipse
     orientée) dans un canvas. On **glisse** un brin pour fixer sa position
-    `(pos_x_cm, pos_y_cm)` dans le plan du genet. Le 1er brin (« a ») est
-    l'**ancre** du repère (origine en (0, 0)) : il reste fixe, les autres se
-    placent autour de lui (cf. décision du plan cépées).
+    `(pos_x_cm, pos_y_cm)` dans le plan du genet ; la **molette** (au-dessus
+    d'un brin) le fait **pivoter** par pas de 25 gr (`rotation_grades`). Le
+    1er brin (« a ») est l'**ancre** du repère (origine en (0, 0)) : sa
+    position reste fixe (il peut quand même pivoter), les autres se placent
+    autour de lui (cf. décision du plan cépées).
 
-    Travaille sur une **copie** des positions → « Annuler » n'a aucun effet.
-    Renvoie la liste `[(pos_x_cm, pos_y_cm), ...]` (un couple par brin, dans
+    Travaille sur une **copie** → « Annuler » n'a aucun effet. Renvoie la liste
+    `[(pos_x_cm, pos_y_cm, rotation_grades), ...]` (un triplet par brin, dans
     l'ordre des brins) si validé, `None` si annulé.
 
     L'échelle et l'origine du dessin sont figées à l'ouverture (calculées sur
@@ -302,6 +305,7 @@ def ask_cepee_layout(parent: tk.Misc,
     """
     brins = arbre.brins
     positions: List[List[float]] = [[b.pos_x_cm, b.pos_y_cm] for b in brins]
+    rotations: List[int] = [int(b.rotation_grades) % 400 for b in brins]
     extents = [max(1.0, b.extent_cm()) for b in brins]
 
     dlg = tk.Toplevel(parent)
@@ -309,7 +313,7 @@ def ask_cepee_layout(parent: tk.Misc,
     dlg.configure(bg=COLOR_PANEL)
     dlg.resizable(False, False)
     dlg.columnconfigure(0, weight=1)
-    result: dict[str, Optional[List[Tuple[float, float]]]] = {"val": None}
+    result: dict[str, Optional[List[Tuple[float, float, int]]]] = {"val": None}
 
     W = H = 440.0
     MARGIN = 70.0  # marge large → headroom pour glisser hors de la bbox initiale
@@ -334,14 +338,17 @@ def ask_cepee_layout(parent: tk.Misc,
         cv.delete("all")
         for i, b in enumerate(brins):
             cx, cy = to_px(positions[i][0], positions[i][1])
-            pts = contour_polygon(b.rayon_a_grade, cx, cy, scale)
+            pts = contour_polygon(b.rayon_a_grade, cx, cy, scale,
+                                  rotation_grades=rotations[i])
             flat = [c for p in pts for c in p]
             anchor = (i == 0)
             fill = COLOR_ACCENT_SOFT if anchor else COLOR_WOOD
             outline = COLOR_ACCENT if i == state["drag"] else COLOR_INK
             cv.create_polygon(*flat, fill=fill, outline=outline, width=2)
             label = b.label or chr(ord("a") + i)
-            txt = f"{label} · ancre" if anchor else label
+            rot_txt = f" · {rotations[i]} gr" if rotations[i] else ""
+            txt = (f"{label} · ancre{rot_txt}" if anchor
+                   else f"{label}{rot_txt}")
             cv.create_text(cx, cy, text=txt, fill=COLOR_INK,
                            font=ui_font("Helvetica", 11, "bold"))
 
@@ -378,21 +385,42 @@ def ask_cepee_layout(parent: tk.Misc,
         state["drag"] = None
         redraw()
 
+    def on_wheel(e: "tk.Event[tk.Misc]") -> None:
+        # Molette au-dessus d'un brin : rotation de ±25 gr. Sous Linux/X11
+        # Tk émet <Button-4> (haut) / <Button-5> (bas) ; ailleurs <MouseWheel>
+        # avec e.delta. On ramène à un pas signé.
+        i = brin_at(e.x, e.y)
+        if i is None:
+            return
+        if getattr(e, "num", 0) == 4 or getattr(e, "delta", 0) > 0:
+            step = 25
+        elif getattr(e, "num", 0) == 5 or getattr(e, "delta", 0) < 0:
+            step = -25
+        else:
+            return
+        rotations[i] = (rotations[i] + step) % 400
+        redraw()
+
     cv.bind("<Button-1>", on_press)
     cv.bind("<B1-Motion>", on_motion)
     cv.bind("<ButtonRelease-1>", on_release)
+    cv.bind("<MouseWheel>", on_wheel)      # Windows / macOS
+    cv.bind("<Button-4>", on_wheel)        # Linux/X11 molette haut
+    cv.bind("<Button-5>", on_wheel)        # Linux/X11 molette bas
 
     ttk.Label(
         dlg,
-        text="Glissez un brin pour le positionner. Le brin « a » est "
-             "l'ancre du repère (fixe) ; les autres se placent autour.",
+        text="Glissez un brin pour le positionner ; molette au-dessus d'un "
+             "brin pour le faire pivoter (pas de 25 gr). Le brin « a » est "
+             "l'ancre du repère (position fixe ; il peut pivoter).",
         background=COLOR_PANEL, foreground=COLOR_MUTED,
         font=ui_font("Helvetica", 9, "italic"),
         wraplength=int(W), justify="left").grid(
         row=1, column=0, sticky="w", padx=12, pady=(0, 6))
 
     def ok() -> None:
-        result["val"] = [(round(x, 3), round(y, 3)) for x, y in positions]
+        result["val"] = [(round(positions[i][0], 3), round(positions[i][1], 3),
+                          rotations[i]) for i in range(len(brins))]
         dlg.destroy()
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")

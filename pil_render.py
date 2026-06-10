@@ -421,9 +421,12 @@ def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
                         cx: float, cy: float,
                         R: float, scale: float) -> None:
     if brin.est_ovale:
-        d.polygon(contour_polygon(brin.rayon_a_grade, cx, cy, scale),
+        d.polygon(contour_polygon(brin.rayon_a_grade, cx, cy, scale,
+                                  rotation_grades=brin.rotation_grades),
                   fill=COLOR_WOOD)
         return
+    # Section circulaire : un cercle est invariant par rotation → primitive
+    # native (rendu byte-identique, goldens stables).
     radius_px = R * scale
     d.ellipse([cx-radius_px, cy-radius_px, cx+radius_px, cy+radius_px],
               fill=COLOR_WOOD)
@@ -440,7 +443,8 @@ def _pil_draw_cernes(d: "ImageDraw.ImageDraw", brin: "Brin",
             def r_cerne(g: float, frac: float = frac) -> float:
                 return brin.rayon_a_grade(g) * frac
 
-            d.polygon(contour_polygon(r_cerne, cx, cy, scale),
+            d.polygon(contour_polygon(r_cerne, cx, cy, scale,
+                                      rotation_grades=brin.rotation_grades),
                       outline=COLOR_CERNE, width=1)
         return
     for rr in cerne_radii_px(R, scale, N_CERNES):
@@ -454,7 +458,8 @@ def _pil_draw_cavite(d: "ImageDraw.ImageDraw", brin: "Brin",
     if not any(a > 0 for a in alt):
         return
     smooth = cavity_polygon(alt, cx, cy, scale,
-                              samples_per_segment=CAVITY_SAMPLES_PER_SEGMENT)
+                              samples_per_segment=CAVITY_SAMPLES_PER_SEGMENT,
+                              rotation_grades=brin.rotation_grades)
     d.polygon(smooth, fill=COLOR_ROT, outline=None)
 
 
@@ -463,12 +468,15 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
     if brin.est_ovale:
-        inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale)
+        rot = brin.rotation_grades
+        inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
+                                rotation_grades=rot)
         if ep > 0:
             def r_outer(g: float) -> float:
                 return brin.rayon_a_grade(g) + ep
 
-            outer = contour_polygon(r_outer, cx, cy, scale)
+            outer = contour_polygon(r_outer, cx, cy, scale,
+                                    rotation_grades=rot)
             # Anneau d'écorce : contour externe + contour interne inversé
             # (même technique que la bande d'écorce des contreforts).
             d.polygon(outer + inner[::-1], fill=COLOR_BARK)
@@ -502,7 +510,8 @@ def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", brin: "Brin",
     for zone in contrefort_zones(brin.contreforts):
         poly = contrefort_zone_outline(zone, brin.contreforts,
                                         brin.rayon_a_grade, ep,
-                                        cx, cy, scale)
+                                        cx, cy, scale,
+                                        rotation_grades=brin.rotation_grades)
         wood_outer = poly["wood_outer"]
         if ep > 0:
             d.polygon(poly["bark_outer"] + poly["bark_inner"],
@@ -521,7 +530,8 @@ def _pil_draw_degradations(d: "ImageDraw.ImageDraw", brin: "Brin",
     for deg in brin.degradations_externes:
         pts_arc = degradation_externe_outline(deg, brin.contreforts,
                                                brin.rayon_a_grade, ep,
-                                               cx, cy, scale)
+                                               cx, cy, scale,
+                                               rotation_grades=brin.rotation_grades)
         if pts_arc:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
 
@@ -561,7 +571,8 @@ def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
                        bullet_radius: int = BULLET_RADIUS_PX) -> None:
     inset_cm = SONDAGE_INSET_PX / scale
     items = sondage_render_data(brin, port, meche, cx, cy, R, scale, inset_cm,
-                                COULEUR_CLASSE)
+                                COULEUR_CLASSE,
+                                rotation_grades=brin.rotation_grades)
     r_b = bullet_radius
     ds_ratio = r_b / BULLET_RADIUS_PX
     for item in items:

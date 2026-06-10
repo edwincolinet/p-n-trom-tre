@@ -364,16 +364,17 @@ class TestAppMixins(unittest.TestCase):
         self.assertTrue(self.app.brin_bar.winfo_ismapped())
         self.assertEqual(len(self.app._brin_btns), 2)
 
-    def test_edit_cepee_layout_applique_les_positions_et_undo(self) -> None:
+    def test_edit_cepee_layout_applique_positions_rotation_et_undo(self) -> None:
         import penetrometre
         a = self.app.chantier.arbres[0]
         a.rayon_tronc_cm = 16.0
         self.app.add_brin()  # 2 brins ; brin b à l'Est
-        old_b = (a.brins[1].pos_x_cm, a.brins[1].pos_y_cm)
-        # Stub du dialogue modal : renvoie de nouvelles positions (a ancré).
+        old_b = (a.brins[1].pos_x_cm, a.brins[1].pos_y_cm,
+                 a.brins[1].rotation_grades)
+        # Stub du dialogue modal : nouvelles positions + rotation (a ancré).
         orig = penetrometre.ask_cepee_layout
         penetrometre.ask_cepee_layout = lambda parent, arbre: [
-            (0.0, 0.0), (50.0, -30.0)]
+            (0.0, 0.0, 0), (50.0, -30.0, 75)]
         try:
             self.app.edit_cepee_layout()
         finally:
@@ -381,11 +382,11 @@ class TestAppMixins(unittest.TestCase):
         self.assertEqual((a.brins[0].pos_x_cm, a.brins[0].pos_y_cm), (0.0, 0.0))
         self.assertEqual((a.brins[1].pos_x_cm, a.brins[1].pos_y_cm),
                          (50.0, -30.0))
-        # Undo restaure la position précédente du brin b.
+        self.assertEqual(a.brins[1].rotation_grades, 75)
+        # Undo restaure position ET rotation précédentes du brin b.
         self.app._perform_undo()
-        self.assertEqual(
-            (self.app.chantier.arbres[0].brins[1].pos_x_cm,
-             self.app.chantier.arbres[0].brins[1].pos_y_cm), old_b)
+        b1 = self.app.chantier.arbres[0].brins[1]
+        self.assertEqual((b1.pos_x_cm, b1.pos_y_cm, b1.rotation_grades), old_b)
 
     def test_edit_cepee_layout_noop_si_mono_caule(self) -> None:
         import penetrometre

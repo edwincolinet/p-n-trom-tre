@@ -97,12 +97,22 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     « brins[0] en (0,0) » respecté. Travaille sur une copie → Annuler =
     no-op. `App.edit_cepee_layout` applique (push_undo + dirty + redraw) ;
     bouton « Disposition… » dans l'onglet Identification (activé si ≥ 2
-    brins). +2 tests. **274 tests**.
-    - *Reporté (révisable)* : **rotation** d'un brin (`rotation_grades` est
-      un champ réservé, **pas encore appliqué au rendu** `_draw_cepee` — y
-      ajouter d'abord la rotation rendrait l'édition de rotation utile) ;
-      édition de la **forme par brin** depuis cet éditeur (déjà possible via
-      le sélecteur de brin + « Forme du tronc… » de l'onglet Identification).
+    brins). +2 tests.
+  - [x] 4c — **rotation des brins** (ex-reliquat) : `rotation_grades` appliqué
+    au rendu (Tk + PIL) et éditable à la **molette** dans `ask_cepee_layout`.
+    Les helpers purs `contour_polygon` / `cavity_polygon` /
+    `contrefort_zone_outline` / `degradation_externe_outline` /
+    `diagnostic.sondage_render_data` reçoivent un `rotation_grades` (défaut 0.0)
+    qui **décale l'angle de placement** (radius évalué au grade LOCAL) → forme
+    ovale, cavité, sondages, contreforts, dégradations pivotent ensemble ;
+    **boussole (ticks/cardinales) reste au Nord du monde**. Cercle = invariant
+    par rotation → primitive native conservée (goldens byte-identiques,
+    `rotation_grades=0` ⟹ `g+0.0==g`). `ask_cepee_layout` renvoie désormais des
+    **triplets** `(pos_x, pos_y, rotation_grades)`. Diagnostic (classes/t/R)
+    inchangé (rotation purement visuelle). Fixture golden `cepee_rotation`
+    (PIL + Tk). **280 tests**.
+    - *Reporté (révisable)* : édition de la **forme par brin** depuis cet
+      éditeur (déjà possible via le sélecteur de brin + « Forme du tronc… »).
 
 ## 4. Modèle de données (déjà en place)
 

@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 274 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← 280 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -127,8 +127,17 @@ penetrometre.py  (Tk + main) ← undo.py
   contour fidèle via `contour_polygon`, cadrage figé par `brins_layout` ; travail
   sur copie → Annuler = no-op). `App.edit_cepee_layout` applique (undo + redraw) ;
   bouton « Disposition… » de l'onglet Identification (activé si ≥ 2 brins). La
-  **rotation** d'un brin (`rotation_grades`) reste réservée — pas encore appliquée
-  au rendu, donc pas éditable.
+  **rotation** d'un brin (`rotation_grades`) est éditable à la **molette** dans
+  cet éditeur et **appliquée au rendu** (Tk + PIL) : les helpers purs
+  `contour_polygon` / `cavity_polygon` / `contrefort_zone_outline` /
+  `degradation_externe_outline` / `diagnostic.sondage_render_data` prennent un
+  `rotation_grades` (défaut 0.0) qui **décale l'angle de placement** tout en
+  évaluant le rayon au grade LOCAL → la forme (ovale comprise), la cavité, les
+  sondages, contreforts et dégradations pivotent ensemble ; la **boussole**
+  (ticks/cardinales) reste au Nord du monde. Un **cercle étant invariant par
+  rotation**, le cas circulaire garde sa primitive native (`create_oval`/
+  `d.ellipse`) → goldens byte-identiques (`rotation_grades=0` ⟹ `g+0.0==g`). Le
+  diagnostic (classes, t/R) est inchangé : la rotation est purement visuelle.
 - **Section ovale (ellipse)** : `Brin.rayon_petit_axe_cm` (0 = circulaire,
   sentinelle) + `orientation_grade`. Si renseigné, `rayon_tronc_cm` devient le
   demi-**grand** axe et le rayon est **local par direction** (`Brin.rayon_a_grade`
@@ -184,7 +193,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 274 tests
+python -m unittest discover tests           # 280 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

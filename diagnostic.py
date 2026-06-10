@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from bareme import classer_prbs
-from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy
+from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy, polar_to_xy
 
 if TYPE_CHECKING:
     from model import Arbre, Brin, Chantier  # noqa: F401
@@ -741,6 +741,7 @@ def sondage_render_data(
     arbre: "Section", port: str, meche: float,
     cx: float, cy: float, R: float, scale: float,
     inset_cm: float, couleur_classe: Dict[str, str],
+    rotation_grades: float = 0.0,
 ) -> List[SondageRenderItem]:
     """Calcule les données de rendu de chaque sondage (position, couleur).
 
@@ -774,8 +775,15 @@ def sondage_render_data(
         prbs_adj = max(0.0, s.prbs_cm - deg_ext[i])
         ratio_adj = prbs_adj / r_loc if r_loc > 0 else 0.0
         col = couleur_classe[classer_prbs(ratio_adj, port)]
-        x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, r_loc - inset_cm, i)
-        x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
+        if rotation_grades:
+            # Brin pivoté (cépée) : place la pastille/flèche au grade monde
+            # `i*25 + rotation`, cohérent avec la forme pivotée du brin.
+            g_world = i * 25.0 + rotation_grades
+            x_ext, y_ext = polar_to_xy(cx, cy, scale, r_loc - inset_cm, g_world)
+            x_end, y_end = polar_to_xy(cx, cy, scale, end_radius, g_world)
+        else:
+            x_ext, y_ext = polar_idx_to_xy(cx, cy, scale, r_loc - inset_cm, i)
+            x_end, y_end = polar_idx_to_xy(cx, cy, scale, end_radius, i)
         items.append(SondageRenderItem(
             numero=s.numero,
             arrow_start=(x_ext, y_ext),

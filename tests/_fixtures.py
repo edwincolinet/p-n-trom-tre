@@ -18,7 +18,8 @@ from __future__ import annotations
 from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 
 SCENARIOS = ("nu", "avec_ecorce", "contreforts",
-             "degradation_sur_contrefort", "ovale", "cepee")
+             "degradation_sur_contrefort", "ovale", "cepee",
+             "cepee_rotation")
 
 
 def build_arbre(scenario: str) -> Arbre:
@@ -105,6 +106,35 @@ def build_arbre(scenario: str) -> Arbre:
                 Brin(label="b", pos_x_cm=48.0, pos_y_cm=0.0,
                      rayon_tronc_cm=18.0, rayon_petit_axe_cm=11.0,
                      orientation_grade=100, epaisseur_ecorce_cm=1.0,
+                     sondages=[
+                         Sondage(numero=1, grade=100,
+                                 bois_sain_cm=8.0, bois_altere_cm=3.0)],
+                     contreforts=[
+                         Contrefort(numero=1, grade_centre=200,
+                                    largeur_grades=75, longueur_cm=7.0)]),
+            ])
+
+    if scenario == "cepee_rotation":
+        # Cépée à 2 brins avec ROTATION (`rotation_grades`) : « a » circulaire
+        # pivoté de 50 gr (le cercle est invariant, mais cavité/sondages
+        # pivotent), « b » ovale pivoté de 100 gr (la forme, le sondage et le
+        # contrefort pivotent ensemble). Verrouille le rendu des brins pivotés
+        # (Étape 4 — reliquat rotation).
+        return Arbre(
+            numero_arbre="7", essence="Frêne", port_arbre="libre",
+            meche_cm=40.0,
+            brins=[
+                Brin(label="a", rayon_tronc_cm=16.0, epaisseur_ecorce_cm=1.0,
+                     rotation_grades=50,
+                     sondages=[
+                         Sondage(numero=1, grade=0,
+                                 bois_sain_cm=12.0, bois_altere_cm=4.0),
+                         Sondage(numero=2, grade=200,
+                                 bois_sain_cm=9.0, bois_altere_cm=7.0)]),
+                Brin(label="b", pos_x_cm=48.0, pos_y_cm=0.0,
+                     rayon_tronc_cm=18.0, rayon_petit_axe_cm=11.0,
+                     orientation_grade=100, epaisseur_ecorce_cm=1.0,
+                     rotation_grades=100,
                      sondages=[
                          Sondage(numero=1, grade=100,
                                  bois_sain_cm=8.0, bois_altere_cm=3.0)],

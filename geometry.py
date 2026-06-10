@@ -231,7 +231,9 @@ def ellipse_radius(a: float, b: float,
 
 def contour_polygon(r_of: "RadiusSpec",
                     cx: float, cy: float, scale: float,
-                    n_samples: int = 160) -> List[Tuple[float, float]]:
+                    n_samples: int = 160,
+                    rotation_grades: float = 0.0
+                    ) -> List[Tuple[float, float]]:
     """Polygone fermé du contour du tronc, échantillonné finement.
 
     `r_of` = rayon (cm) par direction (scalaire = cercle, fonction =
@@ -240,26 +242,42 @@ def contour_polygon(r_of: "RadiusSpec",
     `create_polygon`). Utilisé pour le **remplissage** bois/écorce/cernes
     d'une section OVALE — le cas circulaire continue d'utiliser la
     primitive ellipse native des renderers (rendu lisse, goldens stables).
+
+    `rotation_grades` : rotation du brin (cépée). Le rayon est évalué au grade
+    LOCAL `g` mais le point est **placé** à `g + rotation_grades` → la forme
+    (ellipse comprise) pivote. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique.
     """
     pts: List[Tuple[float, float]] = []
     for k in range(n_samples):
         g = k * 400.0 / n_samples
-        pts.append(polar_to_xy(cx, cy, scale, _radius_at(r_of, g), g))
+        pts.append(polar_to_xy(cx, cy, scale, _radius_at(r_of, g),
+                               g + rotation_grades))
     return pts
 
 
 def cavity_polygon(alteration_par_grade: List[float],
                    cx: float, cy: float, scale: float,
-                   samples_per_segment: int = 28
+                   samples_per_segment: int = 28,
+                   rotation_grades: float = 0.0
                    ) -> List[Tuple[float, float]]:
     """Renvoie le polygone lissé de la cavité d'altération (Catmull-
     Rom fermée passant par les 16 points sondés/extrapolés).
 
     `alteration_par_grade` est la liste de 16 épaisseurs d'altération
     en cm (le résultat de `Arbre.compute_alteration_par_grade()`).
+
+    `rotation_grades` : rotation du brin (cépée) — chaque point est placé au
+    grade `i*25 + rotation_grades`. Défaut 0.0 ⟹ chemin `polar_idx_to_xy`
+    historique (byte-identique aux goldens).
     """
-    pts = [polar_idx_to_xy(cx, cy, scale, max(0.0, alteration_par_grade[i]), i)
-           for i in range(16)]
+    if rotation_grades:
+        pts = [polar_to_xy(cx, cy, scale, max(0.0, alteration_par_grade[i]),
+                           i * 25.0 + rotation_grades)
+               for i in range(16)]
+    else:
+        pts = [polar_idx_to_xy(cx, cy, scale,
+                               max(0.0, alteration_par_grade[i]), i)
+               for i in range(16)]
     return catmull_rom_closed(pts, samples_per_segment)
 
 
@@ -267,7 +285,8 @@ def contrefort_zone_outline(zone: Tuple[float, float],
                             contreforts: List[Any],
                             R: "RadiusSpec", ep_cm: float,
                             cx: float, cy: float, scale: float,
-                            R_inner: Any = None
+                            R_inner: Any = None,
+                            rotation_grades: float = 0.0
                             ) -> Dict[str, List[Tuple[float, float]]]:
     """Pour une zone fusionnée `(a, b)` renvoyée par `contrefort_zones`,
     échantillonne la cloche cosinus² fusionnée et renvoie les listes de
@@ -299,9 +318,11 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         g = t % 400
         bell = bell_max_at_grade(g, contreforts)
         r_wood = _radius_at(R, g) + bell
-        wood_outer.append(polar_to_xy(cx, cy, scale, r_wood, g))
+        wood_outer.append(polar_to_xy(cx, cy, scale, r_wood,
+                                      g + rotation_grades))
         if ep_cm > 0:
-            bark_outer.append(polar_to_xy(cx, cy, scale, r_wood + ep_cm, g))
+            bark_outer.append(polar_to_xy(cx, cy, scale, r_wood + ep_cm,
+                                          g + rotation_grades))
 
     base: List[Tuple[float, float]] = []
     for k in range(n_steps, -1, -1):
@@ -311,7 +332,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         # masquer la couture (R_inner explicite l'emporte si fourni).
         r_in = (_radius_at(R_inner, g) if R_inner is not None
                 else _radius_at(R, g) - 1.0 / scale)
-        base.append(polar_to_xy(cx, cy, scale, r_in, g))
+        base.append(polar_to_xy(cx, cy, scale, r_in, g + rotation_grades))
 
     out = {"wood_outer": wood_outer, "base": base}
     if ep_cm > 0:
@@ -319,7 +340,8 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         for k in range(n_steps, -1, -1):
             t = a + k * span / n_steps
             g = t % 400
-            bark_inner.append(polar_to_xy(cx, cy, scale, _radius_at(R, g), g))
+            bark_inner.append(polar_to_xy(cx, cy, scale, _radius_at(R, g),
+                                          g + rotation_grades))
         out["bark_outer"] = bark_outer
         out["bark_inner"] = bark_inner
     return out
@@ -328,7 +350,8 @@ def contrefort_zone_outline(zone: Tuple[float, float],
 def degradation_externe_outline(deg: Any,
                                 contreforts: List[Any],
                                 R: "RadiusSpec", ep_cm: float,
-                                cx: float, cy: float, scale: float
+                                cx: float, cy: float, scale: float,
+                                rotation_grades: float = 0.0
                                 ) -> List[Tuple[float, float]]:
     """Renvoie le polygone d'une dégradation externe : bord externe
     qui suit la surface réelle (`R + ep + bell_max(g)`) puis bord
@@ -352,8 +375,8 @@ def degradation_externe_outline(deg: Any,
         bell = bell_max_at_grade(g, contreforts)
         r_out = _radius_at(R, g) + ep_cm + bell
         r_in = max(0.0, r_out - deg.profondeur_cm)
-        outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g))
-        inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g))
+        outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g + rotation_grades))
+        inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g + rotation_grades))
     return outer_pts + list(reversed(inner_pts))
 
 

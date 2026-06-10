@@ -265,7 +265,8 @@ class SectionCanvas(tk.Canvas):
     def _draw_contreforts_canvas(self, cx: float, cy: float, scale: float,
                                   R: "RadiusSpec", contreforts: Any,
                                   ep_cm: float = 0.0,
-                                  R_inner: Any = None) -> None:
+                                  R_inner: Any = None,
+                                  rotation_grades: float = 0.0) -> None:
         """Dessine TOUS les contreforts en utilisant les polygones fusionnés
         renvoyés par `contrefort_zone_outline` (cf. geometry.py). Évite
         l'encoche en V à la jonction de deux contreforts proches.
@@ -279,7 +280,8 @@ class SectionCanvas(tk.Canvas):
             return
         for zone in contrefort_zones(contreforts):
             poly = contrefort_zone_outline(zone, contreforts, R, ep_cm,
-                                            cx, cy, scale, R_inner=R_inner)
+                                            cx, cy, scale, R_inner=R_inner,
+                                            rotation_grades=rotation_grades)
             wood_outer = poly["wood_outer"]
             # Identifier le premier contrefort de la zone par son
             # grade_centre (sens horaire avec wrap au grade 0).
@@ -330,12 +332,14 @@ class SectionCanvas(tk.Canvas):
                                           scale: float, R: "RadiusSpec",
                                           ep_cm: float,
                                           contreforts: Any, deg: Any,
-                                          idx: int = -1) -> None:
+                                          idx: int = -1,
+                                          rotation_grades: float = 0.0) -> None:
         """Dessine une dégradation externe sur le canvas Tkinter à partir
         des points renvoyés par `degradation_externe_outline` (cf.
         geometry.py). `idx` (>= 0) tague le polygone pour le clic-édit."""
         points = degradation_externe_outline(deg, contreforts, R, ep_cm,
-                                              cx, cy, scale)
+                                              cx, cy, scale,
+                                              rotation_grades=rotation_grades)
         if not points:
             return
         flat = [c for p in points for c in p]
@@ -423,12 +427,14 @@ class SectionCanvas(tk.Canvas):
         # qu'aucun pixel de trou n'apparaisse entre polygone bois et disque.
         self._draw_contreforts_canvas(
             cx, cy, scale, r_of, brin.contreforts, ep_cm=ep,
-            R_inner=(lambda g: brin.rayon_a_grade(g) - 1.0 / scale))
+            R_inner=(lambda g: brin.rayon_a_grade(g) - 1.0 / scale),
+            rotation_grades=brin.rotation_grades)
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
         for idx, deg in enumerate(brin.degradations_externes):
             self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep,
                                                    brin.contreforts, deg,
-                                                   idx=idx)
+                                                   idx=idx,
+                                                   rotation_grades=brin.rotation_grades)
         self._draw_ticks(cx, cy, r_ext_of, scale)
         if draw_cardinales:
             self._draw_cardinales(cx, cy, r_ext_of, scale)
@@ -547,10 +553,14 @@ class SectionCanvas(tk.Canvas):
     def _draw_bois_sain(self, brin: "Brin", cx: float, cy: float,
                         R: float, scale: float) -> None:
         if brin.est_ovale:
-            flat = [c for p in contour_polygon(brin.rayon_a_grade, cx, cy, scale)
+            flat = [c for p in contour_polygon(
+                        brin.rayon_a_grade, cx, cy, scale,
+                        rotation_grades=brin.rotation_grades)
                     for c in p]
             self.create_polygon(*flat, fill=COLOR_WOOD, outline="", width=0)
             return
+        # Section circulaire : un cercle est invariant par rotation → la
+        # primitive native suffit (rendu byte-identique, goldens stables).
         radius_px = R * scale
         self.create_oval(cx - radius_px, cy - radius_px,
                          cx + radius_px, cy + radius_px,
@@ -565,7 +575,9 @@ class SectionCanvas(tk.Canvas):
                 def r_cerne(g: float, frac: float = frac) -> float:
                     return brin.rayon_a_grade(g) * frac
 
-                flat = [c for p in contour_polygon(r_cerne, cx, cy, scale)
+                flat = [c for p in contour_polygon(
+                            r_cerne, cx, cy, scale,
+                            rotation_grades=brin.rotation_grades)
                         for c in p]
                 self.create_polygon(*flat, fill="", outline=COLOR_CERNE,
                                     width=1)
@@ -582,7 +594,8 @@ class SectionCanvas(tk.Canvas):
         if not any(a > 0 for a in alt):
             return
         smooth = cavity_polygon(alt, cx, cy, scale,
-                                  samples_per_segment=self.CAVITY_SAMPLES_PER_SEGMENT)
+                                  samples_per_segment=self.CAVITY_SAMPLES_PER_SEGMENT,
+                                  rotation_grades=brin.rotation_grades)
         flat = [c for p in smooth for c in p]
         # Pas de contour : couleur uniforme avec les dégradations
         # externes, permettant la fusion visuelle écorce↔cavité quand
@@ -596,12 +609,15 @@ class SectionCanvas(tk.Canvas):
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
         if brin.est_ovale:
-            inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale)
+            rot = brin.rotation_grades
+            inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
+                                    rotation_grades=rot)
             if ep > 0:
                 def r_outer(g: float) -> float:
                     return brin.rayon_a_grade(g) + ep
 
-                outer = contour_polygon(r_outer, cx, cy, scale)
+                outer = contour_polygon(r_outer, cx, cy, scale,
+                                        rotation_grades=rot)
                 flat = [c for p in (outer + inner[::-1]) for c in p]
                 self.create_polygon(*flat, fill=COLOR_BARK, outline="")
             else:
@@ -649,7 +665,8 @@ class SectionCanvas(tk.Canvas):
         inset_cm = self.SONDAGE_INSET_PX / scale
         r_bul = self.BULLET_RADIUS_PX
         items = sondage_render_data(brin, port, meche, cx, cy, R, scale,
-                                    inset_cm, COULEUR_CLASSE)
+                                    inset_cm, COULEUR_CLASSE,
+                                    rotation_grades=brin.rotation_grades)
         # Pour le tag click, on retrouve l'index du sondage dans la
         # liste métier via son numéro (numero = position+1 en pratique,
         # cf. `renumeroter_sondages`).
