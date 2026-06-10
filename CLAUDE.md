@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 280 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← 285 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -106,6 +106,13 @@ penetrometre.py  (Tk + main) ← undo.py
   (boutons « ＋ Brin » / « − Brin » de l'onglet Identification) ; les brins sont
   composés par `_pil_draw_cepee` / `SectionCanvas._draw_cepee` via le cadrage pur
   `geometry.brins_layout` (mono-brin centré = chemin verbatim → goldens intacts).
+  Une cépée étant large, `brins_layout` la cadre sur la largeur ; les deux
+  renderers **centrent ensuite verticalement** les brins (post-ajustement de
+  `origin_y`) et remplissent la bande basse par une **barre d'échelle**
+  générique « N cm » (`geometry.nice_scale_bar_cm` + `_pil_draw_scale_bar` /
+  `SectionCanvas._draw_scale_bar` — pas de règle -R..+R car les brins ont des
+  rayons distincts) ; en **export PNG** (`show_legend`), la **légende** est aussi
+  ajoutée en bas. Évite le ~40 % de blanc en bas de l'export PNG d'une cépée.
   **Diagnostic cépée** : `diagnostic.genet_diagnostic(arbre)` agrège un
   `repartition_classes_brin(section, port)` par brin → classe globale = **pire
   classe parmi les brins fiables** (rayon + ≥3 sondages) ; un brin non fiable
@@ -187,13 +194,15 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Progression dans les onglets** : `App._refresh_tab_progress()` (appelé dans `_redraw_all`) préfixe les onglets de l'étape par un glyphe d'avancement — **même vocabulaire que les pastilles** (`○` à faire · `◐` en cours · `●` prêt). Identification (`●` si rayon>0 et essence saisie), Sondages (glyphe de complétude via `_arbre_etat`), Diagnostic (`●` si `_arbre_diag_fiable`). La **forme** porte l'info (lisible en daltonisme ; ttk n'autorise pas de couleur par onglet). Dégradations/Contreforts restent sans glyphe (étapes optionnelles — un `○` y suggérerait à tort un manque). `self.nb` mémorisé dans `_build_center`.
 - **Saisie des sondages = grille 16 directions** (`pane_sondages.py`) : refonte ergonomique remplaçant la modale-par-mesure. Les 16 directions (rose des vents `_WIND_LABELS` : cardinales `N/NE/E…`, intermédiaires en combiné `N-NE/NE-E…`) sont pré-affichées ; l'opérateur tape la PRBS et descend (`Entrée`/`↓`/`↑` → ligne suivante via `_focus_entry`). **Sémantique** : case vide = direction non sondée (aucun `Sondage`) ; valeur (y compris 0) = sondage existant ; **effacer la valeur supprime le `Sondage`**. L'altéré (`R − sain`, clampé à `R`) est en lecture seule, recalculé en direct. La compartimentation (combobox) n'est active que si un sondage existe sur la ligne. **Unicité garantie par construction** (une ligne par grade — plus de validation d'unicité). Double-clic sur les libellés **Direction/Grade** ouvre `edit_sondage` (détail : commentaire, redirection de grade) ; l'`Entry` garde son double-clic natif. **Undo des éditions live** : snapshot capturé au focus-in (`host.capture_undo_snapshot`), empilé au focus-out seulement si la valeur a changé (`host.push_undo_snapshot`) — évite les undo parasites ; la compartimentation passe par `host.push_undo` (mutation discrète). Mutations notifiées via `host.on_sondages_changed` (dirty + redraw debouncé ; ne re-`refresh()` PAS la grille pour ne pas lutter contre la frappe). Sondages maintenus triés par grade (`sort` + `renumeroter_sondages`).
 - **Synthèse de mission** (tableau de hiérarchisation du risque) : `diagnostic.mission_synthesis_rows(chantier)` → `List[MissionSynthesisRow]` (fonction pure), **une ligne par arbre** (n° · essence · port · nb sondages · rayon · t/R moyen · classe globale · direction critique). Respecte la règle de fiabilité : `tR_moyen_pct`/`classe_globale` = `None` si `< 3` sondages (via `DiagnosticSnapshot.diagnostic_global`), `tR_min_pct`/`crit_grade` = `None` si aucune altération. Exports : `export.export_synthesis_csv` (séparateur `;`, UTF-8 BOM) et `export.export_synthesis_xlsx` (thème vert, cellule classe colorée, **autofiltre** pour trier par risque, en-tête gelé, ligne de bilan). Wrappers Tk dans `app_exports.export_synthesis_{csv,xlsx}_mission` ; actions `App.action_export_synthesis_{csv,xlsx}` ; entrées dans le menu **Fichier** (mission-level, à côté des fiches PDF / sondages CSV). « Non fiable » (1-2 sondages) ≠ « — » (rayon nul / 0 sondage) dans la colonne classe.
-- **Checkbox « Afficher sondages »** vit **sous le canvas** (`App._build_right`), pas dans l'onglet Diagnostic — elle contrôle un état visuel toujours présent. Variable `App.var_show_sondages`.
+- **Checkbox « Afficher sondages »** vit **sous le canvas** (`App._build_right`), pas dans l'onglet Diagnostic — elle contrôle un état visuel toujours présent. Variable `App.var_show_sondages`. Elle gouverne aussi le **dessin des exports PDF** (`action_export_pdf_arbre`/`_mission` → `render_fiche_arbre_to_pdf_page(show_sondages=…)`) : pastilles masquées sur le dessin si décochée, **mais le tableau PRBS reste** (c'est la donnée). L'export PNG (`action_export_png`) la respectait déjà.
+- **Titre du canvas** : `SectionCanvas._draw_titre` ne dessine que `display_name` (pas de sous-titre rayon/Ø/H/mèche — redondant avec l'onglet Identification). Aligné sur `pil_render._pil_draw_titre` (titre seul). Appelé en mono-brin ET en cépée (`_draw_cepee`).
+- **Exports tableau XLSX ↔ HTML** : garder les deux **alignés** (même contenu : ligne méta, tableau par sondage, légende compartimentation à 3 entrées ✓/✗/—, légende des classes colorée, pied). Une modif du XLSX doit être reportée au HTML (et inversement) — cf. `tests/test_export.py::HtmlExportAlignementTests` qui verrouille la parité des légendes.
 
 ## Commandes utiles
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 280 tests
+python -m unittest discover tests           # 285 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

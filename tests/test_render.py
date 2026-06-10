@@ -127,6 +127,29 @@ class GoldenImageTests(unittest.TestCase):
         self._assert_matches_fixture("cepee_rotation")
 
 
+@unittest.skipUnless(HAS_PIL, "Pillow absent")
+class CepeeExportLayoutTests(unittest.TestCase):
+    """L'export PNG d'une cépée doit remplir la zone basse (brins centrés
+    verticalement + barre d'échelle + légende), au lieu de laisser ~40 %
+    de blanc en bas (régression du cadrage top-aligné)."""
+
+    def test_cepee_remplit_la_zone_basse(self):
+        from pil_render import render_arbre_to_pil_image
+        from tests._fixtures import build_arbre
+        a = build_arbre("cepee")
+        H = 2400
+        img = render_arbre_to_pil_image(a, 2400, H, show_sondages=True,
+                                        show_legend=True)
+        px = img.load()
+        bg = px[0, 0]
+        last = max((y for y in range(H)
+                    if any(px[x, y] != bg for x in range(0, img.size[0], 7))),
+                   default=0)
+        # Le contenu (jusqu'à la légende) descend bien au-delà des 3/4 de la
+        # hauteur — avant le correctif il s'arrêtait vers 60 %.
+        self.assertGreater(last, 0.75 * H)
+
+
 def _regenerate_fixtures() -> None:
     if not HAS_PIL:
         print("Pillow absent — impossible de générer les fixtures.",

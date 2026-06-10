@@ -93,9 +93,13 @@ def export_png(parent: tk.Misc, arbre: Optional[Arbre],
 
 
 def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
-                     chantier: Chantier) -> None:
+                     chantier: Chantier,
+                     show_sondages: bool = True) -> None:
     """Exporte une fiche PDF (dessin + tableau + diagnostic) pour
-    l'arbre courant. Utilise uniquement Pillow (multi-pages via save)."""
+    l'arbre courant. Utilise uniquement Pillow (multi-pages via save).
+
+    `show_sondages` : reflète la case « Afficher les sondages » (pastilles
+    sur le dessin uniquement ; le tableau PRBS reste présent)."""
     if not _need_pil("PDF"):
         return
     if not arbre:
@@ -109,7 +113,8 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
-        page = render_fiche_arbre_to_pdf_page(arbre, chantier)
+        page = render_fiche_arbre_to_pdf_page(arbre, chantier,
+                                              show_sondages=show_sondages)
         # Pillow : sauvegarder une image en PDF donne un PDF 1 page
         page.save(p, "PDF", resolution=150.0)
         _notify_export(parent, p, "Fiche PDF enregistrée")
@@ -118,9 +123,10 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         messagebox.showerror("Erreur d'export PDF", str(e))
 
 
-def export_pdf_mission(parent: tk.Misc, chantier: Chantier) -> None:
+def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
+                       show_sondages: bool = True) -> None:
     """Exporte un PDF unique multi-pages regroupant les fiches de tous
-    les arbres de la mission."""
+    les arbres de la mission. `show_sondages` : cf. `export_pdf_arbre`."""
     if not _need_pil("PDF"):
         return
     arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
@@ -137,7 +143,8 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier) -> None:
     if not p:
         return
     try:
-        pages = [render_fiche_arbre_to_pdf_page(a, chantier)
+        pages = [render_fiche_arbre_to_pdf_page(a, chantier,
+                                                show_sondages=show_sondages)
                  for a in arbres]
         pages[0].save(p, "PDF", resolution=150.0, save_all=True,
                       append_images=pages[1:])

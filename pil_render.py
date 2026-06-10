@@ -46,6 +46,7 @@ from geometry import (
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
+    nice_scale_bar_cm,
     ruler_graduation_positions,
     tick_endpoints,
 )
@@ -194,7 +195,8 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     if not (len(brins) == 1 and brins[0].pos_x_cm == 0.0
             and brins[0].pos_y_cm == 0.0):
         _pil_draw_cepee(d, f, f_base, arbre, width, height, _ds,
-                        show_sondages=show_sondages, show_title=show_title)
+                        show_sondages=show_sondages, show_title=show_title,
+                        show_legend=show_legend)
         return img
 
     if arbre.rayon_tronc_cm <= 0:
@@ -311,30 +313,49 @@ def _pil_draw_brin_label(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
 
 def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
                     arbre: "Arbre", width: int, height: int, ds: float, *,
-                    show_sondages: bool, show_title: bool) -> None:
+                    show_sondages: bool, show_title: bool,
+                    show_legend: bool = False) -> None:
     """Compose une cépée : N brins positionnés dans un cadrage commun.
 
     Pendant multi-brins de la branche mono-brin de `render_arbre_to_pil_image`.
     Chaque brin est dessiné à son centre écran (via `geometry.brins_layout`)
     SANS sa boussole ; une seule boussole globale (orientation partagée) et
     le titre du genet sont ajoutés autour de la bounding box.
+
+    Une cépée est large : `brins_layout` la cadre sur la largeur, ce qui
+    laissait un grand vide vertical en bas. On **centre verticalement** les
+    brins et on remplit la bande basse par une **barre d'échelle** (les brins
+    ayant des rayons distincts, pas de règle -R..+R) et, en export
+    (`show_legend`), la **légende** — comme une fiche mono-brin.
     """
     drawable = [b for b in arbre.brins if b.rayon_tronc_cm > 0]
     if not drawable:
         _pil_draw_placeholder(d, f_base, width, height)
         return
     margin_top = max(100, int(height * 0.065)) if show_title else 70
-    margin_bottom = max(120, int(height * 0.11))
+    base_bottom = max(120, int(height * 0.11))
     margin_side = max(60, int(width * 0.055))
     # Réserver la place de la boussole globale (offset + demi-largeur d'une
     # lettre) pour qu'elle ne déborde pas du canvas sur les bords/coins.
     clear = CARDINALES_OFFSET_PX + int(32 * ds)
     margin_top = max(margin_top, clear)
-    margin_bottom = max(margin_bottom, clear)
+    base_bottom = max(base_bottom, clear)
     margin_side = max(margin_side, clear)
+    # Bandes basses : échelle (toujours) + légende (export seulement).
+    scale_band = int(120 * ds)
+    legend_band = (max(70, int(height * 0.09))) if show_legend else 0
+    margin_bottom = base_bottom + scale_band + legend_band
     pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
     scale, origin_x, origin_y = brins_layout(
         pe, width, height, margin_top, margin_bottom, margin_side)
+    # Centrage vertical : `brins_layout` aligne le haut de la bbox sur
+    # `margin_top` ; on redescend les brins pour les centrer dans la zone
+    # disponible [margin_top, height - margin_bottom].
+    y0_cm = min(py - e for _px, py, e in pe)
+    y1_cm = max(py + e for _px, py, e in pe)
+    bbox_h_px = (y1_cm - y0_cm) * scale
+    avail_h_px = (height - margin_bottom) - margin_top
+    origin_y += max(0.0, (avail_h_px - bbox_h_px) / 2.0)
     bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * ds))
     port = arbre.port_arbre
     meche = arbre.meche_cm
@@ -377,6 +398,38 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
                fill=COLOR_INK, anchor="mm")
     if show_title:
         _pil_draw_titre(d, f, arbre, drawable[0].rayon_tronc_cm, width, height)
+
+    # Barre d'échelle générique (« = N cm ») centrée dans la bande basse,
+    # sous les brins. Remplace la règle -R..+R du mono-brin (inadaptée à
+    # plusieurs brins de rayons différents).
+    bar_cm = nice_scale_bar_cm(scale, max_bar_px=width * 0.28)
+    y_scale = height - base_bottom - legend_band - scale_band // 2
+    _pil_draw_scale_bar(d, f, width / 2.0, y_scale, bar_cm, scale, ds)
+
+    # Légende horizontale (export uniquement), dans sa bande, en bas.
+    if show_legend:
+        legend_y = height - base_bottom - legend_band + int(height * 0.012)
+        _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
+                                     width=width, height=height,
+                                     font_fn=f_base,
+                                     show_sondage_item=show_sondages,
+                                     show_classes=False)
+
+
+def _pil_draw_scale_bar(d: "ImageDraw.ImageDraw", f: FontFn,
+                        cx: float, y: float, length_cm: int,
+                        scale: float, ds: float) -> None:
+    """Barre d'échelle horizontale autonome centrée en `cx`, à l'ordonnée
+    `y` : trait de `length_cm * scale` px avec tirets aux extrémités et le
+    libellé « N cm » dessous. Utilisée par le rendu cépée (PIL)."""
+    half = length_cm * scale / 2.0
+    lw = max(3, int(3 * ds))
+    th = int(14 * ds)
+    d.line([cx - half, y, cx + half, y], fill=COLOR_INK, width=lw + 1)
+    for xx in (cx - half, cx + half):
+        d.line([xx, y - th, xx, y + th], fill=COLOR_INK, width=lw + 1)
+    d.text((cx, y + int(34 * ds)), f"{length_cm} cm",
+           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
 
 
 # ----------------------------------------------------------------------

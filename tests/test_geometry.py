@@ -406,6 +406,21 @@ class CardinalLabelPositionsTests(unittest.TestCase):
         self.assertAlmostEqual(y_n, 100.0)
 
 
+class NiceScaleBarCmTests(unittest.TestCase):
+    """Barre d'échelle générique (rendu cépée)."""
+
+    def test_choisit_la_plus_grande_valeur_ronde_qui_tient(self):
+        from geometry import nice_scale_bar_cm
+        # 10 px/cm, barre max 250 px → 20 cm (200 px) tient, 50 cm (500) non.
+        self.assertEqual(nice_scale_bar_cm(10.0, 250.0), 20)
+        # 10 px/cm, max 130 px → 10 cm (100) tient, 20 cm (200) non.
+        self.assertEqual(nice_scale_bar_cm(10.0, 130.0), 10)
+
+    def test_au_moins_un_cm_meme_si_tres_serre(self):
+        from geometry import nice_scale_bar_cm
+        self.assertEqual(nice_scale_bar_cm(100.0, 10.0), 1)
+
+
 class RulerGraduationPositionsTests(unittest.TestCase):
 
     def test_renvoie_liste_vide_si_R_zero(self):

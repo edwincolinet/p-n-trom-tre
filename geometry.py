@@ -400,6 +400,25 @@ def adaptive_ruler_step_cm(scale_px_per_cm: float,
     return 100
 
 
+def nice_scale_bar_cm(scale_px_per_cm: float, max_bar_px: float) -> int:
+    """Longueur « ronde » (cm) d'une **barre d'échelle** autonome tenant
+    dans `max_bar_px` pixels.
+
+    Choisit la plus grande valeur de 1, 2, 5, 10, … (multiples naturels)
+    dont la longueur à l'écran (`cm * scale`) reste ≤ `max_bar_px`. Sert au
+    rendu d'une cépée (plusieurs brins de tailles différentes : pas de règle
+    -R..+R unique comme en mono-brin, mais une barre « = N cm » générique).
+    Renvoie au moins 1.
+    """
+    best = 1
+    for cm in (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000):
+        if cm * scale_px_per_cm <= max_bar_px:
+            best = cm
+        else:
+            break
+    return best
+
+
 # ----------------------------------------------------------------------
 # Positions partagées Tk ↔ PIL : ticks, lettres cardinales, graduations
 # ----------------------------------------------------------------------

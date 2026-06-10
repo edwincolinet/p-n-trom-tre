@@ -548,6 +548,10 @@ td.compart-absente { color: #C0392B; font-size: 18px; font-weight: 700; }
 td.compart-neutre { color: #6E7B73; }
 .legend-cell { background: #FFFFFF; text-align: center; }
 .legend-label { font-style: italic; color: #6E7B73; text-align: left; }
+.compart-neutre.legend-cell, td.compart-neutre { color: #6E7B73; }
+.classe-legend { margin-top: 14px; display: flex; gap: 22px;
+                 font-weight: 700; font-size: 13px; }
+.classe-legend .classe-item { white-space: nowrap; }
 .empty-row td { color: #6E7B73; font-style: italic; text-align: left; }
 footer {
     margin-top: 28px; color: #6E7B73; font-size: 11px;
@@ -629,18 +633,27 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
             )
         body_html = "\n".join(body_rows)
 
-    # Légende sous le tableau (mêmes colonnes que le tableau)
+    # Légende compartimentation sous le tableau (7 cellules = 1 par colonne,
+    # calquée sur le tableau XLSX) : ✓ active · ✗ absente · — neutre.
     legend_html = (
         '<tr>'
         '<td class="legend-label">Légende :</td>'
         '<td class="legend-cell compart-active">✓</td>'
-        '<td class="legend-cell legend-label" colspan="2">'
-        'Compartimentation active</td>'
+        '<td class="legend-cell legend-label">Compartimentation active</td>'
         '<td class="legend-cell compart-absente">✗</td>'
-        '<td class="legend-cell legend-label" colspan="2">'
-        'Pas de compartimentation</td>'
+        '<td class="legend-cell legend-label">Pas de compartimentation</td>'
+        '<td class="legend-cell compart-neutre">—</td>'
+        '<td class="legend-cell legend-label">'
+        'Non renseignée/pas d&#39;altération</td>'
         '</tr>'
     )
+
+    # Légende des classes (code couleur de la colonne « Proportion de bois
+    # sain »), comme dans le XLSX : une entrée par classe, texte coloré.
+    classe_legend_html = "".join(
+        f'<span class="classe-item" style="color:{couleur_classe.get(k, "#CCCCCC")}">'
+        f'{_h(_CLASSE_LEGENDE.get(k, "Classe " + k))}</span>'
+        for k in couleur_classe)
 
     html = f"""<!DOCTYPE html>
 <html lang="fr">
@@ -663,6 +676,8 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 {legend_html}
 </tbody>
 </table>
+
+<div class="classe-legend">{classe_legend_html}</div>
 
 <footer>
 Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre, Silvavenir Foresterie urbaine.

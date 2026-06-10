@@ -79,12 +79,17 @@ def _fit_text(text: str, font: Any, max_width: float,
 
 
 def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
-                                   chantier: "Chantier") -> "PILImage":
+                                   chantier: "Chantier",
+                                   show_sondages: bool = True) -> "PILImage":
     """Construit une page A4 portrait 150 DPI (1240 × 1754 px environ)
     avec : en-tête chantier, dessin, tableau PRBS, diagnostic.
 
     Les tailles de police, largeurs de colonnes et marges sont calibrées
     pour rester lisibles à l'impression (≈ 12 pt minimum au tirage A4).
+
+    `show_sondages` reflète la case « Afficher l'emplacement des sondages
+    sur le dessin » : à `False`, les pastilles/flèches sont omises **du
+    dessin** (le tableau PRBS reste, lui, toujours présent — c'est la donnée).
     """
     from PIL import Image, ImageDraw
     f = _pil_load_fonts()
@@ -190,7 +195,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # Le dessin lui-même est rendu sans légende ; la légende est tracée
     # ci-dessous, en dehors du dessin, pour profiter de toute la largeur.
     drawing = render_arbre_to_pil_image(arbre, drawing_w, drawing_h,
-                                        show_sondages=True,
+                                        show_sondages=show_sondages,
                                         show_title=False,
                                         show_legend=False)
     x_draw = (W - drawing_w) // 2
@@ -199,8 +204,12 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # Légende horizontale, centrée, sur la pleine largeur utile. Calibrée
     # pour donner des polices ≈ 16 pt et des pastilles bien lisibles.
     if R > 0:
+        # `show_sondage_item` suit la case « Afficher les sondages » : si
+        # les pastilles sont masquées sur le dessin, l'item « Sondage » de
+        # la légende disparaît aussi (sinon incohérence légende ↔ dessin).
         _draw_horizontal_legend_pil(d, arbre, y_top=y,
                                      width=W, height=900, font_fn=f,
+                                     show_sondage_item=show_sondages,
                                      show_classes=False)
         y += est_legend_h
 

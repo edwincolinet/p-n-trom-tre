@@ -252,6 +252,73 @@ class XlsxSmokeTests(unittest.TestCase):
                 os.unlink(path)
 
 
+class HtmlExportAlignementTests(unittest.TestCase):
+    """Verrouille l'alignement du tableau HTML sur le XLSX : la légende
+    compartimentation à 3 entrées (✓/✗/—) et la légende des classes colorée
+    doivent figurer dans le HTML comme dans le XLSX (régression : elles
+    n'avaient pas été reportées du XLSX vers le HTML)."""
+
+    def test_html_contient_legende_neutre_et_classes(self):
+        import os
+        import tempfile
+
+        from export import export_prbs_html
+        from model import Arbre, Chantier, Sondage
+        from palette import COULEUR_CLASSE
+
+        a = Arbre(numero_arbre="1", essence="Platane", port_arbre="libre",
+                  rayon_tronc_cm=40.0)
+        for n, g in enumerate((0, 100, 200), start=1):
+            a.sondages.append(Sondage(numero=n, grade=g,
+                                      bois_sain_cm=20.0, bois_altere_cm=20.0))
+        c = Chantier(nom="test", arbres=[a])
+
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
+            path = tmp.name
+        try:
+            export_prbs_html(a, c, path, couleur_classe=COULEUR_CLASSE,
+                             classer_prbs=classer_prbs)
+            with open(path, encoding="utf-8") as f:
+                html = f.read()
+            # 3e entrée de légende compartimentation (glyphe « — »).
+            self.assertIn("Non renseignée/pas d&#39;altération", html)
+            # Légende des classes colorée (bloc + 3 libellés + couleurs).
+            self.assertIn("classe-legend", html)
+            for label in ("Classe verte", "Classe orange", "Classe rouge"):
+                self.assertIn(label, html)
+            for hex_ in COULEUR_CLASSE.values():
+                self.assertIn(hex_, html)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+
+class FichePdfSondagesTests(unittest.TestCase):
+    """La case « Afficher les sondages » doit gouverner le dessin de la
+    fiche PDF (régression : les pastilles étaient toujours dessinées)."""
+
+    def setUp(self) -> None:
+        from pil_render import HAS_PIL
+        if not HAS_PIL:
+            self.skipTest("Pillow absent")
+
+    def test_show_sondages_false_omet_les_pastilles_du_dessin(self):
+        from fiche_pdf import render_fiche_arbre_to_pdf_page
+        from model import Arbre, Chantier, Sondage
+
+        a = Arbre(numero_arbre="1", essence="Chêne", rayon_tronc_cm=20.0)
+        for n, g in enumerate((0, 50, 100, 150), start=1):
+            a.sondages.append(Sondage(numero=n, grade=g,
+                                      bois_sain_cm=8.0, bois_altere_cm=12.0))
+        c = Chantier(nom="t", arbres=[a])
+        on = render_fiche_arbre_to_pdf_page(a, c, show_sondages=True)
+        off = render_fiche_arbre_to_pdf_page(a, c, show_sondages=False)
+        # Le dessin diffère (pastilles présentes vs absentes)…
+        self.assertNotEqual(list(on.getdata()), list(off.getdata()))
+        # …mais la page reste de même format A4.
+        self.assertEqual(on.size, off.size)
+
+
 class MissionSynthesisRowsTests(unittest.TestCase):
     """Synthèse mission : une ligne par arbre + masquage des champs non
     fiables (< 3 sondages, ou rayon nul)."""

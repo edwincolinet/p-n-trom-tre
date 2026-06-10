@@ -37,6 +37,7 @@ from geometry import (
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
+    nice_scale_bar_cm,
     ruler_graduation_positions,
     tick_endpoints,
 )
@@ -474,11 +475,22 @@ class SectionCanvas(tk.Canvas):
         # d'une lettre) pour qu'elle ne déborde pas du canvas.
         clear = self.CARDINALES_OFFSET_PX + 18
         margin_top = max(self.MARGIN_TOP_PX, clear)
-        margin_bottom = max(self.MARGIN_BOTTOM_PX, clear)
+        base_bottom = max(self.MARGIN_BOTTOM_PX, clear)
         margin_side = max(self.MARGIN_SIDE_PX, clear)
+        # Bande basse pour la barre d'échelle (pendant de `_pil_draw_cepee`,
+        # sans la légende qui est propre à l'export PNG).
+        scale_band = 60
+        margin_bottom = base_bottom + scale_band
         pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
         scale, origin_x, origin_y = brins_layout(
             pe, w, h, margin_top, margin_bottom, margin_side)
+        # Centrage vertical (cf. `_pil_draw_cepee`) : descendre les brins
+        # pour les centrer dans [margin_top, h - margin_bottom].
+        y0_cm = min(py - e for _px, py, e in pe)
+        y1_cm = max(py + e for _px, py, e in pe)
+        bbox_h_px = (y1_cm - y0_cm) * scale
+        avail_h_px = (h - margin_bottom) - margin_top
+        origin_y += max(0.0, (avail_h_px - bbox_h_px) / 2.0)
         port = A.port_arbre
         meche = A.meche_cm
         for b in drawable:
@@ -515,6 +527,26 @@ class SectionCanvas(tk.Canvas):
             self.create_text(lx, ly, text=lbl,
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
         self._draw_titre(A, drawable[0].rayon_tronc_cm)
+        # Barre d'échelle générique centrée dans la bande basse (pendant Tk
+        # de `_pil_draw_scale_bar`).
+        bar_cm = nice_scale_bar_cm(scale, max_bar_px=w * 0.28)
+        self._draw_scale_bar(w / 2.0, h - base_bottom - scale_band // 2,
+                             bar_cm, scale)
+
+    def _draw_scale_bar(self, cx: float, y: float, length_cm: int,
+                        scale: float) -> None:
+        """Barre d'échelle horizontale (« N cm ») centrée en `cx` à
+        l'ordonnée `y` — pendant Tk de `pil_render._pil_draw_scale_bar`,
+        pour le rendu cépée (les brins ont des rayons distincts → pas de
+        règle -R..+R unique)."""
+        half = length_cm * scale / 2.0
+        self.create_line(cx - half, y, cx + half, y,
+                         fill=COLOR_INK, width=3)
+        for xx in (cx - half, cx + half):
+            self.create_line(xx, y - 6, xx, y + 6, fill=COLOR_INK, width=3)
+        self.create_text(cx, y + 14, text=f"{length_cm} cm",
+                         anchor="center", font=("Helvetica", 9, "bold"),
+                         fill=COLOR_INK)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.
@@ -760,19 +792,10 @@ class SectionCanvas(tk.Canvas):
                          fill=COLOR_INK)
 
     def _draw_titre(self, A: Arbre, R: float) -> None:
-        # Titre + méta au-dessus du tronc (entre y=10 et la lettre N à
-        # cy - radius_px - 25). Stats globales : onglet Diagnostic.
+        # Titre seul au-dessus du tronc. La ligne de sous-titre (rayon, Ø,
+        # hauteur, mèche) a été retirée : redondante avec l'onglet
+        # Identification, elle prenait de la place pour rien. Le canvas
+        # s'aligne ainsi sur le PNG (`_pil_draw_titre`, titre seul).
         w = max(self.winfo_width(), 1)
-        title_y = 16
-        sub_y = 38
-        self.create_text(w/2, title_y, text=A.display_name,
+        self.create_text(w/2, 16, text=A.display_name,
                          font=("Georgia", 15, "bold"), fill=COLOR_ACCENT)
-        sub_parts = [f"Rayon {R:g} cm"]
-        if A.diametre_sous_ecorce_cm:
-            sub_parts.append(f"Ø sous écorce {A.diametre_sous_ecorce_cm:g} cm")
-        if A.hauteur_arbre_m:
-            sub_parts.append(f"H {A.hauteur_arbre_m:g} m")
-        if A.meche_cm:
-            sub_parts.append(f"Mèche {A.meche_cm:g} cm")
-        self.create_text(w/2, sub_y, text="   •   ".join(sub_parts),
-                         font=("Helvetica", 10, "italic"), fill=COLOR_MUTED)

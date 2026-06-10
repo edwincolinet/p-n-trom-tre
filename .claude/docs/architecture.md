@@ -48,6 +48,9 @@ gardent en plus le chemin `polar_idx_to_xy` exact quand `rotation_grades`
 falsy). Les ticks/cardinales (boussole monde) n'ont PAS de rotation. Un cercle
 étant invariant par rotation, seul le chemin ovale est pivoté côté contour.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
+- `nice_scale_bar_cm(scale_px_per_cm, max_bar_px)` — longueur « ronde » (cm)
+  d'une barre d'échelle autonome (rendu cépée : plusieurs rayons → pas de règle
+  -R..+R unique).
 - `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`),
   `ruler_graduation_positions`.
 - `brins_layout(positions_extents, width, height, margin_top, margin_bottom,
@@ -250,11 +253,20 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   (le mono-brin centré garde le chemin verbatim → goldens intacts). `_pil_draw_cepee`
   compose les brins via `geometry.brins_layout`, ajoute un label par brin
   (`_pil_draw_brin_label`) et **une seule boussole globale** sur le rectangle de
-  la bbox (les ticks restent par brin). Fixture golden `cepee`.
+  la bbox (les ticks restent par brin). Une cépée étant large (cadrée sur la
+  largeur), les brins sont **centrés verticalement** et la bande basse reçoit une
+  **barre d'échelle** (`_pil_draw_scale_bar` / `nice_scale_bar_cm`) + la
+  **légende** en export (`show_legend`) → comble le vide bas. Pendant Tk :
+  `SectionCanvas._draw_cepee` + `_draw_scale_bar` (même centrage + barre, sans
+  légende). Fixtures golden `cepee`, `cepee_rotation`.
 
 ## `fiche_pdf.py` — layout fiche PDF A4
 
-- `render_fiche_arbre_to_pdf_page(arbre, chantier)` — page 1240×1754 px (150 DPI).
+- `render_fiche_arbre_to_pdf_page(arbre, chantier, show_sondages=True)` — page
+  1240×1754 px (150 DPI). `show_sondages` (= case « Afficher les sondages » sous
+  le canevas, propagée par `app_exports.export_pdf_arbre`/`_mission`) masque les
+  pastilles **sur le dessin** ET l'item « Sondage » de la légende
+  (`show_sondage_item`) — le **tableau PRBS reste** (c'est la donnée).
 - Assemble : en-tête + logo, identité arbre, dessin section (via `pil_render`),
   légende, tableau PRBS, diagnostic (t/R moyen+min, barre répartition, classe).
 - Dimensionnement adaptatif : au-delà de 8/12 sondages, police et hauteur
@@ -316,6 +328,10 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
   (`Communication/export excel attendu.xlsx`) — verrouillé par
   `test_legendes_calquees_sur_la_fiche_du_cabinet`.
 - `export_prbs_html(…)` — HTML autonome imprimable, même thème vert.
+  **À garder aligné cellule pour cellule sur le XLSX** : même ligne méta,
+  tableau par sondage, légende compartimentation à 3 entrées (✓/✗/—) ET légende
+  des classes colorée (`.classe-legend`). Verrouillé par
+  `HtmlExportAlignementTests` — toute modif du XLSX doit être reportée ici.
 - Injection de `couleur_classe` + `classer_prbs` pour éviter cycles.
 
 ## `dialogs.py` — boîtes de dialogue Tk
