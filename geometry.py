@@ -26,7 +26,7 @@ Le barème métier (`classer_prbs` + labels de classe + ports) vit dans
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
 # Un rayon peut être donné soit comme un scalaire (section circulaire,
 # `rayon_tronc_cm`), soit comme une fonction `grade -> rayon_cm` (section
@@ -400,23 +400,96 @@ def adaptive_ruler_step_cm(scale_px_per_cm: float,
     return 100
 
 
-def nice_scale_bar_cm(scale_px_per_cm: float, max_bar_px: float) -> int:
-    """Longueur « ronde » (cm) d'une **barre d'échelle** autonome tenant
-    dans `max_bar_px` pixels.
+def radial_ruler_grade(sondage_grades: List[int],
+                       rotation_grades: float = 0.0) -> float:
+    """Grade MONDE de l'échelle radiale d'un brin (esquive des sondages).
 
-    Choisit la plus grande valeur de 1, 2, 5, 10, … (multiples naturels)
-    dont la longueur à l'écran (`cm * scale`) reste ≤ `max_bar_px`. Sert au
-    rendu d'une cépée (plusieurs brins de tailles différentes : pas de règle
-    -R..+R unique comme en mono-brin, mais une barre « = N cm » générique).
-    Renvoie au moins 1.
+    L'échelle se pose à l'Est (100 gr) par défaut. Si un sondage est
+    **rendu** dans cette direction (grade local + rotation du brin), elle
+    bascule sur la direction libre la plus proche, en alternant de part et
+    d'autre de l'Est (125, 75, 150, 50, …) — déterministe pour un jeu de
+    sondages donné. Si les 16 directions sont toutes sondées, renvoie
+    100.0 : l'échelle est alors dessinée par-dessus la flèche Est, son
+    halo blanc la garde lisible (la pastille au bord reste visible).
     """
-    best = 1
-    for cm in (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000):
-        if cm * scale_px_per_cm <= max_bar_px:
-            best = cm
-        else:
-            break
-    return best
+    occupied = {round((g + rotation_grades) % 400.0, 6)
+                for g in sondage_grades}
+    for k in range(16):
+        delta = ((k + 1) // 2) * 25
+        g = (100 + delta) % 400 if k % 2 == 1 else (100 - delta) % 400
+        if round(float(g), 6) not in occupied:
+            return float(g)
+    return 100.0
+
+
+class RadialRulerData(NamedTuple):
+    """Géométrie (px écran) de l'échelle radiale d'un brin."""
+    axis: Tuple[Tuple[float, float], Tuple[float, float]]   # centre → bois
+    bark: Union[Tuple[Tuple[float, float], Tuple[float, float]], None]
+    ticks: List[Tuple[float, float, float, float, float, float, str]]
+
+
+def radial_ruler_data(cx: float, cy: float, scale: float,
+                      R: float, ep: float, grade: float, step_cm: int,
+                      tick_len_px: float, label_offset_px: float
+                      ) -> Union[RadialRulerData, None]:
+    """Géométrie de l'échelle radiale centre→écorce le long de `grade`.
+
+    Échelle **asymétrique** propre à un brin : axe du centre (0) au bord
+    du bois (R, rayon local de la direction), prolongé d'un segment
+    d'écorce jusqu'à R+ep si `ep > 0`. Tirets perpendiculaires étiquetés :
+    « 0 » au centre, multiples de `step_cm`, et le terminal au **bout de
+    l'écorce** avec l'étiquette « R+ep cm ». Si aucun multiple ne tient
+    (petit brin / pas trop grand), une graduation **médiane** est ajoutée —
+    l'échelle garde toujours au moins un segment intermédiaire lisible.
+    Les étiquettes sont décalées de `label_offset_px` du côté `grade + 100`
+    (sous l'axe quand l'échelle est à l'Est).
+
+    `ticks` = `[(x1, y1, x2, y2, lx, ly, label), ...]` : segment du tiret
+    (centré sur l'axe, longueur totale `tick_len_px`) + position de son
+    étiquette. Renvoie `None` si `R <= 0`.
+    """
+    if R <= 0:
+        return None
+    r_ext = R + max(0.0, ep)
+    a = math.radians(grade * 360.0 / 400.0 - 90.0)
+    ux, uy = math.cos(a), math.sin(a)        # le long de l'axe
+    vx, vy = -uy, ux                          # perpendiculaire (grade+100)
+    p0 = (cx, cy)
+    p_r = (cx + ux * R * scale, cy + uy * R * scale)
+    bark = None
+    if ep > 0:
+        p_ext = (cx + ux * r_ext * scale, cy + uy * r_ext * scale)
+        bark = (p_r, p_ext)
+    ticks: List[Tuple[float, float, float, float, float, float, str]] = []
+    half = tick_len_px / 2.0
+    radii: List[Tuple[float, str]] = [(0.0, "0")]
+    inter: List[Tuple[float, str]] = []
+    if step_cm > 0:
+        # Tirets intermédiaires ; on omet ceux à moins d'un pas entier du
+        # terminal — son étiquette « N cm » est large, un tiret trop proche
+        # la télescoperait (ex. R=16, pas 10 : « 10 » collerait « 16 cm »).
+        inter = [(float(r), str(r))
+                 for r in range(step_cm, int(r_ext), step_cm)
+                 if r_ext - r >= step_cm]
+    if not inter:
+        # Au moins UN segment intermédiaire : graduation médiane arrondie
+        # au cm (petit brin de cépée où le pas adaptatif ne tient pas).
+        mid = round(r_ext / 2.0)
+        if 0 < mid < r_ext:
+            inter = [(float(mid), f"{mid:g}")]
+    radii.extend(inter)
+    # Étiquette terminale arrondie au mm : le rayon d'une ellipse évalué à
+    # l'angle d'esquive peut produire des décimales parasites (16.1275…).
+    radii.append((r_ext, f"{round(r_ext, 1):g} cm"))
+    for r, label in radii:
+        px = cx + ux * r * scale
+        py = cy + uy * r * scale
+        ticks.append((px - vx * half, py - vy * half,
+                      px + vx * half, py + vy * half,
+                      px + vx * label_offset_px, py + vy * label_offset_px,
+                      label))
+    return RadialRulerData(axis=(p0, p_r), bark=bark, ticks=ticks)
 
 
 # ----------------------------------------------------------------------
@@ -479,23 +552,6 @@ def cerne_radii_px(R: float, scale: float, n_cernes: int) -> List[float]:
     if radius_px <= 0 or n_cernes <= 0:
         return []
     return [radius_px * k / (n_cernes + 1) for k in range(1, n_cernes + 1)]
-
-
-def ruler_graduation_positions(cx: float, scale: float,
-                                R: float, step_cm: int
-                                ) -> List[Tuple[float, str]]:
-    """Positions des graduations intermédiaires de la demi-règle.
-
-    Renvoie `[(x, label), ...]` pour les marques entre 0 (centre, exclu)
-    et R (bord du bois, exclu), espacées de `step_cm` cm. Les extrémités
-    (0 et R) restent dessinées séparément par le renderer.
-    """
-    out: List[Tuple[float, str]] = []
-    if R <= 0 or step_cm <= 0:
-        return out
-    for r in range(step_cm, int(R), step_cm):
-        out.append((cx + r * scale, str(r)))
-    return out
 
 
 def brins_layout(positions_extents: List[Tuple[float, float, float]],

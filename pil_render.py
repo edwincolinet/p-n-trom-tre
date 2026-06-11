@@ -46,8 +46,8 @@ from geometry import (
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
-    nice_scale_bar_cm,
-    ruler_graduation_positions,
+    radial_ruler_data,
+    radial_ruler_grade,
     tick_endpoints,
 )
 from palette import (
@@ -167,7 +167,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     Logique identique à SectionCanvas.redraw() mais sans dépendance tk.
 
     Si `show_legend=True`, une légende adaptative est dessinée sous la
-    règle graduée sur UNE LIGNE horizontale (Bois sain / Bois dégradé /
+    section sur UNE LIGNE horizontale (Bois sain / Bois dégradé /
     Écorce / Sondage / Classes) ; une bande de hauteur est réservée en
     bas, ce qui repousse la section vers le haut.
 
@@ -207,10 +207,12 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     ep = max(0.0, arbre.epaisseur_ecorce_cm)
     # Marges adaptées à la taille (responsive) :
     # - haut : titre+méta+lettre N hors écorce (proportionnel)
-    # - bas : pastille S à l'intérieur, règle graduée + label
+    # - bas : lettre S + halo (l'échelle est radiale, DANS la section —
+    #   plus de règle horizontale sous le dessin)
     margin_top = max(100, int(height * 0.065)) if show_title else 70
     legend_bottom_h = max(70, int(height * 0.09)) if show_legend else 0
-    margin_bottom = max(120, int(height * 0.11)) + legend_bottom_h
+    base_bottom = max(80, int(height * 0.06))
+    margin_bottom = base_bottom + legend_bottom_h
     margin_side = max(60, int(width * 0.055))
     available_v = height - margin_top - margin_bottom
     available_h = width - 2 * margin_side
@@ -223,24 +225,22 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                           default=0.0)
     scale = radius_px_max / (R + expansion)
 
-    # Règle horizontale → rayon le long de l'axe E-O (grade 100).
-    R_h = arbre.rayon_a_grade(100)
     bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * _ds))
-    # Section elle-même (bois → pastilles + moelle), centrée en (cx, cy).
-    # Isolée dans `_pil_draw_brin` pour préparer la composition multi-brins
-    # (cépées) : un appel par brin à son propre centre. Les décorations de
-    # repère (règle, titre, légende) restent globales, dessinées ci-dessous.
+    # Section elle-même (bois → pastilles + moelle + échelle radiale),
+    # centrée en (cx, cy). Isolée dans `_pil_draw_brin` pour la composition
+    # multi-brins (cépées) : un appel par brin à son propre centre. Les
+    # décorations de repère (titre, légende) restent globales, ci-dessous.
     # `port`/`meche` sont genet-level (partagés par tous les brins) → passés
     # explicitement à la section.
     _pil_draw_brin(d, f, arbre.brin_courant, arbre.port_arbre, arbre.meche_cm,
                    cx, cy, R, ep, scale,
                    show_sondages=show_sondages, bullet_r=bullet_r, ds=_ds)
-    y_axis = _pil_draw_regle(d, f, cx, cy, R_h, ep, R_h + ep, scale, height,
-                              _ds)
     if show_title:
         _pil_draw_titre(d, f, arbre, R, width, height)
     if show_legend:
-        legend_y = y_axis + int(50 * _ds) + int(height * 0.018)
+        # Légende dans la bande TOUT EN BAS : la zone `base_bottom` reste
+        # entre la section et la légende pour la lettre S (et son halo).
+        legend_y = height - legend_bottom_h + int(height * 0.012)
         _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
                                      width=width, height=height,
                                      font_fn=f_base,
@@ -257,7 +257,7 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
     """Dessine UNE section (bois → pastilles + moelle) centrée en (cx, cy).
 
     Regroupe toutes les couches **propres à un brin** dans l'ordre de
-    superposition. Le repère partagé (règle, titre, légende) reste à la
+    superposition. Le repère partagé (titre, légende) reste à la
     charge de l'orchestrateur. Pour une cépée, l'orchestrateur appellera ce
     helper une fois par brin à son propre centre écran ; pour un genet
     mono-brin centré, le rendu est strictement identique à l'ancien.
@@ -290,6 +290,10 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
     # Moelle (point central) du brin.
     dot_r = max(5, int(5 * ds))
     d.ellipse([cx-dot_r, cy-dot_r, cx+dot_r, cy+dot_r], fill=COLOR_INK)
+    # Échelle radiale EN DERNIER : au premier plan pour rester lisible
+    # par-dessus cavité, dégradations et flèches de sondage.
+    _pil_draw_echelle_radiale(d, f, brin, cx, cy, scale, ds,
+                              show_sondages=show_sondages)
 
 
 def _pil_draw_brin_label(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
@@ -324,16 +328,16 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
 
     Une cépée est large : `brins_layout` la cadre sur la largeur, ce qui
     laissait un grand vide vertical en bas. On **centre verticalement** les
-    brins et on remplit la bande basse par une **barre d'échelle** (les brins
-    ayant des rayons distincts, pas de règle -R..+R) et, en export
-    (`show_legend`), la **légende** — comme une fiche mono-brin.
+    brins ; chaque brin porte sa propre **échelle radiale** (les brins ayant
+    des rayons distincts, pas de règle commune) et, en export
+    (`show_legend`), la **légende** occupe la bande basse.
     """
     drawable = [b for b in arbre.brins if b.rayon_tronc_cm > 0]
     if not drawable:
         _pil_draw_placeholder(d, f_base, width, height)
         return
     margin_top = max(100, int(height * 0.065)) if show_title else 70
-    base_bottom = max(120, int(height * 0.11))
+    base_bottom = max(80, int(height * 0.06))
     margin_side = max(60, int(width * 0.055))
     # Réserver la place de la boussole globale (offset + demi-largeur d'une
     # lettre) pour qu'elle ne déborde pas du canvas sur les bords/coins.
@@ -341,10 +345,9 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
     margin_top = max(margin_top, clear)
     base_bottom = max(base_bottom, clear)
     margin_side = max(margin_side, clear)
-    # Bandes basses : échelle (toujours) + légende (export seulement).
-    scale_band = int(120 * ds)
+    # Bande basse : légende (export seulement).
     legend_band = (max(70, int(height * 0.09))) if show_legend else 0
-    margin_bottom = base_bottom + scale_band + legend_band
+    margin_bottom = base_bottom + legend_band
     pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
     scale, origin_x, origin_y = brins_layout(
         pe, width, height, margin_top, margin_bottom, margin_side)
@@ -399,16 +402,11 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
     if show_title:
         _pil_draw_titre(d, f, arbre, drawable[0].rayon_tronc_cm, width, height)
 
-    # Barre d'échelle générique (« = N cm ») centrée dans la bande basse,
-    # sous les brins. Remplace la règle -R..+R du mono-brin (inadaptée à
-    # plusieurs brins de rayons différents).
-    bar_cm = nice_scale_bar_cm(scale, max_bar_px=width * 0.28)
-    y_scale = height - base_bottom - legend_band - scale_band // 2
-    _pil_draw_scale_bar(d, f, width / 2.0, y_scale, bar_cm, scale, ds)
-
-    # Légende horizontale (export uniquement), dans sa bande, en bas.
+    # Légende horizontale (export uniquement), dans la bande TOUT EN BAS :
+    # la zone `base_bottom` reste entre les brins et la légende pour la
+    # lettre S de la boussole globale.
     if show_legend:
-        legend_y = height - base_bottom - legend_band + int(height * 0.012)
+        legend_y = height - legend_band + int(height * 0.012)
         _draw_horizontal_legend_pil(d, arbre, y_top=legend_y,
                                      width=width, height=height,
                                      font_fn=f_base,
@@ -416,20 +414,55 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
                                      show_classes=False)
 
 
-def _pil_draw_scale_bar(d: "ImageDraw.ImageDraw", f: FontFn,
-                        cx: float, y: float, length_cm: int,
-                        scale: float, ds: float) -> None:
-    """Barre d'échelle horizontale autonome centrée en `cx`, à l'ordonnée
-    `y` : trait de `length_cm * scale` px avec tirets aux extrémités et le
-    libellé « N cm » dessous. Utilisée par le rendu cépée (PIL)."""
-    half = length_cm * scale / 2.0
+def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
+                              brin: "Brin", cx: float, cy: float,
+                              scale: float, ds: float, *,
+                              show_sondages: bool) -> None:
+    """Échelle radiale d'un brin : axe gradué du centre au bord du bois,
+    prolongé d'un segment d'écorce, le long de l'axe Est (ou de la
+    direction libre la plus proche si un sondage y est rendu, cf.
+    `geometry.radial_ruler_grade`). Dessinée au premier plan avec un halo
+    blanc pour rester lisible par-dessus cavité et dégradations.
+
+    L'esquive n'opère que si les sondages sont AFFICHÉS (`show_sondages`) :
+    masqués, il n'y a pas de flèche à éviter → échelle plein Est."""
+    sond_grades = [s.grade for s in brin.sondages] if show_sondages else []
+    gw = radial_ruler_grade(sond_grades, brin.rotation_grades)
+    # La forme du brin est pivotée de `rotation_grades` : le rayon à la
+    # direction MONDE `gw` est le rayon local à `gw - rotation`.
+    R = brin.rayon_a_grade(gw - brin.rotation_grades)
+    ep = max(0.0, brin.epaisseur_ecorce_cm)
+    step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
+    data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
+                             tick_len_px=int(16 * ds),
+                             label_offset_px=int(30 * ds))
+    if data is None:
+        return
     lw = max(3, int(3 * ds))
-    th = int(14 * ds)
-    d.line([cx - half, y, cx + half, y], fill=COLOR_INK, width=lw + 1)
-    for xx in (cx - half, cx + half):
-        d.line([xx, y - th, xx, y + th], fill=COLOR_INK, width=lw + 1)
-    d.text((cx, y + int(34 * ds)), f"{length_cm} cm",
-           font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
+    halo_w = lw + max(4, int(4 * ds))
+    tick_w = max(2, int(2 * ds))
+    (x0, y0), (xr, yr) = data.axis
+    segments = [(x0, y0, xr, yr, COLOR_INK, lw)]
+    if data.bark is not None:
+        (bx0, by0), (bx1, by1) = data.bark
+        segments.append((bx0, by0, bx1, by1, COLOR_BARK, lw))
+    # Passe 1 : halo blanc sous tous les traits (axe + écorce + tirets).
+    for x1, y1, x2, y2, _col, _w in segments:
+        d.line([x1, y1, x2, y2], fill="white", width=halo_w)
+    for x1, y1, x2, y2, _lx, _ly, _lbl in data.ticks:
+        d.line([x1, y1, x2, y2], fill="white", width=tick_w + 4)
+    # Passe 2 : encre.
+    for x1, y1, x2, y2, col, w in segments:
+        d.line([x1, y1, x2, y2], fill=col, width=w)
+    for x1, y1, x2, y2, lx, ly, lbl in data.ticks:
+        d.line([x1, y1, x2, y2], fill=COLOR_INK, width=tick_w)
+        for ox in (-3, 0, 3):
+            for oy in (-3, 0, 3):
+                if ox or oy:
+                    d.text((lx + ox, ly + oy), lbl, font=f(28, "sans_bold"),
+                           fill="white", anchor="mm")
+        d.text((lx, ly), lbl, font=f(28, "sans_bold"),
+               fill=COLOR_INK, anchor="mm")
 
 
 # ----------------------------------------------------------------------
@@ -458,7 +491,7 @@ def _pil_draw_scale_bar(d: "ImageDraw.ImageDraw", f: FontFn,
 #   _pil_draw_ticks              ↔ SectionCanvas._draw_ticks
 #   _pil_draw_cardinales         ↔ SectionCanvas._draw_cardinales
 #   _pil_draw_sondages           ↔ SectionCanvas._draw_sondages
-#   _pil_draw_regle              ↔ SectionCanvas._draw_regle
+#   _pil_draw_echelle_radiale    ↔ SectionCanvas._draw_echelle_radiale
 #   _pil_draw_titre              ↔ SectionCanvas._draw_titre
 # ----------------------------------------------------------------------
 
@@ -654,74 +687,6 @@ def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
                fill="white", anchor="mm")
 
 
-def _pil_draw_regle(d: "ImageDraw.ImageDraw", f: FontFn,
-                    cx: float, cy: float,
-                    R: float, ep: float, R_ext: float, scale: float,
-                    height: int, _ds: float = 1.0) -> float:
-    """Règle graduée symétrique centrée sous la section (-R à +R).
-
-    Renvoie l'ordonnée de la règle pour le placement de la légende.
-    """
-    radius_ext_px = R_ext * scale
-    step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * _ds))
-    y_bar = min(cy + radius_ext_px + int(80 * _ds),
-                height - int(100 * _ds))
-    half_px = R * scale
-    ext_half_px = R_ext * scale
-    x_left = cx - half_px
-    x_right = cx + half_px
-
-    lw = max(3, int(3 * _ds))
-    tick_h = int(14 * _ds)
-    tick_s = int(8 * _ds)
-    label_off = int(28 * _ds)
-
-    # Trait principal de -R à +R
-    d.line([x_left, y_bar, x_right, y_bar], fill=COLOR_INK, width=lw + 1)
-    # Barres d'écorce aux deux extrémités + tiret et label au bout
-    if ep > 0:
-        bar_h = int(12 * _ds)
-        x_ext_r = cx + ext_half_px
-        x_ext_l = cx - ext_half_px
-        d.rectangle([x_right, y_bar - bar_h / 2,
-                     x_ext_r, y_bar + bar_h / 2], fill=COLOR_BARK)
-        d.rectangle([x_ext_l, y_bar - bar_h / 2,
-                     x_left, y_bar + bar_h / 2], fill=COLOR_BARK)
-        d.line([x_ext_r, y_bar - tick_h, x_ext_r, y_bar + tick_h],
-               fill=COLOR_BARK, width=lw + 1)
-        d.line([x_ext_l, y_bar - tick_h, x_ext_l, y_bar + tick_h],
-               fill=COLOR_BARK, width=lw + 1)
-    # Tirets aux extrémités bois (R) et au centre (0)
-    d.line([x_left, y_bar - tick_h, x_left, y_bar + tick_h],
-           fill=COLOR_INK, width=lw + 1)
-    d.line([x_right, y_bar - tick_h, x_right, y_bar + tick_h],
-           fill=COLOR_INK, width=lw + 1)
-    d.line([cx, y_bar - tick_h, cx, y_bar + tick_h],
-           fill=COLOR_INK, width=lw + 1)
-    if R > 0:
-        # Graduations côté droit (avec labels)
-        for xg, label in ruler_graduation_positions(cx, scale, R, step):
-            d.line([xg, y_bar - tick_s, xg, y_bar + tick_s],
-                   fill=COLOR_INK, width=max(2, int(2 * _ds)))
-            d.text((xg, y_bar + label_off), label,
-                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-            # Miroir côté gauche (même graduation, même label)
-            x_mirror = cx - (xg - cx)
-            d.line([x_mirror, y_bar - tick_s, x_mirror, y_bar + tick_s],
-                   fill=COLOR_INK, width=max(2, int(2 * _ds)))
-            d.text((x_mirror, y_bar + label_off), label,
-                   font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        d.text((cx, y_bar + label_off), "0",
-               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        d.text((x_right, y_bar + label_off), f"{R:g}",
-               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-        d.text((x_left, y_bar + label_off), f"{R:g}",
-               font=f(36, "sans_bold"), fill=COLOR_INK, anchor="mm")
-    d.text((cx + ext_half_px + int(20 * _ds), y_bar), "cm",
-           font=f(38, "sans_bold"), fill=COLOR_INK, anchor="lm")
-    return y_bar
-
-
 def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                     R: float, width: int, height: int) -> None:
     title_y = max(48, int(height * 0.042))
@@ -735,7 +700,7 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
                                 show_sondage_item: bool = True,
                                 show_classes: bool = True) -> None:
     """Dessine la légende du dessin de section sur UNE LIGNE horizontale,
-    centrée, sous la règle graduée.
+    centrée, sous la section.
 
     Légende adaptative : on n'affiche que les éléments effectivement
     présents sur le dessin (Bois dégradé seulement s'il y a des

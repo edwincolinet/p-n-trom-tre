@@ -6034,100 +6034,78 @@
     "text": "2"
   },
   {
-    "type": "rectangle",
+    "type": "line",
     "coords": [
-      170.2,
-      484.8,
-      451.8,
-      518.8
+      300.0,
+      320.0,
+      412.0,
+      366.4
     ],
     "fill": "white",
-    "width": "1.0"
+    "width": "6.0"
   },
   {
     "type": "line",
     "coords": [
-      184.6,
-      496.8,
-      415.4,
-      496.8
+      412.0,
+      366.4,
+      417.9,
+      368.8
     ],
-    "fill": "#1A2E22",
-    "width": "2.0"
-  },
-  {
-    "type": "rectangle",
-    "coords": [
-      415.4,
-      493.3,
-      421.8,
-      500.3
-    ],
-    "fill": "#5C3A1E",
-    "width": "1.0"
-  },
-  {
-    "type": "rectangle",
-    "coords": [
-      178.2,
-      493.3,
-      184.6,
-      500.3
-    ],
-    "fill": "#5C3A1E",
-    "width": "1.0"
+    "fill": "white",
+    "width": "6.0"
   },
   {
     "type": "line",
     "coords": [
-      421.8,
-      490.8,
-      421.8,
-      502.8
+      301.5,
+      316.3,
+      298.5,
+      323.7
     ],
-    "fill": "#5C3A1E",
-    "width": "2.0"
+    "fill": "white",
+    "width": "5.0"
   },
   {
     "type": "line",
     "coords": [
-      178.2,
-      490.8,
-      178.2,
-      502.8
+      331.1,
+      328.6,
+      328.1,
+      336.0
     ],
-    "fill": "#5C3A1E",
-    "width": "2.0"
+    "fill": "white",
+    "width": "5.0"
   },
   {
     "type": "line",
     "coords": [
-      184.6,
-      490.8,
-      184.6,
-      502.8
+      360.8,
+      340.8,
+      357.7,
+      348.2
     ],
-    "fill": "#1A2E22",
-    "width": "2.0"
+    "fill": "white",
+    "width": "5.0"
   },
   {
     "type": "line",
     "coords": [
-      415.4,
-      490.8,
-      415.4,
-      502.8
+      419.4,
+      365.1,
+      416.4,
+      372.5
     ],
-    "fill": "#1A2E22",
-    "width": "2.0"
+    "fill": "white",
+    "width": "5.0"
   },
   {
     "type": "line",
     "coords": [
       300.0,
-      490.8,
-      300.0,
-      502.8
+      320.0,
+      412.0,
+      366.4
     ],
     "fill": "#1A2E22",
     "width": "2.0"
@@ -6135,30 +6113,21 @@
   {
     "type": "line",
     "coords": [
-      332.1,
-      492.8,
-      332.1,
-      500.8
+      412.0,
+      366.4,
+      417.9,
+      368.8
     ],
-    "fill": "#1A2E22",
-    "width": "1.0"
-  },
-  {
-    "type": "text",
-    "coords": [
-      332.1,
-      510.8
-    ],
-    "fill": "#1A2E22",
-    "text": "5"
+    "fill": "#5C3A1E",
+    "width": "2.0"
   },
   {
     "type": "line",
     "coords": [
-      267.9,
-      492.8,
-      267.9,
-      500.8
+      301.5,
+      316.3,
+      298.5,
+      323.7
     ],
     "fill": "#1A2E22",
     "width": "1.0"
@@ -6166,127 +6135,350 @@
   {
     "type": "text",
     "coords": [
-      267.9,
-      510.8
+      294.0,
+      331.0
     ],
-    "fill": "#1A2E22",
-    "text": "5"
-  },
-  {
-    "type": "line",
-    "coords": [
-      364.1,
-      492.8,
-      364.1,
-      500.8
-    ],
-    "fill": "#1A2E22",
-    "width": "1.0"
+    "fill": "white"
   },
   {
     "type": "text",
     "coords": [
-      364.1,
-      510.8
+      294.0,
+      333.0
     ],
-    "fill": "#1A2E22",
-    "text": "10"
-  },
-  {
-    "type": "line",
-    "coords": [
-      235.9,
-      492.8,
-      235.9,
-      500.8
-    ],
-    "fill": "#1A2E22",
-    "width": "1.0"
+    "fill": "white"
   },
   {
     "type": "text",
     "coords": [
-      235.9,
-      510.8
+      296.0,
+      331.0
     ],
-    "fill": "#1A2E22",
-    "text": "10"
-  },
-  {
-    "type": "line",
-    "coords": [
-      396.2,
-      492.8,
-      396.2,
-      500.8
-    ],
-    "fill": "#1A2E22",
-    "width": "1.0"
+    "fill": "white"
   },
   {
     "type": "text",
     "coords": [
-      396.2,
-      510.8
+      296.0,
+      333.0
     ],
-    "fill": "#1A2E22",
-    "text": "15"
-  },
-  {
-    "type": "line",
-    "coords": [
-      203.8,
-      492.8,
-      203.8,
-      500.8
-    ],
-    "fill": "#1A2E22",
-    "width": "1.0"
+    "fill": "white"
   },
   {
     "type": "text",
     "coords": [
-      203.8,
-      510.8
+      293.0,
+      332.0
     ],
-    "fill": "#1A2E22",
-    "text": "15"
+    "fill": "white"
   },
   {
     "type": "text",
     "coords": [
-      300.0,
-      510.8
+      297.0,
+      332.0
+    ],
+    "fill": "white"
+  },
+  {
+    "type": "text",
+    "coords": [
+      295.0,
+      330.0
+    ],
+    "fill": "white"
+  },
+  {
+    "type": "text",
+    "coords": [
+      295.0,
+      334.0
+    ],
+    "fill": "white"
+  },
+  {
+    "type": "text",
+    "coords": [
+      295.0,
+      332.0
     ],
     "fill": "#1A2E22"
   },
   {
-    "type": "text",
+    "type": "line",
     "coords": [
-      415.4,
-      510.8
+      331.1,
+      328.6,
+      328.1,
+      336.0
     ],
     "fill": "#1A2E22",
-    "text": "18"
+    "width": "1.0"
   },
   {
     "type": "text",
     "coords": [
-      184.6,
-      510.8
+      323.6,
+      343.3
     ],
-    "fill": "#1A2E22",
-    "text": "18"
+    "fill": "white",
+    "text": "5"
   },
   {
     "type": "text",
     "coords": [
-      439.8,
-      496.8
+      323.6,
+      345.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      325.6,
+      343.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      325.6,
+      345.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      322.6,
+      344.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      326.6,
+      344.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      324.6,
+      342.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      324.6,
+      346.3
+    ],
+    "fill": "white",
+    "text": "5"
+  },
+  {
+    "type": "text",
+    "coords": [
+      324.6,
+      344.3
     ],
     "fill": "#1A2E22",
-    "text": "cm",
-    "anchor": "w"
+    "text": "5"
+  },
+  {
+    "type": "line",
+    "coords": [
+      360.8,
+      340.8,
+      357.7,
+      348.2
+    ],
+    "fill": "#1A2E22",
+    "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      353.2,
+      355.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      353.2,
+      357.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      355.2,
+      355.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      355.2,
+      357.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      352.2,
+      356.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      356.2,
+      356.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      354.2,
+      354.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      354.2,
+      358.5
+    ],
+    "fill": "white",
+    "text": "10"
+  },
+  {
+    "type": "text",
+    "coords": [
+      354.2,
+      356.5
+    ],
+    "fill": "#1A2E22",
+    "text": "10"
+  },
+  {
+    "type": "line",
+    "coords": [
+      419.4,
+      365.1,
+      416.4,
+      372.5
+    ],
+    "fill": "#1A2E22",
+    "width": "1.0"
+  },
+  {
+    "type": "text",
+    "coords": [
+      411.9,
+      379.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      411.9,
+      381.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      413.9,
+      379.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      413.9,
+      381.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      410.9,
+      380.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      414.9,
+      380.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      412.9,
+      378.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      412.9,
+      382.8
+    ],
+    "fill": "white",
+    "text": "19.9 cm"
+  },
+  {
+    "type": "text",
+    "coords": [
+      412.9,
+      380.8
+    ],
+    "fill": "#1A2E22",
+    "text": "19.9 cm"
   },
   {
     "type": "text",

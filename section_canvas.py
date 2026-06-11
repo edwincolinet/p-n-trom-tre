@@ -37,8 +37,8 @@ from geometry import (
     contrefort_zone_outline,
     contrefort_zones,
     degradation_externe_outline,
-    nice_scale_bar_cm,
-    ruler_graduation_positions,
+    radial_ruler_data,
+    radial_ruler_grade,
     tick_endpoints,
 )
 from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
@@ -80,7 +80,7 @@ class SectionCanvas(tk.Canvas):
 
     # Marges autour du tronc (`_center_and_scale`).
     MARGIN_TOP_PX = 70       # titre 24 + méta 44 + lettre N à 25 px
-    MARGIN_BOTTOM_PX = 105   # lettre S 25 + règle 30 + chiffres + label
+    MARGIN_BOTTOM_PX = 45    # lettre S à 25 px + demi-lettre + marge
     MARGIN_SIDE_PX = 50
 
     # Nombre de cernes de croissance dessinés à l'intérieur du tronc.
@@ -192,7 +192,7 @@ class SectionCanvas(tk.Canvas):
         Renvoie `None` si aucune section n'est dessinée ou si le clic est
         hors de la zone de la section (au-delà de l'anneau des lettres
         cardinales) — on évite ainsi d'ajouter un sondage sur un clic
-        dans le titre ou la règle. Inverse de `geometry.polar_to_xy` :
+        dans le titre. Inverse de `geometry.polar_to_xy` :
         `a = grade·360/400 − 90°`, sens horaire, grade 0 = Nord.
         """
         if self._geom is None:
@@ -388,15 +388,13 @@ class SectionCanvas(tk.Canvas):
         cx, cy, scale = self._center_and_scale(R, expansion_cm=expansion)
         self._geom = (cx, cy, scale, R, R_ext)
 
-        R_h = A.rayon_a_grade(100)  # règle horizontale → axe E-O
-        # Section elle-même (bois → pastilles), centrée en (cx, cy). Isolée
-        # dans `_draw_brin` pour préparer la composition multi-brins (cépées) :
-        # un appel par brin à son propre centre. Le repère partagé (règle,
-        # titre) reste global, dessiné ensuite. `port`/`meche` sont genet-level
-        # (partagés par tous les brins) → passés explicitement à la section.
+        # Section elle-même (bois → pastilles + échelle radiale), centrée en
+        # (cx, cy). Isolée dans `_draw_brin` pour la composition multi-brins
+        # (cépées) : un appel par brin à son propre centre. Le repère partagé
+        # (titre) reste global, dessiné ensuite. `port`/`meche` sont
+        # genet-level (partagés par tous les brins) → passés explicitement.
         self._draw_brin(A.brin_courant, A.port_arbre, A.meche_cm,
                         cx, cy, R, ep, scale)
-        self._draw_regle(cx, cy, R_h, ep, R_h + ep, scale)
         self._draw_titre(A, R)
 
     def _draw_brin(self, brin: "Brin", port: str, meche: float,
@@ -441,6 +439,9 @@ class SectionCanvas(tk.Canvas):
             self._draw_cardinales(cx, cy, r_ext_of, scale)
         if self.show_sondages:
             self._draw_sondages(brin, port, meche, cx, cy, R, scale)
+        # Échelle radiale EN DERNIER : au premier plan pour rester lisible
+        # par-dessus cavité, dégradations et flèches de sondage.
+        self._draw_echelle_radiale(brin, cx, cy, scale)
 
     def _draw_brin_label(self, brin: "Brin", cx: float, cy: float,
                          R: float, scale: float) -> None:
@@ -475,12 +476,8 @@ class SectionCanvas(tk.Canvas):
         # d'une lettre) pour qu'elle ne déborde pas du canvas.
         clear = self.CARDINALES_OFFSET_PX + 18
         margin_top = max(self.MARGIN_TOP_PX, clear)
-        base_bottom = max(self.MARGIN_BOTTOM_PX, clear)
+        margin_bottom = max(self.MARGIN_BOTTOM_PX, clear)
         margin_side = max(self.MARGIN_SIDE_PX, clear)
-        # Bande basse pour la barre d'échelle (pendant de `_pil_draw_cepee`,
-        # sans la légende qui est propre à l'export PNG).
-        scale_band = 60
-        margin_bottom = base_bottom + scale_band
         pe = [(b.pos_x_cm, b.pos_y_cm, b.extent_cm()) for b in drawable]
         scale, origin_x, origin_y = brins_layout(
             pe, w, h, margin_top, margin_bottom, margin_side)
@@ -527,26 +524,50 @@ class SectionCanvas(tk.Canvas):
             self.create_text(lx, ly, text=lbl,
                              font=("Georgia", 13, "bold"), fill=COLOR_INK)
         self._draw_titre(A, drawable[0].rayon_tronc_cm)
-        # Barre d'échelle générique centrée dans la bande basse (pendant Tk
-        # de `_pil_draw_scale_bar`).
-        bar_cm = nice_scale_bar_cm(scale, max_bar_px=w * 0.28)
-        self._draw_scale_bar(w / 2.0, h - base_bottom - scale_band // 2,
-                             bar_cm, scale)
 
-    def _draw_scale_bar(self, cx: float, y: float, length_cm: int,
-                        scale: float) -> None:
-        """Barre d'échelle horizontale (« N cm ») centrée en `cx` à
-        l'ordonnée `y` — pendant Tk de `pil_render._pil_draw_scale_bar`,
-        pour le rendu cépée (les brins ont des rayons distincts → pas de
-        règle -R..+R unique)."""
-        half = length_cm * scale / 2.0
-        self.create_line(cx - half, y, cx + half, y,
-                         fill=COLOR_INK, width=3)
-        for xx in (cx - half, cx + half):
-            self.create_line(xx, y - 6, xx, y + 6, fill=COLOR_INK, width=3)
-        self.create_text(cx, y + 14, text=f"{length_cm} cm",
-                         anchor="center", font=("Helvetica", 9, "bold"),
-                         fill=COLOR_INK)
+    def _draw_echelle_radiale(self, brin: "Brin", cx: float, cy: float,
+                              scale: float) -> None:
+        """Échelle radiale d'un brin : axe gradué du centre au bord du bois,
+        prolongé d'un segment d'écorce, le long de l'axe Est (ou de la
+        direction libre la plus proche si un sondage y est rendu, cf.
+        `geometry.radial_ruler_grade`). Dessinée au premier plan avec un
+        halo blanc — pendant Tk de `_pil_draw_echelle_radiale`.
+
+        L'esquive n'opère que si les sondages sont AFFICHÉS (case sous le
+        canevas) : masqués, pas de flèche à éviter → échelle plein Est."""
+        sond_grades = [s.grade for s in brin.sondages] \
+            if self.show_sondages else []
+        gw = radial_ruler_grade(sond_grades, brin.rotation_grades)
+        # La forme du brin est pivotée de `rotation_grades` : le rayon à la
+        # direction MONDE `gw` est le rayon local à `gw - rotation`.
+        R = brin.rayon_a_grade(gw - brin.rotation_grades)
+        ep = max(0.0, brin.epaisseur_ecorce_cm)
+        step = adaptive_ruler_step_cm(scale, min_gap_px=24)
+        data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
+                                 tick_len_px=8, label_offset_px=13)
+        if data is None:
+            return
+        (x0, y0), (xr, yr) = data.axis
+        segments = [(x0, y0, xr, yr, COLOR_INK, 2)]
+        if data.bark is not None:
+            (bx0, by0), (bx1, by1) = data.bark
+            segments.append((bx0, by0, bx1, by1, COLOR_BARK, 2))
+        # Passe 1 : halo blanc sous tous les traits (axe + écorce + tirets).
+        for x1, y1, x2, y2, _col, w in segments:
+            self.create_line(x1, y1, x2, y2, fill="white", width=w + 4)
+        for x1, y1, x2, y2, _lx, _ly, _lbl in data.ticks:
+            self.create_line(x1, y1, x2, y2, fill="white", width=5)
+        # Passe 2 : encre.
+        for x1, y1, x2, y2, col, w in segments:
+            self.create_line(x1, y1, x2, y2, fill=col, width=w)
+        for x1, y1, x2, y2, lx, ly, lbl in data.ticks:
+            self.create_line(x1, y1, x2, y2, fill=COLOR_INK, width=1)
+            for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
+                           (-2, 0), (2, 0), (0, -2), (0, 2)):
+                self.create_text(lx + dx, ly + dy, text=lbl,
+                                 font=("Helvetica", 8, "bold"), fill="white")
+            self.create_text(lx, ly, text=lbl,
+                             font=("Helvetica", 8, "bold"), fill=COLOR_INK)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.
@@ -570,7 +591,7 @@ class SectionCanvas(tk.Canvas):
     #   _draw_ticks                    ↔ _pil_draw_ticks
     #   _draw_cardinales               ↔ _pil_draw_cardinales
     #   _draw_sondages                 ↔ _pil_draw_sondages
-    #   _draw_regle                    ↔ _pil_draw_regle
+    #   _draw_echelle_radiale          ↔ _pil_draw_echelle_radiale
     #   _draw_titre                    ↔ _pil_draw_titre
     # ------------------------------------------------------------------
 
@@ -722,74 +743,6 @@ class SectionCanvas(tk.Canvas):
             self.create_text(px, py, text=str(item.numero),
                              font=("Helvetica", 10, "bold"), fill="white",
                              tags=tags)
-
-    def _draw_regle(self, cx: float, cy: float, R: float, ep: float, R_ext: float, scale: float) -> None:
-        h = max(self.winfo_height(), 1)
-        radius_ext_px = R_ext * scale
-        step = adaptive_ruler_step_cm(scale, min_gap_px=24)
-        y_bar = min(cy + radius_ext_px + 55, h - 30)
-        half_px = R * scale
-        ext_half_px = R_ext * scale
-        x_left = cx - half_px
-        x_right = cx + half_px
-
-        self.create_rectangle(cx - ext_half_px - 8, y_bar - 12,
-                              cx + ext_half_px + 30, y_bar + 22,
-                              fill="white", outline="")
-        # Trait principal de -R à +R
-        self.create_line(x_left, y_bar, x_right, y_bar,
-                         fill=COLOR_INK, width=2)
-        # Barres d'écorce aux deux extrémités + tiret au bout
-        if ep > 0:
-            bar_h = 7
-            x_ext_r = cx + ext_half_px
-            x_ext_l = cx - ext_half_px
-            self.create_rectangle(x_right, y_bar - bar_h / 2,
-                                  x_ext_r, y_bar + bar_h / 2,
-                                  fill=COLOR_BARK, outline="")
-            self.create_rectangle(x_ext_l, y_bar - bar_h / 2,
-                                  x_left, y_bar + bar_h / 2,
-                                  fill=COLOR_BARK, outline="")
-            self.create_line(x_ext_r, y_bar - 6, x_ext_r, y_bar + 6,
-                             fill=COLOR_BARK, width=2)
-            self.create_line(x_ext_l, y_bar - 6, x_ext_l, y_bar + 6,
-                             fill=COLOR_BARK, width=2)
-        # Tirets aux extrémités bois (R) et au centre
-        self.create_line(x_left, y_bar - 6, x_left, y_bar + 6,
-                         fill=COLOR_INK, width=2)
-        self.create_line(x_right, y_bar - 6, x_right, y_bar + 6,
-                         fill=COLOR_INK, width=2)
-        self.create_line(cx, y_bar - 6, cx, y_bar + 6,
-                         fill=COLOR_INK, width=2)
-        if R > 0:
-            for xg, label in ruler_graduation_positions(cx, scale, R, step):
-                self.create_line(xg, y_bar - 4, xg, y_bar + 4,
-                                 fill=COLOR_INK, width=1)
-                self.create_text(xg, y_bar + 14, text=label,
-                                 anchor="center",
-                                 font=("Helvetica", 8), fill=COLOR_INK)
-                x_mirror = cx - (xg - cx)
-                self.create_line(x_mirror, y_bar - 4, x_mirror, y_bar + 4,
-                                 fill=COLOR_INK, width=1)
-                self.create_text(x_mirror, y_bar + 14, text=label,
-                                 anchor="center",
-                                 font=("Helvetica", 8), fill=COLOR_INK)
-            self.create_text(cx, y_bar + 14, text="0",
-                             anchor="center",
-                             font=("Helvetica", 8, "bold"),
-                             fill=COLOR_INK)
-            self.create_text(x_right, y_bar + 14, text=f"{R:g}",
-                             anchor="center",
-                             font=("Helvetica", 8, "bold"),
-                             fill=COLOR_INK)
-            self.create_text(x_left, y_bar + 14, text=f"{R:g}",
-                             anchor="center",
-                             font=("Helvetica", 8, "bold"),
-                             fill=COLOR_INK)
-        self.create_text(cx + ext_half_px + 18, y_bar, text="cm",
-                         anchor="w",
-                         font=("Helvetica", 9, "bold italic"),
-                         fill=COLOR_INK)
 
     def _draw_titre(self, A: Arbre, R: float) -> None:
         # Titre seul au-dessus du tronc. La ligne de sous-titre (rayon, Ø,

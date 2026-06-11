@@ -108,11 +108,21 @@ penetrometre.py  (Tk + main) ← undo.py
   `geometry.brins_layout` (mono-brin centré = chemin verbatim → goldens intacts).
   Une cépée étant large, `brins_layout` la cadre sur la largeur ; les deux
   renderers **centrent ensuite verticalement** les brins (post-ajustement de
-  `origin_y`) et remplissent la bande basse par une **barre d'échelle**
-  générique « N cm » (`geometry.nice_scale_bar_cm` + `_pil_draw_scale_bar` /
-  `SectionCanvas._draw_scale_bar` — pas de règle -R..+R car les brins ont des
-  rayons distincts) ; en **export PNG** (`show_legend`), la **légende** est aussi
-  ajoutée en bas. Évite le ~40 % de blanc en bas de l'export PNG d'une cépée.
+  `origin_y`) ; en **export PNG** (`show_legend`), la **légende** occupe la
+  bande basse. **Échelle radiale par brin** : chaque brin (mono-brin compris)
+  porte sa propre échelle graduée — « 0 » au centre, multiples du pas
+  adaptatif (repli : graduation **médiane** si aucun multiple ne tient →
+  toujours ≥ 1 segment intermédiaire), terminal « N cm » au **bout de
+  l'écorce** (R+ep) — le long de l'axe **Est**, ou de la direction libre la
+  plus proche si un sondage y est rendu **et que les sondages sont affichés**
+  (esquive pure `geometry.radial_ruler_grade`, conditionnée à
+  `show_sondages` — masqués, pas de flèche à éviter → plein Est ; géométrie
+  `geometry.radial_ruler_data` ; dessin `_pil_draw_echelle_radiale` /
+  `SectionCanvas._draw_echelle_radiale`).
+  Dessinée **en dernier** (premier plan) avec halo blanc pour rester lisible
+  par-dessus cavité/dégradations. A remplacé la règle -R..+R du mono-brin et
+  la barre « N cm » de la cépée (les brins ont des rayons distincts — une
+  échelle par brin est la seule lecture fiable).
   **Diagnostic cépée** : `diagnostic.genet_diagnostic(arbre)` agrège un
   `repartition_classes_brin(section, port)` par brin → classe globale = **pire
   classe parmi les brins fiables** (rayon + ≥3 sondages) ; un brin non fiable

@@ -24,7 +24,8 @@ from geometry import (
     ellipse_radius,
     polar_idx_to_xy,
     polar_to_xy,
-    ruler_graduation_positions,
+    radial_ruler_data,
+    radial_ruler_grade,
     tick_endpoints,
 )
 from model import Contrefort, DegradationExterne
@@ -406,46 +407,102 @@ class CardinalLabelPositionsTests(unittest.TestCase):
         self.assertAlmostEqual(y_n, 100.0)
 
 
-class NiceScaleBarCmTests(unittest.TestCase):
-    """Barre d'échelle générique (rendu cépée)."""
+class RadialRulerGradeTests(unittest.TestCase):
+    """Esquive de l'échelle radiale (`radial_ruler_grade`)."""
 
-    def test_choisit_la_plus_grande_valeur_ronde_qui_tient(self):
-        from geometry import nice_scale_bar_cm
-        # 10 px/cm, barre max 250 px → 20 cm (200 px) tient, 50 cm (500) non.
-        self.assertEqual(nice_scale_bar_cm(10.0, 250.0), 20)
-        # 10 px/cm, max 130 px → 10 cm (100) tient, 20 cm (200) non.
-        self.assertEqual(nice_scale_bar_cm(10.0, 130.0), 10)
+    def test_est_par_defaut_sans_sondage(self):
+        self.assertEqual(radial_ruler_grade([]), 100.0)
 
-    def test_au_moins_un_cm_meme_si_tres_serre(self):
-        from geometry import nice_scale_bar_cm
-        self.assertEqual(nice_scale_bar_cm(100.0, 10.0), 1)
+    def test_est_si_sondages_ailleurs(self):
+        self.assertEqual(radial_ruler_grade([0, 200, 300]), 100.0)
+
+    def test_esquive_un_sondage_a_l_est(self):
+        # Est occupé → bascule sur 125 (côté sud d'abord).
+        self.assertEqual(radial_ruler_grade([100]), 125.0)
+
+    def test_esquive_en_alternant_de_part_et_d_autre(self):
+        # 100 et 125 occupés → 75 ; puis 150 ; etc.
+        self.assertEqual(radial_ruler_grade([100, 125]), 75.0)
+        self.assertEqual(radial_ruler_grade([100, 125, 75]), 150.0)
+
+    def test_rotation_du_brin_prise_en_compte(self):
+        # Sondage local 75 + rotation 25 → rendu à 100 (Est) → esquive.
+        self.assertEqual(radial_ruler_grade([75], rotation_grades=25.0),
+                         125.0)
+        # Sondage local 100 + rotation 25 → rendu à 125 → Est libre.
+        self.assertEqual(radial_ruler_grade([100], rotation_grades=25.0),
+                         100.0)
+
+    def test_seize_directions_sondees_retombe_sur_est(self):
+        self.assertEqual(radial_ruler_grade(list(range(0, 400, 25))), 100.0)
 
 
-class RulerGraduationPositionsTests(unittest.TestCase):
+class RadialRulerDataTests(unittest.TestCase):
+    """Géométrie de l'échelle radiale (`radial_ruler_data`)."""
 
-    def test_renvoie_liste_vide_si_R_zero(self):
-        self.assertEqual(
-            ruler_graduation_positions(cx=0, scale=1, R=0, step_cm=5),
-            [])
+    def test_none_si_rayon_nul(self):
+        self.assertIsNone(radial_ruler_data(0, 0, 10.0, 0.0, 0.0, 100.0,
+                                            5, 8.0, 13.0))
 
-    def test_renvoie_liste_vide_si_step_zero(self):
-        self.assertEqual(
-            ruler_graduation_positions(cx=0, scale=1, R=20, step_cm=0),
-            [])
+    def test_axe_est_horizontal_du_centre_au_bois(self):
+        data = radial_ruler_data(cx=200, cy=200, scale=10.0, R=20.0,
+                                 ep=0.0, grade=100.0, step_cm=5,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        (x0, y0), (xr, yr) = data.axis
+        self.assertEqual((x0, y0), (200, 200))
+        self.assertAlmostEqual(xr, 400.0)   # 200 + 20 cm * 10 px/cm
+        self.assertAlmostEqual(yr, 200.0)
+        self.assertIsNone(data.bark)
 
-    def test_exclut_le_centre_et_le_bord(self):
-        # R=20, step=5 → graduations à 5, 10, 15 (pas 0, pas 20).
-        pos = ruler_graduation_positions(cx=100, scale=10,
-                                          R=20, step_cm=5)
-        labels = [lbl for _, lbl in pos]
-        self.assertEqual(labels, ["5", "10", "15"])
+    def test_segment_ecorce_si_epaisseur(self):
+        data = radial_ruler_data(cx=200, cy=200, scale=10.0, R=20.0,
+                                 ep=2.0, grade=100.0, step_cm=5,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        (bx0, _), (bx1, _) = data.bark
+        self.assertAlmostEqual(bx0, 400.0)
+        self.assertAlmostEqual(bx1, 420.0)  # + 2 cm d'écorce
+        # Le terminal est au BOUT de l'écorce (R+ep), pas au bord du bois.
+        self.assertEqual(data.ticks[-1][-1], "22 cm")
+        # Tiret perpendiculaire à l'axe Est → vertical, à x = 420 px.
+        self.assertAlmostEqual(data.ticks[-1][0], 420.0)
 
-    def test_positions_x_en_pixels(self):
-        # cx=100, scale=10, step=5 → x = 100+50, 100+100, 100+150.
-        pos = ruler_graduation_positions(cx=100, scale=10,
-                                          R=20, step_cm=5)
-        xs = [x for x, _ in pos]
-        self.assertEqual(xs, [150.0, 200.0, 250.0])
+    def test_tirets_etiquetes_zero_et_terminal_cm(self):
+        data = radial_ruler_data(cx=200, cy=200, scale=10.0, R=20.0,
+                                 ep=0.0, grade=100.0, step_cm=5,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        labels = [t[-1] for t in data.ticks]
+        self.assertEqual(labels, ["0", "5", "10", "15", "20 cm"])
+        # Étiquettes décalées côté grade+100 (sous l'axe quand Est).
+        _, _, _, _, _lx, ly, _ = data.ticks[0]
+        self.assertAlmostEqual(ly, 200 + 13.0)
+
+    def test_omet_le_tiret_intermediaire_qui_colle_au_terminal(self):
+        # R=21, step=5 : le tiret à 20 collerait au terminal (21) → omis.
+        data = radial_ruler_data(cx=0, cy=0, scale=10.0, R=21.0,
+                                 ep=0.0, grade=100.0, step_cm=5,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        labels = [t[-1] for t in data.ticks]
+        self.assertEqual(labels, ["0", "5", "10", "15", "21 cm"])
+
+    def test_au_moins_une_graduation_mediane(self):
+        # R=16, step=10 : « 10 » collerait « 16 cm » → graduation médiane
+        # (8) à la place, l'échelle garde au moins un segment intermédiaire.
+        data = radial_ruler_data(cx=0, cy=0, scale=10.0, R=16.0,
+                                 ep=0.0, grade=100.0, step_cm=10,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        self.assertEqual([t[-1] for t in data.ticks], ["0", "8", "16 cm"])
+        # Pas trop grand pour le rayon (step > R_ext) → même repli médian.
+        data = radial_ruler_data(cx=0, cy=0, scale=2.0, R=18.0,
+                                 ep=0.0, grade=100.0, step_cm=20,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        self.assertEqual([t[-1] for t in data.ticks], ["0", "9", "18 cm"])
+
+    def test_etiquette_terminale_arrondie_au_mm(self):
+        # Rayon d'ellipse évalué à l'angle d'esquive → décimales parasites.
+        data = radial_ruler_data(cx=0, cy=0, scale=10.0, R=16.1275,
+                                 ep=0.0, grade=125.0, step_cm=5,
+                                 tick_len_px=8.0, label_offset_px=13.0)
+        self.assertEqual(data.ticks[-1][-1], "16.1 cm")
 
 
 if __name__ == "__main__":

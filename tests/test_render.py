@@ -130,8 +130,8 @@ class GoldenImageTests(unittest.TestCase):
 @unittest.skipUnless(HAS_PIL, "Pillow absent")
 class CepeeExportLayoutTests(unittest.TestCase):
     """L'export PNG d'une cépée doit remplir la zone basse (brins centrés
-    verticalement + barre d'échelle + légende), au lieu de laisser ~40 %
-    de blanc en bas (régression du cadrage top-aligné)."""
+    verticalement + légende), au lieu de laisser ~40 % de blanc en bas
+    (régression du cadrage top-aligné)."""
 
     def test_cepee_remplit_la_zone_basse(self):
         from pil_render import render_arbre_to_pil_image

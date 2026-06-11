@@ -48,11 +48,17 @@ gardent en plus le chemin `polar_idx_to_xy` exact quand `rotation_grades`
 falsy). Les ticks/cardinales (boussole monde) n'ont PAS de rotation. Un cercle
 étant invariant par rotation, seul le chemin ovale est pivoté côté contour.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
-- `nice_scale_bar_cm(scale_px_per_cm, max_bar_px)` — longueur « ronde » (cm)
-  d'une barre d'échelle autonome (rendu cépée : plusieurs rayons → pas de règle
-  -R..+R unique).
-- `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`),
-  `ruler_graduation_positions`.
+- `radial_ruler_grade(sondage_grades, rotation_grades)` — grade MONDE de
+  l'échelle radiale d'un brin : Est (100) par défaut, direction libre la plus
+  proche si un sondage y est rendu (alternance 125, 75, 150, 50, …) ; retombe
+  sur 100 si les 16 directions sont sondées. Les renderers ne passent les
+  grades de sondage QUE si les sondages sont affichés (`show_sondages`).
+- `radial_ruler_data(cx, cy, scale, R, ep, grade, step_cm, tick_len_px,
+  label_offset_px)` → `RadialRulerData(axis, bark, ticks)` — géométrie px de
+  l'échelle radiale centre→bois (+ segment écorce), tirets perpendiculaires
+  étiquetés : « 0 », multiples du pas (repli médian si aucun ne tient),
+  terminal « R+ep cm » au bout de l'écorce. `None` si `R <= 0`.
+- `tick_endpoints`, `cardinal_label_positions` (`R_ext` = `RadiusSpec`).
 - `brins_layout(positions_extents, width, height, margin_top, margin_bottom,
   margin_side)` → `(scale, origin_x, origin_y)` — **cadrage d'une cépée** :
   bounding box cm de N brins (`(pos_x, pos_y, extent_cm)`) → facteur px/cm
@@ -245,8 +251,12 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   sur `brin.est_ovale`** — circulaire → primitive native `d.ellipse` (rendu
   inchangé, goldens stables) ; ovale → polygone via `contour_polygon`. Les
   contreforts/dégradations/ticks/cardinales reçoivent `brin.rayon_a_grade`
-  (constant si circulaire → byte-identique). La règle horizontale utilise le
-  rayon de l'axe E-O (`rayon_a_grade(100)`).
+  (constant si circulaire → byte-identique).
+- **Échelle radiale** : `_pil_draw_echelle_radiale` (appelée en DERNIER dans
+  `_pil_draw_brin` → premier plan, halo blanc) — axe gradué centre→bois +
+  segment écorce le long de `radial_ruler_grade` (Est, esquive des sondages).
+  Une échelle **par brin** (mono-brin compris). Pendant Tk :
+  `SectionCanvas._draw_echelle_radiale`.
 - **Cépée** : `_pil_draw_brin(d, f, brin, port, meche, cx, cy, R, ep, scale, …)`
   dessine UNE section centrée (toutes les couches per-brin) ; l'orchestrateur
   dérive tôt vers `_pil_draw_cepee` dès que `len(brins) > 1` ou un brin décentré
@@ -254,11 +264,10 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   compose les brins via `geometry.brins_layout`, ajoute un label par brin
   (`_pil_draw_brin_label`) et **une seule boussole globale** sur le rectangle de
   la bbox (les ticks restent par brin). Une cépée étant large (cadrée sur la
-  largeur), les brins sont **centrés verticalement** et la bande basse reçoit une
-  **barre d'échelle** (`_pil_draw_scale_bar` / `nice_scale_bar_cm`) + la
-  **légende** en export (`show_legend`) → comble le vide bas. Pendant Tk :
-  `SectionCanvas._draw_cepee` + `_draw_scale_bar` (même centrage + barre, sans
-  légende). Fixtures golden `cepee`, `cepee_rotation`.
+  largeur), les brins sont **centrés verticalement** ; chaque brin porte son
+  **échelle radiale**, et la bande basse reçoit la **légende** en export
+  (`show_legend`). Pendant Tk : `SectionCanvas._draw_cepee` (même centrage,
+  sans légende). Fixtures golden `cepee`, `cepee_rotation`.
 
 ## `fiche_pdf.py` — layout fiche PDF A4
 

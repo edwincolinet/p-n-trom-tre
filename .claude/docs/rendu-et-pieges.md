@@ -16,7 +16,7 @@ Chaque couche a deux implémentations parallèles, à modifier ensemble :
 | ticks 16 grades      | `_draw_ticks`                         | `_pil_draw_ticks`          |
 | lettres cardinales   | `_draw_cardinales`                    | `_pil_draw_cardinales`     |
 | sondages             | `_draw_sondages`                      | `_pil_draw_sondages`       |
-| règle graduée        | `_draw_regle`                         | `_pil_draw_regle`          |
+| échelle radiale      | `_draw_echelle_radiale`               | `_pil_draw_echelle_radiale`|
 | titre + méta         | `_draw_titre`                         | `_pil_draw_titre`          |
 | section d'1 brin     | `_draw_brin`                          | `_pil_draw_brin`           |
 | label de brin        | `_draw_brin_label`                    | `_pil_draw_brin_label`     |
@@ -45,8 +45,9 @@ Restent à synchroniser à la main : palette/typographie, API de dessin,
 écorce/anneau, et tout ce qui est spécifique renderer.
 
 ### Positions hors-tronc
-Lettres cardinales, pastilles de sondage, règle graduée : en **pixels
-absolus** (pas en cm) pour rester constantes quel que soit le rayon.
+Lettres cardinales, pastilles de sondage, tirets de l'échelle radiale :
+en **pixels absolus** (pas en cm) pour rester constants quel que soit le
+rayon.
 
 ### Titre et lettre N
 Le titre + méta sont au-dessus de la zone de la lettre N. Toujours
@@ -76,14 +77,28 @@ sont globales (`_draw_brin(..., draw_cardinales=False)` par brin).
 2. Polygone bois par-dessus (révèle le noyau)
 3. `cf_inner_r = R - 1/scale` pour éviter les trous pixel
 
-### Règle graduée symétrique
-La règle va de -R à +R (centrée sous le tronc), avec barres d'écorce
-brunes et tirets aux extrémités. Graduations et labels en miroir des
-deux côtés. Éléments en pixels (tirets, labels, offsets) scalés par
-`_ds` côté PIL pour suivre la résolution de l'image.
+### Échelle radiale par brin
+Échelle **asymétrique** graduée du centre au bout de l'écorce, le long de
+l'axe **Est** (100 gr) — ou de la direction libre la plus proche si un
+sondage est rendu à l'Est **et que les sondages sont affichés**
+(`geometry.radial_ruler_grade` : alternance 125, 75, 150, 50, … ; les
+sondages et la rotation des brins étant par pas de 25 gr, l'esquive trouve
+toujours une direction libre sauf 16/16 sondées → retombe sur l'Est, le
+halo garde l'échelle lisible ; sondages masqués via la case sous le
+canevas / `show_sondages` → pas de flèche à éviter, échelle plein Est).
+Graduations : « 0 » au centre, multiples du pas adaptatif (tiret à moins
+d'un pas du terminal omis — étiquettes télescopées) avec **repli médian**
+si aucun ne tient (toujours ≥ 1 segment intermédiaire), terminal
+« N cm » au **bout de l'écorce** (R+ep, arrondi au mm — l'ellipse à
+l'angle d'esquive produit des décimales). Dessinée **en dernier dans
+`_draw_brin`/`_pil_draw_brin`** (premier plan : halo blanc sous les
+traits + halo des étiquettes). Pour un brin pivoté, le rayon affiché est
+le rayon local à `grade_monde - rotation`. A remplacé la règle -R..+R
+(mono-brin) et la barre « N cm » (cépée). Éléments en pixels (tirets,
+labels, offsets) scalés par `_ds` côté PIL.
 
 ### Légende des exports
-- PNG : bande sous la règle graduée (`show_legend=True`). Tailles
+- PNG : bande basse réservée (`show_legend=True`). Tailles
   proportionnelles à la hauteur, polices via `f_base` (non scalées par
   `_ds` car déjà proportionnelles).
 - PDF : rendue directement par `fiche_pdf` (pleine largeur A4, pas dans l'image tronc).
