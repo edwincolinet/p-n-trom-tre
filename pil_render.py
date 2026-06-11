@@ -103,6 +103,25 @@ BULLET_RADIUS_PX = 22         # rayon de la pastille numérotée
 CAVITY_SAMPLES_PER_SEGMENT = 32
 
 
+def _titre_y(height: int) -> int:
+    """Ordonnée (centre) du titre — partagée par `_pil_draw_titre` et le
+    calcul de marge haute (`_margin_top_titre`)."""
+    return max(48, int(height * 0.042))
+
+
+def _margin_top_titre(height: int, ds: float) -> int:
+    """Marge haute quand le titre est affiché.
+
+    Empile : bas du titre (`_titre_y` + demi-police 54) + respiration +
+    lettre N de la boussole (offset hors écorce + demi-lettre 44). Un
+    simple pourcentage de la hauteur ne suffit pas : le titre et l'offset
+    des cardinales ne croissent pas au même rythme qu'elle, et le « N »
+    finissait sous le titre sur les grands exports (constaté à 2400²).
+    """
+    title_bottom = _titre_y(height) + int(27 * ds)
+    return title_bottom + int(10 * ds) + CARDINALES_OFFSET_PX + int(22 * ds)
+
+
 def _pil_load_fonts() -> FontFn:
     """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
 
@@ -206,10 +225,10 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     R = arbre.rayon_tronc_cm
     ep = max(0.0, arbre.epaisseur_ecorce_cm)
     # Marges adaptées à la taille (responsive) :
-    # - haut : titre+méta+lettre N hors écorce (proportionnel)
+    # - haut : titre + lettre N hors écorce (empilés, cf. _margin_top_titre)
     # - bas : lettre S + halo (l'échelle est radiale, DANS la section —
     #   plus de règle horizontale sous le dessin)
-    margin_top = max(100, int(height * 0.065)) if show_title else 70
+    margin_top = _margin_top_titre(height, _ds) if show_title else 70
     legend_bottom_h = max(70, int(height * 0.09)) if show_legend else 0
     base_bottom = max(80, int(height * 0.06))
     margin_bottom = base_bottom + legend_bottom_h
@@ -336,7 +355,7 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
     if not drawable:
         _pil_draw_placeholder(d, f_base, width, height)
         return
-    margin_top = max(100, int(height * 0.065)) if show_title else 70
+    margin_top = _margin_top_titre(height, ds) if show_title else 70
     base_bottom = max(80, int(height * 0.06))
     margin_side = max(60, int(width * 0.055))
     # Réserver la place de la boussole globale (offset + demi-largeur d'une
@@ -689,7 +708,7 @@ def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
 
 def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                     R: float, width: int, height: int) -> None:
-    title_y = max(48, int(height * 0.042))
+    title_y = _titre_y(height)
     d.text((width/2, title_y), arbre.display_name,
            font=f(54, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
 
