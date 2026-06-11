@@ -283,7 +283,13 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 - **Cépée** : tableau PRBS itère tous les brins (N° préfixé « a1 ») ; le bloc
   diagnostic est routé — mono-caule = `_draw_mono_diagnostic` (verbatim, barre
   + encadré classe), cépée = `_draw_cepee_diagnostic` (encadré « Classe globale
-  (pire brin) » + une ligne de synthèse par brin).
+  (pire brin) » + une ligne de synthèse par brin). **Dessin pleine largeur** :
+  le carré historique (calibré section ronde) rendait chaque brin minuscule —
+  pour une cépée (même prédicat de routage que les renderers), `drawing_w` =
+  largeur utile de la page et la hauteur est bornée par le ratio cm réel de la
+  cépée (+ ~200 px de marges internes) pour éviter les bandes blanches ;
+  `est_diag_h` est aussi estimé au réel (encadré + 28 px/brin, pas le majorant
+  mono 360). Verrouillé par `FichePdfCepeeLayoutTests`.
 
 ## `section_canvas.py` — rendu Tk de la section
 

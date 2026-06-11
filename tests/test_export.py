@@ -319,6 +319,35 @@ class FichePdfSondagesTests(unittest.TestCase):
         self.assertEqual(on.size, off.size)
 
 
+class FichePdfCepeeLayoutTests(unittest.TestCase):
+    """Le dessin d'une cépée sur la fiche PDF occupe la pleine largeur
+    utile de la page (le carré historique, calibré pour une section
+    ronde, rendait chaque brin minuscule)."""
+
+    def setUp(self) -> None:
+        from pil_render import HAS_PIL
+        if not HAS_PIL:
+            self.skipTest("Pillow absent")
+
+    def test_dessin_cepee_pleine_largeur(self):
+        from fiche_pdf import render_fiche_arbre_to_pdf_page
+        from model import Chantier
+        from tests._fixtures import build_arbre
+
+        a = build_arbre("cepee")
+        c = Chantier(nom="t", arbres=[a])
+        page = render_fiche_arbre_to_pdf_page(a, c)
+        W = page.size[0]
+        px = page.load()
+        # Bande de la zone dessin (sous l'identité, au-dessus du tableau) :
+        # le contenu non blanc (brins + boussole) doit balayer l'essentiel
+        # de la largeur — un dessin carré centré plafonnerait vers 60 %.
+        xs = [x for y in range(320, 880, 10) for x in range(0, W, 5)
+              if px[x, y] != (255, 255, 255)]
+        self.assertTrue(xs, "aucun contenu trouvé dans la zone du dessin")
+        self.assertGreater(max(xs) - min(xs), 0.75 * W)
+
+
 class MissionSynthesisRowsTests(unittest.TestCase):
     """Synthèse mission : une ligne par arbre + masquage des champs non
     fiables (< 3 sondages, ou rayon nul)."""

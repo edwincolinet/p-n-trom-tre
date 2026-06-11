@@ -164,6 +164,12 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # (entre 480 et 900 px). Évite que la page déborde quand l'arbre a
     # beaucoup de sondages, sans rapetisser inutilement le dessin quand
     # il en a peu.
+    multi_brins = len(arbre.brins) > 1
+    # Cépée = même prédicat de routage que les renderers (≥ 2 brins, ou un
+    # brin décentré) : le dessin part alors en composition multi-brins.
+    is_cepee = not (len(arbre.brins) == 1
+                    and arbre.brins[0].pos_x_cm == 0.0
+                    and arbre.brins[0].pos_y_cm == 0.0)
     # Total des sondages sur tous les brins (cépée) pour dimensionner la
     # hauteur du tableau et du dessin.
     n_sond = sum(len(b.sondages) for b in arbre.brins
@@ -181,7 +187,13 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         row_h = 38
         row_font_size = 17
     est_table_h = (36 + 44 + n_sond * row_h + 18) if n_sond > 0 else 0
-    est_diag_h = 360  # majorant : t/R + bar + détail + classe globale
+    if multi_brins:
+        # Cépée : encadré classe globale (76) + titre du détail (32) +
+        # une ligne par brin (28) + marge. Bien plus compact que le bloc
+        # mono-brin — le majorant 360 rapetissait le dessin pour rien.
+        est_diag_h = 76 + 32 + 28 * len(arbre.brins) + 24
+    else:
+        est_diag_h = 360  # majorant : t/R + bar + détail + classe globale
     # La légende horizontale est dessinée APRÈS le dessin du tronc, sur
     # la pleine largeur de la page (pas dans l'image du tronc qui est
     # plus étroite). On réserve une bande pour elle dans le calcul.
@@ -191,7 +203,25 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     remaining = (H - margin - footer_reserve) - used_so_far \
                 - est_table_h - est_diag_h - est_legend_h - 22
     drawing_h = max(420, min(900, remaining))
-    drawing_w = drawing_h
+    if is_cepee:
+        # Une cépée est LARGE (brins côte à côte, cadrée sur la largeur) :
+        # dans le carré historique chaque brin devenait minuscule. Pleine
+        # largeur utile de la page ; la hauteur est en plus bornée par le
+        # ratio cm réel de la cépée (+ marges internes du rendu : boussole,
+        # bandes) pour ne pas créer de grandes bandes blanches — la
+        # composition centre verticalement les brins.
+        drawing_w = W - 2 * margin
+        drawable = [b for b in arbre.brins if b.rayon_tronc_cm > 0]
+        if drawable:
+            w_cm = (max(b.pos_x_cm + b.extent_cm() for b in drawable)
+                    - min(b.pos_x_cm - b.extent_cm() for b in drawable))
+            h_cm = (max(b.pos_y_cm + b.extent_cm() for b in drawable)
+                    - min(b.pos_y_cm - b.extent_cm() for b in drawable))
+            if w_cm > 0:
+                fitted = int(drawing_w * h_cm / w_cm) + 200
+                drawing_h = max(420, min(drawing_h, fitted))
+    else:
+        drawing_w = drawing_h
     # Le dessin lui-même est rendu sans légende ; la légende est tracée
     # ci-dessous, en dehors du dessin, pour profiter de toute la largeur.
     drawing = render_arbre_to_pil_image(arbre, drawing_w, drawing_h,
@@ -214,7 +244,6 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         y += est_legend_h
 
     # --- Tableau PRBS ajustée par sondage (par brin pour une cépée) ---
-    multi_brins = len(arbre.brins) > 1
     if n_sond > 0:
         titre_tbl = ("Paroi Résiduelle de Bois Sain par sondage et par brin"
                      if multi_brins
