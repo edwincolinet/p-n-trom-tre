@@ -30,7 +30,14 @@ from tkinter import messagebox, ttk
 from typing import Any, List, Optional, Tuple, Union
 
 from geometry import DIRECTION_LABELS, GRADES, brins_layout, contour_polygon
-from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
+from model import (
+    Arbre,
+    Brin,
+    Contrefort,
+    DegradationExterne,
+    Sondage,
+    degradations_chevauchements,
+)
 from palette import COLOR_ACCENT, COLOR_ACCENT_SOFT, COLOR_BG, COLOR_INK, COLOR_MUTED, COLOR_PANEL, COLOR_WOOD
 from ui_fonts import font as ui_font
 
@@ -42,8 +49,11 @@ from ui_fonts import font as ui_font
 Section = Union[Arbre, Brin]
 
 
-def _grade_choices() -> list[str]:
-    """Libellés des 16 directions, format `"100 gr — E"`."""
+def grade_choices() -> list[str]:
+    """Libellés des 16 directions, format `"100 gr — E"`.
+
+    Public (avec `find_grade_choice` / `parse_grade`) car réutilisé par
+    les combobox de saisie en place de `pane_degradations`."""
     out = []
     for g in GRADES:
         lbl = DIRECTION_LABELS.get(g, "")
@@ -51,7 +61,7 @@ def _grade_choices() -> list[str]:
     return out
 
 
-def _find_grade_choice(choices: list[str], grade_value: int) -> str:
+def find_grade_choice(choices: list[str], grade_value: int) -> str:
     """Renvoie l'entrée de `choices` qui commence par `<grade_value> gr`."""
     for c in choices:
         if c.startswith(f"{grade_value} gr"):
@@ -59,10 +69,23 @@ def _find_grade_choice(choices: list[str], grade_value: int) -> str:
     return choices[0]
 
 
-def _parse_grade(s: str) -> int:
+def parse_grade(s: str) -> int:
     """Extrait le grade entier d'une chaîne `"100 gr — E"` (tolère
     aussi l'ancien format `"100° — E"`)."""
     return int(s.replace("°", " ").split(" ")[0].strip())
+
+
+def message_chevauchement(other: DegradationExterne,
+                          shared: List[int]) -> str:
+    """Texte d'avertissement quand un arc candidat chevauche `other`
+    (cf. `model.degradations_chevauchements`). Partagé entre le dialogue
+    `edit_degradation` et la saisie en place de `pane_degradations`."""
+    labels = ", ".join(f"{g} gr" for g in shared[:4])
+    if len(shared) > 4:
+        labels += ", …"
+    return (f"La dégradation n°{other.numero} ({other.grade_debut} gr → "
+            f"{other.grade_fin} gr) couvre déjà les directions "
+            f"{labels}.\n\nLes arcs ne doivent pas se chevaucher.")
 
 
 def _round_to_25(v: int, *, min_v: int = 0, max_v: int = 375,
@@ -465,8 +488,8 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     result = {"ok": False}
     syncing: List[bool] = [False]
 
-    grade_choices = _grade_choices()
-    v_grade.set(_find_grade_choice(grade_choices, sondage.grade))
+    choices = grade_choices()
+    v_grade.set(find_grade_choice(choices, sondage.grade))
 
 
     # Bandeau rappelant le rayon (référence pour le calcul auto)
@@ -486,7 +509,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     ttk.Label(dlg, text="Direction (grade)", background=COLOR_PANEL
               ).grid(row=1, column=0, sticky="w", padx=10, pady=6)
     combo_grade = ttk.Combobox(dlg, textvariable=v_grade,
-                               values=grade_choices,
+                               values=choices,
                                state="readonly", width=26)
     combo_grade.grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
@@ -547,7 +570,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
 
     def ok() -> None:
         try:
-            new_grade = _parse_grade(v_grade.get())
+            new_grade = parse_grade(v_grade.get())
             if arbre is not None:
                 for other in arbre.sondages:
                     if other is not sondage and other.grade == new_grade:
@@ -629,23 +652,23 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     result = {"ok": False}
     syncing: List[bool] = [False]
 
-    grade_choices = _grade_choices()
-    v_debut.set(_find_grade_choice(grade_choices, deg.grade_debut))
-    v_fin.set(_find_grade_choice(grade_choices, deg.grade_fin))
+    choices = grade_choices()
+    v_debut.set(find_grade_choice(choices, deg.grade_debut))
+    v_fin.set(find_grade_choice(choices, deg.grade_fin))
 
 
     ttk.Label(dlg, text="Direction de début (grade)",
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
     combo_debut = ttk.Combobox(dlg, textvariable=v_debut,
-                               values=grade_choices,
+                               values=choices,
                                state="readonly", width=24)
     combo_debut.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
     ttk.Label(dlg, text="Direction de fin (grade, sens horaire)",
               background=COLOR_PANEL).grid(row=1, column=0,
                                            sticky="w", padx=10, pady=6)
-    ttk.Combobox(dlg, textvariable=v_fin, values=grade_choices,
+    ttk.Combobox(dlg, textvariable=v_fin, values=choices,
                  state="readonly", width=24
                  ).grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
@@ -681,8 +704,8 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
         if syncing[0]:
             return
         try:
-            d = _parse_grade(v_debut.get())
-            f = _parse_grade(v_fin.get())
+            d = parse_grade(v_debut.get())
+            f = parse_grade(v_fin.get())
             largeur = (f - d) % 400
             if largeur == 0:
                 largeur = 25
@@ -703,10 +726,10 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             gr = _round_to_25(int(raw))
             if gr == 0:
                 gr = 25
-            d = _parse_grade(v_debut.get())
+            d = parse_grade(v_debut.get())
             f = (d + gr) % 400
             syncing[0] = True
-            v_fin.set(_find_grade_choice(grade_choices, f))
+            v_fin.set(find_grade_choice(choices, f))
             if R > 0:
                 v_largeur_cm.set(
                     f"{R * gr * math.pi / 200:.1f}")
@@ -722,11 +745,11 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             gr = _round_to_25(int(cm * 200 / (R * math.pi)))
             if gr == 0:
                 gr = 25
-            d = _parse_grade(v_debut.get())
+            d = parse_grade(v_debut.get())
             f = (d + gr) % 400
             syncing[0] = True
             v_largeur_gr.set(str(gr))
-            v_fin.set(_find_grade_choice(grade_choices, f))
+            v_fin.set(find_grade_choice(choices, f))
             syncing[0] = False
         except (ValueError, IndexError, ZeroDivisionError):
             pass
@@ -738,35 +761,18 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
 
     def ok() -> None:
         try:
-            new_debut = _parse_grade(v_debut.get())
-            new_fin = _parse_grade(v_fin.get())
+            new_debut = parse_grade(v_debut.get())
+            new_fin = parse_grade(v_fin.get())
             if arbre is not None:
-                candidate = DegradationExterne(
-                    grade_debut=new_debut, grade_fin=new_fin)
-                for other in arbre.degradations_externes:
-                    if other is not deg:
-                        shared = [g for g in GRADES
-                                  if candidate.couvre_grade(g)
-                                  and other.couvre_grade(g)
-                                  and not (g == new_debut
-                                           and g == other.grade_fin)
-                                  and not (g == new_fin
-                                           and g == other.grade_debut)]
-                        if shared:
-                            labels = ", ".join(
-                                f"{g} gr" for g in shared[:4])
-                            if len(shared) > 4:
-                                labels += ", …"
-                            messagebox.showwarning(
-                                "Chevauchement de dégradations",
-                                f"La dégradation n°{other.numero} "
-                                f"({other.grade_debut} gr → "
-                                f"{other.grade_fin} gr) couvre "
-                                f"déjà les directions {labels}.\n\n"
-                                f"Les arcs ne doivent pas se "
-                                f"chevaucher.",
-                                parent=dlg)
-                            return
+                conflits = degradations_chevauchements(
+                    arbre.degradations_externes, deg, new_debut, new_fin)
+                if conflits:
+                    other, shared = conflits[0]
+                    messagebox.showwarning(
+                        "Chevauchement de dégradations",
+                        message_chevauchement(other, shared),
+                        parent=dlg)
+                    return
             deg.grade_debut = new_debut
             deg.grade_fin = new_fin
             deg.profondeur_cm = max(0.0, to_float(v_prof.get()))
@@ -821,15 +827,15 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     result = {"ok": False}
     syncing: List[bool] = [False]
 
-    grade_choices = _grade_choices()
-    v_centre.set(_find_grade_choice(grade_choices, cf.grade_centre))
+    choices = grade_choices()
+    v_centre.set(find_grade_choice(choices, cf.grade_centre))
 
 
     ttk.Label(dlg, text="Orientation (grade central)",
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
     combo_centre = ttk.Combobox(dlg, textvariable=v_centre,
-                                values=grade_choices,
+                                values=choices,
                                 state="readonly", width=24)
     combo_centre.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
@@ -889,7 +895,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
 
     def ok() -> None:
         try:
-            new_centre = _parse_grade(v_centre.get()) % 400
+            new_centre = parse_grade(v_centre.get()) % 400
             if arbre is not None:
                 for other in arbre.contreforts:
                     if other is not cf and other.grade_centre == new_centre:

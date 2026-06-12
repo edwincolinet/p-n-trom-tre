@@ -1,143 +1,375 @@
 """
-Onglet « Dégradations externes » : table + boutons add/edit/del.
+Onglet « Dégradations externes » : tableau éditable en place, sans modale.
 
-Pendant de `pane_contreforts.ContrefortsPane`, même pattern : le pane
-possède sa table, ses boutons, son refresh et ses actions. La fenêtre
-`App` instancie le pane et appelle `refresh()` quand l'arbre change.
+Contrairement aux sondages et contreforts (domaine fixe de 16 directions,
+grille pré-affichée), une dégradation est un **arc** (début → fin) :
+nombre variable, non indexé par direction. Le tableau garde donc « une
+ligne = une dégradation », mais toutes les cellules s'éditent
+directement — combobox de grades pour début/fin, saisie libre pour la
+profondeur et le commentaire, bouton ✕ pour supprimer. La modale
+(`edit_degradation`) ne sert plus qu'au détail (double-clic sur le n° :
+saisie de la largeur en cm).
+
+- **« ＋ Ajouter »** crée la ligne sur le premier arc libre, sans
+  dialogue, et pose le focus sur sa profondeur.
+- Le **non-chevauchement** est validé à la sélection début/fin : une
+  valeur qui créerait un chevauchement est refusée et rétablie
+  (`model.degradations_chevauchements`, partagé avec le dialogue).
+- La **largeur** (gr + cm) est recalculée en lecture seule.
 
 Contrat host (Protocol structural) :
-- `_current_brin()` : renvoie le brin (ramet) courant à éditer, ou None
-  (mono-caule = `brins[0]` ; cépée = le brin du sélecteur).
-- `_debounced_redraw()` : déclenche un redraw du dessin de section.
+- `_current_brin()`          : brin (ramet) courant à éditer, ou None.
+- `on_section_changed()`     : notifie l'App d'une mutation (dirty +
+                               redraw debouncé ; ne re-refresh PAS le
+                               tableau, déjà à jour).
+- `push_undo()`              : snapshot avant une mutation discrète.
+- `capture_undo_snapshot()`  : snapshot de l'état courant (undo live).
+- `push_undo_snapshot(snap)` : empile un snapshot pré-édition capturé.
 """
 
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
-from typing import Any, Optional, Protocol
+from tkinter import messagebox, ttk
+from typing import Any, Dict, Optional, Protocol
 
-from dialogs import edit_degradation
-from model import Brin, DegradationExterne
+from aide_repliable import AideRepliable
+from dialogs import (
+    edit_degradation,
+    find_grade_choice,
+    grade_choices,
+    message_chevauchement,
+    parse_grade,
+    to_float,
+    validate_numeric,
+)
+from geometry import GRADES
+from model import Brin, DegradationExterne, degradations_chevauchements
+from ui_fonts import font as ui_font
 
 
 class _DegradationsHost(Protocol):
     def _current_brin(self) -> Optional[Brin]: ...
-    def _debounced_redraw(self) -> None: ...
+    def on_section_changed(self) -> None: ...
     def push_undo(self) -> None: ...
+    def capture_undo_snapshot(self) -> dict: ...
+    def push_undo_snapshot(self, snap: dict) -> None: ...
 
 
 class DegradationsPane(ttk.Frame):
-    """Pane Tk autonome : possède sa table, ses boutons et ses actions."""
+    """Pane Tk autonome : tableau de lignes éditables, une par arc."""
 
     def __init__(self, master: tk.Misc, host: _DegradationsHost, **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", padding=10, **kw)
         self._host = host
+        self._suspend = False
+        self._undo_snap: Optional[dict] = None
+        self._focus_in_value = ""
+        self._grade_choices = grade_choices()
+        # Vars de chaque ligne, dans l'ordre du tableau (cf. _build_row).
+        self._row_refs: list[Dict[str, Any]] = []
         self._build()
 
     def _build(self) -> None:
         ttk.Label(
             self,
-            text="Une dégradation externe = un arc continu sur l'écorce, "
-                 "défini par un grade de début, un grade de fin (sens "
-                 "horaire) et une profondeur radiale en cm.",
-            style="Muted.TLabel", wraplength=400, justify="left"
+            text="Une dégradation externe = un arc continu sur l'écorce "
+                 "(début → fin, sens horaire) consommant du bois sain "
+                 "sur une profondeur radiale en cm. Éditez directement "
+                 "dans le tableau.",
+            style="Muted.TLabel", wraplength=420, justify="left"
         ).pack(anchor="w", pady=(0, 8))
 
-        tbl_frame = ttk.Frame(self, style="Panel.TFrame")
-        tbl_frame.pack(fill="both", expand=True)
-
-        cols = ("n", "debut", "fin", "largeur_gr", "largeur_cm",
-                "profondeur", "comm")
-        self.tbl = ttk.Treeview(tbl_frame, columns=cols,
-                                 show="headings", height=10)
-        heads = [("n", "N°", 35),
-                 ("debut", "Début (gr)", 75),
-                 ("fin", "Fin (gr)", 75),
-                 ("largeur_gr", "Largeur (gr)", 85),
-                 ("largeur_cm", "Largeur (cm)", 85),
-                 ("profondeur", "Profondeur (cm)", 105),
-                 ("comm", "Commentaire", 100)]
-        for k, lbl, w in heads:
-            self.tbl.heading(k, text=lbl)
-            self.tbl.column(k, width=w, anchor="center")
-        self.tbl.pack(side="left", fill="both", expand=True)
-        sb = ttk.Scrollbar(tbl_frame, orient="vertical",
-                            command=self.tbl.yview)
-        sb.pack(side="right", fill="y")
-        self.tbl.configure(yscrollcommand=sb.set)
-        self.tbl.bind("<Double-1>", lambda e: self._on_edit())
+        # Conteneur des lignes, reconstruit par `refresh()` (nombre de
+        # dégradations variable).
+        self._rows_frame = ttk.Frame(self, style="Panel.TFrame")
+        self._rows_frame.pack(fill="both", expand=True)
 
         tb = ttk.Frame(self, style="Panel.TFrame")
         tb.pack(fill="x", pady=(10, 0))
         ttk.Button(tb, text="＋ Ajouter dégradation",
                    style="Accent.TButton",
                    command=self._on_add).pack(side="left")
-        ttk.Button(tb, text="Éditer", style="Ghost.TButton",
-                   command=self._on_edit).pack(side="left", padx=(6, 0))
-        ttk.Button(tb, text="Supprimer", style="Ghost.TButton",
-                   command=self._on_del).pack(side="left", padx=(6, 0))
+
+        AideRepliable(
+            self,
+            "« ＋ Ajouter » crée l'arc sur la première plage libre : "
+            "ajustez ensuite début/fin dans la ligne. Les arcs ne "
+            "peuvent pas se chevaucher (mitoyens bout-à-bout autorisés). "
+            "Double-cliquez le n° pour le détail (largeur en cm).",
+            wraplength=420,
+        ).pack(anchor="w", pady=(8, 0))
+
+    # --- Refresh ------------------------------------------------------
 
     def refresh(self) -> None:
-        """Recharge le contenu de la table depuis l'arbre courant."""
-        self.tbl.delete(*self.tbl.get_children())
+        """Reconstruit les lignes du tableau depuis le brin courant."""
+        for w in self._rows_frame.winfo_children():
+            w.destroy()
+        self._row_refs = []
         b = self._host._current_brin()
         if not b:
             return
-        R = b.rayon_tronc_cm
-        for i, deg in enumerate(b.degradations_externes):
-            self.tbl.insert(
-                "", "end", iid=f"d{i}",
-                values=(deg.numero,
-                        f"{deg.grade_debut}",
-                        f"{deg.grade_fin}",
-                        f"{deg.largeur_grades()}",
-                        f"{deg.largeur_cm(R):.1f}",
-                        f"{deg.profondeur_cm:g}",
-                        deg.commentaire))
+        if not b.degradations_externes:
+            ttk.Label(self._rows_frame,
+                      text="Aucune dégradation externe relevée.",
+                      style="Muted.TLabel").grid(row=0, column=0,
+                                                 sticky="w", padx=6)
+            return
 
-    def _selected_index(self) -> Optional[int]:
-        sel = self.tbl.selection()
-        if not sel:
-            return None
-        return int(sel[0][1:])
+        heads = ["N°", "Début", "Fin", "Largeur", "Profondeur (cm)",
+                 "Commentaire", ""]
+        for c, h in enumerate(heads):
+            ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
+                      font=ui_font("Helvetica", 9, "bold")).grid(
+                row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+
+        vcmd = (self.register(validate_numeric), "%P")
+        for r, deg in enumerate(b.degradations_externes, start=1):
+            self._build_row(r, deg, vcmd)
+        self._rows_frame.columnconfigure(5, weight=1)
+
+    def _build_row(self, r: int, deg: DegradationExterne,
+                   vcmd: Any) -> None:
+        """Construit la ligne `r` (1-based) pour la dégradation `deg`.
+
+        Les callbacks capturent `deg` (l'objet) et leurs vars par
+        closure : pas d'indices à invalider quand le tableau est
+        reconstruit."""
+        f = self._rows_frame
+        var_deb = tk.StringVar(
+            value=find_grade_choice(self._grade_choices, deg.grade_debut))
+        var_fin = tk.StringVar(
+            value=find_grade_choice(self._grade_choices, deg.grade_fin))
+        var_larg = tk.StringVar()
+        var_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
+        var_com = tk.StringVar(value=deg.commentaire)
+        row: Dict[str, Any] = {"deb": var_deb, "fin": var_fin,
+                               "larg": var_larg, "prof": var_prof,
+                               "com": var_com}
+        # Référence gardée dans l'ordre des lignes : les callbacks
+        # passent par les closures, mais les tests (et d'éventuels
+        # enchaînements de focus) ont besoin d'un accès indexé.
+        self._row_refs.append(row)
+        self._set_largeur_label(row, deg)
+
+        lbl_num = ttk.Label(f, text=str(deg.numero), style="Panel.TLabel",
+                            width=3, font=ui_font("Helvetica", 10, "bold"))
+        lbl_num.grid(row=r, column=0, sticky="w", padx=6, pady=1)
+        lbl_num.bind("<Double-1>", lambda e: self._open_detail(deg))
+
+        cmb_deb = ttk.Combobox(f, textvariable=var_deb,
+                               values=self._grade_choices,
+                               state="readonly", width=11)
+        cmb_deb.grid(row=r, column=1, sticky="w", padx=6, pady=1)
+        cmb_fin = ttk.Combobox(f, textvariable=var_fin,
+                               values=self._grade_choices,
+                               state="readonly", width=11)
+        cmb_fin.grid(row=r, column=2, sticky="w", padx=6, pady=1)
+        for cmb in (cmb_deb, cmb_fin):
+            cmb.bind("<<ComboboxSelected>>",
+                     lambda e: self._on_arc_changed(deg, row))
+
+        ttk.Label(f, textvariable=var_larg, style="Muted.TLabel",
+                  width=14).grid(row=r, column=3, sticky="w",
+                                 padx=6, pady=1)
+
+        ent_prof = ttk.Entry(f, textvariable=var_prof, width=8,
+                             validate="key", validatecommand=vcmd,
+                             justify="center")
+        ent_prof.grid(row=r, column=4, sticky="w", padx=6, pady=1)
+        var_prof.trace_add(
+            "write", lambda *a: self._on_prof_write(deg, row))
+
+        ent_com = ttk.Entry(f, textvariable=var_com, width=18)
+        ent_com.grid(row=r, column=5, sticky="we", padx=6, pady=1)
+        var_com.trace_add(
+            "write", lambda *a: self._on_com_write(deg, row))
+
+        for w, field in ((ent_prof, "prof"), (ent_com, "com")):
+            w.bind("<FocusIn>",
+                   lambda e, rw=row, fl=field: self._on_focus_in(rw, fl))
+            w.bind("<FocusOut>",
+                   lambda e, d=deg, rw=row, fl=field:
+                   self._on_focus_out(d, rw, fl))
+
+        ttk.Button(f, text="✕", style="Ghost.TButton", width=2,
+                   command=lambda: self._on_del(deg)
+                   ).grid(row=r, column=6, sticky="w", padx=(6, 0), pady=1)
+
+    @staticmethod
+    def _index_de(b: Brin, deg: DegradationExterne) -> Optional[int]:
+        """Index de `deg` dans le brin, par IDENTITÉ (`is`) — les
+        dataclasses ont un `__eq__` structurel : deux arcs aux champs
+        identiques se confondraient avec `in`/`remove`."""
+        for i, d in enumerate(b.degradations_externes):
+            if d is deg:
+                return i
+        return None
+
+    def _set_largeur_label(self, row: Dict[str, Any],
+                           deg: DegradationExterne) -> None:
+        b = self._host._current_brin()
+        R = b.rayon_tronc_cm if b else 0.0
+        txt = f"{deg.largeur_grades()} gr"
+        if R > 0:
+            txt += f" · {deg.largeur_cm(R):.1f} cm"
+        row["larg"].set(txt)
+
+    # --- Saisie live --------------------------------------------------
+
+    def _on_arc_changed(self, deg: DegradationExterne,
+                        row: Dict[str, Any]) -> None:
+        """Début ou fin modifié : valide le non-chevauchement, applique
+        ou rétablit."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        new_debut = parse_grade(row["deb"].get())
+        new_fin = parse_grade(row["fin"].get())
+        if new_debut == deg.grade_debut and new_fin == deg.grade_fin:
+            return
+        conflits = degradations_chevauchements(
+            b.degradations_externes, deg, new_debut, new_fin)
+        if conflits:
+            # Rétablit les valeurs du modèle avant d'avertir : la ligne
+            # reste toujours cohérente avec l'état réel.
+            self._suspend = True
+            try:
+                row["deb"].set(find_grade_choice(self._grade_choices,
+                                                 deg.grade_debut))
+                row["fin"].set(find_grade_choice(self._grade_choices,
+                                                 deg.grade_fin))
+            finally:
+                self._suspend = False
+            other, shared = conflits[0]
+            messagebox.showwarning("Chevauchement de dégradations",
+                                   message_chevauchement(other, shared),
+                                   parent=self)
+            return
+        self._host.push_undo()
+        deg.grade_debut = new_debut
+        deg.grade_fin = new_fin
+        self._set_largeur_label(row, deg)
+        self._host.on_section_changed()
+
+    def _on_prof_write(self, deg: DegradationExterne,
+                       row: Dict[str, Any]) -> None:
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        try:
+            prof = to_float(row["prof"].get())
+        except ValueError:
+            # Saisie incomplète (vide, ",") : on attend la suite — la
+            # ligne existe indépendamment de sa profondeur, contrairement
+            # à la grille de sondages où vider la case supprime.
+            return
+        deg.profondeur_cm = max(0.0, prof)
+        self._host.on_section_changed()
+
+    def _on_com_write(self, deg: DegradationExterne,
+                      row: Dict[str, Any]) -> None:
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        deg.commentaire = row["com"].get()
+        self._host.on_section_changed()
+
+    def _on_focus_in(self, row: Dict[str, Any], field: str) -> None:
+        # Snapshot pré-édition : empilé sur l'undo seulement si la valeur
+        # change réellement d'ici le focus-out (cf. grille de sondages).
+        self._undo_snap = self._host.capture_undo_snapshot()
+        self._focus_in_value = row[field].get()
+
+    def _on_focus_out(self, deg: DegradationExterne,
+                      row: Dict[str, Any], field: str) -> None:
+        b = self._host._current_brin()
+        # Normalise l'affichage de la profondeur à la valeur stockée
+        # (format `:g`, clamp à 0 fait par le modèle).
+        if (field == "prof" and b is not None
+                and self._index_de(b, deg) is not None):
+            self._suspend = True
+            try:
+                row["prof"].set(f"{deg.profondeur_cm:g}")
+            finally:
+                self._suspend = False
+        cur = row[field].get()
+        if self._undo_snap is not None and cur != self._focus_in_value:
+            self._host.push_undo_snapshot(self._undo_snap)
+        self._undo_snap = None
+
+    # --- Actions ------------------------------------------------------
+
+    def _arc_libre(self, b: Brin) -> Optional[tuple[int, int]]:
+        """Premier arc (début, fin) ne chevauchant aucune dégradation
+        existante : largeur 50 gr d'abord, repli à 25 gr."""
+        for largeur in (50, 25):
+            for g in GRADES:
+                fin = (g + largeur) % 400
+                if not degradations_chevauchements(
+                        b.degradations_externes, None, g, fin):
+                    return g, fin
+        return None
 
     def _on_add(self) -> None:
         b = self._host._current_brin()
         if not b:
             return
+        arc = self._arc_libre(b)
+        if arc is None:
+            messagebox.showwarning(
+                "Plus de place",
+                "Toutes les directions sont déjà couvertes par des "
+                "dégradations : supprimez ou rétrécissez un arc "
+                "existant.", parent=self)
+            return
+        self._host.push_undo()
         deg = DegradationExterne(
             numero=len(b.degradations_externes) + 1,
-            grade_debut=0, grade_fin=50, profondeur_cm=2.0)
-        if edit_degradation(self, b, deg):
-            self._host.push_undo()
-            b.degradations_externes.append(deg)
-            b.renumeroter_degradations()
-            self.refresh()
-            self._host._debounced_redraw()
+            grade_debut=arc[0], grade_fin=arc[1], profondeur_cm=2.0)
+        b.degradations_externes.append(deg)
+        b.renumeroter_degradations()
+        self.refresh()
+        self._host.on_section_changed()
+        # Focus sur la profondeur de la nouvelle ligne (la valeur à
+        # mesurer), prête à réécrire.
+        entries = [w for w in self._rows_frame.grid_slaves(
+            row=len(b.degradations_externes), column=4)
+            if isinstance(w, ttk.Entry)]
+        if entries:
+            entries[0].focus_set()
+            entries[0].select_range(0, "end")
 
-    def _on_edit(self) -> None:
-        idx = self._selected_index()
-        if idx is None:
-            return
+    def _on_del(self, deg: DegradationExterne) -> None:
         b = self._host._current_brin()
         if not b:
             return
-        deg = b.degradations_externes[idx]
-        if edit_degradation(self, b, deg):
-            self._host.push_undo()
-            self.refresh()
-            self._host._debounced_redraw()
-
-    def _on_del(self) -> None:
-        idx = self._selected_index()
+        idx = self._index_de(b, deg)
         if idx is None:
-            return
-        b = self._host._current_brin()
-        if not b:
             return
         self._host.push_undo()
         del b.degradations_externes[idx]
         b.renumeroter_degradations()
         self.refresh()
-        self._host._debounced_redraw()
+        self._host.on_section_changed()
+
+    # --- Détail (dialogue) --------------------------------------------
+
+    def _open_detail(self, deg: DegradationExterne) -> None:
+        """Double-clic sur le n° : ouvre `edit_degradation` pour le
+        détail (largeur en cm sur l'écorce)."""
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        snap = self._host.capture_undo_snapshot()
+        if edit_degradation(self, b, deg):
+            self._host.push_undo_snapshot(snap)
+            self.refresh()
+            self._host.on_section_changed()

@@ -62,6 +62,17 @@ DIRECTION_LABELS: Dict[int, str] = {
     300: "O", 325: "",  350: "NO", 375: "",
 }
 
+# Rose des vents complète : un libellé par direction, y compris les 8
+# intermédiaires en combiné ("N-NE", "NE-E", …) que `DIRECTION_LABELS`
+# laisse vides. Sert aux grilles de saisie 16 directions (onglets
+# Sondages et Contreforts) où chaque ligne doit se lire seule.
+WIND_LABELS: Dict[int, str] = {
+    0: "N", 25: "N-NE", 50: "NE", 75: "NE-E",
+    100: "E", 125: "E-SE", 150: "SE", 175: "SE-S",
+    200: "S", 225: "S-SO", 250: "SO", 275: "SO-O",
+    300: "O", 325: "O-NO", 350: "NO", 375: "NO-N",
+}
+
 
 # ----------------------------------------------------------------------
 # Interpolation spline (Catmull-Rom fermée)

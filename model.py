@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Sequence, Tuple
 
 from geometry import GRADES, ellipse_radius
 
@@ -132,6 +132,40 @@ class DegradationExterne:
             return False
         offset = (grade - self.grade_debut) % 400
         return offset <= self.largeur_grades()
+
+
+def degradations_chevauchements(
+        existantes: Sequence[DegradationExterne],
+        exclure: Optional[DegradationExterne],
+        grade_debut: int,
+        grade_fin: int,
+) -> List[Tuple[DegradationExterne, List[int]]]:
+    """Dégradations existantes qui chevauchent l'arc candidat
+    `grade_debut → grade_fin` (sens horaire), avec les grades partagés.
+
+    Règle métier : les arcs ne doivent pas se chevaucher, mais deux arcs
+    **mitoyens bout-à-bout** sont autorisés (la fin de l'un = le début de
+    l'autre) — ces grades-frontières sont donc exclus du comptage.
+    `exclure` permet d'ignorer la dégradation en cours d'édition.
+
+    Renvoie une liste vide si l'arc candidat est valide. Partagé entre
+    le dialogue `edit_degradation` et la saisie en place de l'onglet
+    Dégradations (`pane_degradations`).
+    """
+    candidate = DegradationExterne(grade_debut=grade_debut,
+                                   grade_fin=grade_fin)
+    out: List[Tuple[DegradationExterne, List[int]]] = []
+    for other in existantes:
+        if other is exclure:
+            continue
+        shared = [g for g in GRADES
+                  if candidate.couvre_grade(g)
+                  and other.couvre_grade(g)
+                  and not (g == grade_debut and g == other.grade_fin)
+                  and not (g == grade_fin and g == other.grade_debut)]
+        if shared:
+            out.append((other, shared))
+    return out
 
 
 @dataclass

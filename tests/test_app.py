@@ -484,6 +484,116 @@ class TestAppMixins(unittest.TestCase):
         self.app.action_add_arbre()
         self.assertEqual(self.app.var_filter.get(), "")
 
+    # --- Grille Contreforts (saisie directe, 16 directions) ---
+
+    def test_grille_contreforts_cree_et_supprime(self) -> None:
+        a = self.app.chantier.arbres[0]
+        a.rayon_tronc_cm = 20.0
+        # Taper une longueur crée le contrefort sur cette direction.
+        self.app.pane_cf._rows[100]["long"].set("12")
+        self.assertEqual(len(a.contreforts), 1)
+        c = a.contreforts[0]
+        self.assertEqual(c.grade_centre, 100)
+        self.assertEqual(c.longueur_cm, 12.0)
+        self.assertEqual(c.largeur_grades, 75)  # largeur par défaut
+        # Effacer la valeur supprime le contrefort.
+        self.app.pane_cf._rows[100]["long"].set("")
+        self.assertEqual(len(a.contreforts), 0)
+
+    def test_grille_contreforts_largeur_via_combobox(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.pane_cf._rows[0]["long"].set("8")
+        self.app.pane_cf._rows[0]["larg"].set("150")
+        self.app.pane_cf._on_larg_changed(0)
+        self.assertEqual(a.contreforts[0].largeur_grades, 150)
+
+    def test_grille_contreforts_tries_et_renumerotes_par_grade(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.pane_cf._rows[200]["long"].set("5")
+        self.app.pane_cf._rows[0]["long"].set("7")
+        self.assertEqual([c.grade_centre for c in a.contreforts], [0, 200])
+        self.assertEqual([c.numero for c in a.contreforts], [1, 2])
+
+    def test_grille_contreforts_refresh_depuis_modele(self) -> None:
+        from model import Contrefort
+        a = self.app.chantier.arbres[0]
+        a.contreforts.append(Contrefort(numero=1, grade_centre=50,
+                                        largeur_grades=100,
+                                        longueur_cm=9.0))
+        self.app.pane_cf.refresh()
+        row = self.app.pane_cf._rows[50]
+        self.assertEqual(row["long"].get(), "9")
+        self.assertEqual(row["larg"].get(), "100")
+        self.assertEqual(str(row["combo"].cget("state")), "readonly")
+        # Direction sans contrefort : ligne vide, largeur inactive.
+        vide = self.app.pane_cf._rows[75]
+        self.assertEqual(vide["long"].get(), "")
+        self.assertEqual(str(vide["combo"].cget("state")), "disabled")
+
+    # --- Tableau Dégradations (édition en place) ---
+
+    def test_degradations_ajout_sans_dialogue_sur_arc_libre(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.pane_de._on_add()
+        self.assertEqual(len(a.degradations_externes), 1)
+        d1 = a.degradations_externes[0]
+        self.assertEqual((d1.grade_debut, d1.grade_fin), (0, 50))
+        # 2e ajout : premier arc libre suivant (mitoyen autorisé).
+        self.app.pane_de._on_add()
+        self.assertEqual(len(a.degradations_externes), 2)
+        self.assertEqual(a.degradations_externes[1].grade_debut, 50)
+
+    def test_degradations_profondeur_editee_en_place(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.pane_de._on_add()
+        row = self.app.pane_de._row_refs[0]
+        row["prof"].set("4,5")  # virgule décimale acceptée
+        self.assertEqual(a.degradations_externes[0].profondeur_cm, 4.5)
+
+    def test_degradations_arc_valide_applique(self) -> None:
+        from dialogs import find_grade_choice
+        a = self.app.chantier.arbres[0]
+        self.app.pane_de._on_add()  # 0 → 50
+        deg = a.degradations_externes[0]
+        row = self.app.pane_de._row_refs[0]
+        row["fin"].set(find_grade_choice(
+            self.app.pane_de._grade_choices, 100))
+        self.app.pane_de._on_arc_changed(deg, row)
+        self.assertEqual(deg.grade_fin, 100)
+
+    def test_degradations_chevauchement_refuse_et_retabli(self) -> None:
+        from unittest.mock import patch
+
+        from dialogs import find_grade_choice
+        from model import DegradationExterne
+        a = self.app.chantier.arbres[0]
+        a.degradations_externes.append(
+            DegradationExterne(numero=1, grade_debut=0, grade_fin=50))
+        a.degradations_externes.append(
+            DegradationExterne(numero=2, grade_debut=100, grade_fin=150))
+        self.app.pane_de.refresh()
+        deg2 = a.degradations_externes[1]
+        row = self.app.pane_de._row_refs[1]
+        # Début 25 → chevaucherait la dégradation n°1 (0 → 50).
+        row["deb"].set(find_grade_choice(
+            self.app.pane_de._grade_choices, 25))
+        with patch("pane_degradations.messagebox.showwarning") as warn:
+            self.app.pane_de._on_arc_changed(deg2, row)
+            warn.assert_called_once()
+        # Modèle inchangé ET combobox rétablie sur la valeur du modèle.
+        self.assertEqual(deg2.grade_debut, 100)
+        self.assertTrue(row["deb"].get().startswith("100 gr"))
+
+    def test_degradations_suppression_par_ligne(self) -> None:
+        a = self.app.chantier.arbres[0]
+        self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
+        deg1 = a.degradations_externes[0]
+        self.app.pane_de._on_del(deg1)
+        self.assertEqual(len(a.degradations_externes), 1)
+        # Renuméroté : la survivante redevient n°1.
+        self.assertEqual(a.degradations_externes[0].numero, 1)
+
     # --- ExportActionsMixin (présence des actions héritées) ---
 
     def test_actions_export_presentes(self) -> None:

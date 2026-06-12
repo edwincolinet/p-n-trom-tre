@@ -40,19 +40,10 @@ from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
 from dialogs import edit_sondage, to_float, validate_numeric
-from geometry import GRADES
+from geometry import GRADES, WIND_LABELS
 from model import Brin, Sondage
 from ui_fonts import font as ui_font
 
-# Rose des vents 16 directions — libellé affiché par ligne de la grille.
-# (DIRECTION_LABELS ne nomme que les 8 cardinales/intercardinales ; ici on
-#  complète les 8 intermédiaires pour que chaque ligne se lise seule.)
-_WIND_LABELS: Dict[int, str] = {
-    0: "N", 25: "N-NE", 50: "NE", 75: "NE-E",
-    100: "E", 125: "E-SE", 150: "SE", 175: "SE-S",
-    200: "S", 225: "S-SO", 250: "SO", 275: "SO-O",
-    300: "O", 325: "O-NO", 350: "NO", 375: "NO-N",
-}
 _COMPART_VALUES = ["non renseignée", "active", "absente"]
 
 
@@ -103,7 +94,7 @@ class SondagesPane(ttk.Frame):
             var_alt = tk.StringVar(value="—")
             var_comp = tk.StringVar(value="non renseignée")
 
-            lbl_dir = ttk.Label(grid, text=_WIND_LABELS[g],
+            lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
                                 font=ui_font("Helvetica", 10, "bold"))
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)

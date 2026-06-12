@@ -45,6 +45,7 @@ from model import (
     Contrefort,
     DegradationExterne,
     Sondage,
+    degradations_chevauchements,
 )
 
 
@@ -119,6 +120,45 @@ class DegradationExterneTests(unittest.TestCase):
         # 100 gr = π/2 rad → largeur = R × π/2
         self.assertAlmostEqual(deg.largeur_cm(20.0), 20.0 * 3.141592653589793 / 2)
         self.assertEqual(deg.largeur_cm(0.0), 0.0)
+
+
+class DegradationsChevauchementsTests(unittest.TestCase):
+    """Helper pur de non-chevauchement, partagé entre le dialogue
+    `edit_degradation` et la saisie en place de `pane_degradations`."""
+
+    def test_arc_disjoint_valide(self):
+        existantes = [DegradationExterne(grade_debut=0, grade_fin=50)]
+        self.assertEqual(
+            degradations_chevauchements(existantes, None, 100, 150), [])
+
+    def test_chevauchement_detecte_avec_grades_partages(self):
+        existantes = [DegradationExterne(numero=1,
+                                         grade_debut=0, grade_fin=100)]
+        conflits = degradations_chevauchements(existantes, None, 75, 150)
+        self.assertEqual(len(conflits), 1)
+        other, shared = conflits[0]
+        self.assertIs(other, existantes[0])
+        self.assertEqual(shared, [75, 100])
+
+    def test_mitoyen_bout_a_bout_autorise(self):
+        # La fin de l'un = le début de l'autre : grades-frontières exclus.
+        existantes = [DegradationExterne(grade_debut=0, grade_fin=50)]
+        self.assertEqual(
+            degradations_chevauchements(existantes, None, 50, 100), [])
+        # Et dans l'autre sens (le candidat finit où l'existant commence).
+        self.assertEqual(
+            degradations_chevauchements(existantes, None, 350, 0), [])
+
+    def test_exclure_ignore_la_degradation_en_cours_d_edition(self):
+        deg = DegradationExterne(grade_debut=0, grade_fin=100)
+        # Réduire l'arc de `deg` lui-même ne doit pas se voir en conflit.
+        self.assertEqual(
+            degradations_chevauchements([deg], deg, 0, 50), [])
+
+    def test_wrap_au_grade_zero(self):
+        existantes = [DegradationExterne(grade_debut=350, grade_fin=50)]
+        conflits = degradations_chevauchements(existantes, None, 0, 100)
+        self.assertEqual(len(conflits), 1)
 
 
 class ContrefortTests(unittest.TestCase):

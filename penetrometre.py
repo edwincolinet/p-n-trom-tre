@@ -847,9 +847,17 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self._mark_dirty()
         self._debounced_redraw()
 
+    def on_section_changed(self) -> None:
+        """Notifié par `DegradationsPane`/`ContrefortsPane` après une
+        mutation live (saisie directe dans leurs grilles). Même contrat
+        que `on_sondages_changed` : dirty + redraw debouncé — sans
+        re-rafraîchir la grille émettrice (elle est déjà à jour)."""
+        self._mark_dirty()
+        self._debounced_redraw()
+
     def capture_undo_snapshot(self) -> dict:
         """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé
-        par les éditions live (grille de sondages) : on capture l'état
+        par les éditions live (grilles de saisie) : on capture l'état
         AVANT édition au focus-in, on ne l'empile (`push_undo_snapshot`)
         qu'au focus-out si la valeur a réellement changé."""
         return chantier_to_dict(self.chantier)
@@ -907,8 +915,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         a = self._current_arbre()
         if not a:
             return
+        # Snapshot AVANT le dialogue : il mute l'objet en place au clic
+        # Valider — capturer après reviendrait à empiler l'état déjà
+        # modifié (undo sans effet).
+        snap = self.capture_undo_snapshot()
         if edit_sondage(self, a, s):
-            self.push_undo()
+            self.push_undo_snapshot(snap)
             self._refresh_sondages_table()
             self._debounced_redraw()
 
@@ -916,8 +928,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         a = self._current_arbre()
         if not a:
             return
+        snap = self.capture_undo_snapshot()
         if edit_degradation(self, a, d):
-            self.push_undo()
+            self.push_undo_snapshot(snap)
             self._refresh_degradations_table()
             self._debounced_redraw()
 
@@ -925,8 +938,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         a = self._current_arbre()
         if not a:
             return
+        snap = self.capture_undo_snapshot()
         if edit_contrefort(self, a, c):
-            self.push_undo()
+            self.push_undo_snapshot(snap)
             self._refresh_contreforts_table()
             self._debounced_redraw()
 
