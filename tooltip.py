@@ -28,10 +28,13 @@ class Tooltip:
     _BG = "#FFFFE0"  # jaune pâle classique d'infobulle
 
     def __init__(self, widget: tk.Widget, text: str,
-                 delay_ms: int = 500) -> None:
+                 delay_ms: int = 500, wraplength: int = 320) -> None:
         self.widget = widget
         self.text = text
         self.delay_ms = delay_ms
+        # Sans wraplength, un texte long part en UNE seule ligne qui
+        # déborde de l'écran (le Toplevel n'est pas borné par la fenêtre).
+        self.wraplength = wraplength
         self._after_id: Optional[str] = None
         self._tip: Optional[tk.Toplevel] = None
         widget.bind("<Enter>", self._schedule, add="+")
@@ -58,7 +61,8 @@ class Tooltip:
         tip.wm_geometry(f"+{x}+{y}")
         tk.Label(tip, text=self.text, justify="left", background=self._BG,
                  foreground=COLOR_INK, relief="solid", borderwidth=1,
-                 font=("Helvetica", 9), padx=6, pady=3).pack()
+                 font=("Helvetica", 9), padx=6, pady=3,
+                 wraplength=self.wraplength).pack()
         self._tip = tip
 
     def _hide(self, _e: "Optional[tk.Event[tk.Misc]]" = None) -> None:

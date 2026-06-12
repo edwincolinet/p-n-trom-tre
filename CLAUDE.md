@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 307 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← 313 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -163,6 +163,20 @@ penetrometre.py  (Tk + main) ← undo.py
   Identification), pas en ligne, pour ne pas alourdir le cas circulaire courant.
 - **Diagnostic non fiable si < 3 sondages** → exports masquent t/R moyen + classe.
 - **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain − profondeur_deg`.
+  **Convention confirmée (protocole terrain)** : le sondage mesure la paroi
+  **totale** en ignorant la dégradation externe (mèche posée à côté de la
+  zone dégradée) — l'app déduit ensuite la profondeur. **Fusion** : les deux
+  zones dégradées (altération centrale + bande périphérique) ne peuvent pas
+  cumuler plus que le rayon — `prbs_par_grade` écrête à 0 (= union des
+  zones), valeur utilisée partout (pastille, tableaux, exports). L'écrêtage
+  est **signalé, pas silencieux** : garde-fou non bloquant « ⚠ » ambre
+  (`COLOR_WARN`) sur la colonne Altéré de la grille de sondages, sur la
+  ligne de dégradation fautive (tooltip) et dans le tableau PRBS de
+  l'onglet Diagnostic. Helpers purs `diagnostic.fusion_ecretee_par_grade`
+  (par direction) / `degradation_ecretee` (par objet — ne marque pas la
+  voisine mitoyenne d'un arc profond). Recalcul via
+  `refresh_fusion_warnings()` des deux panes, câblé sur `App._redraw_all`
+  (labels en lecture seule uniquement → sûr pendant la frappe).
 - **Pastille sondage = PRBS ajustée** (jamais brute).
 - **Contreforts** = cloche cosinus², fusion si adjacents (`contrefort_zones`).
 - **Écorce** = purement visuel (n'intervient pas dans diagnostic). R_ext = R + ep.
@@ -218,7 +232,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 307 tests
+python -m unittest discover tests           # 313 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

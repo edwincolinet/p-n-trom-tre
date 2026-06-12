@@ -50,6 +50,12 @@ COLOR_MUTED      = "#55605A"
 COLOR_ACCENT     = "#2D7A3E"
 COLOR_ACCENT_SOFT= "#C9E4CE"
 
+# Avertissement non bloquant (garde-fou de saisie : fusion écrêtée des
+# dégradations, données à vérifier). Même ambre saturé que la pastille
+# « état partiel » de la liste d'arbres — déjà choisi pour se distinguer
+# nettement du rouge bordeaux des classes.
+COLOR_WARN       = "#D97706"
+
 
 # ----------------------------------------------------------------------
 # Palette du dessin de section (bois, écorce, cernes, dégradation)

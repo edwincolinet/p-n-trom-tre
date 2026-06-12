@@ -584,6 +584,36 @@ class TestAppMixins(unittest.TestCase):
         self.assertEqual(deg2.grade_debut, 100)
         self.assertTrue(row["deb"].get().startswith("100 gr"))
 
+    def test_garde_fou_fusion_ecretee_pose_et_retire_les_warnings(self) -> None:
+        a = self.app.chantier.arbres[0]
+        a.rayon_tronc_cm = 30.0
+        # Sondage au Nord : 5 cm de sain (25 d'altéré).
+        self.app.pane_s._rows[0]["sain"].set("5")
+        # Dégradation 0→50 (couvre le Nord), profondeur 7 : 25 + 7 > 30.
+        self.app.pane_de._on_add()
+        self.app.pane_de._row_refs[0]["prof"].set("7")
+        self.app._redraw_all()
+        self.assertTrue(
+            self.app.pane_s._rows[0]["alt"].get().endswith("⚠"))
+        self.assertEqual(self.app.pane_de._row_refs[0]["warn"].get(), "⚠")
+        # Les bandeaux explicatifs sont affichés dans les 3 onglets.
+        self.assertEqual(self.app.pane_s._lbl_fusion.winfo_manager(), "pack")
+        self.assertEqual(self.app.pane_de._lbl_fusion.winfo_manager(), "pack")
+        self.assertEqual(
+            self.app.pane_diag._lbl_fusion.winfo_manager(), "pack")
+        # Le diagnostic, lui, écrête sans bloquer : PRBS 0, pas négative.
+        from diagnostic import prbs_par_grade
+        self.assertEqual(prbs_par_grade(a.brins[0])[0], 0.0)
+        # Profondeur ramenée à 2 : la somme tient (27 ≤ 30), ⚠ retirés.
+        self.app.pane_de._row_refs[0]["prof"].set("2")
+        self.app._redraw_all()
+        self.assertFalse(
+            self.app.pane_s._rows[0]["alt"].get().endswith("⚠"))
+        self.assertEqual(self.app.pane_de._row_refs[0]["warn"].get(), "")
+        self.assertEqual(self.app.pane_s._lbl_fusion.winfo_manager(), "")
+        self.assertEqual(self.app.pane_de._lbl_fusion.winfo_manager(), "")
+        self.assertEqual(self.app.pane_diag._lbl_fusion.winfo_manager(), "")
+
     def test_degradations_suppression_par_ligne(self) -> None:
         a = self.app.chantier.arbres[0]
         self.app.pane_de._on_add()

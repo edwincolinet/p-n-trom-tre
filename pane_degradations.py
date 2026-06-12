@@ -34,6 +34,7 @@ from tkinter import messagebox, ttk
 from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
+from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
 from dialogs import (
     edit_degradation,
     find_grade_choice,
@@ -45,6 +46,8 @@ from dialogs import (
 )
 from geometry import GRADES
 from model import Brin, DegradationExterne, degradations_chevauchements
+from palette import COLOR_WARN
+from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
 
@@ -85,9 +88,15 @@ class DegradationsPane(ttk.Frame):
         self._rows_frame = ttk.Frame(self, style="Panel.TFrame")
         self._rows_frame.pack(fill="both", expand=True)
 
-        tb = ttk.Frame(self, style="Panel.TFrame")
-        tb.pack(fill="x", pady=(10, 0))
-        ttk.Button(tb, text="＋ Ajouter dégradation",
+        # Bandeau du garde-fou fusion : créé non packé, montré/caché par
+        # `refresh_fusion_warnings` quand une ligne porte un ⚠.
+        self._lbl_fusion = ttk.Label(
+            self, text=FUSION_WARN_TEXT, style="Panel.TLabel",
+            foreground=COLOR_WARN, wraplength=420, justify="left")
+
+        self._toolbar = ttk.Frame(self, style="Panel.TFrame")
+        self._toolbar.pack(fill="x", pady=(10, 0))
+        ttk.Button(self._toolbar, text="＋ Ajouter dégradation",
                    style="Accent.TButton",
                    command=self._on_add).pack(side="left")
 
@@ -128,6 +137,31 @@ class DegradationsPane(ttk.Frame):
         for r, deg in enumerate(b.degradations_externes, start=1):
             self._build_row(r, deg, vcmd)
         self._rows_frame.columnconfigure(5, weight=1)
+        self.refresh_fusion_warnings()
+
+    def refresh_fusion_warnings(self) -> None:
+        """Garde-fou non bloquant : pose « ⚠ » sur les lignes dont la
+        profondeur, cumulée à l'altération centrale, dépasse le rayon sur
+        une direction couverte (cf. `diagnostic.degradation_ecretee`).
+
+        Ne touche que des labels en lecture seule : appelable pendant la
+        frappe — câblée sur `App._redraw_all` (debouncé) pour suivre
+        aussi les éditions faites dans la grille de sondages."""
+        b = self._host._current_brin()
+        if not b:
+            return
+        any_ecrete = False
+        for row in self._row_refs:
+            ecrete = degradation_ecretee(b, row["deg"])
+            any_ecrete = any_ecrete or ecrete
+            row["warn"].set("⚠" if ecrete else "")
+        # Bandeau explicatif au-dessus de la barre d'outils (le ⚠ de
+        # ligne ne dit pas quoi corriger).
+        if any_ecrete:
+            self._lbl_fusion.pack(anchor="w", pady=(8, 0),
+                                  before=self._toolbar)
+        else:
+            self._lbl_fusion.pack_forget()
 
     def _build_row(self, r: int, deg: DegradationExterne,
                    vcmd: Any) -> None:
@@ -146,10 +180,11 @@ class DegradationsPane(ttk.Frame):
         var_com = tk.StringVar(value=deg.commentaire)
         row: Dict[str, Any] = {"deb": var_deb, "fin": var_fin,
                                "larg": var_larg, "prof": var_prof,
-                               "com": var_com}
+                               "com": var_com, "warn": tk.StringVar(),
+                               "deg": deg}
         # Référence gardée dans l'ordre des lignes : les callbacks
-        # passent par les closures, mais les tests (et d'éventuels
-        # enchaînements de focus) ont besoin d'un accès indexé.
+        # passent par les closures, mais `refresh_fusion_warnings` et les
+        # tests ont besoin d'un accès indexé (avec l'objet `deg` associé).
         self._row_refs.append(row)
         self._set_largeur_label(row, deg)
 
@@ -196,6 +231,22 @@ class DegradationsPane(ttk.Frame):
         ttk.Button(f, text="✕", style="Ghost.TButton", width=2,
                    command=lambda: self._on_del(deg)
                    ).grid(row=r, column=6, sticky="w", padx=(6, 0), pady=1)
+
+        # Garde-fou fusion : « ⚠ » quand cette dégradation, cumulée à
+        # l'altération centrale, dépasse le rayon sur une direction
+        # qu'elle couvre (PRBS écrêtée à 0). Texte posé/retiré par
+        # `refresh_fusion_warnings`.
+        lbl_warn = ttk.Label(f, textvariable=row["warn"],
+                             style="Panel.TLabel", width=2,
+                             foreground=COLOR_WARN,
+                             font=ui_font("Helvetica", 10, "bold"))
+        lbl_warn.grid(row=r, column=7, sticky="w", pady=1)
+        Tooltip(lbl_warn,
+                "Profondeur + altération centrale > rayon sur au moins "
+                "une direction couverte : les deux zones dégradées se "
+                "rejoignent, la PRBS y est écrêtée à 0.\n"
+                "Vérifiez la profondeur saisie (ou le bois sain du "
+                "sondage concerné).")
 
     @staticmethod
     def _index_de(b: Brin, deg: DegradationExterne) -> Optional[int]:

@@ -161,6 +161,56 @@ class DegradationsChevauchementsTests(unittest.TestCase):
         self.assertEqual(len(conflits), 1)
 
 
+class FusionEcreteeTests(unittest.TestCase):
+    """Garde-fou fusion : altération centrale + dégradation externe ne
+    peuvent pas physiquement dépasser le rayon — `prbs_par_grade` écrête
+    à 0 et ces helpers signalent les directions/dégradations concernées."""
+
+    def _brin(self, sain: float, prof: float) -> Brin:
+        b = Brin(rayon_tronc_cm=30.0)
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=sain,
+                                  bois_altere_cm=30.0 - sain))
+        b.degradations_externes.append(DegradationExterne(
+            numero=1, grade_debut=375, grade_fin=25, profondeur_cm=prof))
+        return b
+
+    def test_ecretage_detecte_quand_profondeur_depasse_le_sain(self):
+        from diagnostic import fusion_ecretee_par_grade, prbs_par_grade
+        b = self._brin(sain=5.0, prof=7.0)  # 25 altéré + 7 ext = 32 > 30
+        self.assertTrue(fusion_ecretee_par_grade(b)[0])
+        self.assertEqual(prbs_par_grade(b)[0], 0.0)
+
+    def test_pas_d_ecretage_quand_la_somme_tient_dans_le_rayon(self):
+        from diagnostic import fusion_ecretee_par_grade
+        b = self._brin(sain=10.0, prof=7.0)  # 20 + 7 = 27 <= 30
+        self.assertFalse(any(fusion_ecretee_par_grade(b)))
+
+    def test_profondeur_superieure_au_rayon_sans_sondage(self):
+        from diagnostic import fusion_ecretee_par_grade
+        b = Brin(rayon_tronc_cm=30.0)
+        b.degradations_externes.append(DegradationExterne(
+            numero=1, grade_debut=0, grade_fin=50, profondeur_cm=35.0))
+        self.assertTrue(fusion_ecretee_par_grade(b)[0])
+
+    def test_rayon_nul_jamais_ecrete(self):
+        from diagnostic import fusion_ecretee_par_grade
+        b = Brin(rayon_tronc_cm=0.0)
+        b.degradations_externes.append(DegradationExterne(
+            numero=1, grade_debut=0, grade_fin=50, profondeur_cm=5.0))
+        self.assertFalse(any(fusion_ecretee_par_grade(b)))
+
+    def test_degradation_ecretee_ne_marque_pas_la_voisine_mitoyenne(self):
+        from diagnostic import degradation_ecretee
+        b = self._brin(sain=5.0, prof=7.0)  # arc 375→25, écrêté
+        # Arc mitoyen bout-à-bout (25→75), peu profond : partage le
+        # grade-frontière 25 mais ne doit PAS être marqué.
+        voisine = DegradationExterne(numero=2, grade_debut=25,
+                                     grade_fin=75, profondeur_cm=1.0)
+        b.degradations_externes.append(voisine)
+        self.assertTrue(degradation_ecretee(b, b.degradations_externes[0]))
+        self.assertFalse(degradation_ecretee(b, voisine))
+
+
 class ContrefortTests(unittest.TestCase):
 
     def test_grade_debut_fin_normal(self):

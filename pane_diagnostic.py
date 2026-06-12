@@ -26,12 +26,13 @@ from typing import Any, Optional, Protocol
 
 from bareme import classer_prbs
 from diagnostic import (
+    FUSION_WARN_TEXT,
     degradation_externe_par_grade,
     genet_summary_lines,
 )
 from geometry import DIRECTION_LABELS, GRADES
 from model import Arbre
-from palette import COLOR_PANEL
+from palette import COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
@@ -175,6 +176,13 @@ class DiagnosticPane(ttk.Frame):
         self.tbl_prbs.tag_configure(
             "rouge",  background="#FADBD8", foreground="#7B1B12")
 
+        # Bandeau du garde-fou fusion : créé non packé, montré/caché par
+        # `refresh()` quand une ligne du tableau est écrêtée (⚠) — même
+        # message que les onglets Sondages / Dégradations.
+        self._lbl_fusion = ttk.Label(
+            parent, text=FUSION_WARN_TEXT, style="Panel.TLabel",
+            foreground=COLOR_WARN, wraplength=400, justify="left")
+
     def refresh(self) -> None:
         """Recharge le tableau PRBS et le résumé textuel à partir de
         l'arbre courant. Appelé par App._redraw_all après le debounce."""
@@ -182,6 +190,7 @@ class DiagnosticPane(ttk.Frame):
 
         # --- Tableau PRBS par sondage (par brin pour une cépée) ---
         self.tbl_prbs.delete(*self.tbl_prbs.get_children())
+        any_ecrete = False
         if a:
             # Une cépée préfixe le N° par le label du brin (« a1 », « b2 »).
             multi = len(a.brins) > 1
@@ -209,7 +218,13 @@ class DiagnosticPane(ttk.Frame):
                     ratio = prbs_adj / R if R > 0 else 0.0
                     classe = classer_prbs(ratio, port)
                     tag = classe.lower()
-                    if deg_ext > 0:
+                    if deg_ext > s.prbs_cm:
+                        # Fusion écrêtée : la dégradation externe dépasse
+                        # la paroi mesurée — données à vérifier (garde-fou
+                        # aligné sur le ⚠ des grilles de saisie).
+                        prbs_txt = f"{prbs_adj:g} (–{deg_ext:g} ext. ⚠)"
+                        any_ecrete = True
+                    elif deg_ext > 0:
                         prbs_txt = f"{prbs_adj:g} (–{deg_ext:g} ext.)"
                     else:
                         prbs_txt = f"{prbs_adj:g}"
@@ -222,6 +237,12 @@ class DiagnosticPane(ttk.Frame):
                                 f"{100*ratio:.1f}",
                                 classe),
                         tags=(tag,))
+
+        # Bandeau fusion sous le tableau (dernier élément du contenu).
+        if any_ecrete:
+            self._lbl_fusion.pack(anchor="w", fill="x", pady=(0, 10))
+        else:
+            self._lbl_fusion.pack_forget()
 
         # --- Texte de résumé enrichi (agrégé par brin pour une cépée) ---
         if not a:

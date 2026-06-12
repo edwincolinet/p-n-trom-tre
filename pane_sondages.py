@@ -39,9 +39,11 @@ from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
+from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs import edit_sondage, to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from model import Brin, Sondage
+from palette import COLOR_WARN
 from ui_fonts import font as ui_font
 
 _COMPART_VALUES = ["non renseignée", "active", "absente"]
@@ -107,9 +109,10 @@ class SondagesPane(ttk.Frame):
                             justify="center")
             ent.grid(row=r, column=2, sticky="w", padx=6, pady=1)
 
-            ttk.Label(grid, textvariable=var_alt, style="Panel.TLabel",
-                      width=9, anchor="center").grid(
-                row=r, column=3, sticky="w", padx=6, pady=1)
+            lbl_alt = ttk.Label(grid, textvariable=var_alt,
+                                style="Panel.TLabel", width=9,
+                                anchor="center")
+            lbl_alt.grid(row=r, column=3, sticky="w", padx=6, pady=1)
 
             cmb = ttk.Combobox(grid, textvariable=var_comp,
                                values=_COMPART_VALUES, state="disabled",
@@ -117,7 +120,8 @@ class SondagesPane(ttk.Frame):
             cmb.grid(row=r, column=4, sticky="w", padx=6, pady=1)
 
             self._rows[g] = {"sain": var_sain, "alt": var_alt,
-                             "comp": var_comp, "entry": ent, "combo": cmb}
+                             "comp": var_comp, "entry": ent, "combo": cmb,
+                             "alt_lbl": lbl_alt}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -137,13 +141,20 @@ class SondagesPane(ttk.Frame):
             for w in (lbl_dir, lbl_gr):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
 
-        AideRepliable(
+        # Bandeau du garde-fou fusion : créé non packé, montré/caché par
+        # `refresh_fusion_warnings` quand une direction est écrêtée.
+        self._lbl_fusion = ttk.Label(
+            self, text=FUSION_WARN_TEXT, style="Panel.TLabel",
+            foreground=COLOR_WARN, wraplength=420, justify="left")
+
+        self._aide = AideRepliable(
             self,
             "Laissez vide une direction non sondée. Effacer une valeur "
             "supprime le sondage. Double-cliquez la direction pour le "
             "détail (commentaire, redirection).",
             wraplength=420,
-        ).pack(anchor="w", pady=(8, 0))
+        )
+        self._aide.pack(anchor="w", pady=(8, 0))
 
     # --- Navigation ---------------------------------------------------
 
@@ -186,6 +197,40 @@ class SondagesPane(ttk.Frame):
                     row["combo"].configure(state="readonly")
         finally:
             self._suspend = False
+
+    def refresh_fusion_warnings(self) -> None:
+        """Garde-fou non bloquant : suffixe « ⚠ » (ambre) sur la colonne
+        Altéré des directions sondées où altération + dégradation externe
+        dépassent le rayon — la PRBS y est écrêtée à 0 par la fusion des
+        deux zones (cf. `diagnostic.fusion_ecretee_par_grade`).
+
+        Ne touche que des labels en lecture seule (jamais les Entry) :
+        appelable à tout moment, y compris pendant la frappe — câblée sur
+        `App._redraw_all` (debouncé) pour suivre aussi les éditions
+        faites dans l'onglet Dégradations."""
+        b = self._host._current_brin()
+        flags = fusion_ecretee_par_grade(b) if b else [False] * 16
+        any_ecrete = False
+        for i, g in enumerate(GRADES):
+            row = self._rows[g]
+            ecrete = (flags[i] and b is not None
+                      and self._find_sondage(b, g) is not None)
+            any_ecrete = any_ecrete or ecrete
+            # `var_alt` n'a pas de trace (colonne en lecture seule) : on
+            # peut la réécrire sans précaution de réentrance.
+            txt = row["alt"].get().replace(" ⚠", "")
+            if ecrete:
+                txt += " ⚠"
+            row["alt"].set(txt)
+            row["alt_lbl"].configure(
+                foreground=COLOR_WARN if ecrete else "")
+        # Bandeau explicatif sous la grille (le ⚠ seul ne dit pas quoi
+        # corriger). `pack(before=…)` le garde au-dessus de l'aide.
+        if any_ecrete:
+            self._lbl_fusion.pack(anchor="w", pady=(8, 0),
+                                  before=self._aide)
+        else:
+            self._lbl_fusion.pack_forget()
 
     # --- Modèle (helpers) ---------------------------------------------
 

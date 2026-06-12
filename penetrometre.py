@@ -804,6 +804,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # passer de 0 à 2 sondages laisserait la pastille rouge.
         self._refresh_current_arbre_etat()
         self._refresh_tab_progress()
+        # Garde-fou fusion (⚠ non bloquant) : recalculé après toute
+        # mutation car la condition croise les DEUX saisies (altération
+        # des sondages + profondeur des dégradations). Ces méthodes ne
+        # touchent que des labels en lecture seule — sûres pendant la
+        # frappe, contrairement à un refresh() complet des grilles.
+        if self.pane_s is not None:
+            self.pane_s.refresh_fusion_warnings()
+        if self.pane_de is not None:
+            self.pane_de.refresh_fusion_warnings()
 
     def _refresh_tab_progress(self) -> None:
         """Préfixe les onglets de l'étape par un glyphe d'avancement

@@ -42,7 +42,7 @@ from bareme import classer_prbs
 from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy, polar_to_xy
 
 if TYPE_CHECKING:
-    from model import Arbre, Brin, Chantier  # noqa: F401
+    from model import Arbre, Brin, Chantier, DegradationExterne  # noqa: F401
 
     # Une « section » = tout ce qui expose la surface géométrique d'une tige
     # (rayon par direction, sondages, dégradations) : un `Brin` (= ramet,
@@ -251,6 +251,57 @@ def prbs_par_grade(arbre: "Section") -> List[float]:
     alt_int = compute_alteration_par_grade(arbre)
     deg_ext = degradation_externe_par_grade(arbre)
     return [max(0.0, rayons[i] - alt_int[i] - deg_ext[i]) for i in range(16)]
+
+
+def fusion_ecretee_par_grade(arbre: "Section") -> List[bool]:
+    """Pour chaque direction (16 grades), True si la fusion des deux
+    dégradations a écrêté : altération centrale + dégradation externe
+    dépassent le rayon local, donc les deux zones se rejoignent et
+    `prbs_par_grade` ramène la PRBS à 0. Le surplus saisi est
+    physiquement impossible (plus de bois dégradé que de rayon).
+
+    Convention confirmée (protocole Silvavenir) : le sondage mesure la
+    paroi totale en ignorant la dégradation externe (mèche posée à côté
+    de la zone dégradée) ; l'app déduit ensuite la profondeur. L'écrêtage
+    est donc légitime — mais il doit être SIGNALÉ, pas silencieux : sert
+    au garde-fou non bloquant (⚠) des grilles de saisie et de l'onglet
+    Diagnostic. Fonction pure.
+    """
+    if arbre.rayon_tronc_cm <= 0:
+        return [False] * 16
+    rayons = rayon_par_grade(arbre)
+    alt_int = compute_alteration_par_grade(arbre)
+    deg_ext = degradation_externe_par_grade(arbre)
+    return [deg_ext[i] > 0 and alt_int[i] + deg_ext[i] > rayons[i] + 1e-9
+            for i in range(16)]
+
+
+# Message du garde-fou de fusion — partagé par les bandeaux ⚠ des onglets
+# Sondages, Dégradations externes et Diagnostic (même vocabulaire partout).
+FUSION_WARN_TEXT = (
+    "⚠ Altération centrale + dégradation externe dépassent le rayon sur "
+    "au moins une direction : les deux zones dégradées se rejoignent et "
+    "la PRBS y est écrêtée à 0. Vérifiez la profondeur de la dégradation "
+    "ou le bois sain du sondage concerné.")
+
+
+def degradation_ecretee(arbre: "Section",
+                        deg: "DegradationExterne") -> bool:
+    """True si CETTE dégradation, cumulée à l'altération centrale,
+    dépasse le rayon local sur au moins une direction qu'elle couvre.
+
+    Variante par-objet de `fusion_ecretee_par_grade` : le flag par grade
+    agrège le max des profondeurs, ce qui marquerait à tort la voisine
+    peu profonde d'un arc mitoyen profond (les deux couvrent le
+    grade-frontière). Ici on ne teste que la profondeur de `deg`.
+    """
+    if arbre.rayon_tronc_cm <= 0 or deg.profondeur_cm <= 0:
+        return False
+    rayons = rayon_par_grade(arbre)
+    alt_int = compute_alteration_par_grade(arbre)
+    return any(deg.couvre_grade(g)
+               and alt_int[i] + deg.profondeur_cm > rayons[i] + 1e-9
+               for i, g in enumerate(GRADES))
 
 
 def ratio_tR_par_grade(arbre: "Section") -> List[float]:
