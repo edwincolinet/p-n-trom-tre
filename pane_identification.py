@@ -34,6 +34,7 @@ from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import ask_forme_tronc, to_float, validate_numeric
 from model import Arbre, Brin
+from palette import COLOR_PANEL
 from tooltip import Tooltip
 
 _log = logging.getLogger("penetrometre")
@@ -78,6 +79,53 @@ class IdentificationPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
+        # Canvas + scrollbar : le formulaire (4 groupes + aide repliable)
+        # peut dépasser la hauteur de l'onglet une fois l'aide dépliée
+        # (3 paragraphes) — même remède que `pane_diagnostic` pour rester
+        # accessible sans agrandir la fenêtre.
+        id_canvas = tk.Canvas(self, bg=COLOR_PANEL,
+                               highlightthickness=0, bd=0)
+        id_scroll = ttk.Scrollbar(self, orient="vertical",
+                                   command=id_canvas.yview)
+        id_canvas.configure(yscrollcommand=id_scroll.set)
+        id_canvas.pack(side="left", fill="both", expand=True)
+        id_scroll.pack(side="right", fill="y")
+
+        content = ttk.Frame(id_canvas, style="Panel.TFrame")
+        content_window = id_canvas.create_window((0, 0), window=content,
+                                                   anchor="nw")
+
+        def _on_configure_inner(_e: tk.Event) -> None:
+            id_canvas.configure(scrollregion=id_canvas.bbox("all"))
+
+        def _on_configure_outer(event: tk.Event) -> None:
+            id_canvas.itemconfigure(content_window, width=event.width)
+
+        content.bind("<Configure>", _on_configure_inner)
+        id_canvas.bind("<Configure>", _on_configure_outer)
+
+        def _on_mousewheel(event: tk.Event) -> None:
+            id_canvas.yview_scroll(int(-event.delta / 120), "units")
+
+        def _on_mousewheel_linux(event: tk.Event) -> None:
+            id_canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
+
+        def _bind_wheel(_e: tk.Event) -> None:
+            id_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            id_canvas.bind_all("<Button-4>", _on_mousewheel_linux)
+            id_canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+
+        def _unbind_wheel(_e: tk.Event) -> None:
+            id_canvas.unbind_all("<MouseWheel>")
+            id_canvas.unbind_all("<Button-4>")
+            id_canvas.unbind_all("<Button-5>")
+
+        id_canvas.bind("<Enter>", _bind_wheel)
+        id_canvas.bind("<Leave>", _unbind_wheel)
+
+        self._build_content(content)
+
+    def _build_content(self, content: ttk.Frame) -> None:
         # Groupes thématiques (LabelFrame) pour clarifier les unités :
         # un opérateur qui voit « Hauteur (m) » et « Rayon (cm) » côte à
         # côte peut se tromper d'ordre de grandeur. Les regrouper par
@@ -112,7 +160,7 @@ class IdentificationPane(ttk.Frame):
         self._tronc_box: Optional[ttk.LabelFrame] = None
         vcmd = (self.register(validate_numeric), "%P")
         for gi, (group_label, rows) in enumerate(groupes):
-            box = ttk.LabelFrame(self, text=" " + group_label + " ",
+            box = ttk.LabelFrame(content, text=" " + group_label + " ",
                                   padding=(10, 6, 10, 10))
             box.grid(row=gi, column=0, sticky="we", pady=(0, 8))
             box.columnconfigure(1, weight=1)
@@ -192,7 +240,7 @@ class IdentificationPane(ttk.Frame):
         num_w.bind("<FocusOut>", lambda e: self._revert_num_if_invalid())
 
         AideRepliable(
-            self,
+            content,
             "Saisir le diamètre sous écorce calcule le rayon "
             "automatiquement (÷ 2). Le rayon reste modifiable "
             "indépendamment si besoin.",
@@ -206,7 +254,7 @@ class IdentificationPane(ttk.Frame):
             "tronc » est le demi-grand axe et le t/R de chaque direction "
             "est rapporté à son rayon local.",
         ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
-        self.columnconfigure(0, weight=1)
+        content.columnconfigure(0, weight=1)
 
     @contextmanager
     def _suspend_sync_block(self):
