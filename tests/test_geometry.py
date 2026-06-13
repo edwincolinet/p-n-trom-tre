@@ -360,6 +360,47 @@ class DegradationExterneOutlineTests(unittest.TestCase):
         self.assertGreater(len(pts), 0)
         self.assertEqual(len(pts) % 2, 0)
 
+    def test_comprend_ecorce_part_de_la_surface_exterieure(self):
+        # Au grade 0 (Nord), le 1er point externe est à (0, -r_out).
+        # Comprend l'écorce (défaut) → r_out = R + ep (+ recouvrement
+        # anti-couture ~1 px, scale=1 ici). On vérifie qu'il atteint AU
+        # MOINS la surface extérieure R+ep = 22.
+        deg = DegradationExterne(grade_debut=0, grade_fin=100,
+                                  profondeur_cm=2.0)
+        pts = degradation_externe_outline(deg, [], R=20.0, ep_cm=2.0,
+                                            cx=0, cy=0, scale=1)
+        self.assertLessEqual(pts[0][1], -22.0)
+
+    def test_sous_ecorce_part_de_la_surface_du_bois(self):
+        # Commence sous l'écorce → r_out ≈ R (surface du bois, + léger
+        # recouvrement anti-couture) ; SANS l'épaisseur d'écorce, donc le
+        # bord externe reste en deçà de R+ep = 22.
+        deg = DegradationExterne(grade_debut=0, grade_fin=100,
+                                  profondeur_cm=2.0, comprend_ecorce=False)
+        pts = degradation_externe_outline(deg, [], R=20.0, ep_cm=2.0,
+                                            cx=0, cy=0, scale=1)
+        self.assertLessEqual(pts[0][1], -20.0)   # atteint au moins R
+        self.assertGreater(pts[0][1], -22.0)     # mais pas l'écorce (R+ep)
+
+    def test_suit_les_contreforts_dans_les_deux_modes(self):
+        # La dégradation suit la saillie du contrefort (bell) que l'écorce
+        # soit comprise ou non : le bord externe est plus loin du centre
+        # avec contrefort que sans.
+        from model import Contrefort
+        cf = [Contrefort(grade_centre=0, largeur_grades=50, longueur_cm=5.0)]
+        for comprend in (True, False):
+            deg = DegradationExterne(grade_debut=0, grade_fin=50,
+                                      profondeur_cm=2.0,
+                                      comprend_ecorce=comprend)
+            sans = degradation_externe_outline(deg, [], R=20.0, ep_cm=1.0,
+                                                cx=0, cy=0, scale=1)
+            avec = degradation_externe_outline(deg, cf, R=20.0, ep_cm=1.0,
+                                                cx=0, cy=0, scale=1)
+            with self.subTest(comprend=comprend):
+                # Point externe au Nord (grade 0) : plus négatif (plus loin)
+                # avec le contrefort.
+                self.assertLess(avec[0][1], sans[0][1])
+
 
 class TickEndpointsTests(unittest.TestCase):
 

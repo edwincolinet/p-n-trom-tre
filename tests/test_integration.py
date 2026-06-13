@@ -139,6 +139,21 @@ class MutationIntegrationTests(unittest.TestCase):
         idx_100 = 4  # grade 100 = index 4
         self.assertLess(ratios_avec_deg[idx_100], ratios_sans_deg[idx_100])
 
+    def test_ecorce_protege_la_prbs_de_la_degradation(self):
+        """Une dégradation qui comprend l'écorce ne consomme du bois
+        qu'au-delà de l'épaisseur d'écorce (l'écorce n'est pas du bois sain)."""
+        from diagnostic import degradation_externe_par_grade
+        arbre = Arbre(rayon_tronc_cm=20.0, epaisseur_ecorce_cm=1.5)
+        arbre.degradations_externes.append(
+            DegradationExterne(grade_debut=75, grade_fin=125,
+                               profondeur_cm=2.0))
+        # 2 cm depuis l'écorce, 1.5 cm d'écorce → 0.5 cm de bois perdu.
+        deg_grade = degradation_externe_par_grade(arbre)
+        self.assertAlmostEqual(deg_grade[4], 0.5)  # grade 100 = index 4
+        # Commence sous l'écorce → 2 cm comptés intégralement.
+        arbre.degradations_externes[0].comprend_ecorce = False
+        self.assertAlmostEqual(degradation_externe_par_grade(arbre)[4], 2.0)
+
     def test_set_rayon_borne_degradation(self):
         """set_rayon borne la profondeur des dégradations au nouveau rayon."""
         arbre = Arbre(rayon_tronc_cm=20.0)

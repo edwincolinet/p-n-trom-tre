@@ -96,6 +96,19 @@ class DegradationExterne:
     grade_fin: int = 25        # 0 à 375 gr (inclus), sens horaire
     profondeur_cm: float = 1.0 # épaisseur radiale depuis l'écorce
     commentaire: str = ""
+    # Géométrie de la dégradation vis-à-vis de l'écorce. L'écorce n'est
+    # JAMAIS du bois sain (le rayon est déjà sous écorce) — ce drapeau ne
+    # règle PAS cela ; il décrit d'où part la dégradation :
+    #   True  (défaut) = « comprend l'écorce » : la zone dégradée part de la
+    #     surface extérieure (écorce visuellement dégradée). La part de
+    #     profondeur dans la bande d'écorce ne consomme pas de bois →
+    #     bois perdu = max(0, profondeur − épaisseur_écorce).
+    #   False = « commence sous l'écorce » : l'écorce reste intacte, la
+    #     dégradation part de la surface du bois → toute la profondeur est
+    #     du bois perdu.
+    # Pilote à la fois `profondeur_bois_cm` (diagnostic) et le rayon de
+    # départ du dessin (`geometry.degradation_externe_outline`).
+    comprend_ecorce: bool = True
 
     def __post_init__(self) -> None:
         if self.grade_debut not in GRADES:
@@ -105,6 +118,19 @@ class DegradationExterne:
             raise ValueError(
                 f"grade_fin={self.grade_fin} invalide (multiple de 25, 0–375)")
         self.profondeur_cm = max(0.0, float(self.profondeur_cm))
+        self.comprend_ecorce = bool(self.comprend_ecorce)
+
+    def profondeur_bois_cm(self, epaisseur_ecorce_cm: float = 0.0) -> float:
+        """Profondeur qui consomme effectivement du **bois sain** (cm).
+
+        Si `comprend_ecorce`, la profondeur est radiale depuis la surface
+        extérieure : la bande d'écorce traversée ne réduit pas la PRBS
+        (l'écorce n'est pas du bois) → on déduit son épaisseur. Sinon, la
+        dégradation part de la surface du bois et toute la profondeur compte.
+        Fonction pure (utilisée par le diagnostic)."""
+        if self.comprend_ecorce:
+            return max(0.0, self.profondeur_cm - max(0.0, epaisseur_ecorce_cm))
+        return self.profondeur_cm
 
     def largeur_grades(self) -> int:
         """Étendue angulaire en grades (sens horaire), de 25 à 400."""
@@ -340,8 +366,13 @@ class Brin:
             s.bois_sain_cm = min(s.bois_sain_cm, r_loc)
             s.bois_altere_cm = max(0.0, r_loc - s.bois_sain_cm)
         for deg in self.degradations_externes:
-            deg.profondeur_cm = min(deg.profondeur_cm,
-                                    self.rayon_a_grade(deg.grade_debut))
+            # Borne de sécurité : une dégradation qui comprend l'écorce part
+            # de la surface extérieure (rayon du bois + écorce) ; sinon elle
+            # part de la surface du bois (rayon seul).
+            r_max = self.rayon_a_grade(deg.grade_debut)
+            if deg.comprend_ecorce:
+                r_max += max(0.0, self.epaisseur_ecorce_cm)
+            deg.profondeur_cm = min(deg.profondeur_cm, r_max)
 
     def set_forme_ovale(self, petit_axe_cm: float,
                         orientation_grade: int) -> bool:

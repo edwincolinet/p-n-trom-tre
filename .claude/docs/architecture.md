@@ -37,7 +37,9 @@ Helper interne `_radius_at(R, grade)`.
   — dict `{wood_outer, base, bark_outer?, bark_inner?}`. `R` (et `R_inner`) =
   `RadiusSpec`.
 - `degradation_externe_outline(deg, contreforts, R, ep_cm, cx, cy, scale, rotation_grades=0.0)`
-  — `R` = `RadiusSpec`.
+  — `R` = `RadiusSpec`. Suit toujours la cloche des contreforts ; départ
+  `R+bell+ep` (deg comprend l'écorce, `deg.comprend_ecorce` défaut True) ou
+  `R+bell` (sous l'écorce), + recouvrement anti-couture `_BARK_SEAM_PX`.
 
 **`rotation_grades` (cépée)** : commun aux 4 helpers ci-dessus (+
 `diagnostic.sondage_render_data`). Décale l'**angle de placement** des points
@@ -74,7 +76,9 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
 « Genet / brin » et la mémoire `project_cepees-formes`.
 
 - `Sondage` — `.prbs_cm` (alias), `.ratio_tR_brut(R)` (CSV uniquement).
-- `DegradationExterne` — `.largeur_grades()`, `.couvre_grade(grade)`.
+- `DegradationExterne` — `.largeur_grades()`, `.couvre_grade(grade)`,
+  `.profondeur_bois_cm(ep)` (profondeur consommant du bois ; déduit l'écorce si
+  `comprend_ecorce`), champ `comprend_ecorce: bool = True`.
 - `Contrefort` — `.grade_debut()`, `.grade_fin()`, `.largeur_cm(R)`.
 - `Brin` (= ramet) — porte la **géométrie et les mesures propres à la tige** :
   `rayon_tronc_cm` (= demi-grand-axe si ovale), `rayon_petit_axe_cm`
@@ -115,7 +119,8 @@ genet-level étant passé explicitement quand il intervient.
 
 - `compute_alteration_par_grade(section)` — extrapolation pondérée linéaire
   (lit `bois_altere_cm`, **indépendant du rayon**).
-- `degradation_externe_par_grade(section)` — profondeur max par direction.
+- `degradation_externe_par_grade(section)` — profondeur **consommant du bois**
+  max par direction (déduit l'écorce des dégradations qui la comprennent).
 - `rayon_par_grade(section)` — 16 rayons extérieurs (constant = `rayon_tronc_cm`
   si circulaire, ellipse sinon via `section.rayon_a_grade`).
 - `prbs_par_grade(section)`, `ratio_tR_par_grade(section)` — composent les

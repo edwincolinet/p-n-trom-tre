@@ -34,8 +34,11 @@ indépendamment (hinting, épaisseurs de trait, semantics outline+width).
 3. cavité d'altération (spline interne)
 4. anneau d'écorce
 5. contreforts fusionnés (une cloche par zone connectée)
-6. **dégradations externes en DERNIER** — bord externe suit la surface
-   (`R + ep + cloche`), mord dans écorce et contreforts
+6. **dégradations externes en DERNIER** — bord externe suit **toujours** la
+   cloche des contreforts (`+ bell`) ; rayon de départ `R + bell + ep` si la
+   dégradation comprend l'écorce (`comprend_ecorce`, défaut), `R + bell` si
+   elle commence sous l'écorce (écorce intacte). Léger recouvrement vers
+   l'extérieur (`_BARK_SEAM_PX`) pour souder la couture (cf. piège ci-dessous)
 
 ## Pièges connus
 
@@ -43,6 +46,16 @@ indépendamment (hinting, épaisseurs de trait, semantics outline+width).
 La géométrie partagée (`geometry.py`) empêche la divergence des formes.
 Restent à synchroniser à la main : palette/typographie, API de dessin,
 écorce/anneau, et tout ce qui est spécifique renderer.
+
+### Couture d'anti-aliasing entre remplissages jointifs
+Deux polygones/formes qui se touchent au **même rayon** (ici dégradation
+externe vs anneau d'écorce) laissent un liseré d'~1 px de fond visible entre
+eux, en Tk **comme** en PIL (mesuré : la dégradation s'arrêtait 1 px avant le
+bord de l'écorce). Parade : prolonger le bord partagé d'un léger recouvrement
+vers l'extérieur (`geometry._BARK_SEAM_PX`, en px → converti en cm via
+`scale`). Le recouvrement ne déborde **que** vers l'extérieur — il ne change
+ni la profondeur creusée ni le diagnostic. Vaut pour toute future forme
+abutée à une autre.
 
 ### Positions hors-tronc
 Lettres cardinales, pastilles de sondage, tirets de l'échelle radiale :

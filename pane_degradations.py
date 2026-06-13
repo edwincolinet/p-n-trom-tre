@@ -127,7 +127,7 @@ class DegradationsPane(ttk.Frame):
             return
 
         heads = ["N°", "Début", "Fin", "Largeur", "Profondeur (cm)",
-                 "Commentaire", ""]
+                 "Écorce", "Commentaire", ""]
         for c, h in enumerate(heads):
             ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(
@@ -136,7 +136,7 @@ class DegradationsPane(ttk.Frame):
         vcmd = (self.register(validate_numeric), "%P")
         for r, deg in enumerate(b.degradations_externes, start=1):
             self._build_row(r, deg, vcmd)
-        self._rows_frame.columnconfigure(5, weight=1)
+        self._rows_frame.columnconfigure(6, weight=1)
         self.refresh_fusion_warnings()
 
     def refresh_fusion_warnings(self) -> None:
@@ -177,9 +177,11 @@ class DegradationsPane(ttk.Frame):
             value=find_grade_choice(self._grade_choices, deg.grade_fin))
         var_larg = tk.StringVar()
         var_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
+        var_ecorce = tk.BooleanVar(value=deg.comprend_ecorce)
         var_com = tk.StringVar(value=deg.commentaire)
         row: Dict[str, Any] = {"deb": var_deb, "fin": var_fin,
                                "larg": var_larg, "prof": var_prof,
+                               "ecorce": var_ecorce,
                                "com": var_com, "warn": tk.StringVar(),
                                "deg": deg}
         # Référence gardée dans l'ordre des lignes : les callbacks
@@ -216,8 +218,22 @@ class DegradationsPane(ttk.Frame):
         var_prof.trace_add(
             "write", lambda *a: self._on_prof_write(deg, row))
 
+        # Case « Écorce » : cochée = la dégradation comprend l'écorce (part
+        # de la surface extérieure ; l'écorce dégradée ne compte pas comme
+        # bois perdu → déduite). Décochée = commence sous l'écorce (écorce
+        # intacte, toute la profondeur est du bois). Cochée par défaut.
+        chk_ec = ttk.Checkbutton(
+            f, variable=var_ecorce, style="Panel.TCheckbutton",
+            command=lambda: self._on_ecorce_toggle(deg, row))
+        chk_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
+        Tooltip(chk_ec,
+                "Cochée : la dégradation comprend l'écorce — elle part de la "
+                "surface extérieure et l'écorce dégradée est déduite (elle "
+                "n'est pas du bois sain).\nDécochée : elle commence sous "
+                "l'écorce — écorce intacte, toute la profondeur est du bois.")
+
         ent_com = ttk.Entry(f, textvariable=var_com, width=18)
-        ent_com.grid(row=r, column=5, sticky="we", padx=6, pady=1)
+        ent_com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
         var_com.trace_add(
             "write", lambda *a: self._on_com_write(deg, row))
 
@@ -230,7 +246,7 @@ class DegradationsPane(ttk.Frame):
 
         ttk.Button(f, text="✕", style="Ghost.TButton", width=2,
                    command=lambda: self._on_del(deg)
-                   ).grid(row=r, column=6, sticky="w", padx=(6, 0), pady=1)
+                   ).grid(row=r, column=7, sticky="w", padx=(6, 0), pady=1)
 
         # Garde-fou fusion : « ⚠ » quand cette dégradation, cumulée à
         # l'altération centrale, dépasse le rayon sur une direction
@@ -240,7 +256,7 @@ class DegradationsPane(ttk.Frame):
                              style="Panel.TLabel", width=2,
                              foreground=COLOR_WARN,
                              font=ui_font("Helvetica", 10, "bold"))
-        lbl_warn.grid(row=r, column=7, sticky="w", pady=1)
+        lbl_warn.grid(row=r, column=8, sticky="w", pady=1)
         Tooltip(lbl_warn,
                 "Profondeur + altération centrale > rayon sur au moins "
                 "une direction couverte : les deux zones dégradées se "
@@ -321,6 +337,23 @@ class DegradationsPane(ttk.Frame):
             # à la grille de sondages où vider la case supprime.
             return
         deg.profondeur_cm = max(0.0, prof)
+        self._host.on_section_changed()
+
+    def _on_ecorce_toggle(self, deg: DegradationExterne,
+                          row: Dict[str, Any]) -> None:
+        """Bascule « la dégradation comprend l'écorce » (mutation discrète
+        → undo immédiat, comme le début/fin de l'arc). Change aussi le
+        dessin (rayon de départ de la zone dégradée)."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        new_val = bool(row["ecorce"].get())
+        if new_val == deg.comprend_ecorce:
+            return
+        self._host.push_undo()
+        deg.comprend_ecorce = new_val
         self._host.on_section_changed()
 
     def _on_com_write(self, deg: DegradationExterne,

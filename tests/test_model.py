@@ -121,6 +121,22 @@ class DegradationExterneTests(unittest.TestCase):
         self.assertAlmostEqual(deg.largeur_cm(20.0), 20.0 * 3.141592653589793 / 2)
         self.assertEqual(deg.largeur_cm(0.0), 0.0)
 
+    def test_profondeur_bois_deduit_ecorce_par_defaut(self):
+        # Mesurée depuis l'écorce (défaut) : la part dans l'écorce ne
+        # consomme pas de bois sain.
+        deg = DegradationExterne(profondeur_cm=2.0)
+        self.assertTrue(deg.comprend_ecorce)
+        self.assertAlmostEqual(deg.profondeur_bois_cm(1.5), 0.5)
+        # Profondeur entièrement dans l'écorce → aucun bois perdu.
+        self.assertEqual(deg.profondeur_bois_cm(3.0), 0.0)
+        # Sans écorce → profondeur brute.
+        self.assertEqual(deg.profondeur_bois_cm(0.0), 2.0)
+
+    def test_profondeur_bois_plein_bois_ignore_ecorce(self):
+        # Décochée : toute la profondeur compte (ancien comportement).
+        deg = DegradationExterne(profondeur_cm=2.0, comprend_ecorce=False)
+        self.assertEqual(deg.profondeur_bois_cm(1.5), 2.0)
+
 
 class DegradationsChevauchementsTests(unittest.TestCase):
     """Helper pur de non-chevauchement, partagé entre le dialogue

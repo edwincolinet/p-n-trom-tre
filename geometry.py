@@ -40,6 +40,12 @@ def _radius_at(R: "RadiusSpec", grade: float) -> float:
     """Résout un `RadiusSpec` à une direction donnée (scalaire ou fonction)."""
     return R(grade) if callable(R) else R
 
+
+# Recouvrement (en px) du bord externe d'une dégradation qui comprend
+# l'écorce, pour souder la couture d'anti-aliasing avec le bord de l'écorce
+# (deux remplissages jointifs laissent sinon ~1 px de fond visible).
+_BARK_SEAM_PX = 1.0
+
 # ----------------------------------------------------------------------
 # Constantes métier des 16 directions
 # ----------------------------------------------------------------------
@@ -365,27 +371,48 @@ def degradation_externe_outline(deg: Any,
                                 rotation_grades: float = 0.0
                                 ) -> List[Tuple[float, float]]:
     """Renvoie le polygone d'une dégradation externe : bord externe
-    qui suit la surface réelle (`R + ep + bell_max(g)`) puis bord
-    interne en sens inverse (à `outer - profondeur`).
+    puis bord interne en sens inverse (à `outer - profondeur`).
+
+    La dégradation suit **toujours** la saillie des contreforts (cloche
+    `bell_max(g)`, qui fait gonfler la surface du bois). Le drapeau
+    `comprend_ecorce` (défaut True) décide seulement du départ radial :
+    - comprend l'écorce → part de la surface extérieure `R + bell + ep`
+      (l'écorce est visuellement dégradée) ;
+    - commence sous l'écorce → part de la surface du bois `R + bell`
+      (écorce laissée intacte).
+
+    Dans les **deux** cas, le bord externe est prolongé d'un léger
+    recouvrement (`_BARK_SEAM_PX`) vers l'extérieur : deux remplissages
+    jointifs (dégradation / écorce, ou dégradation / bord de l'écorce)
+    laissent sinon une couture d'~1 px d'anti-aliasing (un liseré de bois
+    ou de fond visible entre les deux). Le recouvrement ne déborde que
+    vers l'extérieur — il ne change pas la profondeur creusée.
 
     `deg` est typé `Any` (duck-typing) : on lit `grade_debut`,
-    `profondeur_cm` et la méthode `largeur_grades()`. La dataclass
-    `DegradationExterne` vit dans penetrometre.py.
+    `profondeur_cm`, `comprend_ecorce` et la méthode `largeur_grades()`.
 
     Renvoie une liste vide si la dégradation est dégénérée (profondeur
     nulle ou rayon nul).
     """
     if deg.profondeur_cm <= 0 or _radius_at(R, deg.grade_debut) <= 0:
         return []
+    comprend_ecorce = getattr(deg, "comprend_ecorce", True)
+    # Recouvrement anti-couture, exprimé en cm (constant ~1 px à l'écran).
+    seam_cm = (_BARK_SEAM_PX / scale) if scale > 0 else 0.0
     largeur = deg.largeur_grades()
     n_steps = max(16, int(largeur) + 1)
     outer_pts: List[Tuple[float, float]] = []
     inner_pts: List[Tuple[float, float]] = []
     for k in range(n_steps + 1):
         g = (deg.grade_debut + k * largeur / n_steps) % 400
-        bell = bell_max_at_grade(g, contreforts)
-        r_out = _radius_at(R, g) + ep_cm + bell
-        r_in = max(0.0, r_out - deg.profondeur_cm)
+        # Surface du bois (suit la saillie des contreforts), puis écorce.
+        r_surface = _radius_at(R, g) + bell_max_at_grade(g, contreforts)
+        if comprend_ecorce:
+            r_surface += ep_cm
+        # Profondeur creusée depuis la surface réelle ; le recouvrement ne
+        # déborde que vers l'extérieur (ne change pas la profondeur creusée).
+        r_in = max(0.0, r_surface - deg.profondeur_cm)
+        r_out = r_surface + seam_cm
         outer_pts.append(polar_to_xy(cx, cy, scale, r_out, g + rotation_grades))
         inner_pts.append(polar_to_xy(cx, cy, scale, r_in, g + rotation_grades))
     return outer_pts + list(reversed(inner_pts))

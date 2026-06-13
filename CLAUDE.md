@@ -41,7 +41,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 313 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← 319 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
 **`App` = orchestration + 3 mixins + 1 helper.** C'est un
@@ -162,7 +162,30 @@ penetrometre.py  (Tk + main) ← undo.py
   avancé** `dialogs.ask_forme_tronc` (bouton « Forme du tronc… » de l'onglet
   Identification), pas en ligne, pour ne pas alourdir le cas circulaire courant.
 - **Diagnostic non fiable si < 3 sondages** → exports masquent t/R moyen + classe.
-- **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain − profondeur_deg`.
+- **Dégradations externes** consomment du bois sain : `PRBS_ajustée = sain −
+  profondeur_bois_deg`. **L'écorce n'est jamais du bois sain** (le rayon est
+  déjà sous écorce) — invariant. Le champ `DegradationExterne.comprend_ecorce:
+  bool = True` décrit la **géométrie** de la dégradation (case « Écorce » de la
+  grille / du dialogue `edit_degradation`, cochée par défaut) :
+  - **comprend l'écorce** (défaut) : la zone dégradée part de la **surface
+    extérieure** (écorce visuellement dégradée). La bande d'écorce traversée
+    ne réduit pas la PRBS → `profondeur_bois = max(0, profondeur −
+    épaisseur_écorce)`.
+  - **commence sous l'écorce** : l'écorce reste **intacte** au dessin, la
+    dégradation part de la **surface du bois** → toute la profondeur est du
+    bois perdu.
+  Pilote à la fois le **calcul** (helper pur
+  `DegradationExterne.profondeur_bois_cm(ep)`, utilisé par
+  `diagnostic.degradation_externe_par_grade`/`degradation_ecretee`) **et le
+  rendu** (`geometry.degradation_externe_outline`). **Rendu** : la dégradation
+  suit **toujours** la saillie des contreforts (cloche `bell_max(g)`, le bois
+  gonfle), dans les deux modes ; le rayon de départ est `R + bell + ep` si elle
+  comprend l'écorce, `R + bell` sinon. Le bord externe est prolongé d'un léger
+  **recouvrement anti-couture** (`geometry._BARK_SEAM_PX`, ~1 px, dans les deux
+  modes) : deux remplissages jointifs (dégradation / écorce ou / bord
+  d'écorce) laissent sinon un liseré d'anti-aliasing (bois ou fond) visible
+  entre eux. Cas par défaut (True) ⟹ dessin **inchangé** → goldens intacts.
+  Fichiers antérieurs corrigés rétroactivement (défaut True au load).
   **Convention confirmée (protocole terrain)** : le sondage mesure la paroi
   **totale** en ignorant la dégradation externe (mèche posée à côté de la
   zone dégradée) — l'app déduit ensuite la profondeur. **Fusion** : les deux
@@ -179,7 +202,10 @@ penetrometre.py  (Tk + main) ← undo.py
   (labels en lecture seule uniquement → sûr pendant la frappe).
 - **Pastille sondage = PRBS ajustée** (jamais brute).
 - **Contreforts** = cloche cosinus², fusion si adjacents (`contrefort_zones`).
-- **Écorce** = purement visuel (n'intervient pas dans diagnostic). R_ext = R + ep.
+- **Écorce** = visuelle pour le rayon (R_ext = R + ep, le bois sain reste
+  mesuré sous écorce). **Seule incidence sur le diagnostic** : son épaisseur est
+  déduite de la profondeur des dégradations externes qui **comprennent l'écorce**
+  (cf. ci-dessus) — l'écorce abîmée ne compte pas comme bois sain perdu.
 - **COLOR_BARK ≠ COLOR_ROT** : ne jamais unifier (contraste dégradation/écorce).
 - **Unicité** : un seul sondage par direction, pas de dégradations qui se
   chevauchent (arcs mitoyens bout-à-bout autorisés), un seul contrefort par
@@ -232,7 +258,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 313 tests
+python -m unittest discover tests           # 319 tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \

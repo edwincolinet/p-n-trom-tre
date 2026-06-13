@@ -103,6 +103,11 @@ def apply_ttk_styles(root: tk.Misc) -> None:
           background=[("active", COLOR_ACCENT_SOFT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
                 foreground=COLOR_INK, padding=3)
+    # Cases à cocher posées sur un fond panneau (dialogues) : sans ça le
+    # libellé hériterait du fond COLOR_BG et trancherait sur le panneau.
+    s.configure("Panel.TCheckbutton", background=COLOR_PANEL,
+                foreground=COLOR_INK)
+    s.map("Panel.TCheckbutton", background=[("active", COLOR_PANEL)])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=_f("Helvetica", 10, "bold"),

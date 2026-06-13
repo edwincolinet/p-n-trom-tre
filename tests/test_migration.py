@@ -169,6 +169,7 @@ class RoundTripTests(unittest.TestCase):
         a.degradations_externes.append(
             DegradationExterne(numero=1, grade_debut=50, grade_fin=100,
                                 profondeur_cm=2.0,
+                                comprend_ecorce=False,
                                 commentaire="cicatrice"))
         a.contreforts.append(
             Contrefort(numero=1, grade_centre=200,
@@ -200,6 +201,8 @@ class RoundTripTests(unittest.TestCase):
         self.assertEqual(a2.degradations_externes[0].grade_debut, 50)
         self.assertAlmostEqual(
             a2.degradations_externes[0].profondeur_cm, 2.0)
+        self.assertFalse(
+            a2.degradations_externes[0].comprend_ecorce)
 
         self.assertEqual(len(a2.contreforts), 1)
         self.assertEqual(a2.contreforts[0].grade_centre, 200)
@@ -279,6 +282,9 @@ class RoundTripTests(unittest.TestCase):
         self.assertEqual(len(a.sondages), 1)
         self.assertEqual(len(a.degradations_externes), 1)
         self.assertEqual(len(a.contreforts), 1)
+        # Fichier antérieur (sans le champ) → défaut True : la déduction de
+        # l'écorce s'applique rétroactivement (correction appliquée à tous).
+        self.assertTrue(a.degradations_externes[0].comprend_ecorce)
 
 
 class AtomicSaveTests(unittest.TestCase):
