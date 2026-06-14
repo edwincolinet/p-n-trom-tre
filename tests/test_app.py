@@ -197,6 +197,20 @@ class TestSettingsStore(unittest.TestCase):
         self.path.write_text('{"ui_scale": "grand"}', encoding="utf-8")
         self.assertEqual(SettingsStore(self.path).ui_scale, UI_SCALE_DEFAULT)
 
+    def test_sash_defaut_vide(self) -> None:
+        self.assertEqual(SettingsStore(self.path).get_sash_positions(), [])
+
+    def test_sash_persiste_et_recharge(self) -> None:
+        SettingsStore(self.path).set_sash_positions([240, 700])
+        self.assertEqual(
+            SettingsStore(self.path).get_sash_positions(), [240, 700])
+
+    def test_sash_corrompu_retombe_vide(self) -> None:
+        self.path.write_text('{"sash_positions": "nope"}', encoding="utf-8")
+        self.assertEqual(SettingsStore(self.path).get_sash_positions(), [])
+        self.path.write_text('{"sash_positions": [1, "x"]}', encoding="utf-8")
+        self.assertEqual(SettingsStore(self.path).get_sash_positions(), [])
+
 
 # ========================================================================
 # ui_fonts — échelle des polices, pur

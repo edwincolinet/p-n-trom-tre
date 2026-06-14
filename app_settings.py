@@ -52,6 +52,26 @@ class SettingsStore:
         self._data["ui_scale"] = max(UI_SCALE_MIN, min(UI_SCALE_MAX, value))
         self._save()
 
+    def get_sash_positions(self) -> list[int]:
+        """Positions X (px) des poignées de la disposition 3 colonnes,
+        ou `[]` si jamais réglées / valeur corrompue. Tolérant."""
+        raw = self._data.get("sash_positions", [])
+        if not isinstance(raw, list):
+            return []
+        out: list[int] = []
+        for v in raw:
+            try:
+                out.append(int(v))
+            except (TypeError, ValueError):
+                return []
+        return out
+
+    def set_sash_positions(self, positions: list[int]) -> None:
+        """Persiste les positions des poignées (réglage souris de la
+        répartition liste / saisie / dessin)."""
+        self._data["sash_positions"] = [int(p) for p in positions]
+        self._save()
+
     def _load(self) -> dict[str, object]:
         try:
             if self._path.exists():

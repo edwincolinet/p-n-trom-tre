@@ -290,19 +290,25 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # remplit l'espace restant au-dessus.
         self._build_statusbar()
 
-        body = ttk.Frame(self)
+        # 3 colonnes redimensionnables à la souris (poignées) : l'opérateur
+        # réalloue l'espace selon la tâche — élargir le tableau de saisie au
+        # détriment du dessin, ou réduire la liste/le dessin sur un petit
+        # écran. `tk.PanedWindow` (classique) car il gère un `minsize` par
+        # panneau ; le dessin (`SectionCanvas`) se redessine sur <Configure>.
+        # Positions de sash restaurées/persistées via SettingsStore.
+        body = tk.PanedWindow(self, orient="horizontal", bg=COLOR_BG,
+                              sashwidth=8, sashrelief="flat", bd=0,
+                              opaqueresize=True)
         body.pack(fill="both", expand=True, padx=18, pady=(0, 14))
-        body.columnconfigure(0, weight=0, minsize=230)
-        body.columnconfigure(1, weight=0, minsize=440)
-        body.columnconfigure(2, weight=1, minsize=500)
-        body.rowconfigure(0, weight=1)
+        self._paned = body
         self._build_left(body)
         self._build_center(body)
         self._build_right(body)
+        self._restore_sash_positions()
 
-    def _build_left(self, parent: ttk.Frame) -> None:
+    def _build_left(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
-        frame.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        parent.add(frame, minsize=190, width=240, stretch="never")
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
@@ -415,9 +421,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                    command=self.action_del_arbre
                    ).pack(side="left", padx=(6, 0))
 
-    def _build_center(self, parent: ttk.Frame) -> None:
+    def _build_center(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)
-        frame.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
+        parent.add(frame, minsize=400, width=470, stretch="never")
         # Sélecteur de brin (cépée) : barre de boutons « Brin a / b / c »
         # au-dessus des onglets, qui repointe la saisie (Identification
         # géométrie / Sondages / Dégradations / Contreforts) sur le brin
@@ -464,9 +470,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self.pane_diag = DiagnosticPane(nb, host=self)
         nb.add(self.pane_diag, text="Diagnostic")
 
-    def _build_right(self, parent: ttk.Frame) -> None:
+    def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
-        frame.grid(row=0, column=2, sticky="nsew")
+        parent.add(frame, minsize=360, stretch="always")
         self.section = SectionCanvas(frame, host=self,
                                       width=550, height=550)
         self.section.pack(fill="both", expand=True)
@@ -491,6 +497,36 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             "direction libre pour ajouter un sondage.",
             wraplength=440,
         ).pack(anchor="w", pady=(2, 0))
+
+    # --- Poignées de disposition (PanedWindow) -------------------------
+
+    def _restore_sash_positions(self) -> None:
+        """Restaure les positions de poignées persistées et branche leur
+        sauvegarde après chaque glisser. Les positions ne s'appliquent
+        qu'une fois la PanedWindow dimensionnée (sinon `sash_place` lève
+        une TclError) → différé via `after`."""
+        positions = self._settings.get_sash_positions()
+        if positions:
+            self.after(150, lambda: self._apply_sash_positions(positions))
+        self._paned.bind("<ButtonRelease-1>",
+                         lambda e: self._save_sash_positions())
+
+    def _apply_sash_positions(self, positions: list[int]) -> None:
+        try:
+            for i, x in enumerate(positions):
+                self._paned.sash_place(i, x, 1)
+        except tk.TclError:
+            pass
+
+    def _save_sash_positions(self) -> None:
+        """Mémorise les positions des poignées (réglage souris persistant
+        de la répartition liste / saisie / dessin)."""
+        try:
+            n_sashes = len(self._paned.panes()) - 1
+            coords = [self._paned.sash_coord(i)[0] for i in range(n_sashes)]
+        except tk.TclError:
+            return
+        self._settings.set_sash_positions(coords)
 
     def _build_statusbar(self) -> None:
         """Barre d'état en bas de fenêtre : message + boutons d'ouverture
