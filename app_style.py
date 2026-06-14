@@ -34,7 +34,7 @@ from ui_fonts import font as _f
 from ui_fonts import get_ui_scale
 
 
-def apply_ttk_styles(root: tk.Misc) -> None:
+def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     """Configure le thème ttk pour `root` (typiquement la fenêtre App).
 
     Force le thème `clam` (look uniforme cross-OS, vs. natif Windows
@@ -45,32 +45,41 @@ def apply_ttk_styles(root: tk.Misc) -> None:
     (TLabel + Title/Sub/H/Muted/Panel/Side), boutons (TButton +
     Accent/Ghost), saisie (TEntry), onglets (TNotebook + Tab) et
     arborescences (Treeview + Side.Treeview).
+
+    `high_contrast` (accessibilité — laptops de terrain en plein soleil) :
+    passe le texte courant en **noir pur** et le texte « atténué »
+    (Muted/Sub, onglets inactifs) à un gris **bien plus sombre**, sans
+    toucher les accents verts ni les fonds (le dessin n'est pas concerné —
+    il est golden-testé). Identité au défaut (`False`) → aucun changement.
     """
+    # Texte principal / atténué : assombris en mode contraste élevé.
+    ink = "#000000" if high_contrast else COLOR_INK
+    muted = "#2C3631" if high_contrast else COLOR_MUTED
     s = ttk.Style(root)
     try:
         s.theme_use("clam")
     except tk.TclError:
         pass
-    s.configure(".", background=COLOR_BG, foreground=COLOR_INK,
+    s.configure(".", background=COLOR_BG, foreground=ink,
                 font=_f("Helvetica", 10))
     s.configure("TFrame", background=COLOR_BG)
     s.configure("Panel.TFrame", background=COLOR_PANEL)
     s.configure("Side.TFrame", background=COLOR_SIDE_PANEL)
-    s.configure("TLabel", background=COLOR_BG, foreground=COLOR_INK)
+    s.configure("TLabel", background=COLOR_BG, foreground=ink)
     s.configure("Panel.TLabel", background=COLOR_PANEL,
-                foreground=COLOR_INK)
+                foreground=ink)
     s.configure("Side.TLabel", background=COLOR_SIDE_PANEL,
-                foreground=COLOR_INK)
+                foreground=ink)
     s.configure("Title.TLabel", background=COLOR_BG,
                 foreground=COLOR_ACCENT,
                 font=_f("Georgia", 18, "bold"))
-    s.configure("Sub.TLabel", background=COLOR_BG, foreground=COLOR_MUTED,
+    s.configure("Sub.TLabel", background=COLOR_BG, foreground=muted,
                 font=_f("Helvetica", 10, "italic"))
     s.configure("H.TLabel", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT,
                 font=_f("Georgia", 12, "bold"))
     s.configure("Muted.TLabel", background=COLOR_PANEL,
-                foreground=COLOR_MUTED,
+                foreground=muted,
                 font=_f("Helvetica", 9))
     s.configure("TButton", padding=6)
     s.configure("Accent.TButton", background=COLOR_ACCENT,
@@ -102,28 +111,28 @@ def apply_ttk_styles(root: tk.Misc) -> None:
     s.map("Ghost.TMenubutton",
           background=[("active", COLOR_ACCENT_SOFT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
-                foreground=COLOR_INK, padding=3)
+                foreground=ink, padding=3)
     # Cases à cocher posées sur un fond panneau (dialogues) : sans ça le
     # libellé hériterait du fond COLOR_BG et trancherait sur le panneau.
     s.configure("Panel.TCheckbutton", background=COLOR_PANEL,
-                foreground=COLOR_INK)
+                foreground=ink)
     s.map("Panel.TCheckbutton", background=[("active", COLOR_PANEL)])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=_f("Helvetica", 10, "bold"),
-                background="#E7E2D4", foreground=COLOR_MUTED)
+                background="#E7E2D4", foreground=muted)
     s.map("TNotebook.Tab",
           background=[("selected", COLOR_PANEL)],
           foreground=[("selected", COLOR_ACCENT)])
     s.configure("Treeview", background=COLOR_PANEL,
-                fieldbackground=COLOR_PANEL, foreground=COLOR_INK,
+                fieldbackground=COLOR_PANEL, foreground=ink,
                 rowheight=round(26 * get_ui_scale()), borderwidth=0)
     s.configure("Treeview.Heading",
                 background=COLOR_ACCENT, foreground="white",
                 font=_f("Helvetica", 10, "bold"), borderwidth=0)
     s.map("Treeview",
           background=[("selected", COLOR_ACCENT_SOFT)],
-          foreground=[("selected", COLOR_INK)])
+          foreground=[("selected", ink)])
     s.configure("Side.Treeview", background=COLOR_SIDE_PANEL,
                 fieldbackground=COLOR_SIDE_PANEL,
                 rowheight=round(28 * get_ui_scale()))

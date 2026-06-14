@@ -52,6 +52,16 @@ class SettingsStore:
         self._data["ui_scale"] = max(UI_SCALE_MIN, min(UI_SCALE_MAX, value))
         self._save()
 
+    @property
+    def high_contrast(self) -> bool:
+        """Mode contraste élevé de l'UI (accessibilité plein soleil)."""
+        return bool(self._data.get("high_contrast", False))
+
+    def set_high_contrast(self, value: bool) -> None:
+        """Fixe et persiste le mode contraste élevé."""
+        self._data["high_contrast"] = bool(value)
+        self._save()
+
     def get_sash_positions(self) -> list[int]:
         """Positions X (px) des poignées de la disposition 3 colonnes,
         ou `[]` si jamais réglées / valeur corrompue. Tolérant."""

@@ -142,7 +142,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self.pane_cf: Optional[ContrefortsPane] = None
         self.pane_diag: Optional[DiagnosticPane] = None
 
-        apply_ttk_styles(self)
+        self._apply_styles()
         build_menu(self)  # type: ignore[arg-type]
         self._build_layout()
         self._refresh_tree_arbres()
@@ -175,6 +175,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         de police explicites le lisent à leur création."""
         set_ui_scale(scale)
 
+    def _apply_styles(self) -> None:
+        """Applique le thème ttk avec les réglages d'accessibilité courants
+        (contraste élevé). Point unique pour ne jamais perdre le mode
+        contraste en ré-appliquant les styles (p. ex. au changement de
+        taille du texte)."""
+        apply_ttk_styles(self, high_contrast=self._settings.high_contrast)
+
     def action_set_ui_scale(self, scale: float) -> None:
         """Change la taille du texte (menu Affichage) : persiste, met à
         jour le facteur, puis ré-applique les styles ttk pour un effet
@@ -183,10 +190,25 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         — d'où le rappel en barre d'état."""
         self._settings.set_ui_scale(scale)
         self._apply_ui_scale(self._settings.ui_scale)
-        apply_ttk_styles(self)
+        self._apply_styles()
         self.set_status(
             "Taille du texte modifiée. Relancez l'application pour "
             "l'appliquer entièrement.")
+
+    def action_set_high_contrast(self, on: bool) -> None:
+        """Active/désactive le contraste élevé (menu Affichage) : persiste
+        et ré-applique les styles ttk à chaud. Les widgets à couleur déjà
+        peinte hors styles (tags de la liste, dessin) ne changent pas —
+        d'où le rappel d'un redémarrage pour un effet complet."""
+        self._settings.set_high_contrast(on)
+        self._apply_styles()
+        self.set_status(
+            "Contraste élevé " + ("activé." if on else "désactivé.")
+            + " Relancez l'application pour l'appliquer entièrement.")
+
+    def get_high_contrast(self) -> bool:
+        """État courant du contraste élevé (pour cocher l'item de menu)."""
+        return self._settings.high_contrast
 
     def get_ui_scale(self) -> float:
         """Facteur d'échelle courant (pour cocher le bon item de menu)."""

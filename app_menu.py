@@ -61,6 +61,8 @@ class AppLike(Protocol):
     # Affichage
     def action_set_ui_scale(self, scale: float) -> None: ...
     def get_ui_scale(self) -> float: ...
+    def action_set_high_contrast(self, on: bool) -> None: ...
+    def get_high_contrast(self) -> bool: ...
 
     # Aide
     def action_about(self) -> None: ...
@@ -153,6 +155,13 @@ def build_menu(app: AppLike) -> None:
             label=label, value=factor, variable=scale_var,
             command=partial(app.action_set_ui_scale, factor))
     v.add_cascade(label="Taille du texte", menu=taille)
+    # Contraste élevé (accessibilité plein soleil) : texte noir + gris
+    # sombre. Checkbutton dont l'état initial reflète le réglage persisté.
+    hc_var = tk.BooleanVar(value=app.get_high_contrast())
+    setattr(app, "_high_contrast_var", hc_var)
+    v.add_checkbutton(
+        label="Contraste élevé", variable=hc_var,
+        command=lambda: app.action_set_high_contrast(hc_var.get()))
     m.add_cascade(label="Affichage", menu=v)
 
     # Aide

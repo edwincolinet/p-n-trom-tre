@@ -211,6 +211,11 @@ class TestSettingsStore(unittest.TestCase):
         self.path.write_text('{"sash_positions": [1, "x"]}', encoding="utf-8")
         self.assertEqual(SettingsStore(self.path).get_sash_positions(), [])
 
+    def test_high_contrast_defaut_false_et_persiste(self) -> None:
+        self.assertFalse(SettingsStore(self.path).high_contrast)
+        SettingsStore(self.path).set_high_contrast(True)
+        self.assertTrue(SettingsStore(self.path).high_contrast)
+
 
 # ========================================================================
 # ui_fonts — échelle des polices, pur
