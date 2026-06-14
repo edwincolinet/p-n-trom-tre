@@ -18,7 +18,7 @@ import math
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from diagnostic import prbs_par_grade, rayon_par_grade, verdict_evolution
-from geometry import GRADES
+from geometry import GRADES, catmull_rom_closed
 from palette import (
     COLOR_ACCENT,
     COLOR_BARK,
@@ -43,14 +43,15 @@ _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
 
 def _poly(cx: float, cy: float, scale: float,
           radii: list) -> list:
-    """Polygone des 16 directions (grade 0 = Nord, sens horaire) aux rayons
-    `radii` (cm) — contour schématique d'une section."""
+    """Contour **lissé** (spline Catmull-Rom fermée, comme le rendu des
+    sections) passant par les 16 directions (grade 0 = Nord, sens horaire)
+    aux rayons `radii` (cm) — évite l'aspect « cubique » du 16-gon."""
     pts = []
     for i, g in enumerate(GRADES):
         ang = math.radians(g * _GR_TO_DEG - 90)
         r = max(0.0, radii[i]) * scale
         pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-    return pts
+    return catmull_rom_closed(pts, samples_per_segment=12)
 
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
