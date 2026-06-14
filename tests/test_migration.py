@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 import unittest
+from datetime import datetime
+from pathlib import Path
 
 from model import (
     Arbre,
@@ -23,8 +25,10 @@ from persistence import (
     FORMAT_VERSION,
     chantier_from_dict,
     chantier_to_dict,
+    list_backups,
     load_chantier,
     save_chantier,
+    write_backup,
 )
 
 
@@ -345,6 +349,54 @@ class AtomicSaveTests(unittest.TestCase):
         finally:
             os.unlink(path)
             os.rmdir(d)
+
+
+class BackupTests(unittest.TestCase):
+    """Sauvegardes glissantes (`write_backup`/`list_backups`) — pures, sur
+    tempdir."""
+
+    def setUp(self):
+        from tempfile import TemporaryDirectory
+        self._tmp = TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.bdir = self.root / "backups"
+        self.src = self.root / "mission.json"
+        self.src.write_text('{"k": 1}', encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _stamp(self, i):
+        # Horodatages distincts et croissants pour un ordre déterministe.
+        return datetime(2026, 6, 14, 10, 0, i)
+
+    def test_copie_horodatee_creee(self):
+        dest = write_backup(self.src, self.bdir, when=self._stamp(0))
+        self.assertIsNotNone(dest)
+        self.assertTrue(dest.exists())
+        self.assertEqual(dest.read_text(encoding="utf-8"), '{"k": 1}')
+        self.assertEqual(len(list_backups(self.bdir, "mission", ".json")), 1)
+
+    def test_rotation_garde_les_n_plus_recents(self):
+        for i in range(5):
+            write_backup(self.src, self.bdir, keep=3, when=self._stamp(i))
+        noms = [p.name for p in list_backups(self.bdir, "mission", ".json")]
+        self.assertEqual(len(noms), 3)
+        # Les 3 plus récents (secondes 4,3,2), du plus récent au plus ancien.
+        self.assertEqual(noms[0], "mission_20260614-100004.json")
+        self.assertEqual(noms[-1], "mission_20260614-100002.json")
+
+    def test_missions_distinctes_ne_se_purgent_pas(self):
+        autre = self.root / "autre.json"
+        autre.write_text("{}", encoding="utf-8")
+        write_backup(self.src, self.bdir, keep=1, when=self._stamp(0))
+        write_backup(autre, self.bdir, keep=1, when=self._stamp(1))
+        self.assertEqual(len(list_backups(self.bdir, "mission", ".json")), 1)
+        self.assertEqual(len(list_backups(self.bdir, "autre", ".json")), 1)
+
+    def test_source_absente_renvoie_none(self):
+        dest = write_backup(self.root / "rien.json", self.bdir)
+        self.assertIsNone(dest)
 
 
 if __name__ == "__main__":

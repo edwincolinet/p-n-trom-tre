@@ -28,11 +28,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import shutil
 import tempfile
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 from bareme import normaliser_port
 from model import (
@@ -98,6 +100,66 @@ def save_chantier(chantier: Chantier, path: Union[str, Path]) -> None:
         except OSError:
             pass
         raise
+
+
+# --- Sauvegardes glissantes (anti-écrasement / anti-corruption) --------
+# L'autosave (`save_recovery`) protège du CRASH ; ces backups protègent de
+# l'ÉCRASEMENT volontaire ou d'un fichier devenu illisible — une mission =
+# une journée entière de relevés. À chaque `action_save`, une copie
+# horodatée est déposée et les anciennes purgées (on garde les N dernières
+# de CETTE mission). Best-effort : un échec ici n'interrompt jamais
+# l'enregistrement réel.
+BACKUP_KEEP_DEFAULT = 12
+_BACKUP_STAMP_RE = r"\d{8}-\d{6}"
+
+
+def _backup_name(stem: str, suffix: str, when: datetime) -> str:
+    return f"{stem}_{when.strftime('%Y%m%d-%H%M%S')}{suffix}"
+
+
+def write_backup(source: Union[str, Path], backup_dir: Union[str, Path],
+                 *, keep: int = BACKUP_KEEP_DEFAULT,
+                 when: Optional[datetime] = None) -> Optional[Path]:
+    """Dépose une copie horodatée de `source` dans `backup_dir`, puis purge
+    pour ne conserver que les `keep` plus récentes **de cette mission**
+    (mêmes `stem`+`suffix`). Renvoie le chemin de la copie, ou `None` en
+    cas d'échec (loggé, jamais propagé — la sauvegarde réelle prime)."""
+    try:
+        src = Path(source)
+        if not src.exists():
+            return None
+        bdir = Path(backup_dir)
+        bdir.mkdir(parents=True, exist_ok=True)
+        dest = bdir / _backup_name(src.stem, src.suffix,
+                                   when or datetime.now())
+        shutil.copy2(src, dest)
+        _prune_backups(bdir, src.stem, src.suffix, keep)
+        return dest
+    except Exception:
+        _log.exception("Échec de la sauvegarde glissante (backup)")
+        return None
+
+
+def list_backups(backup_dir: Union[str, Path], stem: str,
+                 suffix: str) -> list[Path]:
+    """Backups de la mission `stem`+`suffix`, du PLUS RÉCENT au plus ancien
+    (le nom horodaté est trié lexicographiquement = chronologiquement)."""
+    bdir = Path(backup_dir)
+    if not bdir.is_dir():
+        return []
+    pat = re.compile(rf"^{re.escape(stem)}_{_BACKUP_STAMP_RE}"
+                     rf"{re.escape(suffix)}$")
+    matches = [p for p in bdir.iterdir() if pat.match(p.name)]
+    return sorted(matches, key=lambda p: p.name, reverse=True)
+
+
+def _prune_backups(backup_dir: Path, stem: str, suffix: str,
+                   keep: int) -> None:
+    for old in list_backups(backup_dir, stem, suffix)[max(keep, 0):]:
+        try:
+            old.unlink()
+        except OSError:
+            _log.warning("Impossible de purger le backup %s", old)
 
 
 def save_recovery(chantier: Chantier, original_file: Union[str, None],

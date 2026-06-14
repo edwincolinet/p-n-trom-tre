@@ -57,6 +57,7 @@ from persistence import (
     clear_recovery,
     load_chantier,
     save_chantier,
+    write_backup,
 )
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
@@ -75,6 +76,8 @@ __version__ = "3.6.0"
 _RECENT_FILES_MAX = 8
 _RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
 _SETTINGS_PATH = Path.home() / ".penetrometre" / "settings.json"
+# Copies horodatées des missions à chaque enregistrement (anti-écrasement).
+_BACKUP_PATH = Path.home() / ".penetrometre" / "backups"
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -1205,6 +1208,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             # Le fichier réel est à jour → l'autosave n'a plus de raison
             # d'être ; on l'efface pour ne pas proposer une reprise inutile.
             clear_recovery(_RECOVERY_PATH)
+            # Sauvegarde glissante (best-effort) : copie horodatée pour
+            # survivre à un écrasement ou une corruption ultérieurs.
+            write_backup(self.current_file, _BACKUP_PATH)
             self.set_status(f"✓ Enregistré — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")
@@ -1267,6 +1273,25 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                 f"Aucun fichier de log trouvé à :\n{log_path}")
             return
         self._open_in_system(log_path)
+
+    def action_open_backups_folder(self) -> None:
+        """Ouvre le dossier des sauvegardes glissantes (copies horodatées
+        déposées à chaque enregistrement). Permet de récupérer une version
+        antérieure d'une mission écrasée ou corrompue."""
+        try:
+            _BACKUP_PATH.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            log.exception("Création du dossier de sauvegardes")
+        vide = (not _BACKUP_PATH.is_dir()
+                or not any(_BACKUP_PATH.iterdir()))
+        if vide:
+            messagebox.showinfo(
+                "Sauvegardes",
+                "Aucune sauvegarde pour l'instant.\n\nUne copie horodatée "
+                "de la mission est créée à chaque enregistrement, dans :\n"
+                f"{_BACKUP_PATH}")
+            return
+        self._open_in_system(_BACKUP_PATH)
 
 
 def _setup_logging() -> Path:
