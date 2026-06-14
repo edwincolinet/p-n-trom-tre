@@ -30,11 +30,16 @@ from diagnostic import (
     degradation_externe_par_grade,
     genet_summary_lines,
 )
+from dialogs import ask_date, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
-from model import Arbre
-from palette import COLOR_PANEL, COLOR_WARN
+from model import URGENCE_NIVEAUX, Arbre
+from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
 from ui_fonts import font as ui_font
+
+# Premier item du combobox d'urgence = « non renseignée » (stocke "").
+_URGENCE_VIDE = "— Non renseignée —"
+_URGENCE_CHOICES = (_URGENCE_VIDE, *URGENCE_NIVEAUX)
 
 
 class _DiagnosticHost(Protocol):
@@ -44,6 +49,11 @@ class _DiagnosticHost(Protocol):
     def action_export_prbs_xlsx(self) -> None: ...
     def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
+    # Préconisation (urgence / échéance / texte) — édition + undo/dirty.
+    def on_preconisation_changed(self) -> None: ...
+    def push_undo(self) -> None: ...
+    def capture_undo_snapshot(self) -> dict: ...
+    def push_undo_snapshot(self, snap: dict) -> None: ...
 
 
 class DiagnosticPane(ttk.Frame):
@@ -145,6 +155,9 @@ class DiagnosticPane(ttk.Frame):
             wraplength=400, justify="left", font=ui_font("Helvetica", 10))
         self.lbl_diag.pack(anchor="w", fill="x", pady=(0, 10))
 
+        # --- Bloc Préconisation (la décision = le livrable) ---
+        self._build_preconisation(parent)
+
         # --- Tableau PRBS par sondage ---
         ttk.Label(parent, text="Paroi Résiduelle de Bois Sain par sondage",
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
@@ -183,10 +196,150 @@ class DiagnosticPane(ttk.Frame):
             parent, text=FUSION_WARN_TEXT, style="Panel.TLabel",
             foreground=COLOR_WARN, wraplength=400, justify="left")
 
+    # --- Préconisation ------------------------------------------------
+
+    def _build_preconisation(self, parent: ttk.Frame) -> None:
+        """Bloc « Préconisation » : urgence (combobox), échéance (date
+        facultative) et action recommandée (texte libre). Édite l'arbre
+        **genet** courant. `_loading` neutralise les callbacks pendant
+        `refresh()` (sinon recharger l'arbre marquerait dirty / empilerait
+        un undo parasite)."""
+        self._loading = False
+        self._preco_snapshot: Optional[dict] = None
+        # Identité du dernier arbre chargé : on ne recharge les champs que
+        # lorsqu'elle change (changement d'arbre / undo restaurant un objet
+        # neuf), JAMAIS sur un simple redraw — sinon on écraserait la frappe
+        # en cours dans la zone de texte.
+        self._preco_loaded_id: Optional[int] = None
+
+        ttk.Label(parent, text="Préconisation",
+                  style="H.TLabel").pack(anchor="w", pady=(4, 2))
+        ttk.Label(parent,
+                  text="La décision d'expertise : quoi faire, et quand.",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
+
+        line = ttk.Frame(parent, style="Panel.TFrame")
+        line.pack(fill="x", pady=(0, 6))
+        ttk.Label(line, text="Urgence", style="Panel.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_urgence = tk.StringVar(value=_URGENCE_VIDE)
+        cmb = ttk.Combobox(line, textvariable=self.var_urgence,
+                           values=list(_URGENCE_CHOICES),
+                           state="readonly", width=20)
+        cmb.pack(side="left", padx=(0, 12))
+        cmb.bind("<<ComboboxSelected>>", lambda e: self._on_urgence_changed())
+
+        ttk.Label(line, text="Échéance", style="Panel.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_echeance = tk.StringVar()
+        ent_ech = ttk.Entry(line, textvariable=self.var_echeance, width=12)
+        ent_ech.pack(side="left", padx=(0, 2))
+        ent_ech.bind("<FocusIn>", lambda e: self._preco_focus_in())
+        ent_ech.bind("<FocusOut>", lambda e: self._on_echeance_focus_out())
+        btn_cal = ttk.Button(line, text="📅", style="Ghost.TButton", width=3,
+                             command=self._pick_echeance)
+        btn_cal.pack(side="left")
+        Tooltip(btn_cal, "Choisir l'échéance au calendrier")
+        ttk.Label(line, text="(facultatif)", style="Muted.TLabel",
+                  foreground=COLOR_MUTED).pack(side="left", padx=(6, 0))
+
+        ttk.Label(parent, text="Action recommandée (texte libre)",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
+        self.txt_preco = tk.Text(parent, height=3, wrap="word",
+                                 font=ui_font("Helvetica", 10),
+                                 relief="solid", borderwidth=1)
+        self.txt_preco.pack(fill="x", pady=(0, 12))
+        self.txt_preco.bind("<FocusIn>", lambda e: self._preco_focus_in())
+        self.txt_preco.bind("<FocusOut>", lambda e: self._on_preco_focus_out())
+
+    def _refresh_preconisation(self, a: Optional[Arbre]) -> None:
+        """Recharge les 3 champs depuis l'arbre courant **si l'arbre a
+        changé** (cf. `_preco_loaded_id`), callbacks neutralisés
+        (`_loading`). Ne touche à rien sur un redraw du même arbre → ne
+        lutte pas contre la frappe."""
+        aid = id(a) if a is not None else None
+        if aid == self._preco_loaded_id:
+            return
+        self._preco_loaded_id = aid
+        self._loading = True
+        try:
+            urg = a.urgence if a and a.urgence in URGENCE_NIVEAUX else ""
+            self.var_urgence.set(urg or _URGENCE_VIDE)
+            self.var_echeance.set(a.echeance if a else "")
+            self.txt_preco.delete("1.0", "end")
+            self.txt_preco.insert("1.0", a.preconisation if a else "")
+        finally:
+            self._loading = False
+
+    def _preco_focus_in(self) -> None:
+        # Snapshot pré-édition (empilé au focus-out si la valeur change).
+        if not self._loading:
+            self._preco_snapshot = self._host.capture_undo_snapshot()
+
+    def _on_urgence_changed(self) -> None:
+        if self._loading:
+            return
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        choice = self.var_urgence.get()
+        new = "" if choice == _URGENCE_VIDE else choice
+        if new == a.urgence:
+            return
+        self._host.push_undo()           # mutation discrète → undo immédiat
+        a.urgence = new
+        self._host.on_preconisation_changed()
+
+    def _on_echeance_focus_out(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        raw = self.var_echeance.get()
+        norm = normaliser_date(raw)
+        if norm is None:                 # illisible → revert
+            self.var_echeance.set(a.echeance)
+        elif norm != a.echeance:
+            self._commit_preco_undo()
+            a.echeance = norm
+            self.var_echeance.set(norm)
+            self._host.on_preconisation_changed()
+        self._preco_snapshot = None
+
+    def _pick_echeance(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        res = ask_date(self, self.var_echeance.get())
+        if res is None or res == a.echeance:
+            return
+        self._host.push_undo()
+        a.echeance = res
+        self.var_echeance.set(res)
+        self._host.on_preconisation_changed()
+
+    def _on_preco_focus_out(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        new = self.txt_preco.get("1.0", "end-1c")
+        if new != a.preconisation:
+            self._commit_preco_undo()
+            a.preconisation = new
+            self._host.on_preconisation_changed()
+        self._preco_snapshot = None
+
+    def _commit_preco_undo(self) -> None:
+        """Empile le snapshot pré-édition capturé au focus-in (s'il existe)
+        avant d'appliquer la mutation."""
+        if self._preco_snapshot is not None:
+            self._host.push_undo_snapshot(self._preco_snapshot)
+            self._preco_snapshot = None
+
     def refresh(self) -> None:
         """Recharge le tableau PRBS et le résumé textuel à partir de
         l'arbre courant. Appelé par App._redraw_all après le debounce."""
         a = self._host._current_arbre()
+        self._refresh_preconisation(a)
 
         # --- Tableau PRBS par sondage (par brin pour une cépée) ---
         self.tbl_prbs.delete(*self.tbl_prbs.get_children())

@@ -693,6 +693,11 @@ class MissionSynthesisRow(NamedTuple):
     # "" pour une ligne genet (mono-caule, ou ligne de tête d'une cépée) ;
     # "a"/"b"/… pour une sous-ligne de brin d'une cépée.
     brin_label: str = ""
+    # Préconisation (niveau genet → renseignée sur les lignes genet/tête de
+    # cépée uniquement, "" sur les sous-lignes de brin).
+    urgence: str = ""
+    echeance: str = ""
+    preconisation: str = ""
 
 
 def _synthesis_row_for_section(numero: str, essence: str, port: str,
@@ -771,11 +776,17 @@ def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
     """
     rows: List[MissionSynthesisRow] = []
     for a in chantier.arbres:
+        # Préconisation : portée par la ligne genet / tête de cépée.
+        def _with_preco(row: MissionSynthesisRow,
+                        arbre: "Arbre" = a) -> MissionSynthesisRow:
+            return row._replace(urgence=arbre.urgence,
+                                echeance=arbre.echeance,
+                                preconisation=arbre.preconisation)
         if len(a.brins) <= 1:
-            rows.append(_synthesis_row_for_section(
-                a.numero_arbre, a.essence, a.port_arbre, a.brin_courant))
+            rows.append(_with_preco(_synthesis_row_for_section(
+                a.numero_arbre, a.essence, a.port_arbre, a.brin_courant)))
             continue
-        rows.append(_synthesis_genet_row(a))
+        rows.append(_with_preco(_synthesis_genet_row(a)))
         for b in a.brins:
             rows.append(_synthesis_row_for_section(
                 a.numero_arbre, a.essence, a.port_arbre, b,

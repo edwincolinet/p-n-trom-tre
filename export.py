@@ -701,7 +701,17 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 
 _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
                   "t/R moyen (%)", "Classe globale", "Direction critique",
-                  "t/R critique (%)"]
+                  "t/R critique (%)", "Urgence", "Échéance", "Préconisation"]
+
+# Couleur de la cellule « Urgence » dans le XLSX : (fond, police) en hexa.
+# Aligne la lecture du délai d'intervention sur celle de la classe de risque.
+_URGENCE_FILL = {
+    "Immédiate":             ("C0392B", "FFFFFF"),
+    "Court terme (< 1 an)":  ("E67E22", "FFFFFF"),
+    "Moyen terme (1-3 ans)": ("F1C40F", "1A2E22"),
+    "Surveillance":          ("2D7A3E", "FFFFFF"),
+    "Sans objet":            ("E0E0E0", "1A2E22"),
+}
 
 
 def _synth_classe_text(row: "MissionSynthesisRow") -> str:
@@ -727,6 +737,12 @@ def _synth_pct_text(v: object) -> str:
     return f"{v:.1f}" if isinstance(v, (int, float)) else "—"
 
 
+def _synth_or_dash(s: str) -> str:
+    """Texte d'un champ de préconisation, « — » si vide (ou sous-ligne de
+    brin où la préconisation n'est pas répétée)."""
+    return s if s else "—"
+
+
 def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                          path: str) -> None:
     """Synthèse mission en CSV (séparateur `;`, UTF-8 BOM compatible
@@ -749,6 +765,9 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                 _synth_classe_text(r),
                 _synth_crit_text(r),
                 _synth_pct_text(r.tR_min_pct),
+                _synth_or_dash(r.urgence),
+                _synth_or_dash(r.echeance),
+                _synth_or_dash(r.preconisation),
             ])
 
 
@@ -832,13 +851,18 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
             classe_txt,
             _synth_crit_text(row),
             _synth_pct_text(row.tR_min_pct),
+            _synth_or_dash(row.urgence),
+            _synth_or_dash(row.echeance),
+            _synth_or_dash(row.preconisation),
         ]
+        urgence_col = 10
+        preco_col = 12
         use_alt = k % 2 == 1
         for i, v in enumerate(values, start=1):
             c = ws.cell(row=r_idx, column=i, value=v)
             c.border = BORDER
             c.font = ROW_FONT
-            c.alignment = LEFT if i in (2,) else CENTER
+            c.alignment = LEFT if i in (2, preco_col) else CENTER
             if i == classe_col:
                 hexa = couleur_classe.get(classe_txt, "").lstrip("#")
                 if hexa:
@@ -847,6 +871,11 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                                   color="FFFFFF")
                 else:
                     c.fill = MUTED_FILL
+            elif i == urgence_col and row.urgence in _URGENCE_FILL:
+                fill_hex, font_hex = _URGENCE_FILL[row.urgence]
+                c.fill = PatternFill("solid", fgColor=fill_hex)
+                c.font = Font(name="Calibri", size=11, bold=True,
+                              color=font_hex)
             elif use_alt:
                 c.fill = ALT_ROW_FILL
         ws.row_dimensions[r_idx].height = 22
@@ -875,7 +904,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                    end_row=footer_row, end_column=last)
 
     # --- Largeurs de colonnes ---
-    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14]
+    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14, 20, 12, 40]
     for i, wdt in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = wdt
 

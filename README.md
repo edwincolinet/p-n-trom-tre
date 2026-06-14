@@ -211,6 +211,11 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Répartition** sur les 16 directions du pourtour (extrapolées)
 - **Classe globale** = barème Silvavenir appliqué au **t/R moyen**
   sur les 16 directions
+- **Préconisation** (la décision d'expertise) : par arbre, un niveau
+  d'**urgence** (Immédiate / Court terme / Moyen terme / Surveillance /
+  Sans objet), une **échéance** d'intervention facultative et une
+  **action recommandée** en texte libre. Reprise dans la synthèse de
+  mission (colonnes triables, urgence colorée) et sur la fiche PDF.
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la

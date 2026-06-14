@@ -351,6 +351,26 @@ class AtomicSaveTests(unittest.TestCase):
             os.rmdir(d)
 
 
+class PreconisationRoundTripTests(unittest.TestCase):
+    """Les champs de préconisation (genet) survivent au save/load, et un
+    fichier ancien sans ces clés retombe sur les défauts vides."""
+
+    def test_round_trip(self):
+        a = Arbre(numero_arbre="1", urgence="Court terme (< 1 an)",
+                  echeance="14/06/2027", preconisation="Élagage côté voirie")
+        c = chantier_from_dict(chantier_to_dict(Chantier(arbres=[a])))
+        a2 = c.arbres[0]
+        self.assertEqual(a2.urgence, "Court terme (< 1 an)")
+        self.assertEqual(a2.echeance, "14/06/2027")
+        self.assertEqual(a2.preconisation, "Élagage côté voirie")
+
+    def test_fichier_ancien_defauts_vides(self):
+        d = {"arbres": [{"numero_arbre": "9", "rayon_tronc_cm": 18.0}]}
+        a = chantier_from_dict(d).arbres[0]
+        self.assertEqual((a.urgence, a.echeance, a.preconisation),
+                         ("", "", ""))
+
+
 class BackupTests(unittest.TestCase):
     """Sauvegardes glissantes (`write_backup`/`list_backups`) — pures, sur
     tempdir."""

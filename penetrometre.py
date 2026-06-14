@@ -1034,6 +1034,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self._mark_dirty()
         self._debounced_redraw()
 
+    def on_preconisation_changed(self) -> None:
+        """Notifié par `DiagnosticPane` après édition de la préconisation
+        (urgence / échéance / texte). Marque dirty seulement : ces champs
+        n'affectent ni le dessin ni la pastille de la liste, et la synthèse
+        de mission est recalculée à l'export. On ne déclenche pas de redraw
+        (qui re-`refresh`-erait le pane et lutterait contre la frappe)."""
+        self._mark_dirty()
+
     def capture_undo_snapshot(self) -> dict:
         """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé
         par les éditions live (grilles de saisie) : on capture l'état

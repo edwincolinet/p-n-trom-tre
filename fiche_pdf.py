@@ -78,6 +78,39 @@ def _fit_text(text: str, font: Any, max_width: float,
     return ellipsis
 
 
+def _wrap_lines(text: str, font: Any, max_width: float,
+                draw: "ImageDraw.ImageDraw", max_lines: int = 4) -> list:
+    """Découpe `text` en lignes tenant dans `max_width` (retour à la ligne
+    par mots), bornées à `max_lines` (dernière ligne tronquée « … » si le
+    texte déborde). Pour la préconisation libre de la fiche PDF."""
+    lines: list = []
+    cur = ""
+    for word in (text or "").split():
+        trial = (cur + " " + word).strip()
+        if not cur or draw.textbbox((0, 0), trial, font=font)[2] <= max_width:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = _fit_text(lines[-1] + " …", font, max_width, draw)
+    return lines
+
+
+# Couleur de l'intitulé d'urgence sur la fiche PDF (lecture du délai au
+# coup d'œil, comme la classe de risque). Défaut : encre.
+_URGENCE_COLOR = {
+    "Immédiate":             "#C0392B",
+    "Court terme (< 1 an)":  "#E67E22",
+    "Moyen terme (1-3 ans)": "#B7950B",
+    "Surveillance":          "#2D7A3E",
+    "Sans objet":            "#55605A",
+}
+
+
 def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                    chantier: "Chantier",
                                    show_sondages: bool = True) -> "PILImage":
@@ -157,6 +190,30 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                           f(17, "sans"), W - 2*margin, d)
         d.text((margin, y), comm, font=f(17, "sans"), fill=COLOR_INK)
         y += 30
+
+    # --- Préconisation (la décision d'expertise : quoi faire, et quand) ---
+    if arbre.urgence or arbre.echeance or arbre.preconisation:
+        d.text((margin, y), "Préconisation",
+               font=f(20, "serif_bold"), fill=COLOR_ACCENT)
+        y += 30
+        # Urgence (colorée par niveau) + échéance sur une ligne.
+        x: float = margin
+        if arbre.urgence:
+            label = f"Urgence : {arbre.urgence}"
+            d.text((x, y), label, font=f(17, "sans_bold"),
+                   fill=_URGENCE_COLOR.get(arbre.urgence, COLOR_INK))
+            x += d.textbbox((0, 0), label, font=f(17, "sans_bold"))[2] + 36
+        if arbre.echeance:
+            d.text((x, y), f"Échéance : {arbre.echeance}",
+                   font=f(17, "sans"), fill=COLOR_INK)
+        if arbre.urgence or arbre.echeance:
+            y += 30
+        if arbre.preconisation:
+            for line in _wrap_lines(arbre.preconisation, f(17, "sans"),
+                                    W - 2*margin, d, max_lines=4):
+                d.text((margin, y), line, font=f(17, "sans"), fill=COLOR_INK)
+                y += 26
+        y += 10
 
     # --- Dessin ---
     # Taille adaptative : on estime la hauteur que vont occuper le

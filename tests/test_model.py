@@ -1060,6 +1060,34 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].brin_label, "")
 
+    def test_synthese_porte_la_preconisation_au_niveau_genet(self):
+        from model import Chantier
+        a = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre",
+                  urgence="Immédiate", echeance="01/09/2026",
+                  preconisation="Abattage")
+        for g in (0, 100, 200):
+            a.sondages.append(Sondage(grade=g, bois_sain_cm=18.0,
+                                       bois_altere_cm=2.0))
+        row = mission_synthesis_rows(Chantier(arbres=[a]))[0]
+        self.assertEqual(row.urgence, "Immédiate")
+        self.assertEqual(row.echeance, "01/09/2026")
+        self.assertEqual(row.preconisation, "Abattage")
+
+    def test_synthese_cepee_preconisation_sur_tete_pas_sous_lignes(self):
+        from model import Chantier
+        a = Arbre(numero_arbre="12", port_arbre="libre",
+                  urgence="Surveillance", preconisation="Revoir dans 2 ans",
+                  brins=[
+                      self._brin(16.0, [(0, 14.0), (100, 14.0), (200, 14.0)]),
+                      self._brin(16.0, [(0, 2.0), (100, 2.0), (200, 2.0)]),
+                  ])
+        a._relabel_brins()
+        rows = mission_synthesis_rows(Chantier(arbres=[a]))
+        self.assertEqual(rows[0].urgence, "Surveillance")          # tête
+        self.assertEqual(rows[0].preconisation, "Revoir dans 2 ans")
+        self.assertEqual([r.urgence for r in rows[1:]], ["", ""])  # sous-lignes
+        self.assertEqual([r.preconisation for r in rows[1:]], ["", ""])
+
     def test_brin_rayon_nul_non_fiable(self):
         a = Arbre(port_arbre="libre", brins=[
             Brin(rayon_tronc_cm=0.0, sondages=[

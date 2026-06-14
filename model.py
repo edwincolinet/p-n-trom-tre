@@ -38,6 +38,20 @@ from typing import List, Optional, Sequence, Tuple
 
 from geometry import GRADES, ellipse_radius
 
+# Niveaux d'urgence d'intervention (préconisation par arbre). Ordonnés du
+# plus urgent au moins urgent ; `""` (non listé) = non renseignée. Sert au
+# combobox de l'onglet Diagnostic, au tri/couleur de la synthèse de mission
+# et à la fiche PDF. `URGENCE_RANG` donne l'ordre de priorité (0 = plus
+# urgent) pour trier la synthèse.
+URGENCE_NIVEAUX = (
+    "Immédiate",
+    "Court terme (< 1 an)",
+    "Moyen terme (1-3 ans)",
+    "Surveillance",
+    "Sans objet",
+)
+URGENCE_RANG = {niveau: i for i, niveau in enumerate(URGENCE_NIVEAUX)}
+
 
 @dataclass
 class Sondage:
@@ -438,6 +452,13 @@ class Arbre:
     port_arbre: str = "libre"
     meche_cm: float = 40.0   # longueur de la mèche du pénétromètre (cm)
     commentaire: str = ""
+    # --- Expertise → décision (saisis dans l'onglet Diagnostic) -------
+    # La classe de risque dit « quel danger » ; ces champs disent « quoi
+    # faire » — c'est le livrable de l'expertise. Niveau genet (la
+    # recommandation porte sur l'individu, pas sur un brin).
+    urgence: str = ""        # niveau (cf. URGENCE_NIVEAUX), "" = non renseignée
+    echeance: str = ""       # date limite d'intervention JJ/MM/AAAA, optionnelle
+    preconisation: str = ""  # action recommandée, texte libre
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
 
     def __init__(
@@ -451,6 +472,9 @@ class Arbre:
         commentaire: str = "",
         brins: "Optional[List[Brin]]" = None,
         *,
+        urgence: str = "",
+        echeance: str = "",
+        preconisation: str = "",
         # --- Compat Étape 0 : kwargs de géométrie/mesures qui vivaient sur
         # `Arbre` avant l'introduction des brins. Routés vers le brin courant
         # (brins[0]). À retirer quand les appelants construiront des `Brin`.
@@ -471,6 +495,9 @@ class Arbre:
         self.port_arbre = port_arbre
         self.meche_cm = meche_cm
         self.commentaire = commentaire
+        self.urgence = urgence
+        self.echeance = echeance
+        self.preconisation = preconisation
         self.brins = list(brins) if brins is not None else [Brin()]
         b = self.brins[0]
         if rayon_tronc_cm is not None:

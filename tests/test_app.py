@@ -567,6 +567,35 @@ class TestAppMixins(unittest.TestCase):
         self.app.var_filter.set("plat")         # concorde + Vert
         self.assertTrue(self.app._arbre_matches_filter(a))
 
+    def test_preconisation_edition_et_undo(self) -> None:
+        pane = self.app.pane_diag
+        self.app.nb.select(pane)
+        pane.refresh()
+        # Urgence (mutation discrète + dirty).
+        pane.var_urgence.set("Immédiate")
+        pane._on_urgence_changed()
+        self.assertEqual(self.app.chantier.arbres[0].urgence, "Immédiate")
+        self.assertTrue(self.app._dirty)
+        # Texte libre (snapshot focus-in → commit focus-out).
+        pane._preco_focus_in()
+        pane.txt_preco.delete("1.0", "end")
+        pane.txt_preco.insert("1.0", "Abattage")
+        pane._on_preco_focus_out()
+        self.assertEqual(self.app.chantier.arbres[0].preconisation, "Abattage")
+        self.app._perform_undo()
+        self.assertEqual(self.app.chantier.arbres[0].preconisation, "")
+
+    def test_preconisation_rechargee_au_changement_d_arbre(self) -> None:
+        pane = self.app.pane_diag
+        self.app.nb.select(pane)
+        self.app.chantier.arbres[0].urgence = "Sans objet"
+        pane.refresh()
+        self.assertEqual(pane.var_urgence.get(), "Sans objet")
+        # Nouvel arbre (urgence vide) → le pane recharge, pas de fuite.
+        self.app.action_add_arbre()
+        pane.refresh()
+        self.assertEqual(pane.var_urgence.get(), "— Non renseignée —")
+
     def test_navigation_relative_bornee(self) -> None:
         for _ in range(2):
             self.app.action_add_arbre()  # 3 arbres, idx=2
