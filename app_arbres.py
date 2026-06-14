@@ -89,13 +89,13 @@ class ArbreListMixin(_MixinBase):
                 continue
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, tag = self._arbre_etat(a)
+            glyph, risque, tag = self._arbre_etat(a)
             # iid = position réelle dans chantier.arbres (cf.
             # _on_select_arbre) — préservée même quand des lignes sont
             # masquées par le filtre.
             self.tree_arbres.insert("", "end", iid=f"a{i}",
                                     text=label,
-                                    values=(a.essence, glyph),
+                                    values=(a.essence, glyph, risque),
                                     tags=(tag,))
         self._update_etat_footer(n_ok, len(self.chantier.arbres))
         # Re-sélectionne l'arbre courant s'il est visible dans la liste
@@ -123,26 +123,28 @@ class ArbreListMixin(_MixinBase):
                    for b in a.brins)
 
     @staticmethod
-    def _arbre_etat(a: Arbre) -> tuple[str, str]:
-        """Renvoie `(glyphe, tag)` pour la colonne État d'un arbre.
+    def _arbre_etat(a: Arbre) -> tuple[str, str, str]:
+        """Renvoie `(glyphe, risque, tag)` pour les colonnes État + Risque.
 
-        **Glyphes distincts** : la FORME porte la complétude, donc reste
-        lisible même en cas de daltonisme rouge-vert (fréquent chez les
-        opérateurs de terrain) — la couleur ne fait que renforcer.
-          - `○` (cercle vide)  : pas de rayon OU aucun sondage
-          - `◐` (demi-cercle)  : 1-2 sondages (diagnostic non fiable)
-          - `●` (cercle plein) : ≥3 sondages (diagnostic fiable)
+        **Deux canaux distincts** (lève l'ancienne ambiguïté où la couleur
+        de ligne signifiait *complétude* pour `○/◐` mais *classe de risque*
+        pour `●`) :
+
+        - **Colonne État** = la FORME du glyphe porte la **complétude**,
+          lisible même en daltonisme rouge-vert (fréquent en terrain) :
+            - `○` (cercle vide)  : pas de rayon OU aucun sondage
+            - `◐` (demi-cercle)  : 1-2 sondages (diagnostic non fiable)
+            - `●` (cercle plein) : ≥3 sondages (diagnostic fiable)
+        - **Colonne Risque** = le **mot** « Vert / Orange / Rouge » dès que
+          le diagnostic est fiable, `—` sinon. Lisible sans dépendre de la
+          couleur (daltonisme).
+        - **Couleur de la ligne** (`tag`) = **uniquement la classe de
+          risque** (fiables) ; les arbres incomplets restent **neutres**
+          (`etat_vide`/`etat_partiel` → gris) pour que la couleur ne
+          signifie plus qu'une seule chose.
 
         On évite les emojis couleur (🔴🟠🟢) qui s'affichent souvent en
         monochrome dans ttk.Treeview selon la police système.
-
-        **Couleur du `●` plein = classe de risque.** Dès que le
-        diagnostic est fiable (≥3 sondages, seuil aligné sur
-        `diagnostic.DiagnosticSnapshot`), la couleur du `●` encode la
-        classe globale Silvavenir (vert/orange/rouge) via les tags
-        `etat_ok_<classe>` : l'opérateur repère les arbres à risque d'un
-        coup d'œil dans la liste, sans ouvrir l'onglet Diagnostic. Repli
-        sur `etat_ok` (vert) si la classe est indisponible.
 
         NB : l'extrapolation géométrique de la cavité reste active dès 2
         sondages (son minimum mathématique) — découplé du seuil de
@@ -155,13 +157,14 @@ class ArbreListMixin(_MixinBase):
         """
         has_data = any(b.rayon_tronc_cm > 0 and b.sondages for b in a.brins)
         if not has_data:
-            return "○", "etat_vide"
+            return "○", "—", "etat_vide"
         gd = genet_diagnostic(a)
         if not gd.fiable:
-            return "◐", "etat_partiel"
+            return "◐", "—", "etat_partiel"
         if gd.classe_globale is None:
-            return "●", "etat_ok"
-        return "●", _CLASSE_TAG.get(gd.classe_globale, "etat_ok")
+            return "●", "—", "etat_ok"
+        return "●", gd.classe_globale, _CLASSE_TAG.get(
+            gd.classe_globale, "etat_ok")
 
     def _refresh_current_arbre_etat(self) -> None:
         """Met à jour la pastille d'état + le footer après une mutation
@@ -174,9 +177,9 @@ class ArbreListMixin(_MixinBase):
         sel = self.tree_arbres.selection()
         if sel:
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, tag = self._arbre_etat(a)
+            glyph, risque, tag = self._arbre_etat(a)
             self.tree_arbres.item(sel[0], text=label,
-                                  values=(a.essence, glyph),
+                                  values=(a.essence, glyph, risque),
                                   tags=(tag,))
         n_ok = sum(1 for x in self.chantier.arbres
                    if self._arbre_diag_fiable(x))

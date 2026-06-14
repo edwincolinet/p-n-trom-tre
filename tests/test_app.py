@@ -267,23 +267,29 @@ class TestArbreEtat(unittest.TestCase):
         return a
 
     def test_rayon_nul_est_vide(self) -> None:
-        self.assertEqual(self.etat(self._arbre(0.0, 5))[1], "etat_vide")
+        glyph, risque, tag = self.etat(self._arbre(0.0, 5))
+        self.assertEqual((glyph, risque, tag), ("○", "—", "etat_vide"))
 
     def test_sans_sondage_est_vide(self) -> None:
-        self.assertEqual(self.etat(self._arbre(20.0, 0))[1], "etat_vide")
+        glyph, risque, tag = self.etat(self._arbre(20.0, 0))
+        self.assertEqual((glyph, risque, tag), ("○", "—", "etat_vide"))
 
     def test_un_ou_deux_sondages_partiel(self) -> None:
-        self.assertEqual(self.etat(self._arbre(20.0, 1))[1], "etat_partiel")
-        self.assertEqual(self.etat(self._arbre(20.0, 2))[1], "etat_partiel")
+        # Incomplet => glyphe ◐, risque non publié (—), ligne neutre.
+        self.assertEqual(self.etat(self._arbre(20.0, 1)),
+                         ("◐", "—", "etat_partiel"))
+        self.assertEqual(self.etat(self._arbre(20.0, 2)),
+                         ("◐", "—", "etat_partiel"))
 
     def test_trois_sondages_fiable_colore_par_classe(self) -> None:
-        # Seuil métier : >= 3 directions => diagnostic fiable. La couleur
-        # du `●` encode alors la classe de risque globale.
-        # Tronc sain (PRBS = rayon → t/R = 1.0) => classe Vert.
-        self.assertEqual(self.etat(self._arbre(20.0, 3))[1], "etat_ok_vert")
+        # Seuil métier : >= 3 directions => diagnostic fiable. La ligne est
+        # colorée par la classe de risque ET le mot est posé en colonne
+        # Risque. Tronc sain (PRBS = rayon → t/R = 1.0) => classe Vert.
+        glyph, risque, tag = self.etat(self._arbre(20.0, 3))
+        self.assertEqual((glyph, risque, tag), ("●", "Vert", "etat_ok_vert"))
         # Tronc très dégradé (PRBS = 1 cm sur 20 → t/R ≈ 5 %) => Rouge.
-        self.assertEqual(
-            self.etat(self._arbre(20.0, 3, sain=1.0))[1], "etat_ok_rouge")
+        glyph, risque, tag = self.etat(self._arbre(20.0, 3, sain=1.0))
+        self.assertEqual((glyph, risque, tag), ("●", "Rouge", "etat_ok_rouge"))
 
     def test_glyphes_distincts_par_completude(self) -> None:
         # La forme (pas seulement la couleur) distingue les 3 états :
@@ -299,8 +305,9 @@ class TestArbreEtat(unittest.TestCase):
         rouge = self._arbre(20.0, 3, sain=1.0).brins[0]  # brin b : Rouge
         a.brins.append(rouge)
         a._relabel_brins()
-        glyph, tag = self.etat(a)
+        glyph, risque, tag = self.etat(a)
         self.assertEqual(glyph, "●")
+        self.assertEqual(risque, "Rouge")
         self.assertEqual(tag, "etat_ok_rouge")
 
     def test_cepee_partiel_si_aucun_brin_fiable(self) -> None:

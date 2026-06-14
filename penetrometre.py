@@ -308,7 +308,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
 
     def _build_left(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
-        parent.add(frame, minsize=190, width=240, stretch="never")
+        parent.add(frame, minsize=220, width=284, stretch="never")
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
@@ -333,31 +333,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
         self.tree_arbres = ttk.Treeview(
-            lst_frame, columns=("ess", "etat"), show="tree headings",
-            height=20, style="Side.Treeview")
+            lst_frame, columns=("ess", "etat", "risque"),
+            show="tree headings", height=20, style="Side.Treeview")
         self.tree_arbres.heading("#0", text="Nom")
         self.tree_arbres.heading("ess", text="Essence")
         self.tree_arbres.heading("etat", text="État")
-        self.tree_arbres.column("#0", width=110, anchor="w")
-        self.tree_arbres.column("ess", width=80, anchor="w")
-        self.tree_arbres.column("etat", width=42, anchor="center",
+        self.tree_arbres.heading("risque", text="Risque")
+        self.tree_arbres.column("#0", width=64, anchor="w")
+        self.tree_arbres.column("ess", width=58, anchor="w")
+        self.tree_arbres.column("etat", width=30, anchor="center",
                                 stretch=False)
-        # Tags par état : coloration du foreground de toute la ligne
-        # (rouge/orange/vert discrets). Plus fiable que des emojis
-        # 🔴🟠🟢 dont le rendu dans ttk.Treeview dépend du thème et de
-        # la police système (peut tomber sur une font monochrome où
-        # les trois pastilles deviennent identiques).
-        # Orange volontairement décalé vers le jaune (saturé) pour
-        # bien se distinguer du rouge bordeaux.
-        self.tree_arbres.tag_configure("etat_vide",
-                                        foreground="#A62A1F")
-        self.tree_arbres.tag_configure("etat_partiel",
-                                        foreground="#D97706")
+        self.tree_arbres.column("risque", width=56, anchor="center",
+                                stretch=False)
+        # Deux canaux distincts (cf. _arbre_etat) : la FORME du glyphe
+        # (colonne État) porte la complétude ; le MOT (colonne Risque) +
+        # la couleur de ligne portent la classe de risque. La couleur ne
+        # signifie donc plus qu'UNE chose (le risque) : les arbres
+        # incomplets (○/◐) sont en gris NEUTRE, plus en rouge/orange —
+        # ce qui levait l'ambiguïté « ligne orange = partielle ou classe
+        # orange ? ». On évite les emojis 🔴🟠🟢 (rendu monochrome
+        # imprévisible selon la police système dans ttk.Treeview).
+        self.tree_arbres.tag_configure("etat_vide", foreground=COLOR_MUTED)
+        self.tree_arbres.tag_configure("etat_partiel", foreground=COLOR_MUTED)
         self.tree_arbres.tag_configure("etat_ok",
                                         foreground="#1A5A2A")
-        # Arbre au diagnostic fiable (≥3 sondages) : le `●` plein est
-        # coloré selon la CLASSE DE RISQUE globale (cf. _arbre_etat) —
-        # repérage du risque dans la liste sans ouvrir l'onglet Diagnostic.
+        # Arbre au diagnostic fiable (≥3 sondages) : ligne colorée selon la
+        # CLASSE DE RISQUE globale (cf. _arbre_etat) — repérage du risque
+        # dans la liste sans ouvrir l'onglet Diagnostic, doublé du mot.
         self.tree_arbres.tag_configure("etat_ok_vert",
                                         foreground=COULEUR_CLASSE[CLASSE_VERT])
         self.tree_arbres.tag_configure(
@@ -802,9 +804,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         sel = self.tree_arbres.selection()
         if sel:
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, tag = self._arbre_etat(a)
+            glyph, risque, tag = self._arbre_etat(a)
             self.tree_arbres.item(sel[0], text=label,
-                                  values=(a.essence, glyph),
+                                  values=(a.essence, glyph, risque),
                                   tags=(tag,))
             # Recalcule le footer (le passage d'un arbre orange→vert
             # change le compteur global).

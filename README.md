@@ -123,17 +123,22 @@ Liste à gauche, ajout / duplication / suppression d'arbres en un clic
 (également via **clic droit** sur un arbre — menu contextuel
 Renommer/Dupliquer/Supprimer).
 
-Chaque arbre affiche un **indicateur d'état visuel** dans la liste :
+Chaque arbre affiche **deux indicateurs distincts** dans la liste, pour
+ne pas mélanger « où en est la saisie » et « quel est le risque » :
 
-- ● rouge bordeaux : aucun sondage (ou rayon non renseigné)
-- ● orange ambre : 1 ou 2 sondages (diagnostic non fiable)
-- ● vert foncé : 3 sondages ou plus (diagnostic fiable)
+- colonne **État** = avancement de la saisie, porté par la **forme**
+  (lisible même en cas de daltonisme) :
+  - ○ : aucun sondage (ou rayon non renseigné)
+  - ◐ : 1 ou 2 sondages (diagnostic non fiable)
+  - ● : 3 sondages ou plus (diagnostic fiable)
+- colonne **Risque** = classe globale **Vert / Orange / Rouge** (le mot)
+  dès que le diagnostic est fiable, « — » sinon.
 
-Le seuil vert (≥ 3 sondages) est **aligné** sur la règle de publication
-du diagnostic global : la pastille verte signale exactement les arbres
-dont le t/R moyen et la classe globale sont exportables.
-
-Toute la ligne est teintée selon l'état, et un footer sous la liste
+Le seuil fiable (● = ≥ 3 sondages) est **aligné** sur la règle de
+publication du diagnostic global. La **couleur de la ligne** ne code plus
+qu'une seule chose — la **classe de risque** (les arbres encore
+incomplets restent en gris neutre) — pour repérer les arbres dangereux
+d'un coup d'œil sans ouvrir l'onglet Diagnostic. Un footer sous la liste
 compte les arbres avec diagnostic fiable (« 3/12 arbres avec diagnostic
 fiable »).
 
