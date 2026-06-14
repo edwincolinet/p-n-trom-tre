@@ -314,7 +314,9 @@ class FichePdfSondagesTests(unittest.TestCase):
         on = render_fiche_arbre_to_pdf_page(a, c, show_sondages=True)
         off = render_fiche_arbre_to_pdf_page(a, c, show_sondages=False)
         # Le dessin diffère (pastilles présentes vs absentes)…
-        self.assertNotEqual(list(on.getdata()), list(off.getdata()))
+        # `tobytes()` plutôt que `getdata()` (déprécié Pillow 12, retiré 14)
+        # et stable sur toute la plage supportée (Pillow 10→12).
+        self.assertNotEqual(on.tobytes(), off.tobytes())
         # …mais la page reste de même format A4.
         self.assertEqual(on.size, off.size)
 

@@ -75,12 +75,14 @@ def _mean_diff(a, b) -> float:
         a = a.convert("RGB")
         b = b.convert("RGB")
     diff = ImageChops.difference(a, b)
-    data = list(diff.getdata())
+    # `tobytes()` plutôt que `getdata()` (déprécié Pillow 12, retiré 14) :
+    # stable sur toute la plage supportée, et donne directement la suite
+    # des octets par canal (1/pixel en « L », 3/pixel en « RGB »). La
+    # moyenne par octet = la moyenne par pixel·canal recherchée.
+    data = diff.tobytes()
     if not data:
         return 0.0
-    if isinstance(data[0], int):
-        return sum(data) / len(data)
-    return sum(sum(px) for px in data) / (len(data) * len(data[0]))
+    return sum(data) / len(data)
 
 
 @unittest.skipUnless(HAS_PIL, "Pillow absent")

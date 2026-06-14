@@ -4,10 +4,10 @@
 #   sudo apt install python3-tk
 #
 # Pillow est utilisée pour le rendu PNG et la génération du PDF d'expertise.
-# Plage testée localement avec Pillow 10.x ; on autorise 10.x à 11.x pour
-# rester compatible avec les distributions Linux récentes sans imposer
-# d'upgrade brutal.
-Pillow>=10.0,<12
+# Plage testée localement de Pillow 10.x à 12.x. Le code n'utilise aucune
+# API dépréciée (le rendu passe par `tobytes`, pas `getdata`) → compatible
+# jusqu'à la 14 sans changement. On garde une borne haute prudente.
+Pillow>=10.0,<13
 
 # openpyxl est utilisée par l'export XLSX du tableau PRBS (menu Export
 # > Tableau XLSX). C'est une dépendance optionnelle : l'app démarre
