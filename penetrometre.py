@@ -22,7 +22,7 @@ from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from aide_repliable import AideRepliable
 from app_arbres import _RISK_FILTER_ALL, _RISK_FILTER_CHOICES, ArbreListMixin
@@ -1212,7 +1212,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         a = self._current_arbre()
         if ref is None or a is None:
             return
-        open_comparison(self, a, ref, couleur_classe=COULEUR_CLASSE)
+        open_comparison(self, a, ref,
+                        cur_date=self.chantier.date_releve,
+                        couleur_classe=COULEUR_CLASSE,
+                        export_cb=self._export_comparison)
+
+    def _export_comparison(self, fmt: str,
+                           builder: Callable[[], Any]) -> None:
+        """Enregistre la page de comparaison (PNG ou PDF) construite par
+        `builder` (appelé par les boutons d'export de la fenêtre)."""
+        from comparaison_render import save_comparison_pdf, save_comparison_png
+        ext = ".pdf" if fmt == "pdf" else ".png"
+        typ = "PDF" if fmt == "pdf" else "Image PNG"
+        p = filedialog.asksaveasfilename(
+            defaultextension=ext,
+            filetypes=[(typ, f"*{ext}"), ("Tous", "*.*")])
+        if not p:
+            return
+        try:
+            page = builder()
+            if fmt == "pdf":
+                save_comparison_pdf(page, p)
+            else:
+                save_comparison_png(page, p)
+            self.notify_export(p, "Comparaison d'inspections")
+        except Exception as e:
+            log.exception("Échec export comparaison")
+            messagebox.showerror("Erreur", str(e))
 
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise

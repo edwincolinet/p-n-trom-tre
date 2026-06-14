@@ -218,10 +218,15 @@ purement descriptif : n'impacte pas le diagnostic.
   mission (colonnes triables, urgence colorée) et sur la fiche PDF.
 - **Comparaison inter-missions (ré-inspection)** : *Fichier → Comparer
   l'arbre courant à une mission…* charge une campagne antérieure et ouvre
-  une vue **côte à côte** (dessin + métriques de la référence vs celles de
-  l'inspection courante) avec un **verdict d'évolution** de la classe et du
-  t/R moyen (aggravation / stable / amélioration). La mission de référence
-  est chargée le temps de la session (rien n'est écrit dans le fichier).
+  une vue **côte à côte** — section de référence, section courante et une
+  **carte d'évolution** (rose des 16 directions colorée selon la perte de
+  bois sain). Un **tableau chiffré** quantifie l'aggravation : Δ PRBS,
+  **taux de dégradation en cm/an** (à partir des dates de relevé),
+  compartimentation perdue, t/R moyen, classe, direction la plus aggravée ;
+  avec un **verdict** (aggravation / stable / amélioration). La comparaison
+  est **exportable en PNG et en PDF** (page A4 livrable au client). La
+  mission de référence est chargée le temps de la session (rien n'est écrit
+  dans le fichier courant).
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la

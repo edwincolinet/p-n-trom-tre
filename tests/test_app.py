@@ -83,6 +83,24 @@ class TestNormaliserDate(unittest.TestCase):
             self.assertIsNone(normaliser_date(s), s)
 
 
+class TestAnneesEntre(unittest.TestCase):
+    def test_duree_positive(self) -> None:
+        from dialogs import annees_entre
+        self.assertAlmostEqual(
+            annees_entre("01/01/2020", "01/01/2023"), 3.0, places=1)
+
+    def test_signe_negatif_si_inverse(self) -> None:
+        from dialogs import annees_entre
+        v = annees_entre("01/01/2023", "01/01/2020")
+        self.assertIsNotNone(v)
+        self.assertLess(v, 0)
+
+    def test_none_si_date_manquante_ou_illisible(self) -> None:
+        from dialogs import annees_entre
+        self.assertIsNone(annees_entre("", "01/01/2023"))
+        self.assertIsNone(annees_entre("01/01/2023", "pas une date"))
+
+
 # ========================================================================
 # RecentFilesStore — pur, sans Tk
 # ========================================================================

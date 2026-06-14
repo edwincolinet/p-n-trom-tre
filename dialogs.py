@@ -196,6 +196,19 @@ def normaliser_date(s: str) -> Optional[str]:
     return f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
 
 
+def annees_entre(date_a: str, date_b: str) -> Optional[float]:
+    """Durée en années (float, base 365.25 j) entre deux dates saisies
+    (normalisées par `normaliser_date`). `None` si l'une est vide ou
+    illisible. Signé : négatif si `date_b` précède `date_a`. Sert au taux
+    d'évolution « cm/an » de la comparaison inter-missions."""
+    na, nb = normaliser_date(date_a), normaliser_date(date_b)
+    if not na or not nb:
+        return None
+    ja, ma, aa = (int(x) for x in na.split("/"))
+    jb, mb, ab = (int(x) for x in nb.split("/"))
+    return (date(ab, mb, jb) - date(aa, ma, ja)).days / 365.25
+
+
 def _numeric_entry(parent: tk.Misc, textvariable: tk.StringVar,
                     width: int) -> ttk.Entry:
     """Crée une ttk.Entry qui n'accepte à la frappe que des chiffres

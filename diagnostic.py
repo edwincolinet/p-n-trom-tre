@@ -835,6 +835,122 @@ def evolution_classe(reference: Optional[str],
     return (gc > gr) - (gc < gr)
 
 
+def verdict_evolution(detail: "ComparaisonDetail") -> str:
+    """Phrase de verdict de la comparaison (classe + t/R moyen + taux de
+    perte cm/an). Partagée par la fenêtre et l'export."""
+    rc = detail.classe_ref or "non publié"
+    cc = detail.classe_cur or "non publié"
+    evo = evolution_classe(detail.classe_ref, detail.classe_cur)
+    if evo is None:
+        base = f"Évolution de classe non comparable (réf. {rc}, courant {cc})."
+    elif evo > 0:
+        base = f"⚠ Aggravation : classe {rc} → {cc}."
+    elif evo < 0:
+        base = f"✓ Amélioration : classe {rc} → {cc}."
+    else:
+        base = f"= Stable : classe {cc}."
+    if detail.tR_moy_ref is not None and detail.tR_moy_cur is not None:
+        delta = detail.tR_moy_cur - detail.tR_moy_ref
+        fl = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
+        base += (f"   t/R moyen : {detail.tR_moy_ref:.1f} % → "
+                 f"{detail.tR_moy_cur:.1f} % ({fl} {abs(delta):.1f} pts)")
+    if detail.taux_cm_an is not None and detail.taux_cm_an > 0.005:
+        base += f"   Perte de bois sain : {detail.taux_cm_an:.2f} cm/an."
+    return base
+
+
+class DirectionDelta(NamedTuple):
+    """Évolution d'une direction sondée dans les DEUX campagnes (appariée
+    par grade). `delta` = PRBS courante − PRBS de référence (négatif = bois
+    sain perdu = aggravation)."""
+    grade: int
+    direction: str
+    prbs_ref: float
+    prbs_cur: float
+    delta: float
+    compart_ref: str
+    compart_cur: str
+
+    @property
+    def compart_aggravee(self) -> bool:
+        """Compartimentation perdue : active en référence → absente."""
+        return self.compart_ref == "active" and self.compart_cur == "absente"
+
+
+class ComparaisonDetail(NamedTuple):
+    """Comparaison chiffrée de deux inspections d'un même arbre (campagne
+    de référence → courante). Fonction pure `comparaison_detaillee`.
+
+    Les directions sont **appariées par grade** sur le brin courant (PRBS
+    brute `bois_sain_cm` = mesure physique invariante, idéale pour une
+    tendance). `taux_cm_an` = bois sain perdu par an (positif = perte) si
+    les deux missions sont datées."""
+    annees: Optional[float]
+    directions: List[DirectionDelta]
+    prbs_moy_ref: Optional[float]
+    prbs_moy_cur: Optional[float]
+    delta_prbs_moy: Optional[float]
+    taux_cm_an: Optional[float]
+    pire: Optional[DirectionDelta]
+    compart_aggravees: int
+    compart_changees: int
+    classe_ref: Optional[str]
+    classe_cur: Optional[str]
+    tR_moy_ref: Optional[float]
+    tR_moy_cur: Optional[float]
+
+
+def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
+                          annees: Optional[float]) -> ComparaisonDetail:
+    """Comparaison chiffrée référence → courant. `annees` = durée écoulée
+    entre les deux relevés (calculée en amont à partir des dates de
+    mission ; `None` si indisponible → pas de taux/an)."""
+    ref_b, cur_b = reference.brin_courant, courant.brin_courant
+    ref_by_grade = {s.grade: s for s in ref_b.sondages}
+    cur_by_grade = {s.grade: s for s in cur_b.sondages}
+    directions: List[DirectionDelta] = []
+    for g in GRADES:
+        sr = ref_by_grade.get(g)
+        sc = cur_by_grade.get(g)
+        if sr is None or sc is None:
+            continue
+        directions.append(DirectionDelta(
+            grade=g, direction=DIRECTION_LABELS.get(g, f"{g} gr"),
+            prbs_ref=sr.prbs_cm, prbs_cur=sc.prbs_cm,
+            delta=sc.prbs_cm - sr.prbs_cm,
+            compart_ref=sr.compartimentation,
+            compart_cur=sc.compartimentation))
+
+    prbs_moy_ref: Optional[float] = None
+    prbs_moy_cur: Optional[float] = None
+    delta_prbs_moy: Optional[float] = None
+    pire: Optional[DirectionDelta] = None
+    if directions:
+        pm_ref = sum(d.prbs_ref for d in directions) / len(directions)
+        pm_cur = sum(d.prbs_cur for d in directions) / len(directions)
+        prbs_moy_ref, prbs_moy_cur = pm_ref, pm_cur
+        delta_prbs_moy = pm_cur - pm_ref
+        pire_c = min(directions, key=lambda d: d.delta)
+        if pire_c.delta < 0:          # aggravation réelle → « pire » direction
+            pire = pire_c
+
+    taux_cm_an: Optional[float] = None
+    if delta_prbs_moy is not None and annees and annees > 0:
+        taux_cm_an = -delta_prbs_moy / annees   # perte → positif
+
+    s_ref = arbre_compare_summary(reference)
+    s_cur = arbre_compare_summary(courant)
+    return ComparaisonDetail(
+        annees=annees, directions=directions,
+        prbs_moy_ref=prbs_moy_ref, prbs_moy_cur=prbs_moy_cur,
+        delta_prbs_moy=delta_prbs_moy, taux_cm_an=taux_cm_an, pire=pire,
+        compart_aggravees=sum(1 for d in directions if d.compart_aggravee),
+        compart_changees=sum(1 for d in directions
+                             if d.compart_ref != d.compart_cur),
+        classe_ref=s_ref.classe, classe_cur=s_cur.classe,
+        tR_moy_ref=s_ref.tR_moyen_pct, tR_moy_cur=s_cur.tR_moyen_pct)
+
+
 # ---------------------------------------------------------------------
 # Données de rendu partagées Tk ↔ PIL pour les sondages
 # ---------------------------------------------------------------------
