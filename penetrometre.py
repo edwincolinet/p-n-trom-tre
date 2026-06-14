@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Iterator, Optional
 
 from aide_repliable import AideRepliable
-from app_arbres import ArbreListMixin
+from app_arbres import _RISK_FILTER_ALL, _RISK_FILTER_CHOICES, ArbreListMixin
 from app_export_actions import ExportActionsMixin
 from app_menu import build_menu, refresh_recent_menu
 from app_recent import RecentFilesStore
@@ -319,7 +319,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # cf. `_on_select_arbre`). `var_filter` est lue par
         # `_refresh_tree_arbres` (tolérante si appelée avant ce build).
         filt = ttk.Frame(frame, style="Side.TFrame")
-        filt.pack(fill="x", pady=(0, 6))
+        filt.pack(fill="x", pady=(0, 4))
         ttk.Label(filt, text="🔎", style="Side.TLabel").pack(side="left",
                                                              padx=(0, 4))
         self.var_filter = tk.StringVar()
@@ -329,6 +329,22 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                                   lambda *a: self._refresh_tree_arbres())
         # Échap dans le champ = vider le filtre.
         ent_filter.bind("<Escape>", lambda e: self.var_filter.set(""))
+
+        # Filtre par classe de risque (complète la recherche texte ; les
+        # deux se cumulent). Sur une grosse mission, « ne montrer que les
+        # rouges » est le tri prioritaire de l'expert. Cf. _RISK_FILTER_*
+        # et `_arbre_matches_filter`.
+        rfilt = ttk.Frame(frame, style="Side.TFrame")
+        rfilt.pack(fill="x", pady=(0, 6))
+        ttk.Label(rfilt, text="Risque", style="Side.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_risk_filter = tk.StringVar(value=_RISK_FILTER_ALL)
+        cmb_risk = ttk.Combobox(rfilt, textvariable=self.var_risk_filter,
+                                values=list(_RISK_FILTER_CHOICES),
+                                state="readonly", width=12)
+        cmb_risk.pack(side="left", fill="x", expand=True)
+        cmb_risk.bind("<<ComboboxSelected>>",
+                      lambda e: self._refresh_tree_arbres())
 
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
@@ -1103,7 +1119,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             self.var_ch_adr.set("")
             self.var_ch_ope.set("")
             self.var_ch_date.set(self.chantier.date_releve)
-        self.var_filter.set("")  # nouvelle mission → filtre remis à zéro
+        self.var_filter.set("")  # nouvelle mission → filtres remis à zéro
+        self.var_risk_filter.set(_RISK_FILTER_ALL)
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -1141,7 +1158,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
                 self.var_ch_adr.set(self.chantier.adresse)
                 self.var_ch_ope.set(self.chantier.operateur)
                 self.var_ch_date.set(self.chantier.date_releve)
-            self.var_filter.set("")  # mission ouverte → filtre remis à zéro
+            self.var_filter.set("")  # mission ouverte → filtres remis à zéro
+            self.var_risk_filter.set(_RISK_FILTER_ALL)
             self._refresh_tree_arbres()
             self._load_arbre_to_ui()
             self._update_title()

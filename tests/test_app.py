@@ -528,6 +528,40 @@ class TestAppMixins(unittest.TestCase):
         self.app.var_filter.set("")
         self.assertTrue(self.app._arbre_matches_filter(a))
 
+    def test_filtre_risque_classe(self) -> None:
+        from model import Sondage
+        # Arbre fiable sain → Vert.
+        vert = self.app.chantier.arbres[0]
+        vert.rayon_tronc_cm = 20.0
+        for i in range(3):
+            vert.sondages.append(Sondage(numero=i + 1, grade=i * 25,
+                                         bois_sain_cm=20.0, bois_altere_cm=0.0))
+        # Arbre incomplet (0 sondage) → « Non fiable ».
+        self.app.action_add_arbre()
+        vide = self.app.chantier.arbres[1]
+        # Filtre « Vert » : seul l'arbre fiable vert passe.
+        self.app.var_risk_filter.set("Vert")
+        self.assertTrue(self.app._arbre_matches_filter(vert))
+        self.assertFalse(self.app._arbre_matches_filter(vide))
+        # Filtre « Non fiable » : l'inverse.
+        self.app.var_risk_filter.set("Non fiable")
+        self.assertFalse(self.app._arbre_matches_filter(vert))
+        self.assertTrue(self.app._arbre_matches_filter(vide))
+
+    def test_filtre_risque_et_texte_se_cumulent(self) -> None:
+        from model import Sondage
+        a = self.app.chantier.arbres[0]
+        a.essence = "Platane"
+        a.rayon_tronc_cm = 20.0
+        for i in range(3):
+            a.sondages.append(Sondage(numero=i + 1, grade=i * 25,
+                                      bois_sain_cm=20.0, bois_altere_cm=0.0))
+        self.app.var_risk_filter.set("Vert")
+        self.app.var_filter.set("chêne")        # essence ne concorde pas
+        self.assertFalse(self.app._arbre_matches_filter(a))
+        self.app.var_filter.set("plat")         # concorde + Vert
+        self.assertTrue(self.app._arbre_matches_filter(a))
+
     def test_navigation_relative_bornee(self) -> None:
         for _ in range(2):
             self.app.action_add_arbre()  # 3 arbres, idx=2
