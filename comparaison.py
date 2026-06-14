@@ -28,7 +28,7 @@ from typing import Any, Callable, Mapping, Optional
 from comparaison_render import (
     metric_rows,
     render_comparison_page,
-    render_evolution_heatmap,
+    render_evolution_section,
 )
 from diagnostic import comparaison_detaillee, evolution_classe, verdict_evolution
 from dialogs import annees_entre
@@ -134,7 +134,7 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
             ref_arbre, _SEC, _SEC, show_sondages=True, show_title=False,
             show_legend=False))
         img_ref.configure(image=photos["ref"])
-        photos["evo"] = _photo(render_evolution_heatmap(detail, _SEC))
+        photos["evo"] = _photo(render_evolution_section(ref_arbre, current, _SEC))
         img_evo.configure(image=photos["evo"])
         tbl.delete(*tbl.get_children())
         for r in metric_rows(detail):

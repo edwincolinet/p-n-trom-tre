@@ -54,3 +54,6 @@ desktop.ini
 
 # Cache MIME local généré par update-mime-database (Linux)
 mimeinfo.cache
+
+# Dossier de travail (captures/échanges, non versionné)
+Communication/

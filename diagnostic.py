@@ -854,8 +854,12 @@ def verdict_evolution(detail: "ComparaisonDetail") -> str:
         fl = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
         base += (f"   t/R moyen : {detail.tR_moy_ref:.1f} % → "
                  f"{detail.tR_moy_cur:.1f} % ({fl} {abs(delta):.1f} pts)")
-    if detail.taux_cm_an is not None and detail.taux_cm_an > 0.005:
-        base += f"   Perte de bois sain : {detail.taux_cm_an:.2f} cm/an."
+    if detail.perte_moy_par_dir is not None and detail.perte_moy_par_dir > 0.05:
+        base += (f"   Perte de bois sain : "
+                 f"{detail.perte_moy_par_dir:.1f} cm/direction")
+        if detail.taux_cm_an is not None:
+            base += f" (≈ {detail.taux_cm_an:.2f} cm/an)"
+        base += "."
     return base
 
 
@@ -877,19 +881,27 @@ class DirectionDelta(NamedTuple):
         return self.compart_ref == "active" and self.compart_cur == "absente"
 
 
+# Intervalle minimal (années) pour qu'un taux annualisé soit pertinent.
+# En dessous (ré-inspection rapprochée), `perte / annees` explose et n'a
+# pas de sens — on n'affiche alors que la perte absolue par direction.
+_TAUX_ANNEES_MIN = 0.5
+
+
 class ComparaisonDetail(NamedTuple):
     """Comparaison chiffrée de deux inspections d'un même arbre (campagne
     de référence → courante). Fonction pure `comparaison_detaillee`.
 
-    Les directions sont **appariées par grade** sur le brin courant (PRBS
-    brute `bois_sain_cm` = mesure physique invariante, idéale pour une
-    tendance). `taux_cm_an` = bois sain perdu par an (positif = perte) si
-    les deux missions sont datées."""
+    Les **16 directions** sont comparées via la PRBS **extrapolée**
+    (`prbs_par_grade` : rayon − altération interne extrapolée − dégradation
+    externe) → on exploite l'extrapolation au lieu de se limiter aux
+    directions sondées. `perte_moy_par_dir` = bois sain perdu **moyen par
+    direction** (cm, positif = perte). `taux_cm_an` n'est calculé que si
+    l'intervalle ≥ `_TAUX_ANNEES_MIN` (sinon `None` → non pertinent)."""
     annees: Optional[float]
     directions: List[DirectionDelta]
     prbs_moy_ref: Optional[float]
     prbs_moy_cur: Optional[float]
-    delta_prbs_moy: Optional[float]
+    perte_moy_par_dir: Optional[float]
     taux_cm_an: Optional[float]
     pire: Optional[DirectionDelta]
     compart_aggravees: int
@@ -902,48 +914,50 @@ class ComparaisonDetail(NamedTuple):
 
 def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
                           annees: Optional[float]) -> ComparaisonDetail:
-    """Comparaison chiffrée référence → courant. `annees` = durée écoulée
-    entre les deux relevés (calculée en amont à partir des dates de
-    mission ; `None` si indisponible → pas de taux/an)."""
+    """Comparaison chiffrée référence → courant, sur les **16 directions
+    extrapolées** (`prbs_par_grade`). `annees` = durée entre les deux
+    relevés (calculée en amont depuis les dates de mission)."""
     ref_b, cur_b = reference.brin_courant, courant.brin_courant
-    ref_by_grade = {s.grade: s for s in ref_b.sondages}
-    cur_by_grade = {s.grade: s for s in cur_b.sondages}
+    ref_comp = {s.grade: s.compartimentation for s in ref_b.sondages}
+    cur_comp = {s.grade: s.compartimentation for s in cur_b.sondages}
+
     directions: List[DirectionDelta] = []
-    for g in GRADES:
-        sr = ref_by_grade.get(g)
-        sc = cur_by_grade.get(g)
-        if sr is None or sc is None:
-            continue
-        directions.append(DirectionDelta(
-            grade=g, direction=DIRECTION_LABELS.get(g, f"{g} gr"),
-            prbs_ref=sr.prbs_cm, prbs_cur=sc.prbs_cm,
-            delta=sc.prbs_cm - sr.prbs_cm,
-            compart_ref=sr.compartimentation,
-            compart_cur=sc.compartimentation))
+    if ref_b.rayon_tronc_cm > 0 and cur_b.rayon_tronc_cm > 0:
+        prbs_r = prbs_par_grade(ref_b)   # PRBS extrapolée 16 dir.
+        prbs_c = prbs_par_grade(cur_b)
+        for i, g in enumerate(GRADES):
+            directions.append(DirectionDelta(
+                grade=g, direction=DIRECTION_LABELS.get(g, f"{g} gr"),
+                prbs_ref=prbs_r[i], prbs_cur=prbs_c[i],
+                delta=prbs_c[i] - prbs_r[i],
+                compart_ref=ref_comp.get(g, ""),
+                compart_cur=cur_comp.get(g, "")))
 
     prbs_moy_ref: Optional[float] = None
     prbs_moy_cur: Optional[float] = None
-    delta_prbs_moy: Optional[float] = None
+    perte_moy: Optional[float] = None
     pire: Optional[DirectionDelta] = None
     if directions:
-        pm_ref = sum(d.prbs_ref for d in directions) / len(directions)
-        pm_cur = sum(d.prbs_cur for d in directions) / len(directions)
-        prbs_moy_ref, prbs_moy_cur = pm_ref, pm_cur
-        delta_prbs_moy = pm_cur - pm_ref
+        n = len(directions)
+        prbs_moy_ref = sum(d.prbs_ref for d in directions) / n
+        prbs_moy_cur = sum(d.prbs_cur for d in directions) / n
+        # Perte moyenne PAR DIRECTION (cm, positif = bois sain perdu).
+        perte_moy = sum(d.prbs_ref - d.prbs_cur for d in directions) / n
         pire_c = min(directions, key=lambda d: d.delta)
         if pire_c.delta < 0:          # aggravation réelle → « pire » direction
             pire = pire_c
 
     taux_cm_an: Optional[float] = None
-    if delta_prbs_moy is not None and annees and annees > 0:
-        taux_cm_an = -delta_prbs_moy / annees   # perte → positif
+    if (perte_moy is not None and annees is not None
+            and annees >= _TAUX_ANNEES_MIN):
+        taux_cm_an = perte_moy / annees
 
     s_ref = arbre_compare_summary(reference)
     s_cur = arbre_compare_summary(courant)
     return ComparaisonDetail(
         annees=annees, directions=directions,
         prbs_moy_ref=prbs_moy_ref, prbs_moy_cur=prbs_moy_cur,
-        delta_prbs_moy=delta_prbs_moy, taux_cm_an=taux_cm_an, pire=pire,
+        perte_moy_par_dir=perte_moy, taux_cm_an=taux_cm_an, pire=pire,
         compart_aggravees=sum(1 for d in directions if d.compart_aggravee),
         compart_changees=sum(1 for d in directions
                              if d.compart_ref != d.compart_cur),

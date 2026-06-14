@@ -1063,8 +1063,9 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].brin_label, "")
 
-    def test_comparaison_detaillee(self):
-        # Référence : bois sain 8 cm partout ; courant : 5 cm → perte 3 cm.
+    def test_comparaison_detaillee_extrapolee_16_directions(self):
+        # Bois sain uniforme 8→5 cm. L'extrapolation porte la comparaison
+        # sur les 16 directions (pas seulement les 4 sondées).
         ref = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre")
         cur = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre")
         for g in (0, 100, 200, 300):
@@ -1075,31 +1076,35 @@ class GenetDiagnosticTests(unittest.TestCase):
                                         bois_altere_cm=15.0,
                                         compartimentation="absente"))
         det = comparaison_detaillee(ref, cur, annees=3.0)
-        self.assertEqual(len(det.directions), 4)
-        self.assertAlmostEqual(det.delta_prbs_moy, -3.0)
-        self.assertAlmostEqual(det.taux_cm_an, 1.0)            # 3 cm / 3 ans
-        self.assertEqual(det.compart_aggravees, 4)            # active→absente
+        self.assertEqual(len(det.directions), 16)            # extrapolé
+        self.assertAlmostEqual(det.perte_moy_par_dir, 3.0)   # 8 - 5
+        self.assertAlmostEqual(det.taux_cm_an, 1.0)          # 3 cm / 3 ans
+        self.assertEqual(det.compart_aggravees, 4)           # 4 sondées only
         self.assertIsNotNone(det.pire)
         self.assertAlmostEqual(det.pire.delta, -3.0)
 
-    def test_comparaison_sans_annees_pas_de_taux(self):
+    def test_comparaison_taux_seulement_si_intervalle_suffisant(self):
         ref = Arbre(rayon_tronc_cm=20.0)
         cur = Arbre(rayon_tronc_cm=20.0)
         for g in (0, 100, 200):
-            ref.sondages.append(Sondage(grade=g, bois_sain_cm=8.0))
-            cur.sondages.append(Sondage(grade=g, bois_sain_cm=6.0))
-        det = comparaison_detaillee(ref, cur, annees=None)
+            ref.sondages.append(Sondage(grade=g, bois_sain_cm=8.0,
+                                        bois_altere_cm=12.0))
+            cur.sondages.append(Sondage(grade=g, bois_sain_cm=6.0,
+                                        bois_altere_cm=14.0))
+        # 20 jours ≈ 0.055 an < 0.5 → pas de taux (évite l'explosion).
+        det = comparaison_detaillee(ref, cur, annees=20 / 365.25)
         self.assertIsNone(det.taux_cm_an)
-        self.assertAlmostEqual(det.delta_prbs_moy, -2.0)
+        self.assertAlmostEqual(det.perte_moy_par_dir, 2.0)   # toujours dispo
+        # Sans date non plus.
+        self.assertIsNone(
+            comparaison_detaillee(ref, cur, annees=None).taux_cm_an)
 
-    def test_comparaison_directions_non_communes_ignorees(self):
-        ref = Arbre(rayon_tronc_cm=20.0)
+    def test_comparaison_rayon_nul_pas_de_directions(self):
+        ref = Arbre(rayon_tronc_cm=0.0)
         cur = Arbre(rayon_tronc_cm=20.0)
-        ref.sondages.append(Sondage(grade=0, bois_sain_cm=8.0))
-        cur.sondages.append(Sondage(grade=100, bois_sain_cm=5.0))  # autre dir.
         det = comparaison_detaillee(ref, cur, annees=1.0)
-        self.assertEqual(det.directions, [])      # aucune direction commune
-        self.assertIsNone(det.delta_prbs_moy)
+        self.assertEqual(det.directions, [])
+        self.assertIsNone(det.perte_moy_par_dir)
 
     def test_evolution_classe(self):
         self.assertEqual(evolution_classe("Vert", "Rouge"), 1)    # aggravation

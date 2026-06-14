@@ -17,9 +17,16 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from diagnostic import verdict_evolution
+from diagnostic import prbs_par_grade, rayon_par_grade, verdict_evolution
 from geometry import GRADES
-from palette import COLOR_ACCENT, COLOR_INK, COLOR_MUTED
+from palette import (
+    COLOR_ACCENT,
+    COLOR_BARK,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_ROT,
+    COLOR_WOOD,
+)
 from pil_render import _pil_load_fonts, render_arbre_to_pil_image
 
 if TYPE_CHECKING:
@@ -28,76 +35,72 @@ if TYPE_CHECKING:
     from diagnostic import ComparaisonDetail
     from model import Arbre
 
-# Grade → angle PIL (degrés, 0 à 3 h, sens horaire). 360/400 = 0.9 ; le
+# Grade → angle écran (radians, 0 à 3 h, sens horaire). 360/400 = 0.9 ; le
 # Nord (grade 0) est en haut → −90°.
 _GR_TO_DEG = 0.9
-_NEUTRE = (238, 232, 216)
-_ROUGE = (176, 30, 20)
-_VERT = (45, 122, 62)
-_VIDE = (224, 224, 220)
+_ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
 
 
-def _lerp(c0: Tuple[int, int, int], c1: Tuple[int, int, int],
-          t: float) -> Tuple[int, int, int]:
-    return (int(round(c0[0] + (c1[0] - c0[0]) * t)),
-            int(round(c0[1] + (c1[1] - c0[1]) * t)),
-            int(round(c0[2] + (c1[2] - c0[2]) * t)))
+def _poly(cx: float, cy: float, scale: float,
+          radii: list) -> list:
+    """Polygone des 16 directions (grade 0 = Nord, sens horaire) aux rayons
+    `radii` (cm) — contour schématique d'une section."""
+    pts = []
+    for i, g in enumerate(GRADES):
+        ang = math.radians(g * _GR_TO_DEG - 90)
+        r = max(0.0, radii[i]) * scale
+        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
+    return pts
 
 
-def _heat_color(delta: float, max_abs: float) -> Tuple[int, int, int]:
-    """Couleur d'un secteur selon ΔPRBS : rouge (perte de bois sain),
-    neutre (stable), vert (gain, rare). Intensité normalisée sur `max_abs`."""
-    if max_abs <= 0:
-        return _NEUTRE
-    t = max(-1.0, min(1.0, delta / max_abs))
-    return _lerp(_NEUTRE, _ROUGE, -t) if t < 0 else _lerp(_NEUTRE, _VERT, t)
-
-
-def render_evolution_heatmap(detail: "ComparaisonDetail",
+def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
                              size: int = 460) -> "PILImage":
-    """Rose des 16 directions colorée par l'évolution de l'altération."""
+    """« Section d'évolution » : sur la géométrie du tronc COURANT, la
+    couronne de bois sain **perdu depuis la référence** est surlignée en
+    orange — entre l'ancien bord de cavité (R − PRBS_réf) et le nouveau
+    (R − PRBS_courant). Au centre : la cavité déjà altérée à la référence.
+
+    Tout est exprimé sur le rayon LOCAL courant (`rayon_par_grade`) et les
+    PRBS **extrapolées** sur 16 directions, donc complet même sur les
+    directions non sondées. Schématique (16-gon), pas les cernes."""
     from PIL import Image, ImageDraw
     img = Image.new("RGB", (size, size), "white")
     d = ImageDraw.Draw(img)
     f = _pil_load_fonts()
-    cx, cy = size / 2.0, size * 0.40
-    R = size * 0.31
-    by_grade = {dd.grade: dd for dd in detail.directions}
-    max_abs = max((abs(dd.delta) for dd in detail.directions), default=0.0)
 
-    for g in GRADES:
-        a0 = (g - 12.5) * _GR_TO_DEG - 90
-        a1 = (g + 12.5) * _GR_TO_DEG - 90
-        dd = by_grade.get(g)
-        fill = _VIDE if dd is None else _heat_color(dd.delta, max_abs)
-        outline = (200, 200, 196) if dd is None else (110, 110, 106)
-        d.pieslice([cx - R, cy - R, cx + R, cy + R], a0, a1,
-                   fill=fill, outline=outline)
-    d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(60, 60, 56))
+    cur_b, ref_b = cur_arbre.brin_courant, ref_arbre.brin_courant
+    R = rayon_par_grade(cur_b)                 # rayon local courant, 16 dir.
+    ep = max(0.0, cur_b.epaisseur_ecorce_cm)
+    prbs_c = prbs_par_grade(cur_b)
+    prbs_r = prbs_par_grade(ref_b)
+    outer = [R[i] + ep for i in range(16)]
+    cur_cav = [R[i] - prbs_c[i] for i in range(16)]   # nouvelle cavité
+    ref_cav = [R[i] - prbs_r[i] for i in range(16)]   # ancienne cavité
+
+    rmax = max(outer) if outer else 1.0
+    cx, cy = size / 2.0, size * 0.45
+    scale = (size * 0.40) / (rmax if rmax > 0 else 1.0)
+
+    d.polygon(_poly(cx, cy, scale, outer), fill=COLOR_BARK)        # écorce
+    d.polygon(_poly(cx, cy, scale, R), fill=COLOR_WOOD)           # bois sain
+    d.polygon(_poly(cx, cy, scale, cur_cav), fill=_ORANGE)        # bois perdu
+    d.polygon(_poly(cx, cy, scale, ref_cav), fill=COLOR_ROT)      # cavité réf.
+    d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
     for g, lbl in ((0, "N"), (100, "E"), (200, "S"), (300, "O")):
         ang = math.radians(g * _GR_TO_DEG - 90)
-        lx = cx + (R + 20) * math.cos(ang)
-        ly = cy + (R + 20) * math.sin(ang)
+        lx = cx + (rmax * scale + 18) * math.cos(ang)
+        ly = cy + (rmax * scale + 18) * math.sin(ang)
         d.text((lx, ly), lbl, font=f(int(size * 0.046), "serif_bold"),
                fill=COLOR_INK, anchor="mm")
 
-    # Échelle de couleur (barre dégradé rouge → neutre) sous la rose.
-    bar_y = size * 0.86
-    bx0, bx1 = size * 0.16, size * 0.84
-    steps = 60
-    for i in range(steps):
-        t = i / (steps - 1)
-        col = _lerp(_ROUGE, _NEUTRE, t)
-        x = bx0 + (bx1 - bx0) * t
-        d.rectangle([x, bar_y, x + (bx1 - bx0) / steps + 1, bar_y + 12],
-                    fill=col)
     sf = f(int(size * 0.030), "sans")
-    perte = f"−{max_abs:.1f} cm" if max_abs > 0 else "perte"
-    d.text((bx0, bar_y + 16), perte, font=sf, fill=COLOR_MUTED, anchor="lt")
-    d.text((bx1, bar_y + 16), "stable", font=sf, fill=COLOR_MUTED, anchor="rt")
-    d.text((cx, bar_y - 6), "Bois sain perdu par direction",
-           font=sf, fill=COLOR_MUTED, anchor="mb")
+    cap_y = size * 0.95
+    d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
+                fill=_ORANGE, outline=(150, 150, 146))
+    d.text((size * 0.14 + 26, cap_y + 8),
+           "= bois sain perdu depuis la référence",
+           font=sf, fill=COLOR_MUTED, anchor="lm")
     return img
 
 
@@ -123,21 +126,27 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
         evo_tr = f"{dpts:+.1f} pts"
     rows.append(("t/R moyen", _pct_aff(detail.tR_moy_ref),
                  _pct_aff(detail.tR_moy_cur), evo_tr))
-    # PRBS moyenne (directions communes)
+    # PRBS moyenne extrapolée (16 directions)
     evo_prbs = ""
-    if detail.delta_prbs_moy is not None:
-        evo_prbs = f"{detail.delta_prbs_moy:+.2f} cm"
-    rows.append(("PRBS moyenne (dir. communes)",
+    if detail.perte_moy_par_dir is not None:
+        evo_prbs = f"{-detail.perte_moy_par_dir:+.2f} cm"
+    rows.append(("PRBS moyenne (16 directions)",
                  f"{detail.prbs_moy_ref:.2f} cm" if detail.prbs_moy_ref is not None else "—",
                  f"{detail.prbs_moy_cur:.2f} cm" if detail.prbs_moy_cur is not None else "—",
                  evo_prbs))
-    # Taux de perte cm/an
+    # Perte moyenne de bois sain PAR DIRECTION (cm) — la mesure de référence.
+    if detail.perte_moy_par_dir is not None:
+        rows.append(("Perte moyenne de bois sain", "—", "—",
+                     f"{detail.perte_moy_par_dir:.2f} cm / direction"))
+    # Taux annualisé (uniquement si l'intervalle est suffisant).
     if detail.taux_cm_an is not None:
-        rows.append(("Perte de bois sain", "—", "—",
+        rows.append(("Taux annualisé", "—", "—",
                      f"{detail.taux_cm_an:.2f} cm/an"))
+    elif detail.annees is not None:
+        rows.append(("Taux annualisé", "—", "—",
+                     "intervalle trop court (< 6 mois)"))
     else:
-        rows.append(("Perte de bois sain", "—", "—",
-                     "n/a (missions non datées)"))
+        rows.append(("Taux annualisé", "—", "—", "missions non datées"))
     # Compartimentation
     rows.append(("Compartimentation perdue (active→absente)", "—", "—",
                  f"{detail.compart_aggravees} direction(s)"))
@@ -185,12 +194,12 @@ def render_comparison_page(mission_nom: str, ref_arbre: "Arbre",
             arbre, sec, sec, show_sondages=True, show_title=False,
             show_legend=False)
         page.paste(thumb, (x, y_img))
-    # Heatmap.
+    # Section d'évolution (progression surlignée).
     x = margin + 2 * (sec + gap)
     d.text((x, y_lbl), "Évolution de l'altération",
            font=f(18, "sans_bold"), fill=COLOR_INK)
-    heat = render_evolution_heatmap(detail, sec)
-    page.paste(heat, (x, y_img))
+    evo = render_evolution_section(ref_arbre, cur_arbre, sec)
+    page.paste(evo, (x, y_img))
 
     # Tableau chiffré.
     y = y_img + sec + 24
