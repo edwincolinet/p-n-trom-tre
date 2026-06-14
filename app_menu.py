@@ -41,6 +41,8 @@ class AppLike(Protocol):
     def action_save(self) -> None: ...
     def action_save_as(self) -> None: ...
     def action_open_backups_folder(self) -> None: ...
+    def action_load_reference(self) -> bool: ...
+    def action_compare_arbre(self) -> None: ...
     # Exports globaux (mission) — les exports individuels (PNG, fiche
     # PDF, tableau XLSX/HTML) restent accessibles depuis l'onglet
     # Diagnostic, qui les expose en haut du pane.
@@ -112,6 +114,11 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_export_pdf_mission)
     f.add_command(label="Exporter sondages mission (CSV)…",
                   command=app.action_export_csv)
+    f.add_separator()
+    f.add_command(label="Comparer l'arbre courant à une mission…",
+                  command=app.action_compare_arbre)
+    f.add_command(label="Choisir la mission de référence…",
+                  command=app.action_load_reference)
     f.add_separator()
     f.add_command(label="Ouvrir le dossier des sauvegardes…",
                   command=app.action_open_backups_folder)

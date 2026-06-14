@@ -795,6 +795,47 @@ def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
 
 
 # ---------------------------------------------------------------------
+# Comparaison inter-missions (ré-inspection)
+# ---------------------------------------------------------------------
+
+class ArbreCompareSummary(NamedTuple):
+    """Résumé court d'un arbre pour la comparaison d'inspections
+    (campagnes successives) — agrégat genet, règle de fiabilité respectée
+    (`classe`/`tR_moyen_pct` = `None` si < 3 sondages ; `tR_moyen_pct`
+    aussi `None` pour une cépée — la moyenne inter-brins n'a pas de sens)."""
+    classe: Optional[str]
+    tR_moyen_pct: Optional[float]
+    n_sondees: int
+    rayon_cm: float
+    fiable: bool
+
+
+def arbre_compare_summary(arbre: "Arbre") -> ArbreCompareSummary:
+    """Résumé court d'un arbre (réutilise la ligne de synthèse genet)."""
+    if len(arbre.brins) <= 1:
+        row = _synthesis_row_for_section(
+            arbre.numero_arbre, arbre.essence, arbre.port_arbre,
+            arbre.brin_courant)
+    else:
+        row = _synthesis_genet_row(arbre)
+    return ArbreCompareSummary(
+        classe=row.classe_globale, tR_moyen_pct=row.tR_moyen_pct,
+        n_sondees=row.n_sondees, rayon_cm=row.rayon_cm, fiable=row.fiable)
+
+
+def evolution_classe(reference: Optional[str],
+                     courant: Optional[str]) -> Optional[int]:
+    """Compare deux classes globales (campagne de référence → courante) :
+    `-1` amélioration, `0` stable, `+1` aggravation, `None` si l'une des
+    deux classes n'est pas publiée. Sévérité Vert < Orange < Rouge."""
+    if reference is None or courant is None:
+        return None
+    gr = _GRAVITE_CLASSE.get(reference, 0)
+    gc = _GRAVITE_CLASSE.get(courant, 0)
+    return (gc > gr) - (gc < gr)
+
+
+# ---------------------------------------------------------------------
 # Données de rendu partagées Tk ↔ PIL pour les sondages
 # ---------------------------------------------------------------------
 

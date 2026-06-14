@@ -24,9 +24,11 @@ from __future__ import annotations
 import unittest
 
 from diagnostic import (
+    arbre_compare_summary,
     compute_alteration_par_grade,
     degradation_externe_par_grade,
     diagnostic_summary_lines,
+    evolution_classe,
     extrapolation_summary,
     genet_diagnostic,
     genet_summary_lines,
@@ -1059,6 +1061,33 @@ class GenetDiagnosticTests(unittest.TestCase):
         rows = mission_synthesis_rows(Chantier(arbres=[a]))
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].brin_label, "")
+
+    def test_evolution_classe(self):
+        self.assertEqual(evolution_classe("Vert", "Rouge"), 1)    # aggravation
+        self.assertEqual(evolution_classe("Rouge", "Vert"), -1)   # amélioration
+        self.assertEqual(evolution_classe("Orange", "Orange"), 0)  # stable
+        self.assertIsNone(evolution_classe(None, "Vert"))
+        self.assertIsNone(evolution_classe("Vert", None))
+
+    def test_arbre_compare_summary_mono(self):
+        a = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre")
+        for g in (0, 100, 200):
+            a.sondages.append(Sondage(grade=g, bois_sain_cm=20.0,
+                                       bois_altere_cm=0.0))
+        s = arbre_compare_summary(a)
+        self.assertEqual(s.classe, "Vert")
+        self.assertEqual(s.n_sondees, 3)
+        self.assertEqual(s.rayon_cm, 20.0)
+        self.assertTrue(s.fiable)
+        self.assertIsNotNone(s.tR_moyen_pct)
+
+    def test_arbre_compare_summary_non_fiable(self):
+        a = Arbre(numero_arbre="2", rayon_tronc_cm=20.0, port_arbre="libre")
+        a.sondages.append(Sondage(grade=0, bois_sain_cm=20.0,
+                                   bois_altere_cm=0.0))
+        s = arbre_compare_summary(a)
+        self.assertIsNone(s.classe)        # < 3 sondages → non publié
+        self.assertFalse(s.fiable)
 
     def test_synthese_porte_la_preconisation_au_niveau_genet(self):
         from model import Chantier

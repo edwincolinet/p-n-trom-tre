@@ -216,6 +216,12 @@ purement descriptif : n'impacte pas le diagnostic.
   Sans objet), une **échéance** d'intervention facultative et une
   **action recommandée** en texte libre. Reprise dans la synthèse de
   mission (colonnes triables, urgence colorée) et sur la fiche PDF.
+- **Comparaison inter-missions (ré-inspection)** : *Fichier → Comparer
+  l'arbre courant à une mission…* charge une campagne antérieure et ouvre
+  une vue **côte à côte** (dessin + métriques de la référence vs celles de
+  l'inspection courante) avec un **verdict d'évolution** de la classe et du
+  t/R moyen (aggravation / stable / amélioration). La mission de référence
+  est chargée le temps de la session (rien n'est écrit dans le fichier).
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la

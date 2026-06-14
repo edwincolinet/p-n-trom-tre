@@ -36,6 +36,7 @@ from app_recovery import (
 from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from comparaison import open_comparison
 from dialogs import (
     ask_cepee_layout,
     ask_date,
@@ -137,6 +138,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         # Dernier fichier exporté — cible des boutons « Ouvrir le
         # fichier / le dossier » de la barre d'état (cf. notify_export).
         self._last_export_path: Optional[Path] = None
+        # Mission de référence pour la comparaison inter-missions
+        # (ré-inspection) : chargée en mémoire, PAR SESSION (rien de
+        # persisté dans le fichier courant).
+        self._reference_chantier: Optional[Chantier] = None
         self.pane_s: Optional[SondagesPane] = None
         self.pane_de: Optional[DegradationsPane] = None
         self.pane_cf: Optional[ContrefortsPane] = None
@@ -1172,6 +1177,42 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         if not p:
             return
         self._open_path(p)
+
+    def action_load_reference(self) -> bool:
+        """Charge en mémoire une mission de référence (campagne antérieure)
+        pour la comparaison inter-missions. Par session : rien n'est écrit
+        dans la mission courante. Renvoie True si chargée."""
+        p = filedialog.askopenfilename(
+            title="Choisir la mission de référence (campagne antérieure)",
+            filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
+        if not p:
+            return False
+        try:
+            self._reference_chantier = load_chantier(p)
+        except Exception as e:
+            log.exception("Échec chargement mission de référence")
+            messagebox.showerror("Erreur", str(e))
+            return False
+        n = len(self._reference_chantier.arbres)
+        self.set_status(f"Mission de référence chargée — {Path(p).name} "
+                        f"({n} arbre(s)). « Comparer l'arbre courant… »")
+        return True
+
+    def action_compare_arbre(self) -> None:
+        """Ouvre la fenêtre de comparaison de l'arbre courant avec un arbre
+        de la mission de référence (chargée à la 1re utilisation)."""
+        if self._reference_chantier is None:
+            messagebox.showinfo(
+                "Comparer une inspection",
+                "Choisissez d'abord la mission de référence — la campagne "
+                "antérieure à laquelle comparer.")
+            if not self.action_load_reference():
+                return
+        ref = self._reference_chantier
+        a = self._current_arbre()
+        if ref is None or a is None:
+            return
+        open_comparison(self, a, ref, couleur_classe=COULEUR_CLASSE)
 
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise
