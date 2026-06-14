@@ -24,8 +24,12 @@ quand même `Sondage`, `DegradationExterne`, `Contrefort` pour le typage.
 
 from __future__ import annotations
 
+import calendar
 import math
+import re
 import tkinter as tk
+from datetime import date
+from functools import partial
 from tkinter import messagebox, ttk
 from typing import Any, List, Optional, Tuple, Union
 
@@ -88,6 +92,31 @@ def message_chevauchement(other: DegradationExterne,
             f"{labels}.\n\nLes arcs ne doivent pas se chevaucher.")
 
 
+# --- « Zone dégradée » d'une dégradation externe (comprend_ecorce) ------
+# Source unique des libellés, partagée entre la grille (pane_degradations)
+# et la modale (edit_degradation) : la case booléenne nue était illisible
+# (sens et impact PRBS cachés dans un tooltip). Texte explicite à la place.
+ZONE_ECORCE_BOIS = "Écorce + bois"   # comprend_ecorce = True (défaut)
+ZONE_BOIS_SEUL = "Bois seul"         # comprend_ecorce = False
+ZONE_DEGRADEE_CHOICES = (ZONE_ECORCE_BOIS, ZONE_BOIS_SEUL)
+ZONE_DEGRADEE_AIDE = (
+    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
+    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
+    "bois sain perdu."
+)
+
+
+def zone_degradee_label(comprend_ecorce: bool) -> str:
+    """Libellé affiché pour l'état `comprend_ecorce` d'une dégradation."""
+    return ZONE_ECORCE_BOIS if comprend_ecorce else ZONE_BOIS_SEUL
+
+
+def zone_degradee_to_bool(label: str) -> bool:
+    """Inverse de `zone_degradee_label` : libellé → `comprend_ecorce`."""
+    return label == ZONE_ECORCE_BOIS
+
+
 def _round_to_25(v: int, *, min_v: int = 0, max_v: int = 375,
                   wrap: bool = True) -> int:
     """Arrondit à 25 près. `wrap=True` ramène modulo 400 (pour les
@@ -125,6 +154,46 @@ def to_float(s: str) -> float:
     if not s:
         return 0.0
     return float(s)
+
+
+_DATE_SEP_RE = re.compile(r"[/\-.\s]+")
+
+
+def normaliser_date(s: str) -> Optional[str]:
+    """Normalise une date de relevé saisie librement en « JJ/MM/AAAA ».
+
+    Accepte les séparateurs `/ - .` ou espace, l'année sur 2 ou 4
+    chiffres, et l'ordre français (jour d'abord) **ou** ISO (année
+    d'abord, détectée si le 1er champ a 4 chiffres ou vaut > 31). La
+    validité réelle est vérifiée via `datetime.date` (rejette 31/02).
+
+    Renvoie :
+    - `""`     si la saisie est vide (date facultative) ;
+    - la chaîne « JJ/MM/AAAA » normalisée si la date est valide ;
+    - `None`   si la saisie est non vide et non interprétable (l'appelant
+               rétablit alors la valeur précédente).
+
+    Pure (testable) : pas de dépendance Tk.
+    """
+    s = (s or "").strip()
+    if not s:
+        return ""
+    parts = _DATE_SEP_RE.split(s)
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return None
+    a, b, c = (int(p) for p in parts)
+    # ISO (année en tête) si 1er champ sur 4 chiffres ou hors plage jour.
+    if len(parts[0]) == 4 or a > 31:
+        year, month, day = a, b, c
+    else:
+        day, month, year = a, b, c
+    if year < 100:
+        year += 2000
+    try:
+        d = date(year, month, day)
+    except ValueError:
+        return None
+    return f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
 
 
 def _numeric_entry(parent: tk.Misc, textvariable: tk.StringVar,
@@ -212,6 +281,116 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
 
     _make_modal(dlg, parent)
     entry.focus_set()
+    dlg.wait_window()
+    return result["val"]
+
+
+# ---------------------------------------------------------------------
+# Dialog : sélecteur de date (calendrier Tkinter pur, sans dépendance)
+# ---------------------------------------------------------------------
+
+_MOIS_FR = ("janvier", "février", "mars", "avril", "mai", "juin",
+            "juillet", "août", "septembre", "octobre", "novembre",
+            "décembre")
+_JOURS_FR = ("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim")
+
+
+def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
+    """Sélecteur de date par mini-calendrier, en **Tkinter pur** (pas de
+    dépendance type `tkcalendar`/`babel` — cf. règle « pas de dépendance
+    sans bonne raison »). Complément clavier : la saisie libre du champ
+    reste normalisée par `normaliser_date`.
+
+    Renvoie « JJ/MM/AAAA » si une date est choisie, `""` si l'utilisateur
+    efface la date, `None` s'il annule / ferme. `initial` est accepté
+    librement (normalisé pour la position de départ).
+    """
+    today = date.today()
+    norm = normaliser_date(initial)
+    if norm:
+        d, m, y = (int(x) for x in norm.split("/"))
+        selected = date(y, m, d)
+    else:
+        selected = None
+    cursor = selected or today
+    state = {"year": cursor.year, "month": cursor.month}
+    result: dict[str, Optional[str]] = {"val": None}
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Choisir une date")
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.resizable(False, False)
+
+    header = ttk.Frame(dlg, style="Panel.TFrame")
+    header.grid(row=0, column=0, padx=10, pady=(10, 2), sticky="we")
+    header.columnconfigure(1, weight=1)
+    lbl_title = ttk.Label(header, style="Panel.TLabel", anchor="center",
+                          font=ui_font("Helvetica", 11, "bold"))
+
+    grid_frame = ttk.Frame(dlg, style="Panel.TFrame")
+    grid_frame.grid(row=1, column=0, padx=10, pady=2)
+
+    def choose(d: date) -> None:
+        result["val"] = f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
+        dlg.destroy()
+
+    def clear() -> None:
+        result["val"] = ""
+        dlg.destroy()
+
+    def render() -> None:
+        lbl_title.configure(
+            text=f"{_MOIS_FR[state['month'] - 1]} {state['year']}")
+        for w in grid_frame.winfo_children():
+            w.destroy()
+        for c, j in enumerate(_JOURS_FR):
+            ttk.Label(grid_frame, text=j, style="Muted.TLabel",
+                      width=4, anchor="center").grid(row=0, column=c,
+                                                     padx=1, pady=1)
+        weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(
+            state["year"], state["month"])
+        for r, week in enumerate(weeks, start=1):
+            for c, day in enumerate(week):
+                if day == 0:
+                    continue
+                d = date(state["year"], state["month"], day)
+                # Jour sélectionné : accentué ; aujourd'hui (si différent) :
+                # repère doux ; reste : bouton neutre.
+                if selected is not None and d == selected:
+                    style = "Accent.TButton"
+                elif d == today:
+                    style = "Accent.TButton"
+                else:
+                    style = "Ghost.TButton"
+                ttk.Button(grid_frame, text=str(day), width=4,
+                           style=style,
+                           command=partial(choose, d)).grid(
+                    row=r, column=c, padx=1, pady=1)
+
+    def shift(delta: int) -> None:
+        m0 = state["month"] - 1 + delta
+        state["year"] += m0 // 12
+        state["month"] = m0 % 12 + 1
+        render()
+
+    ttk.Button(header, text="◀", width=3, style="Ghost.TButton",
+               command=lambda: shift(-1)).grid(row=0, column=0)
+    lbl_title.grid(row=0, column=1, sticky="we")
+    ttk.Button(header, text="▶", width=3, style="Ghost.TButton",
+               command=lambda: shift(1)).grid(row=0, column=2)
+
+    footer = ttk.Frame(dlg, style="Panel.TFrame")
+    footer.grid(row=2, column=0, padx=10, pady=(4, 10), sticky="we")
+    ttk.Button(footer, text="Aujourd'hui", style="Ghost.TButton",
+               command=lambda: choose(today)).pack(side="left")
+    ttk.Button(footer, text="Effacer", style="Ghost.TButton",
+               command=clear).pack(side="left", padx=6)
+    ttk.Button(footer, text="Annuler", style="Ghost.TButton",
+               command=dlg.destroy).pack(side="right")
+
+    render()
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+    _make_modal(dlg, parent)
     dlg.wait_window()
     return result["val"]
 
@@ -648,7 +827,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     v_largeur_gr = tk.StringVar(value=str(deg.largeur_grades()))
     v_largeur_cm = tk.StringVar(value=f"{deg.largeur_cm(R):.1f}")
     v_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
-    v_ecorce = tk.BooleanVar(value=deg.comprend_ecorce)
+    v_ecorce = tk.StringVar(value=zone_degradee_label(deg.comprend_ecorce))
     v_com = tk.StringVar(value=deg.commentaire)
     result = {"ok": False}
     syncing: List[bool] = [False]
@@ -695,16 +874,23 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     _numeric_entry(dlg, v_prof, width=12
                    ).grid(row=5, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Checkbutton(
-        dlg, variable=v_ecorce,
-        text="La dégradation comprend l'écorce (sinon : commence sous l'écorce)",
-        style="Panel.TCheckbutton"
-    ).grid(row=6, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 6))
+    ttk.Label(dlg, text="Zone dégradée",
+              background=COLOR_PANEL).grid(row=6, column=0,
+                                           sticky="w", padx=10, pady=6)
+    ttk.Combobox(dlg, textvariable=v_ecorce,
+                 values=list(ZONE_DEGRADEE_CHOICES),
+                 state="readonly", width=24
+                 ).grid(row=6, column=1, sticky="we", padx=10, pady=6)
+    ttk.Label(dlg, text=ZONE_DEGRADEE_AIDE, background=COLOR_PANEL,
+              foreground=COLOR_MUTED, wraplength=300, justify="left",
+              font=ui_font("Helvetica", 9)
+              ).grid(row=7, column=0, columnspan=2,
+                     sticky="w", padx=10, pady=(0, 6))
 
     ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
-              ).grid(row=7, column=0, sticky="w", padx=10, pady=6)
+              ).grid(row=8, column=0, sticky="w", padx=10, pady=6)
     ttk.Entry(dlg, textvariable=v_com, width=28
-              ).grid(row=7, column=1, sticky="we", padx=10, pady=6)
+              ).grid(row=8, column=1, sticky="we", padx=10, pady=6)
 
     # --- Liens auto entre fin / largeur_gr / largeur_cm -------------
     def _on_fin(*_: object) -> None:
@@ -783,7 +969,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             deg.grade_debut = new_debut
             deg.grade_fin = new_fin
             deg.profondeur_cm = max(0.0, to_float(v_prof.get()))
-            deg.comprend_ecorce = bool(v_ecorce.get())
+            deg.comprend_ecorce = zone_degradee_to_bool(v_ecorce.get())
             deg.commentaire = v_com.get()
             result["ok"] = True
             dlg.destroy()
@@ -792,7 +978,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
                                  f"Valeur invalide : {e}", parent=dlg)
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
-    btns.grid(row=8, column=0, columnspan=2, pady=(10, 12))
+    btns.grid(row=9, column=0, columnspan=2, pady=(10, 12))
     ttk.Button(btns, text="Annuler", style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
     ttk.Button(btns, text="Valider", style="Accent.TButton",

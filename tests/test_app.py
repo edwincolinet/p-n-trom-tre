@@ -48,6 +48,42 @@ _SKIP_REASON = "tkinter ou DISPLAY indisponible (headless sans Xvfb)"
 
 
 # ========================================================================
+# normaliser_date — pur, sans Tk (import du module seul, pas de root)
+# ========================================================================
+
+class TestNormaliserDate(unittest.TestCase):
+    def test_vide_renvoie_chaine_vide(self) -> None:
+        from dialogs import normaliser_date
+        self.assertEqual(normaliser_date(""), "")
+        self.assertEqual(normaliser_date("   "), "")
+
+    def test_format_francais_zero_pad(self) -> None:
+        from dialogs import normaliser_date
+        self.assertEqual(normaliser_date("4/6/2026"), "04/06/2026")
+        self.assertEqual(normaliser_date("14/06/2026"), "14/06/2026")
+
+    def test_separateurs_varies(self) -> None:
+        from dialogs import normaliser_date
+        for s in ("14-06-2026", "14.06.2026", "14 06 2026", "14/6/2026"):
+            self.assertEqual(normaliser_date(s), "14/06/2026")
+
+    def test_annee_deux_chiffres(self) -> None:
+        from dialogs import normaliser_date
+        self.assertEqual(normaliser_date("14/06/26"), "14/06/2026")
+
+    def test_iso_annee_en_tete(self) -> None:
+        from dialogs import normaliser_date
+        self.assertEqual(normaliser_date("2026-06-14"), "14/06/2026")
+        self.assertEqual(normaliser_date("2026/6/4"), "04/06/2026")
+
+    def test_invalide_renvoie_none(self) -> None:
+        from dialogs import normaliser_date
+        for s in ("pas une date", "14/06", "14/06/2026/01",
+                  "31/02/2026", "00/06/2026", "14/13/2026", "abc/de/fg"):
+            self.assertIsNone(normaliser_date(s), s)
+
+
+# ========================================================================
 # RecentFilesStore — pur, sans Tk
 # ========================================================================
 

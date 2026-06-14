@@ -36,6 +36,8 @@ from typing import Any, Dict, Optional, Protocol
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
 from dialogs import (
+    ZONE_DEGRADEE_AIDE,
+    ZONE_DEGRADEE_CHOICES,
     edit_degradation,
     find_grade_choice,
     grade_choices,
@@ -43,6 +45,8 @@ from dialogs import (
     parse_grade,
     to_float,
     validate_numeric,
+    zone_degradee_label,
+    zone_degradee_to_bool,
 )
 from geometry import GRADES
 from model import Brin, DegradationExterne, degradations_chevauchements
@@ -88,6 +92,13 @@ class DegradationsPane(ttk.Frame):
         self._rows_frame = ttk.Frame(self, style="Panel.TFrame")
         self._rows_frame.pack(fill="both", expand=True)
 
+        # Rappel discret du sens de la colonne « Zone dégradée » : créé non
+        # packé, montré par `refresh()` dès qu'une ligne existe (inutile sur
+        # une liste vide). Remplace le tooltip de l'ancienne case nue.
+        self._lbl_zone_aide = ttk.Label(
+            self, text=ZONE_DEGRADEE_AIDE, style="Muted.TLabel",
+            wraplength=420, justify="left")
+
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une ligne porte un ⚠.
         self._lbl_fusion = ttk.Label(
@@ -118,16 +129,18 @@ class DegradationsPane(ttk.Frame):
         self._row_refs = []
         b = self._host._current_brin()
         if not b:
+            self._lbl_zone_aide.pack_forget()
             return
         if not b.degradations_externes:
             ttk.Label(self._rows_frame,
                       text="Aucune dégradation externe relevée.",
                       style="Muted.TLabel").grid(row=0, column=0,
                                                  sticky="w", padx=6)
+            self._lbl_zone_aide.pack_forget()
             return
 
         heads = ["N°", "Début", "Fin", "Largeur", "Profondeur (cm)",
-                 "Écorce", "Commentaire", ""]
+                 "Zone dégradée", "Commentaire", ""]
         for c, h in enumerate(heads):
             ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(
@@ -137,6 +150,8 @@ class DegradationsPane(ttk.Frame):
         for r, deg in enumerate(b.degradations_externes, start=1):
             self._build_row(r, deg, vcmd)
         self._rows_frame.columnconfigure(6, weight=1)
+        self._lbl_zone_aide.pack(anchor="w", pady=(8, 0),
+                                 before=self._toolbar)
         self.refresh_fusion_warnings()
 
     def refresh_fusion_warnings(self) -> None:
@@ -177,7 +192,7 @@ class DegradationsPane(ttk.Frame):
             value=find_grade_choice(self._grade_choices, deg.grade_fin))
         var_larg = tk.StringVar()
         var_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
-        var_ecorce = tk.BooleanVar(value=deg.comprend_ecorce)
+        var_ecorce = tk.StringVar(value=zone_degradee_label(deg.comprend_ecorce))
         var_com = tk.StringVar(value=deg.commentaire)
         row: Dict[str, Any] = {"deb": var_deb, "fin": var_fin,
                                "larg": var_larg, "prof": var_prof,
@@ -218,19 +233,18 @@ class DegradationsPane(ttk.Frame):
         var_prof.trace_add(
             "write", lambda *a: self._on_prof_write(deg, row))
 
-        # Case « Écorce » : cochée = la dégradation comprend l'écorce (part
-        # de la surface extérieure ; l'écorce dégradée ne compte pas comme
-        # bois perdu → déduite). Décochée = commence sous l'écorce (écorce
-        # intacte, toute la profondeur est du bois). Cochée par défaut.
-        chk_ec = ttk.Checkbutton(
-            f, variable=var_ecorce, style="Panel.TCheckbutton",
-            command=lambda: self._on_ecorce_toggle(deg, row))
-        chk_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
-        Tooltip(chk_ec,
-                "Cochée : la dégradation comprend l'écorce — elle part de la "
-                "surface extérieure et l'écorce dégradée est déduite (elle "
-                "n'est pas du bois sain).\nDécochée : elle commence sous "
-                "l'écorce — écorce intacte, toute la profondeur est du bois.")
+        # « Zone dégradée » : « Écorce + bois » = la dégradation comprend
+        # l'écorce (part de la surface extérieure ; l'écorce dégradée n'est
+        # pas du bois sain → déduite, défaut). « Bois seul » = commence sous
+        # l'écorce (écorce intacte, toute la profondeur est du bois). Le
+        # texte explicite remplace l'ancienne case nue, illisible sur le
+        # terrain ; le sens détaillé reste dans le rappel sous le tableau.
+        cmb_ec = ttk.Combobox(f, textvariable=var_ecorce,
+                              values=list(ZONE_DEGRADEE_CHOICES),
+                              state="readonly", width=12)
+        cmb_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
+        cmb_ec.bind("<<ComboboxSelected>>",
+                    lambda e: self._on_ecorce_toggle(deg, row))
 
         ent_com = ttk.Entry(f, textvariable=var_com, width=18)
         ent_com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
@@ -341,15 +355,16 @@ class DegradationsPane(ttk.Frame):
 
     def _on_ecorce_toggle(self, deg: DegradationExterne,
                           row: Dict[str, Any]) -> None:
-        """Bascule « la dégradation comprend l'écorce » (mutation discrète
-        → undo immédiat, comme le début/fin de l'arc). Change aussi le
-        dessin (rayon de départ de la zone dégradée)."""
+        """Change la zone dégradée (« Écorce + bois » ↔ « Bois seul » =
+        `comprend_ecorce`). Mutation discrète → undo immédiat, comme le
+        début/fin de l'arc. Change aussi le dessin (rayon de départ de la
+        zone dégradée)."""
         if self._suspend:
             return
         b = self._host._current_brin()
         if not b or self._index_de(b, deg) is None:
             return
-        new_val = bool(row["ecorce"].get())
+        new_val = zone_degradee_to_bool(row["ecorce"].get())
         if new_val == deg.comprend_ecorce:
             return
         self._host.push_undo()

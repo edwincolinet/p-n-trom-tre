@@ -36,9 +36,16 @@ from app_recovery import (
 from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
-from dialogs import ask_cepee_layout, edit_contrefort, edit_degradation, edit_sondage
+from dialogs import (
+    ask_cepee_layout,
+    ask_date,
+    edit_contrefort,
+    edit_degradation,
+    edit_sondage,
+    normaliser_date,
+)
 from model import Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
-from palette import COLOR_BG, COULEUR_CLASSE
+from palette import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_WARN, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
@@ -252,16 +259,32 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         self.var_ch_ope = tk.StringVar(value=self.chantier.operateur)
         self.var_ch_date = tk.StringVar(value=self.chantier.date_releve)
         self._meta_snapshot: Optional[str] = None
+        self._date_focus_in_value = ""
         for lbl, var, w in [("Mission", self.var_ch_nom, 22),
                             ("Adresse", self.var_ch_adr, 30),
                             ("Opérateur", self.var_ch_ope, 18),
                             ("Date", self.var_ch_date, 12)]:
             ttk.Label(meta, text=lbl).pack(side="left", padx=(0, 4))
             e = ttk.Entry(meta, textvariable=var, width=w)
-            e.pack(side="left", padx=(0, 14))
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
-            e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
-            e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
+            if lbl == "Date":
+                # Saisie clavier libre normalisée en JJ/MM/AAAA au focus-out
+                # (`14-6-26`, `2026/06/14`, …) ; saisie non interprétable
+                # rétablie. Bouton « 📅 » : sélection au calendrier (Tk pur).
+                e.pack(side="left", padx=(0, 2))
+                e.bind("<FocusIn>", lambda ev: self._date_focus_in())
+                e.bind("<FocusOut>", lambda ev: self._date_focus_out())
+                Tooltip(e, "Date du relevé — format JJ/MM/AAAA "
+                           "(normalisée automatiquement).")
+                btn_cal = ttk.Button(meta, text="📅", width=3,
+                                     style="Ghost.TButton",
+                                     command=self._pick_date)
+                btn_cal.pack(side="left", padx=(0, 14))
+                Tooltip(btn_cal, "Choisir la date au calendrier")
+            else:
+                e.pack(side="left", padx=(0, 14))
+                e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
+                e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
 
         # Barre d'état AVANT le body : packée en bas, le body (expand)
         # remplit l'espace restant au-dessus.
@@ -475,9 +498,22 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         (un « OK » à cliquer à chaque fois) par un retour non-modal."""
         bar = ttk.Frame(self, style="Side.TFrame")
         bar.pack(side="bottom", fill="x")
+        # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
+        # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
+        self._btn_save = ttk.Button(bar, text="💾 Enregistrer",
+                                    style="Ghost.TButton",
+                                    command=self.action_save)
+        self._btn_save.pack(side="left", padx=(10, 6), pady=2)
+        Tooltip(self._btn_save, "Enregistrer la mission (Ctrl+S)")
+        # Indicateur d'état d'enregistrement, mis à jour à chaque mutation
+        # (le « • » du titre est trop discret, et masquable par le WM).
+        self.lbl_save_state = ttk.Label(
+            bar, text="", style="Side.TLabel",
+            font=ui_font("Helvetica", 9, "bold"))
+        self.lbl_save_state.pack(side="left", padx=(0, 14), pady=3)
         self.lbl_status = ttk.Label(bar, text="Prêt.", style="Side.TLabel",
                                     font=ui_font("Helvetica", 9))
-        self.lbl_status.pack(side="left", padx=12, pady=3)
+        self.lbl_status.pack(side="left", padx=(0, 12), pady=3)
         self._btn_open_folder = ttk.Button(
             bar, text="Ouvrir le dossier", style="Ghost.TButton",
             command=self._open_last_export_folder, state="disabled")
@@ -486,6 +522,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             bar, text="Ouvrir le fichier", style="Ghost.TButton",
             command=self._open_last_export_file, state="disabled")
         self._btn_open_file.pack(side="right", padx=(0, 4), pady=2)
+        self._update_save_indicator()
 
     def set_status(self, text: str) -> None:
         """Met à jour le message de la barre d'état (no-op si la barre
@@ -539,6 +576,30 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         name = self.current_file.name if self.current_file else "Sans titre"
         dirty = " •" if self._dirty else ""
         self.title(f"Pénétromètre — {name}{dirty}")
+        self._update_save_indicator()
+
+    def _update_save_indicator(self) -> None:
+        """Reflète l'état d'enregistrement dans la barre d'état (texte +
+        couleur) et l'activation du bouton Enregistrer. Centralisé via
+        `_update_title`, donc à jour à chaque changement du dirty flag.
+        No-op tant que la barre n'est pas construite (ordre d'`__init__`)."""
+        if not hasattr(self, "lbl_save_state"):
+            return
+        if self._dirty:
+            self.lbl_save_state.configure(
+                text="● Modifications non enregistrées",
+                foreground=COLOR_WARN)
+            self._btn_save.configure(state="normal")
+        elif self.current_file is not None:
+            self.lbl_save_state.configure(
+                text="✓ Enregistré", foreground=COLOR_ACCENT)
+            self._btn_save.configure(state="disabled")
+        else:
+            # Mission neuve jamais enregistrée : rien à perdre, mais le
+            # bouton reste actif (premier « Enregistrer sous… »).
+            self.lbl_save_state.configure(
+                text="Mission non enregistrée", foreground=COLOR_MUTED)
+            self._btn_save.configure(state="normal")
 
     def _on_close(self) -> None:
         if self._dirty:
@@ -650,6 +711,36 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
         if self._meta_snapshot is not None and current != self._meta_snapshot:
             self.push_undo()
         self._meta_snapshot = None
+
+    def _date_focus_in(self) -> None:
+        self._date_focus_in_value = self.var_ch_date.get()
+        self._meta_focus_in()
+
+    def _date_focus_out(self) -> None:
+        """Normalise la date au format JJ/MM/AAAA si elle a changé. Une
+        saisie non interprétable rétablit la valeur d'avant l'édition
+        (motif de revert déjà utilisé pour le n° d'arbre)."""
+        raw = self.var_ch_date.get()
+        if raw != self._date_focus_in_value:
+            norm = normaliser_date(raw)
+            if norm is None:
+                self.var_ch_date.set(self._date_focus_in_value)
+                self.set_status(
+                    "Date non reconnue — format attendu JJ/MM/AAAA ; "
+                    "valeur précédente rétablie.")
+            elif norm != raw:
+                self.var_ch_date.set(norm)
+        self._meta_focus_out()
+
+    def _pick_date(self) -> None:
+        """Ouvre le calendrier (`dialogs.ask_date`) et applique la date
+        choisie (undo si elle change). `None` = annulation → no-op ; `""`
+        = l'utilisateur a effacé la date."""
+        res = ask_date(self, self.var_ch_date.get())
+        if res is None or res == self.var_ch_date.get():
+            return
+        self.push_undo()
+        self.var_ch_date.set(res)  # trace → _sync_chantier_meta (dirty)
 
     def _sync_chantier_meta(self) -> None:
         if self._suspend_sync:
