@@ -1,5 +1,15 @@
 # Architecture détaillée des modules
 
+Ce document détaille les **modules du cœur** (géométrie, modèle, diagnostic,
+persistance, rendu, exports, dialogues, canevas). La **couche App** — `App`
+et ses mixins (`app_arbres`, `app_recovery`, `app_export_actions`,
+`app_fichier`, helper `app_recent`) ainsi que les modules d'accessibilité
+(`app_settings`, `ui_fonts`, `app_style`, `aide_repliable`) et de
+ré-inspection (`comparaison`, `comparaison_render`) — est décrite dans
+**CLAUDE.md** ; on n'en duplique ici que la section `penetrometre.py` (ce qui
+reste dans l'orchestrateur). En cas de doute, CLAUDE.md fait foi pour la
+couche App.
+
 ## `bareme.py` — barème métier Silvavenir (stdlib uniquement)
 
 - `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`.
@@ -440,8 +450,12 @@ Ctrl+Shift+Z (redo).
 
 ## `penetrometre.py` — application Tk + main
 
-`App(tk.Tk)` — fenêtre principale, layout 3 colonnes, instanciation des
-panes, callbacks communs. Porte :
+`App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk)`
+— fenêtre principale, layout 3 colonnes (`PanedWindow`), instanciation des
+panes, callbacks communs. La logique d'`App` est **répartie en 4 mixins par
+responsabilité** dont le détail vit dans CLAUDE.md (« App = orchestration +
+4 mixins + 1 helper ») — on ne le duplique pas ici pour ne pas le
+désynchroniser. Ce qui reste **dans `penetrometre.py`** :
 
 - **Dirty flag** (`_dirty`) : tracké sur toute mutation, reset au
   save/open/new. Titre dynamique avec `•` si modifié.
@@ -451,21 +465,17 @@ panes, callbacks communs. Porte :
 - **Meta mission** : push undo sur FocusOut (pas à chaque frappe).
 - **Géométrie de fenêtre adaptative** : `minsize(1100, 680)` + clamp
   à 95 % de l'écran via `winfo_screenwidth/height` au démarrage.
-- **Liste d'arbres** : colonne État cliquable (Nom, Essence, État).
-  Indicateurs : `_arbre_etat(a) -> (glyphe, tag)` — `etat_vide` (rouge,
-  rayon=0 OU 0 sondage), `etat_partiel` (orange, 1-2 sondages),
-  `etat_ok` (vert, ≥3 sondages). Le seuil vert ≥3 est **aligné** sur la
-  règle de fiabilité du diagnostic global (`DiagnosticSnapshot`). Refresh
-  granulaire via `_refresh_current_arbre_etat()` appelé dans
-  `_redraw_all`. Footer `lbl_etat_footer` = compteur d'arbres `etat_ok`.
-- **Menu contextuel clic droit** : `_tree_arbres_ctx_menu` avec
-  Renommer/Dupliquer/Supprimer. `tk_popup` SANS `grab_release()` +
-  `<FocusOut>` pour fermeture au clic externe.
-- **Fichiers récents** : `_load_recent_files()` / `_save_recent_files()`
-  / `_push_recent_file(path)` / `_remove_recent_file(path)` + action
-  `action_open_recent(path)`. Persistance dans
-  `~/.penetrometre/recent.json` (8 max). Sous-menu rebuilt via
-  `app_menu.refresh_recent_menu()`.
+- **Déporté en mixins** (détail dans CLAUDE.md) : la **liste d'arbres**
+  (deux colonnes **État** + **Risque** ; `_arbre_etat(a) -> (glyphe, risque,
+  tag)` — État = forme = complétude `○/◐/●`, Risque = mot Vert/Orange/Rouge
+  ou « — », incomplets en **gris neutre** ; filtres texte + classe ; menu
+  contextuel) → `app_arbres.ArbreListMixin` ; l'**autosave/récupération** →
+  `app_recovery.RecoveryMixin` ; le **cycle de vie fichier mission**
+  (new/open/save/save_as, `_open_path`, récents, ré-inspection) →
+  `app_fichier.FichierMixin` ; les **exports** (`action_export_*`) →
+  `app_export_actions.ExportActionsMixin`. L'historique des récents est
+  persisté par `app_recent.RecentFilesStore` (`self._recent.push/remove/get`
+  — il n'y a plus de `_*_recent_files` sur `App`).
 - **Callbacks canvas interactif** : `open_edit_sondage(s)`,
   `open_edit_degradation(d)`, `open_edit_contrefort(c)` — appelés par
   `SectionCanvas` au clic sur un item, ouvrent le dialogue puis push
