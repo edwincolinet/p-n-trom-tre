@@ -48,7 +48,14 @@ python -m unittest discover tests
 xvfb-run -a python -m unittest discover tests
 ```
 
-176 tests unitaires couvrent :
+Un hook `pre-push` versionné (`.githooks/pre-push`) rejoue lint + tests
+avant chaque `git push`. Activation (une fois par clone) :
+
+```bash
+git config core.hooksPath .githooks
+```
+
+La suite de tests unitaires couvre :
 
 - le barème Silvavenir et la classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au

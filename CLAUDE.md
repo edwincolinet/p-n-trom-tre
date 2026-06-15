@@ -12,14 +12,15 @@ troncs au pénétromètre). Utilisé en interne par le cabinet Silvavenir.
 ## Structure
 
 ```text
-penetrometre.py        ← App Tk + main (~940 l.) — orchestration
+penetrometre.py        ← App Tk + main — orchestration
 app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
 app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
 app_export_actions.py  ← ExportActionsMixin (les action_export_*)
+app_fichier.py         ← FichierMixin (cycle de vie fichier mission : new/open/save/save_as + récents + ré-inspection)
 app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
 app_settings.py        ← SettingsStore (réglages UI persistés : ui_scale, pur)
 ui_fonts.py            ← échelle des polices (facteur global + helper font(), pur)
-section_canvas.py      ← SectionCanvas (rendu Tk section, ~410 l.)
+section_canvas.py      ← SectionCanvas (rendu Tk section)
 pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
@@ -43,10 +44,10 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-tests/                 ← 319 tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
+tests/                 ← suite de tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
-**`App` = orchestration + 3 mixins + 1 helper.** C'est un
+**`App` = orchestration + 4 mixins + 1 helper.** C'est un
 **partitionnement par responsabilité** (navigabilité, localité git-blame),
 **pas une décomposition** : sauf `ExportActionsMixin`, les mixins lisent et
 **mutent** l'état d'`App` (`chantier`, `current_idx`, `current_file`,
@@ -62,10 +63,15 @@ callbacks, pour un gain net faible). Découpage :
 - `ExportActionsMixin` (les `action_export_*`, appelées par nom depuis
   `app_menu`/`pane_diagnostic` → doivent rester des méthodes de `App`) :
   pur dispatcher en lecture seule, le seul mixin réellement découplé.
+- `FichierMixin` (cycle de vie du fichier mission : `action_new`/`_open`/
+  `_save`/`_save_as`, `_open_path`, récents, + ré-inspection
+  `action_load_reference`/`_compare_arbre`/`_export_comparison`) — mute
+  `chantier`, `current_file`, `_dirty`, `_reference_chantier` ; porte la
+  constante `_BACKUP_PATH` (réimportée par `penetrometre` pour le menu).
 - `RecentFilesStore` (composition, pur).
 
-`App` garde le câblage UI, la synchro modèle, undo/redo, fichier et le
-debounce de redraw. Les mixins dérivent de `tk.Tk` **uniquement sous
+`App` garde le câblage UI, la synchro modèle, undo/redo et le
+debounce de redraw (le cycle de vie fichier est passé à `FichierMixin`). Les mixins dérivent de `tk.Tk` **uniquement sous
 `TYPE_CHECKING`** (`_MixinBase`) — `object` au runtime — pour que mypy
 voie `self` comme un widget sans problème de MRO ; les attributs/méthodes
 d'`App` requis sont déclarés dans un bloc `TYPE_CHECKING`. **Ces blocs
@@ -87,7 +93,7 @@ fiche_pdf.py + comparaison_render.py
    ↑
 section_canvas.py + pane_*.py + comparaison.py + app_exports.py + app_menu.py + app_style.py
    ↑
-app_arbres.py + app_recovery.py + app_export_actions.py  (mixins de App)
+app_arbres.py + app_recovery.py + app_export_actions.py + app_fichier.py  (mixins de App)
    ↑
 penetrometre.py  (Tk + main) ← undo.py
 ```
@@ -278,11 +284,11 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ```bash
 python penetrometre.py                      # Lancer l'app
-python -m unittest discover tests           # 319 tests
+python -m unittest discover tests           # suite de tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
-  app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py \
+  app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
@@ -315,8 +321,9 @@ Golden-tests :
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
    - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`
+   - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Fichiers récents → `app_recent.py`
-   - Orchestration App (câblage, synchro, undo, fichier) → `penetrometre.py`
+   - Orchestration App (câblage, synchro, undo) → `penetrometre.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.
