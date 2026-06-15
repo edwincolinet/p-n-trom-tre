@@ -438,10 +438,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             lambda e: self._tree_arbres_ctx_menu.unpost())
         self.tree_arbres.bind("<Button-3>", self._on_tree_arbres_right_click)
 
-        # Footer "X/N arbres complets" — vue macro de l'avancement.
+        # Footer = vue de triage macro (répartition rouge/orange/vert/à
+        # finir) — cf. `_update_etat_footer`. Wrap pour tenir dans le
+        # panneau gauche étroit.
         self.lbl_etat_footer = ttk.Label(
-            frame, text="", style="Side.TLabel",
-            font=ui_font("Helvetica", 9, "italic"))
+            frame, text="", style="Side.TLabel", wraplength=250,
+            justify="left", font=ui_font("Helvetica", 9, "italic"))
         self.lbl_etat_footer.pack(anchor="w", pady=(6, 0))
 
         btns = ttk.Frame(frame, style="Side.TFrame")
@@ -853,10 +855,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                                   values=(a.essence, glyph, risque),
                                   tags=(tag,))
             # Recalcule le footer (le passage d'un arbre orange→vert
-            # change le compteur global).
-            n_ok = sum(1 for x in self.chantier.arbres
-                       if self._arbre_diag_fiable(x))
-            self._update_etat_footer(n_ok, len(self.chantier.arbres))
+            # change la répartition de la mission).
+            self._update_etat_footer()
 
     def add_brin(self) -> None:
         """Ajoute un brin (ramet) à l'arbre courant (cépée) : push undo,

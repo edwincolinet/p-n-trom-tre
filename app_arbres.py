@@ -99,10 +99,6 @@ class ArbreListMixin(_MixinBase):
 
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
-        # Le compteur footer reste sur TOUTE la mission (vue macro), pas
-        # sur la sous-liste filtrée.
-        n_ok = sum(1 for a in self.chantier.arbres
-                   if self._arbre_diag_fiable(a))
         for i, a in enumerate(self.chantier.arbres):
             if not self._arbre_matches_filter(a):
                 continue
@@ -116,7 +112,8 @@ class ArbreListMixin(_MixinBase):
                                     text=label,
                                     values=(a.essence, glyph, risque),
                                     tags=(tag,))
-        self._update_etat_footer(n_ok, len(self.chantier.arbres))
+        # Footer = vue macro sur TOUTE la mission (pas la sous-liste filtrée).
+        self._update_etat_footer()
         # Re-sélectionne l'arbre courant s'il est visible dans la liste
         # filtrée (sinon on laisse la sélection vide : le panneau de droite
         # continue d'afficher l'arbre courant).
@@ -125,12 +122,30 @@ class ArbreListMixin(_MixinBase):
             self.tree_arbres.selection_set(target)
             self.tree_arbres.focus(target)
 
-    def _update_etat_footer(self, n_ok: int, n_total: int) -> None:
-        """Met à jour le footer « X/N arbres complets » sous la liste."""
+    def _update_etat_footer(self) -> None:
+        """Footer = **vue de triage macro** de la mission : répartition des
+        arbres par classe de risque (fiables) + nombre encore « à finir »
+        (rayon/sondages incomplets → diagnostic non fiable). Répond au
+        « puis-je quitter le site ? » sans ouvrir l'export de synthèse.
+        Recalculé sur toute la mission (jamais la sous-liste filtrée) à
+        chaque rafraîchissement de la liste ou de l'état de l'arbre courant."""
         if not hasattr(self, "lbl_etat_footer"):
             return
+        n_rouge = n_orange = n_vert = n_afinir = 0
+        for a in self.chantier.arbres:
+            risque = self._arbre_etat(a)[1]
+            if risque == CLASSE_ROUGE:
+                n_rouge += 1
+            elif risque == CLASSE_ORANGE:
+                n_orange += 1
+            elif risque == CLASSE_VERT:
+                n_vert += 1
+            else:  # « — » : incomplet (○/◐) → à finir
+                n_afinir += 1
+        n_total = len(self.chantier.arbres)
         self.lbl_etat_footer.configure(
-            text=f"● {n_ok}/{n_total} arbres avec diagnostic fiable")
+            text=(f"{n_rouge} rouge · {n_orange} orange · {n_vert} vert "
+                  f"· {n_afinir} à finir   ({n_total})"))
 
     @staticmethod
     def _arbre_diag_fiable(a: Arbre) -> bool:
@@ -200,9 +215,7 @@ class ArbreListMixin(_MixinBase):
             self.tree_arbres.item(sel[0], text=label,
                                   values=(a.essence, glyph, risque),
                                   tags=(tag,))
-        n_ok = sum(1 for x in self.chantier.arbres
-                   if self._arbre_diag_fiable(x))
-        self._update_etat_footer(n_ok, len(self.chantier.arbres))
+        self._update_etat_footer()
 
     def _on_tree_arbres_right_click(self, event: "tk.Event[tk.Misc]") -> None:
         """Sélectionne la ligne sous le curseur puis affiche le menu
