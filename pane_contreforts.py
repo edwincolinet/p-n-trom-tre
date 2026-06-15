@@ -39,6 +39,7 @@ from aide_repliable import AideRepliable
 from dialogs import edit_contrefort, to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from model import Brin, Contrefort
+from palette import COLOR_ACCENT
 from ui_fonts import font as ui_font
 
 # Largeur angulaire d'un contrefort : multiples de 25, de 25 à 400 gr.
@@ -72,14 +73,19 @@ class ContrefortsPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
-        ttk.Label(
+        # Écho du brin édité (cépée) — cf. SondagesPane. Vide en mono-caule.
+        self._brin_title = ttk.Label(
+            self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
+            font=ui_font("Helvetica", 11, "bold"))
+
+        self._intro = ttk.Label(
             self,
             text="Un contrefort = empattement saillant à la base du "
                  "tronc. Tapez sa longueur radiale (cm) sur la direction "
                  "voulue, puis Entrée (ou ↓). Élément descriptif "
                  "(n'impacte pas le diagnostic).",
-            style="Muted.TLabel", wraplength=420, justify="left"
-        ).pack(anchor="w", pady=(0, 8))
+            style="Muted.TLabel", wraplength=420, justify="left")
+        self._intro.pack(anchor="w", pady=(0, 8))
 
         grid = ttk.Frame(self, style="Panel.TFrame")
         grid.pack(fill="both", expand=True)
@@ -172,6 +178,14 @@ class ContrefortsPane(ttk.Frame):
         """Recharge la grille depuis le brin courant. Suspend la synchro
         pour ne pas re-muter le modèle pendant qu'on écrit les vars."""
         b = self._host._current_brin()
+        # Écho du brin courant (cépée seulement → label non vide).
+        label = b.label if b else ""
+        if label:
+            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.pack(anchor="w", pady=(0, 6),
+                                  before=self._intro)
+        else:
+            self._brin_title.pack_forget()
         by_grade: Dict[int, Contrefort] = {}
         if b:
             for cf in b.contreforts:

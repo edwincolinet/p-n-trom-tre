@@ -147,6 +147,10 @@ penetrometre.py  (Tk + main) ← undo.py
   Identification (rayon/diamètre/écorce/forme) éditent `_current_brin()` ;
   l'identité (n°, essence, port, hauteurs, mèche) reste **genet**. Les dialogues
   `edit_sondage/degradation/contrefort` acceptent `Section = Union[Arbre, Brin]`.
+  En complément du sélecteur, les grilles **Sondages/Dégradations/Contreforts**
+  affichent en tête un **écho du brin courant** (`_brin_title`, accent, « ▸ Saisie
+  du brin b ») — au plus près des yeux pendant la saisie, pour ne pas remplir une
+  grille sur le mauvais brin ; dépacké (invisible) en mono-caule → pane inchangé.
   **Disposition de la cépée (4b)** : `dialogs.ask_cepee_layout` (canvas,
   glisser-déposer les brins → `pos_x/pos_y` ; brin « a » = ancre fixe en (0,0) ;
   contour fidèle via `contour_polygon`, cadrage figé par `brins_layout` ; travail

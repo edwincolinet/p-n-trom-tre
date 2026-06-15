@@ -50,7 +50,7 @@ from dialogs import (
 )
 from geometry import GRADES
 from model import Brin, DegradationExterne, degradations_chevauchements
-from palette import COLOR_WARN
+from palette import COLOR_ACCENT, COLOR_WARN
 from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
@@ -78,14 +78,19 @@ class DegradationsPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
-        ttk.Label(
+        # Écho du brin édité (cépée) — cf. SondagesPane. Vide en mono-caule.
+        self._brin_title = ttk.Label(
+            self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
+            font=ui_font("Helvetica", 11, "bold"))
+
+        self._intro = ttk.Label(
             self,
             text="Une dégradation externe = un arc continu sur l'écorce "
                  "(début → fin, sens horaire) consommant du bois sain "
                  "sur une profondeur radiale en cm. Éditez directement "
                  "dans le tableau.",
-            style="Muted.TLabel", wraplength=420, justify="left"
-        ).pack(anchor="w", pady=(0, 8))
+            style="Muted.TLabel", wraplength=420, justify="left")
+        self._intro.pack(anchor="w", pady=(0, 8))
 
         # Conteneur des lignes, reconstruit par `refresh()` (nombre de
         # dégradations variable).
@@ -128,6 +133,15 @@ class DegradationsPane(ttk.Frame):
             w.destroy()
         self._row_refs = []
         b = self._host._current_brin()
+        # Écho du brin courant (cépée seulement) — avant les retours
+        # anticipés : on est peut-être sur le brin b sans dégradation encore.
+        label = b.label if b else ""
+        if label:
+            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.pack(anchor="w", pady=(0, 6),
+                                  before=self._intro)
+        else:
+            self._brin_title.pack_forget()
         if not b:
             self._lbl_zone_aide.pack_forget()
             return

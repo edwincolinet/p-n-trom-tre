@@ -43,7 +43,7 @@ from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs import edit_sondage, to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from model import Brin, Sondage
-from palette import COLOR_WARN
+from palette import COLOR_ACCENT, COLOR_WARN
 from ui_fonts import font as ui_font
 
 _COMPART_VALUES = ["non renseignée", "active", "absente"]
@@ -73,13 +73,22 @@ class SondagesPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
-        ttk.Label(
+        # Rappel du brin édité (cépée) — placé en tête, au plus près de la
+        # grille où vont les yeux pendant la saisie. Vide pour un mono-caule
+        # (dépacké → pane inchangé) ; « ▸ Saisie du brin b » sinon. Le
+        # sélecteur global « Brin a/b/c » reste au-dessus des onglets ;
+        # cet écho évite de saisir 16 PRBS sur le mauvais brin. Maj `refresh`.
+        self._brin_title = ttk.Label(
+            self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
+            font=ui_font("Helvetica", 11, "bold"))
+
+        self._intro = ttk.Label(
             self,
             text="Tapez la PRBS (bois sain) de chaque direction, puis "
                  "Entrée (ou ↓) pour descendre. Le dessin et le diagnostic "
                  "se recalculent en direct.",
-            style="Muted.TLabel", wraplength=420, justify="left"
-        ).pack(anchor="w", pady=(0, 8))
+            style="Muted.TLabel", wraplength=420, justify="left")
+        self._intro.pack(anchor="w", pady=(0, 8))
 
         # Bandeau « rayon manquant » : créé non packé, montré par `refresh`
         # tant que le brin courant n'a pas de rayon (R<=0). Sans rayon, le
@@ -190,6 +199,14 @@ class SondagesPane(ttk.Frame):
         pour ne pas re-muter le modèle pendant qu'on écrit les vars."""
         b = self._host._current_brin()
         R = b.rayon_tronc_cm if b else 0.0
+        # Écho du brin courant (cépée seulement → label non vide).
+        label = b.label if b else ""
+        if label:
+            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.pack(anchor="w", pady=(0, 6),
+                                  before=self._intro)
+        else:
+            self._brin_title.pack_forget()
         # Rappel « rayon d'abord » tant que R<=0 (placé en tête, au-dessus
         # de la grille). Régler le rayon (onglet Identification) déclenche
         # `_refresh_sondages_table` → ce refresh → le bandeau disparaît.
