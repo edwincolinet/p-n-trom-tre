@@ -71,10 +71,23 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
     dlg.title(f"Comparaison d'inspections — {current.display_name}")
     dlg.configure(bg=COLOR_PANEL)
     dlg.minsize(1000, 720)
+    # PAS de `transient` : sous Linux/X11 un transient est traité en dialogue
+    # utilitaire par le gestionnaire de fenêtres → souvent **sans bouton
+    # « maximiser »** (et `-zoomed` y est ignoré silencieusement). Une fenêtre
+    # normale obtient les décorations complètes (maximiser d'un clic). On
+    # l'ouvre déjà **grande et centrée** (95 % de l'écran) pour éviter tout
+    # redimensionnement manuel, puis on tente un vrai maximize en best-effort.
+    dlg.update_idletasks()
+    sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+    w, h = int(sw * 0.95), int(sh * 0.90)
+    dlg.geometry(f"{w}x{h}+{(sw - w) // 2}+{max(0, (sh - h) // 2 - 20)}")
     try:
-        dlg.transient(parent)  # type: ignore[call-overload]
+        dlg.state("zoomed")
     except tk.TclError:
-        pass
+        try:
+            dlg.attributes("-zoomed", True)
+        except tk.TclError:
+            pass
 
     state: dict[str, Any] = {"ref_arbre": None}
     photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
