@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
     from diagnostic import ComparaisonDetail
-    from model import Arbre
+    from model import Arbre, Brin
 
 # Grade → angle écran (radians, 0 à 3 h, sens horaire). 360/400 = 0.9 ; le
 # Nord (grade 0) est en haut → −90°.
@@ -56,10 +56,38 @@ def _poly(cx: float, cy: float, scale: float,
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
                              size: int = 460) -> "PILImage":
-    """« Section d'évolution » : sur la géométrie du tronc COURANT, la
-    couronne de bois sain **perdu depuis la référence** est surlignée en
-    orange — entre l'ancien bord de cavité (R − PRBS_réf) et le nouveau
-    (R − PRBS_courant). Au centre : la cavité déjà altérée à la référence.
+    """« Section d'évolution » au niveau **genet** (brin courant) — délègue
+    à `render_evolution_section_brin`. Conservé pour le rendu mono-caule et
+    l'export genet."""
+    return render_evolution_section_brin(
+        ref_arbre.brin_courant, cur_arbre.brin_courant, size)
+
+
+def render_brin_section(src: "Arbre", brin: "Brin",
+                        size: int = 460) -> "PILImage":
+    """Rend la section d'**un seul brin** (ramet) d'une cépée, centrée,
+    comme un mono-caule. Astuce : on emballe le brin dans un genet temporaire
+    (identité reprise pour la couleur des sondages = port), puis on réutilise
+    `render_arbre_to_pil_image`. Évite un renderer brin-isolé dédié."""
+    from model import Arbre
+    tmp = Arbre(numero_arbre=src.numero_arbre, essence=src.essence,
+                port_arbre=src.port_arbre, meche_cm=src.meche_cm)
+    tmp.brins = [brin]
+    return render_arbre_to_pil_image(
+        tmp, size, size, show_sondages=True, show_title=False,
+        show_legend=False)
+
+
+def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
+                                  size: int = 460) -> "PILImage":
+    """« Section d'évolution » d'**un brin** : sur la géométrie du brin
+    COURANT, la couronne de bois sain **perdu depuis la référence** est
+    surlignée en orange — entre l'ancien bord de cavité (R − PRBS_réf) et le
+    nouveau (R − PRBS_courant). Au centre : la cavité déjà altérée à la
+    référence.
+
+    `ref_b=None` (brin sans homologue de référence) ⟹ pas de couronne orange
+    (PRBS_réf = PRBS_courant) et une légende « pas de brin de référence ».
 
     Tout est exprimé sur le rayon LOCAL courant (`rayon_par_grade`) et les
     PRBS **extrapolées** sur 16 directions, donc complet même sur les
@@ -69,11 +97,12 @@ def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
     d = ImageDraw.Draw(img)
     f = _pil_load_fonts()
 
-    cur_b, ref_b = cur_arbre.brin_courant, ref_arbre.brin_courant
     R = rayon_par_grade(cur_b)                 # rayon local courant, 16 dir.
     ep = max(0.0, cur_b.epaisseur_ecorce_cm)
     prbs_c = prbs_par_grade(cur_b)
-    prbs_r = prbs_par_grade(ref_b)
+    # Pas d'homologue de référence → on prend la PRBS courante (aucune
+    # couronne orange : rien à comparer, on montre l'état courant seul).
+    prbs_r = prbs_par_grade(ref_b) if ref_b is not None else list(prbs_c)
     outer = [R[i] + ep for i in range(16)]
     cur_cav = [R[i] - prbs_c[i] for i in range(16)]   # nouvelle cavité
     ref_cav = [R[i] - prbs_r[i] for i in range(16)]   # ancienne cavité
@@ -97,11 +126,16 @@ def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
 
     sf = f(int(size * 0.030), "sans")
     cap_y = size * 0.95
-    d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
-                fill=_ORANGE, outline=(150, 150, 146))
-    d.text((size * 0.14 + 26, cap_y + 8),
-           "= bois sain perdu depuis la référence",
-           font=sf, fill=COLOR_MUTED, anchor="lm")
+    if ref_b is None:
+        d.text((size * 0.5, cap_y + 8),
+               "pas de brin de référence — état courant seul",
+               font=sf, fill=COLOR_MUTED, anchor="mm")
+    else:
+        d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
+                    fill=_ORANGE, outline=(150, 150, 146))
+        d.text((size * 0.14 + 26, cap_y + 8),
+               "= bois sain perdu depuis la référence",
+               font=sf, fill=COLOR_MUTED, anchor="lm")
     return img
 
 

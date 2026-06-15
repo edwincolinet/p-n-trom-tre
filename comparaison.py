@@ -27,14 +27,19 @@ from typing import Any, Callable, Mapping, Optional
 
 from comparaison_render import (
     metric_rows,
+    render_brin_section,
     render_comparison_page,
-    render_evolution_section,
+    render_evolution_section_brin,
 )
-from diagnostic import comparaison_detaillee, evolution_classe, verdict_evolution
+from diagnostic import (
+    comparaison_detaillee,
+    comparaison_par_brin,
+    evolution_classe,
+    verdict_evolution,
+)
 from dialogs import annees_entre
 from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
-from pil_render import render_arbre_to_pil_image
 
 _SEC = 440  # côté des dessins (px)
 
@@ -66,8 +71,8 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
     except tk.TclError:
         pass
 
-    state: dict[str, Any] = {"ref_arbre": None, "detail": None}
-    photos: dict[str, Any] = {}  # garde les PhotoImage du GC
+    state: dict[str, Any] = {"ref_arbre": None}
+    photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
 
     # --- Sélecteur de l'arbre de référence (lien explicite) ---
     top = ttk.Frame(dlg, style="Panel.TFrame", padding=(12, 10, 12, 4))
@@ -82,37 +87,29 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
     ttk.Label(top, text=f"(réf. {ref_label}  →  courant {cur_label})",
               style="Muted.TLabel").pack(side="left", padx=(10, 0))
 
-    # --- Trois dessins côte à côte ---
-    row = ttk.Frame(dlg, style="Panel.TFrame", padding=(12, 4))
-    row.pack(fill="x")
-    img_ref = _build_image_col(row, f"Référence — {ref_label}")
-    img_cur = _build_image_col(row, f"Courant — {cur_label}")
-    img_evo = _build_image_col(row, "Évolution de l'altération")
+    # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
+    # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
+    # molette global, qui casserait le défilement de l'app). ---
+    mid = ttk.Frame(dlg, style="Panel.TFrame")
+    mid.pack(fill="both", expand=True)
+    canvas = tk.Canvas(mid, bg=COLOR_PANEL, highlightthickness=0)
+    vsb = ttk.Scrollbar(mid, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vsb.set)
+    vsb.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    inner = ttk.Frame(canvas, style="Panel.TFrame")
+    inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+    inner.bind("<Configure>",
+               lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.bind("<Configure>",
+                lambda e: canvas.itemconfigure(inner_id, width=e.width))
 
-    # Dessin courant : figé.
-    photos["cur"] = _photo(render_arbre_to_pil_image(
-        current, _SEC, _SEC, show_sondages=True, show_title=False,
-        show_legend=False))
-    img_cur.configure(image=photos["cur"])
-
-    # --- Tableau chiffré ---
-    tbl_frame = ttk.Frame(dlg, style="Panel.TFrame", padding=(12, 4))
-    tbl_frame.pack(fill="x")
-    cols = ("ind", "ref", "cur", "evo")
-    tbl = ttk.Treeview(tbl_frame, columns=cols, show="headings", height=6)
-    for c, txt, w in (("ind", "Indicateur", 280), ("ref", "Référence", 150),
-                      ("cur", "Courant", 150), ("evo", "Évolution", 230)):
-        tbl.heading(c, text=txt)
-        tbl.column(c, width=w, anchor="w")
-    tbl.pack(fill="x")
-
-    # --- Verdict + boutons ---
+    # --- Boutons d'export (verdict par brin = dans chaque bloc) ---
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=12)
     foot.pack(fill="x")
-    lbl_evo = ttk.Label(foot, text="", style="Panel.TLabel",
-                        font=("Helvetica", 11, "bold"),
+    lbl_msg = ttk.Label(foot, text="", style="Muted.TLabel",
                         wraplength=900, justify="left")
-    lbl_evo.pack(side="left", fill="x", expand=True)
+    lbl_msg.pack(side="left", fill="x", expand=True)
     ttk.Button(foot, text="Fermer", style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
     ttk.Button(foot, text="🖼 PNG…", style="Ghost.TButton",
@@ -127,30 +124,28 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
         if idx < 0 or idx >= len(refs):
             return
         ref_arbre = refs[idx]
-        detail = comparaison_detaillee(ref_arbre, current, annees)
         state["ref_arbre"] = ref_arbre
-        state["detail"] = detail
-        photos["ref"] = _photo(render_arbre_to_pil_image(
-            ref_arbre, _SEC, _SEC, show_sondages=True, show_title=False,
-            show_legend=False))
-        img_ref.configure(image=photos["ref"])
-        photos["evo"] = _photo(render_evolution_section(ref_arbre, current, _SEC))
-        img_evo.configure(image=photos["evo"])
-        tbl.delete(*tbl.get_children())
-        for r in metric_rows(detail):
-            tbl.insert("", "end", values=r)
-        lbl_evo.configure(
-            text=verdict_evolution(detail),
-            foreground=_verdict_color(detail.classe_ref, detail.classe_cur))
-        # Mémo pour l'export (capture l'arbre + le détail courants).
-        state["builder_args"] = (reference.nom, ref_arbre, current, detail,
+        # Mémo export (recalcule le détail à la demande dans le builder).
+        state["builder_args"] = (reference.nom, ref_arbre, current, annees,
                                   ref_label, cur_label)
+        for w in inner.winfo_children():
+            w.destroy()
+        photos.clear()
+        pairs = comparaison_par_brin(ref_arbre, current, annees)
+        multi = len(pairs) > 1
+        for label, cur_b, ref_b, detail in pairs:
+            _build_brin_block(inner, label if multi else None,
+                              ref_arbre, current, cur_b, ref_b, detail,
+                              ref_label, cur_label, photos)
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.yview_moveto(0.0)
 
     cmb.bind("<<ComboboxSelected>>", _on_select)
 
     if not refs:
-        lbl_evo.configure(
-            text="La mission de référence ne contient aucun arbre.")
+        ttk.Label(inner, text="La mission de référence ne contient aucun "
+                  "arbre.", style="Panel.TLabel").pack(anchor="w", padx=12,
+                                                       pady=12)
     else:
         default = next((i for i, a in enumerate(refs)
                         if a.numero_arbre == current.numero_arbre), 0)
@@ -159,6 +154,58 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
 
     dlg.update_idletasks()
     dlg.focus_set()
+
+
+def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
+                      cur_arbre: Arbre, cur_b: Any, ref_b: Any,
+                      detail: Any, ref_label: str, cur_label: str,
+                      photos: list) -> None:
+    """Construit un bloc de comparaison (3 dessins + tableau + verdict) pour
+    un brin. `label=None` ⟹ mono-caule (pas d'en-tête de brin). `ref_b=None`
+    ⟹ brin courant sans homologue de référence (colonne réf. vide)."""
+    block = ttk.Frame(parent, style="Panel.TFrame", padding=(0, 6))
+    block.pack(fill="x", expand=True)
+    if label is not None:
+        ttk.Label(block, text=f"Brin {label}", style="H.TLabel",
+                  font=("Helvetica", 13, "bold")).pack(anchor="w", padx=12)
+
+    row = ttk.Frame(block, style="Panel.TFrame", padding=(12, 4))
+    row.pack(fill="x")
+    img_ref = _build_image_col(row, f"Référence — {ref_label}")
+    img_cur = _build_image_col(row, f"Courant — {cur_label}")
+    img_evo = _build_image_col(row, "Évolution de l'altération")
+    if ref_b is not None:
+        p = _photo(render_brin_section(ref_arbre, ref_b, _SEC))
+        photos.append(p)
+        img_ref.configure(image=p)
+    else:
+        img_ref.configure(text="(pas de brin de référence)")
+    pc = _photo(render_brin_section(cur_arbre, cur_b, _SEC))
+    photos.append(pc)
+    img_cur.configure(image=pc)
+    pe = _photo(render_evolution_section_brin(ref_b, cur_b, _SEC))
+    photos.append(pe)
+    img_evo.configure(image=pe)
+
+    rows = metric_rows(detail)
+    tbl_frame = ttk.Frame(block, style="Panel.TFrame", padding=(12, 4))
+    tbl_frame.pack(fill="x")
+    cols = ("ind", "ref", "cur", "evo")
+    tbl = ttk.Treeview(tbl_frame, columns=cols, show="headings",
+                       height=len(rows))
+    for c, txt, w in (("ind", "Indicateur", 280), ("ref", "Référence", 150),
+                      ("cur", "Courant", 150), ("evo", "Évolution", 230)):
+        tbl.heading(c, text=txt)
+        tbl.column(c, width=w, anchor="w")
+    for r in rows:
+        tbl.insert("", "end", values=r)
+    tbl.pack(fill="x")
+
+    ttk.Label(block, text=verdict_evolution(detail), style="Panel.TLabel",
+              font=("Helvetica", 11, "bold"), wraplength=900, justify="left",
+              foreground=_verdict_color(detail.classe_ref, detail.classe_cur)
+              ).pack(anchor="w", padx=12, pady=(2, 6))
+    ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=2)
 
 
 def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
@@ -172,12 +219,15 @@ def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
 
 def _page_builder(state: dict) -> Callable[[], Any]:
     """Renvoie une closure qui rend la page d'export à partir de la
-    sélection courante (capturée dans `state`)."""
+    sélection courante (capturée dans `state`). NB : l'export reste pour
+    l'instant au niveau **genet** (vue d'ensemble + évolution du brin a) ;
+    l'export par brin d'une cépée est une évolution prévue."""
     def _build() -> Any:
         args = state.get("builder_args")
         if args is None:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
-        nom, ref_arbre, cur, detail, ref_label, cur_label = args
+        nom, ref_arbre, cur, annees, ref_label, cur_label = args
+        detail = comparaison_detaillee(ref_arbre, cur, annees)
         return render_comparison_page(nom, ref_arbre, cur, detail,
                                       ref_label=ref_label, cur_label=cur_label)
     return _build
