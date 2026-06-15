@@ -51,24 +51,27 @@ def _photo(img: Any) -> Any:
     return ImageTk.PhotoImage(img)
 
 
-def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
-                    *, cur_date: str, couleur_classe: Mapping[str, str],
+def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
+                    *, default_arbre: Arbre, cur_date: str,
+                    couleur_classe: Mapping[str, str],
                     export_cb: Callable[[str, Callable[[], Any], tk.Misc],
                                         None],
                     show_sondages: bool = True) -> None:
-    """Fenêtre de comparaison de `current` avec un arbre de la mission
-    `reference`. `cur_date` = date de la mission courante (pour le taux
-    cm/an). `export_cb(fmt, builder, parent)` est appelé par les boutons
-    Export (fmt ∈ {"png", "pdf"}, builder() renvoie la liste de pages PIL,
-    `parent` = la fenêtre pour ancrer le filedialog au premier plan).
-    `show_sondages` reprend la case « Afficher sondages » sous le canevas."""
+    """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
+    avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
+    se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
+    = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
+    `export_cb(fmt, builder, parent)` est appelé par les boutons Export
+    (builder() renvoie la liste de pages PIL ; `parent` ancre le filedialog
+    au premier plan). `show_sondages` reprend la case « Afficher sondages »."""
+    curs = current.arbres
     refs = reference.arbres
     annees = annees_entre(reference.date_releve, cur_date)
     ref_label = reference.date_releve or reference.nom or "référence"
     cur_label = cur_date or "courant"
 
     dlg = tk.Toplevel(parent)
-    dlg.title(f"Comparaison d'inspections — {current.display_name}")
+    dlg.title("Comparaison d'inspections")
     dlg.configure(bg=COLOR_PANEL)
     dlg.minsize(1000, 720)
     # PAS de `transient` : sous Linux/X11 un transient est traité en dialogue
@@ -89,21 +92,34 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
         except tk.TclError:
             pass
 
-    state: dict[str, Any] = {"ref_arbre": None}
+    state: dict[str, Any] = {}
     photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
 
-    # --- Sélecteur de l'arbre de référence (lien explicite) ---
+    # --- Sélecteurs : arbre courant (cette mission) ET arbre de référence,
+    # tous deux modifiables (avant, le courant était figé au lancement). ---
+    def _labels(arbres: list) -> list:
+        return [f"n° {a.numero_arbre} — {a.essence or '?'}" for a in arbres]
+
     top = ttk.Frame(dlg, style="Panel.TFrame", padding=(12, 10, 12, 4))
     top.pack(fill="x")
-    ttk.Label(top, text="Comparer à l'arbre de la mission de référence :",
-              style="Panel.TLabel").pack(side="left", padx=(0, 6))
-    labels = [f"n° {a.numero_arbre} — {a.essence or '?'}" for a in refs]
+    ttk.Label(top, text="Arbre courant :", style="Panel.TLabel").pack(
+        side="left", padx=(0, 4))
+    var_cur = tk.StringVar()
+    cmb_cur = ttk.Combobox(top, textvariable=var_cur, values=_labels(curs),
+                           state="readonly", width=26)
+    cmb_cur.pack(side="left", padx=(0, 16))
+    ttk.Label(top, text="comparé à (référence) :",
+              style="Panel.TLabel").pack(side="left", padx=(0, 4))
     var_ref = tk.StringVar()
-    cmb = ttk.Combobox(top, textvariable=var_ref, values=labels,
-                       state="readonly", width=28)
-    cmb.pack(side="left")
+    cmb_ref = ttk.Combobox(top, textvariable=var_ref, values=_labels(refs),
+                           state="readonly", width=26)
+    cmb_ref.pack(side="left")
+    # Garde une réf aux StringVar : locales, elles seraient GC à la sortie de
+    # la fonction, et leur __del__ désaffecte la variable Tcl → combobox vide.
+    # `state` survit (capturé par les closures des boutons/sélecteurs).
+    state["_vars"] = (var_cur, var_ref)
     ttk.Label(top, text=f"(réf. {ref_label}  →  courant {cur_label})",
-              style="Muted.TLabel").pack(side="left", padx=(10, 0))
+              style="Muted.TLabel").pack(side="left", padx=(12, 0))
 
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
     # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
@@ -122,6 +138,30 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
     canvas.bind("<Configure>",
                 lambda e: canvas.itemconfigure(inner_id, width=e.width))
 
+    # Molette : bindings globaux activés UNIQUEMENT quand le pointeur est sur
+    # ce canvas (même pattern que `pane_diagnostic`) — sinon la molette
+    # détournerait le scroll ailleurs ; `unbind` au Leave, re-`bind` à
+    # l'Enter de chaque zone scrollable. Couvre la fenêtre entière (les blocs
+    # ne scrollent pas eux-mêmes).
+    def _wheel(e: Any) -> None:
+        canvas.yview_scroll(int(-e.delta / 120), "units")
+
+    def _wheel_linux(e: Any) -> None:
+        canvas.yview_scroll(-1 if e.num == 4 else 1, "units")
+
+    def _bind_wheel(_e: Any) -> None:
+        canvas.bind_all("<MouseWheel>", _wheel)
+        canvas.bind_all("<Button-4>", _wheel_linux)
+        canvas.bind_all("<Button-5>", _wheel_linux)
+
+    def _unbind_wheel(_e: Any) -> None:
+        canvas.unbind_all("<MouseWheel>")
+        canvas.unbind_all("<Button-4>")
+        canvas.unbind_all("<Button-5>")
+
+    canvas.bind("<Enter>", _bind_wheel)
+    canvas.bind("<Leave>", _unbind_wheel)
+
     # --- Boutons d'export (verdict par brin = dans chaque bloc) ---
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=12)
     foot.pack(fill="x")
@@ -138,36 +178,40 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
                ).pack(side="right")
 
     def _on_select(_e: Any = None) -> None:
-        idx = cmb.current()
-        if idx < 0 or idx >= len(refs):
+        ci, ri = cmb_cur.current(), cmb_ref.current()
+        if not (0 <= ci < len(curs)) or not (0 <= ri < len(refs)):
             return
-        ref_arbre = refs[idx]
-        state["ref_arbre"] = ref_arbre
+        cur_arbre, ref_arbre = curs[ci], refs[ri]
         # Mémo export (les pages sont recalculées à la demande dans le builder).
-        state["builder_args"] = (reference.nom, ref_arbre, current, annees,
+        state["builder_args"] = (reference.nom, ref_arbre, cur_arbre, annees,
                                   ref_label, cur_label, show_sondages)
         for w in inner.winfo_children():
             w.destroy()
         photos.clear()
-        pairs = comparaison_par_brin(ref_arbre, current, annees)
+        pairs = comparaison_par_brin(ref_arbre, cur_arbre, annees)
         multi = len(pairs) > 1
         for label, cur_b, ref_b, detail in pairs:
             _build_brin_block(inner, label if multi else None,
-                              ref_arbre, current, cur_b, ref_b, detail,
+                              ref_arbre, cur_arbre, cur_b, ref_b, detail,
                               ref_label, cur_label, photos, show_sondages)
         canvas.configure(scrollregion=canvas.bbox("all"))
         canvas.yview_moveto(0.0)
 
-    cmb.bind("<<ComboboxSelected>>", _on_select)
+    cmb_cur.bind("<<ComboboxSelected>>", _on_select)
+    cmb_ref.bind("<<ComboboxSelected>>", _on_select)
 
-    if not refs:
-        ttk.Label(inner, text="La mission de référence ne contient aucun "
-                  "arbre.", style="Panel.TLabel").pack(anchor="w", padx=12,
-                                                       pady=12)
+    if not curs or not refs:
+        ttk.Label(inner, text="La mission courante ou de référence ne "
+                  "contient aucun arbre.", style="Panel.TLabel").pack(
+                      anchor="w", padx=12, pady=12)
     else:
-        default = next((i for i, a in enumerate(refs)
-                        if a.numero_arbre == current.numero_arbre), 0)
-        cmb.current(default)
+        ci = next((i for i, a in enumerate(curs) if a is default_arbre), 0)
+        cmb_cur.current(ci)
+        # Référence par défaut = même n° que l'arbre courant (lien implicite).
+        cur_num = curs[ci].numero_arbre
+        ri = next((i for i, a in enumerate(refs)
+                   if a.numero_arbre == cur_num), 0)
+        cmb_ref.current(ri)
         _on_select()
 
     dlg.update_idletasks()

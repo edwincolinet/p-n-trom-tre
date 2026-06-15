@@ -161,7 +161,8 @@ class FichierMixin(_MixinBase):
         a = self._current_arbre()
         if ref is None or a is None:
             return
-        open_comparison(self, a, ref,
+        open_comparison(self, self.chantier, ref,
+                        default_arbre=a,
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
                         export_cb=self._export_comparison,

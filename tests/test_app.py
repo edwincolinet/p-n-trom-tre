@@ -978,5 +978,67 @@ class TestSaisieGardeFous(unittest.TestCase):
         self.assertEqual(self.app.current_idx, 0)        # pas de saut
 
 
+@unittest.skipIf(_SKIP_TK, _SKIP_REASON)
+class TestComparaisonFenetre(unittest.TestCase):
+    """Fenêtre de ré-inspection : sélecteurs **courant + référence** (avant,
+    le courant était figé) et persistance des `StringVar` (régression GC :
+    locales, elles vidaient le combobox à la sortie de la fonction)."""
+
+    def setUp(self) -> None:
+        import penetrometre
+        self.app = penetrometre.App()
+        self.app.update_idletasks()
+
+    def tearDown(self) -> None:
+        try:
+            self.app.destroy()
+        except tk.TclError:
+            pass
+
+    @staticmethod
+    def _arbre(num: str, sain: float) -> Arbre:
+        a = Arbre(numero_arbre=num, essence="Chêne", port_arbre="libre")
+        a.brins[0].set_rayon(20.0)
+        for i in range(6):
+            a.brins[0].sondages.append(
+                Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=sain,
+                        bois_altere_cm=20.0 - sain))
+        return a
+
+    @staticmethod
+    def _combos(dlg: tk.Misc) -> list:
+        out: list = []
+
+        def walk(w: tk.Misc) -> None:
+            for c in w.winfo_children():
+                if c.winfo_class() == "TCombobox":
+                    out.append(c)
+                walk(c)
+        walk(dlg)
+        return out
+
+    def test_deux_selecteurs_et_persistance_des_vars(self) -> None:
+        import gc
+
+        from comparaison import open_comparison
+        from model import Chantier
+        cur = Chantier(nom="2026", date_releve="01/01/2026",
+                       arbres=[self._arbre("1", 10), self._arbre("2", 6)])
+        ref = Chantier(nom="2024", date_releve="01/01/2024",
+                       arbres=[self._arbre("1", 12), self._arbre("2", 9)])
+        open_comparison(self.app, cur, ref, default_arbre=cur.arbres[1],
+                        cur_date="01/01/2026", couleur_classe={},
+                        export_cb=lambda *a: None, show_sondages=True)
+        gc.collect()           # force le GC : les StringVar doivent survivre
+        self.app.update()
+        dlg = [w for w in self.app.winfo_children()
+               if w.winfo_class() == "Toplevel"][-1]
+        combos = self._combos(dlg)
+        self.assertEqual(len(combos), 2)         # courant + référence
+        # Non vides après GC → les StringVar sont bien retenues.
+        self.assertIn("n° 2", combos[0].get())   # courant = défaut (n° 2)
+        self.assertIn("n° 2", combos[1].get())   # référence = même n°
+
+
 if __name__ == "__main__":
     unittest.main()
