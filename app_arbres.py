@@ -71,6 +71,7 @@ class ArbreListMixin(_MixinBase):
         def push_undo(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def _load_arbre_to_ui(self) -> None: ...
+        def set_status(self, text: str) -> None: ...
 
     # --- Liste d'arbres ---------------------------------------------
 
@@ -341,6 +342,37 @@ class ArbreListMixin(_MixinBase):
 
     def action_prev_arbre(self) -> None:
         self._select_arbre_relative(-1)
+
+    def action_next_a_finir(self) -> None:
+        """Saute au prochain arbre « à finir » (diagnostic non fiable :
+        rayon manquant ou < 3 sondages), en **bouclant** depuis l'arbre
+        courant — outil de triage de fin de mission, pendant du compteur
+        « N à finir » du footer. Ignore les filtres (et les **vide** si
+        besoin pour rendre la cible visible)."""
+        n = len(self.chantier.arbres)
+        if n == 0:
+            return
+        # Parcours cyclique à partir de l'arbre SUIVANT le courant (pour
+        # avancer même si le courant est lui-même à finir).
+        ordre = ((self.current_idx + 1 + k) % n for k in range(n))
+        cible = next((i for i in ordre
+                      if not self._arbre_diag_fiable(self.chantier.arbres[i])),
+                     None)
+        if cible is None:
+            self.set_status("Tous les arbres ont un diagnostic fiable.")
+            return
+        self.current_idx = cible
+        self._clear_filter_if_set()      # cible visible quoi qu'il arrive
+        self.tree_arbres.focus_set()
+        self._refresh_tree_arbres()       # re-sélectionne a{current_idx}
+        iid = f"a{cible}"
+        if iid in self.tree_arbres.get_children():
+            self.tree_arbres.see(iid)
+        self._load_arbre_to_ui()
+        reste = sum(1 for a in self.chantier.arbres
+                    if not self._arbre_diag_fiable(a))
+        num = self.chantier.arbres[cible].numero_arbre or "(sans n°)"
+        self.set_status(f"Arbre n° {num} — {reste} arbre(s) encore à finir.")
 
     def action_dup_arbre(self) -> None:
         a = self._current_arbre()

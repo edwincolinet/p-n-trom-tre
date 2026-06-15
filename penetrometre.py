@@ -446,6 +446,16 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             justify="left", font=ui_font("Helvetica", 9, "italic"))
         self.lbl_etat_footer.pack(anchor="w", pady=(6, 0))
 
+        # Triage de fin de mission : saute au prochain arbre incomplet
+        # (pendant du compteur « N à finir » juste au-dessus).
+        btn_afinir = ttk.Button(
+            frame, text="⏭ Prochain arbre à finir", style="Ghost.TButton",
+            command=self.action_next_a_finir)
+        btn_afinir.pack(anchor="w", pady=(4, 0))
+        Tooltip(btn_afinir, "Sélectionne le prochain arbre au diagnostic "
+                            "non fiable (rayon manquant ou < 3 sondages), "
+                            "en bouclant. Vide les filtres si besoin.")
+
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(fill="x", pady=(10, 0))
         mb_add = ttk.Menubutton(btns, text="＋ Ajouter",

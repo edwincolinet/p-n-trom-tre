@@ -918,17 +918,8 @@ class TestSaisieGardeFous(unittest.TestCase):
     def test_footer_compte_par_classe_et_a_finir(self) -> None:
         from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
         ch = self.app.chantier  # contient déjà 1 arbre vierge (« à finir »)
-
-        def fiable(num: str, sain: float) -> Arbre:
-            a = Arbre(numero_arbre=num, essence="Chêne", port_arbre="libre")
-            a.brins[0].set_rayon(20.0)
-            for i in range(4):
-                a.brins[0].sondages.append(
-                    Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=sain))
-            return a
-
-        ch.arbres.append(fiable("10", 19.0))
-        ch.arbres.append(fiable("11", 1.0))
+        ch.arbres.append(self._fiable("10", 19.0))
+        ch.arbres.append(self._fiable("11", 1.0))
         self.app._refresh_tree_arbres()
         txt = self.app.lbl_etat_footer.cget("text")
 
@@ -942,6 +933,49 @@ class TestSaisieGardeFous(unittest.TestCase):
                        if r not in (CLASSE_ROUGE, CLASSE_ORANGE, CLASSE_VERT))
         self.assertIn(f"{n_afinir} à finir", txt)
         self.assertIn(f"({len(ch.arbres)})", txt)
+
+    # --- « Prochain arbre à finir » (triage) --------------------------
+
+    @staticmethod
+    def _fiable(num: str, sain: float = 15.0) -> Arbre:
+        """Arbre au diagnostic fiable (rayon + 4 sondages)."""
+        a = Arbre(numero_arbre=num, essence="Chêne", port_arbre="libre")
+        a.brins[0].set_rayon(20.0)
+        for i in range(4):
+            a.brins[0].sondages.append(
+                Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=sain))
+        return a
+
+    def test_next_a_finir_saute_au_prochain_incomplet_en_bouclant(self) -> None:
+        self.app.chantier.arbres = [
+            Arbre(numero_arbre="0"), self._fiable("1"),
+            Arbre(numero_arbre="2"), self._fiable("3")]
+        self.app.current_idx = 0
+        self.app._refresh_tree_arbres()
+        self.app.action_next_a_finir()          # 0 → 2 (prochain incomplet)
+        self.assertEqual(self.app.current_idx, 2)
+        self.app.action_next_a_finir()          # 2 → 0 (bouclage)
+        self.assertEqual(self.app.current_idx, 0)
+
+    def test_next_a_finir_vide_le_filtre_pour_rendre_visible(self) -> None:
+        # Filtre risque « Rouge » actif → masquerait l'arbre incomplet.
+        from bareme import CLASSE_ROUGE
+        self.app.chantier.arbres = [self._fiable("1"), Arbre(numero_arbre="2")]
+        self.app.current_idx = 0
+        self.app.var_risk_filter.set(CLASSE_ROUGE)
+        self.app.action_next_a_finir()
+        self.assertEqual(self.app.current_idx, 1)        # a sauté sur l'incomplet
+        # Filtre vidé → l'arbre incomplet (iid a1) est de nouveau visible.
+        self.assertIn("a1", self.app.tree_arbres.get_children())
+        self.assertEqual(self.app.var_risk_filter.get(), "Tous")
+
+    def test_next_a_finir_message_si_tout_fiable(self) -> None:
+        self.app.chantier.arbres = [self._fiable("1"), self._fiable("2")]
+        self.app.current_idx = 0
+        self.app._refresh_tree_arbres()
+        self.app.action_next_a_finir()
+        self.assertIn("fiable", self.app.lbl_status.cget("text"))
+        self.assertEqual(self.app.current_idx, 0)        # pas de saut
 
 
 if __name__ == "__main__":
