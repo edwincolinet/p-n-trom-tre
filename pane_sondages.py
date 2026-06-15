@@ -55,6 +55,7 @@ class _SondagesHost(Protocol):
     def push_undo(self) -> None: ...
     def capture_undo_snapshot(self) -> dict: ...
     def push_undo_snapshot(self, snap: dict) -> None: ...
+    def set_status(self, text: str) -> None: ...
 
 
 class SondagesPane(ttk.Frame):
@@ -80,8 +81,22 @@ class SondagesPane(ttk.Frame):
             style="Muted.TLabel", wraplength=420, justify="left"
         ).pack(anchor="w", pady=(0, 8))
 
+        # Bandeau « rayon manquant » : créé non packé, montré par `refresh`
+        # tant que le brin courant n'a pas de rayon (R<=0). Sans rayon, le
+        # bois altéré ne peut pas être calculé (colonne « — ») et le bois
+        # sain n'est pas borné — d'où ce rappel explicite (lève la confusion
+        # « pourquoi des — partout ? » de qui attaque Sondages avant le rayon).
+        self._lbl_no_radius = ttk.Label(
+            self,
+            text="⚠ Renseignez le rayon du tronc dans l'onglet "
+                 "Identification : sans lui, le bois altéré n'est pas "
+                 "calculé et le bois sain n'est pas borné au rayon.",
+            style="Panel.TLabel", foreground=COLOR_WARN,
+            wraplength=420, justify="left")
+
         grid = ttk.Frame(self, style="Panel.TFrame")
         grid.pack(fill="both", expand=True)
+        self._grid = grid
 
         heads = ["Direction", "Grade", "Bois sain (cm)", "Altéré (cm)",
                  "Compart."]
@@ -150,8 +165,9 @@ class SondagesPane(ttk.Frame):
         self._aide = AideRepliable(
             self,
             "Laissez vide une direction non sondée. Effacer une valeur "
-            "supprime le sondage. Double-cliquez la direction pour le "
-            "détail (commentaire, redirection).",
+            "supprime le sondage (commentaire et compartimentation "
+            "compris). Double-cliquez la direction pour le détail "
+            "(commentaire, redirection).",
             wraplength=420,
         )
         self._aide.pack(anchor="w", pady=(8, 0))
@@ -174,6 +190,14 @@ class SondagesPane(ttk.Frame):
         pour ne pas re-muter le modèle pendant qu'on écrit les vars."""
         b = self._host._current_brin()
         R = b.rayon_tronc_cm if b else 0.0
+        # Rappel « rayon d'abord » tant que R<=0 (placé en tête, au-dessus
+        # de la grille). Régler le rayon (onglet Identification) déclenche
+        # `_refresh_sondages_table` → ce refresh → le bandeau disparaît.
+        if R > 0:
+            self._lbl_no_radius.pack_forget()
+        else:
+            self._lbl_no_radius.pack(anchor="w", pady=(0, 8),
+                                     before=self._grid)
         by_grade: Dict[int, Sondage] = {}
         if b:
             for sd in b.sondages:
@@ -269,11 +293,28 @@ class SondagesPane(ttk.Frame):
         R = b.rayon_tronc_cm
 
         if raw == "":
+            # Effacer supprime TOUT l'objet Sondage — bois sain, mais aussi
+            # commentaire et compartimentation. Si la ligne en portait, la
+            # perte serait muette : on la signale, et on pousse l'undo TOUT
+            # DE SUITE (au lieu d'attendre le focus-out) pour que le « Ctrl+Z »
+            # promis fonctionne même sans changer de focus au préalable.
+            removed = self._find_sondage(b, g)
+            had_meta = removed is not None and (
+                removed.commentaire.strip() != ""
+                or removed.compartimentation != "non renseignée")
             self._remove_sondage(b, g)
             row["alt"].set("—")
             row["comp"].set("non renseignée")
             row["combo"].configure(state="disabled")
             self._host.on_sondages_changed()
+            if had_meta:
+                if self._undo_snap is not None:
+                    self._host.push_undo_snapshot(self._undo_snap)
+                    self._undo_snap = None
+                self._host.set_status(
+                    f"Sondage {WIND_LABELS[g]} supprimé (avec son "
+                    "commentaire / sa compartimentation) — Ctrl+Z pour "
+                    "annuler.")
             return
 
         try:
@@ -299,11 +340,22 @@ class SondagesPane(ttk.Frame):
 
     def _on_focus_out(self, g: int) -> None:
         b = self._host._current_brin()
+        capped_to: Optional[float] = None
         # Normalise l'affichage à la valeur réellement stockée (clamp à R,
-        # mise au format `:g`) — ex. "99" sur R=20 redevient "20".
+        # mise au format `:g`) — ex. "99" sur R=20 redevient "20". Le clamp
+        # est appliqué dès la frappe (`_on_sain_write`) ; ici on détecte
+        # qu'il a joué pour le SIGNALER (sinon le plafonnement est muet).
         if b is not None:
             s = self._find_sondage(b, g)
             if s is not None:
+                R = b.rayon_tronc_cm
+                typed = self._rows[g]["sain"].get().strip()
+                if R > 0 and typed:
+                    try:
+                        if to_float(typed) > R:
+                            capped_to = R
+                    except ValueError:
+                        pass
                 self._suspend = True
                 try:
                     self._rows[g]["sain"].set(f"{s.bois_sain_cm:g}")
@@ -313,6 +365,10 @@ class SondagesPane(ttk.Frame):
         if self._undo_snap is not None and cur != self._focus_in_value:
             self._host.push_undo_snapshot(self._undo_snap)
         self._undo_snap = None
+        if capped_to is not None:
+            self._host.set_status(
+                f"Bois sain limité au rayon ({capped_to:g} cm) : la PRBS "
+                "ne peut pas dépasser le rayon du tronc.")
 
     def _on_comp_changed(self, g: int) -> None:
         b = self._host._current_brin()
