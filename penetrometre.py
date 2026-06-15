@@ -21,12 +21,13 @@ from contextlib import contextmanager
 from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
-from typing import Any, Callable, Iterator, Optional
+from tkinter import messagebox, ttk
+from typing import Iterator, Optional
 
 from aide_repliable import AideRepliable
 from app_arbres import _RISK_FILTER_ALL, _RISK_FILTER_CHOICES, ArbreListMixin
 from app_export_actions import ExportActionsMixin
+from app_fichier import _BACKUP_PATH, FichierMixin
 from app_menu import build_menu, refresh_recent_menu
 from app_recent import RecentFilesStore
 from app_recovery import (
@@ -36,7 +37,6 @@ from app_recovery import (
 from app_settings import SettingsStore
 from app_style import apply_ttk_styles
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
-from comparaison import open_comparison
 from dialogs import (
     ask_cepee_layout,
     ask_date,
@@ -56,9 +56,6 @@ from persistence import (
     chantier_from_dict,
     chantier_to_dict,
     clear_recovery,
-    load_chantier,
-    save_chantier,
-    write_backup,
 )
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
@@ -77,8 +74,9 @@ __version__ = "3.6.0"
 _RECENT_FILES_MAX = 8
 _RECENT_FILES_PATH = Path.home() / ".penetrometre" / "recent.json"
 _SETTINGS_PATH = Path.home() / ".penetrometre" / "settings.json"
-# Copies horodatées des missions à chaque enregistrement (anti-écrasement).
-_BACKUP_PATH = Path.home() / ".penetrometre" / "backups"
+# `_BACKUP_PATH` (dossier des sauvegardes glissantes) vit désormais dans
+# `app_fichier` — responsabilité « enregistrement » — et est réimporté
+# ci-dessus pour l'entrée de menu « Ouvrir le dossier des sauvegardes… ».
 
 
 # Logger applicatif — configuré par `_setup_logging()` au démarrage.
@@ -91,7 +89,7 @@ log = logging.getLogger("penetrometre")
 # Application principale
 # ---------------------------------------------------------------------------
 
-class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
+class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
@@ -1135,192 +1133,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, tk.Tk):
             self.push_undo_snapshot(snap)
             self._refresh_contreforts_table()
             self._debounced_redraw()
-
-    # --- Fichier ----------------------------------------------------
-
-    def action_new(self) -> None:
-        if self._dirty:
-            if not messagebox.askyesno(
-                    "Nouvelle mission",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
-                return
-        self._undo_stack.clear()
-        self._dirty = False
-        clear_recovery(_RECOVERY_PATH)
-        self.chantier = Chantier()
-        self.chantier.arbres.append(Arbre(numero_arbre="1"))
-        self.current_idx = 0
-        self.current_file = None
-        with self._suspend_sync_block():
-            self.var_ch_nom.set(self.chantier.nom)
-            self.var_ch_adr.set("")
-            self.var_ch_ope.set("")
-            self.var_ch_date.set(self.chantier.date_releve)
-        self.var_filter.set("")  # nouvelle mission → filtres remis à zéro
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-        self._update_title()
-
-    def action_open(self) -> None:
-        if self._dirty:
-            if not messagebox.askyesno(
-                    "Ouvrir",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
-                return
-        p = filedialog.askopenfilename(
-            title="Ouvrir une mission",
-            filetypes=[("Mission Pénétromètre", "*.json"),
-                       ("Tous", "*.*")])
-        if not p:
-            return
-        self._open_path(p)
-
-    def action_load_reference(self) -> bool:
-        """Charge en mémoire une mission de référence (campagne antérieure)
-        pour la comparaison inter-missions. Par session : rien n'est écrit
-        dans la mission courante. Renvoie True si chargée."""
-        p = filedialog.askopenfilename(
-            title="Choisir la mission de référence (campagne antérieure)",
-            filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
-        if not p:
-            return False
-        try:
-            self._reference_chantier = load_chantier(p)
-        except Exception as e:
-            log.exception("Échec chargement mission de référence")
-            messagebox.showerror("Erreur", str(e))
-            return False
-        n = len(self._reference_chantier.arbres)
-        self.set_status(f"Mission de référence chargée — {Path(p).name} "
-                        f"({n} arbre(s)). « Comparer l'arbre courant… »")
-        return True
-
-    def action_compare_arbre(self) -> None:
-        """Ouvre la fenêtre de comparaison de l'arbre courant avec un arbre
-        de la mission de référence (chargée à la 1re utilisation)."""
-        if self._reference_chantier is None:
-            messagebox.showinfo(
-                "Comparer une inspection",
-                "Choisissez d'abord la mission de référence — la campagne "
-                "antérieure à laquelle comparer.")
-            if not self.action_load_reference():
-                return
-        ref = self._reference_chantier
-        a = self._current_arbre()
-        if ref is None or a is None:
-            return
-        open_comparison(self, a, ref,
-                        cur_date=self.chantier.date_releve,
-                        couleur_classe=COULEUR_CLASSE,
-                        export_cb=self._export_comparison)
-
-    def _export_comparison(self, fmt: str,
-                           builder: Callable[[], Any]) -> None:
-        """Enregistre la page de comparaison (PNG ou PDF) construite par
-        `builder` (appelé par les boutons d'export de la fenêtre)."""
-        from comparaison_render import save_comparison_pdf, save_comparison_png
-        ext = ".pdf" if fmt == "pdf" else ".png"
-        typ = "PDF" if fmt == "pdf" else "Image PNG"
-        p = filedialog.asksaveasfilename(
-            defaultextension=ext,
-            filetypes=[(typ, f"*{ext}"), ("Tous", "*.*")])
-        if not p:
-            return
-        try:
-            page = builder()
-            if fmt == "pdf":
-                save_comparison_pdf(page, p)
-            else:
-                save_comparison_png(page, p)
-            self.notify_export(p, "Comparaison d'inspections")
-        except Exception as e:
-            log.exception("Échec export comparaison")
-            messagebox.showerror("Erreur", str(e))
-
-    def _open_path(self, p: str) -> None:
-        """Ouvre un fichier de mission par son chemin (factorise
-        `action_open` et `action_open_recent`). Pousse le chemin dans
-        l'historique des récents même en cas de succès."""
-        try:
-            self._undo_stack.clear()
-            self._dirty = False
-            clear_recovery(_RECOVERY_PATH)
-            self.chantier = load_chantier(p)
-            if not self.chantier.arbres:
-                self.chantier.arbres.append(Arbre())
-            self.current_idx = 0
-            self.current_file = Path(p)
-            with self._suspend_sync_block():
-                self.var_ch_nom.set(self.chantier.nom)
-                self.var_ch_adr.set(self.chantier.adresse)
-                self.var_ch_ope.set(self.chantier.operateur)
-                self.var_ch_date.set(self.chantier.date_releve)
-            self.var_filter.set("")  # mission ouverte → filtres remis à zéro
-            self.var_risk_filter.set(_RISK_FILTER_ALL)
-            self._refresh_tree_arbres()
-            self._load_arbre_to_ui()
-            self._update_title()
-            self._recent.push(p)
-        except FileNotFoundError:
-            messagebox.showerror(
-                "Fichier introuvable",
-                f"Le fichier suivant n'existe plus :\n{p}\n\n"
-                "Il a été retiré de la liste des fichiers récents.")
-            self._recent.remove(p)
-        except Exception as e:
-            log.exception("Échec ouverture mission")
-            messagebox.showerror("Erreur d'ouverture", str(e))
-
-    def action_open_recent(self, path: str) -> None:
-        """Ouvre un fichier récent (appelé par le sous-menu Récents)."""
-        if self._dirty:
-            if not messagebox.askyesno(
-                    "Ouvrir",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
-                return
-        self._open_path(path)
-
-    def get_recent_files(self) -> list[str]:
-        """Lecture pure pour `refresh_recent_menu` (délègue au store)."""
-        return self._recent.get()
-
-    # Le chargement / la persistance / la déduplication de l'historique
-    # vivent dans `app_recent.RecentFilesStore` (`self._recent`) ; les
-    # sites d'ouverture/enregistrement appellent `self._recent.push` /
-    # `self._recent.remove`, qui rafraîchissent le sous-menu via le
-    # callback `on_change` câblé dans `__init__`.
-
-    def action_save(self) -> None:
-        if not self.current_file:
-            return self.action_save_as()
-        try:
-            save_chantier(self.chantier, self.current_file)
-            self._dirty = False
-            self._update_title()
-            self._recent.push(str(self.current_file))
-            # Le fichier réel est à jour → l'autosave n'a plus de raison
-            # d'être ; on l'efface pour ne pas proposer une reprise inutile.
-            clear_recovery(_RECOVERY_PATH)
-            # Sauvegarde glissante (best-effort) : copie horodatée pour
-            # survivre à un écrasement ou une corruption ultérieurs.
-            write_backup(self.current_file, _BACKUP_PATH)
-            self.set_status(f"✓ Enregistré — {self.current_file.name}")
-        except Exception as e:
-            log.exception("Échec enregistrement mission")
-            messagebox.showerror("Erreur", str(e))
-
-    def action_save_as(self) -> None:
-        p = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("Mission Pénétromètre", "*.json")])
-        if not p:
-            return
-        self.current_file = Path(p)
-        self.action_save()
 
     # Actions d'export (action_export_png / _pdf_arbre / _pdf_mission /
     # _csv / _synthesis_{xlsx,csv} / _prbs_{xlsx,html}) : cf.
