@@ -912,17 +912,20 @@ class ComparaisonDetail(NamedTuple):
     tR_moy_cur: Optional[float]
 
 
-def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
-                          annees: Optional[float]) -> ComparaisonDetail:
-    """Comparaison chiffrée référence → courant, sur les **16 directions
-    extrapolées** (`prbs_par_grade`). `annees` = durée entre les deux
-    relevés (calculée en amont depuis les dates de mission)."""
-    ref_b, cur_b = reference.brin_courant, courant.brin_courant
-    ref_comp = {s.grade: s.compartimentation for s in ref_b.sondages}
+def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
+                      annees: Optional[float], s_ref: ArbreCompareSummary,
+                      s_cur: ArbreCompareSummary) -> ComparaisonDetail:
+    """Cœur de la comparaison sur **deux brins** (réf → courant) + des
+    résumés (classe/t/R) déjà calculés au bon niveau (genet OU brin). Les
+    16 directions sont comparées via la PRBS extrapolée. `ref_b=None` (pas
+    d'homologue de référence) ⟹ directions vides, classe_ref = `None`."""
+    ref_comp = ({s.grade: s.compartimentation for s in ref_b.sondages}
+                if ref_b is not None else {})
     cur_comp = {s.grade: s.compartimentation for s in cur_b.sondages}
 
     directions: List[DirectionDelta] = []
-    if ref_b.rayon_tronc_cm > 0 and cur_b.rayon_tronc_cm > 0:
+    if (ref_b is not None and ref_b.rayon_tronc_cm > 0
+            and cur_b.rayon_tronc_cm > 0):
         prbs_r = prbs_par_grade(ref_b)   # PRBS extrapolée 16 dir.
         prbs_c = prbs_par_grade(cur_b)
         for i, g in enumerate(GRADES):
@@ -952,8 +955,6 @@ def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
             and annees >= _TAUX_ANNEES_MIN):
         taux_cm_an = perte_moy / annees
 
-    s_ref = arbre_compare_summary(reference)
-    s_cur = arbre_compare_summary(courant)
     return ComparaisonDetail(
         annees=annees, directions=directions,
         prbs_moy_ref=prbs_moy_ref, prbs_moy_cur=prbs_moy_cur,
@@ -963,6 +964,48 @@ def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
                              if d.compart_ref != d.compart_cur),
         classe_ref=s_ref.classe, classe_cur=s_cur.classe,
         tR_moy_ref=s_ref.tR_moyen_pct, tR_moy_cur=s_cur.tR_moyen_pct)
+
+
+def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
+                          annees: Optional[float]) -> ComparaisonDetail:
+    """Comparaison chiffrée référence → courant au niveau **genet** (brin
+    courant pour les directions, classe globale genet). Inchangé. Pour le
+    détail **par brin** d'une cépée, voir `comparaison_par_brin`."""
+    return _comparaison_core(
+        reference.brin_courant, courant.brin_courant, annees,
+        arbre_compare_summary(reference), arbre_compare_summary(courant))
+
+
+def _brin_compare_summary(brin: "Brin", port: str) -> ArbreCompareSummary:
+    """Résumé court (classe/t/R) calculé **au niveau d'un brin** (pas du
+    genet) — pour la comparaison brin-à-brin d'une cépée."""
+    row = _synthesis_row_for_section("", "", port, brin)
+    return ArbreCompareSummary(
+        classe=row.classe_globale, tR_moyen_pct=row.tR_moyen_pct,
+        n_sondees=row.n_sondees, rayon_cm=row.rayon_cm, fiable=row.fiable)
+
+
+def comparaison_par_brin(reference: "Arbre", courant: "Arbre",
+                         annees: Optional[float]
+                         ) -> List[Tuple[str, "Brin", Optional["Brin"],
+                                         ComparaisonDetail]]:
+    """Comparaison **brin-à-brin** d'une cépée, appariée par **index/label**
+    (a↔a, b↔b…). Un brin courant sans homologue de référence (mission de
+    référence plus courte, ou brins ré-ordonnés) est comparé à `None` →
+    directions vides, classe_ref `None` (jamais d'appariement décalé
+    silencieux). La classe/t/R sont calculés AU NIVEAU DU BRIN. Renvoie
+    `[(label, cur_brin, ref_brin|None, detail)]`, un tuple par brin courant."""
+    out: List[Tuple[str, "Brin", Optional["Brin"], ComparaisonDetail]] = []
+    for i, cur_b in enumerate(courant.brins):
+        ref_b = reference.brins[i] if i < len(reference.brins) else None
+        label = cur_b.label or chr(ord("a") + i)
+        s_cur = _brin_compare_summary(cur_b, courant.port_arbre)
+        s_ref = (_brin_compare_summary(ref_b, reference.port_arbre)
+                 if ref_b is not None
+                 else ArbreCompareSummary(None, None, 0, 0.0, False))
+        out.append((label, cur_b, ref_b,
+                    _comparaison_core(ref_b, cur_b, annees, s_ref, s_cur)))
+    return out
 
 
 # ---------------------------------------------------------------------

@@ -1106,6 +1106,39 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertEqual(det.directions, [])
         self.assertIsNone(det.perte_moy_par_dir)
 
+    def test_comparaison_par_brin_apparie_par_label_et_gere_orphelins(self):
+        # Réf : cépée à 1 brin (a). Courant : cépée à 2 brins (a, b).
+        # Le brin b courant n'a pas d'homologue de référence → comparé à
+        # None (jamais d'appariement décalé silencieux).
+        from diagnostic import comparaison_par_brin
+        ref = Arbre(numero_arbre="1", port_arbre="libre")
+        ref.brins[0].set_rayon(20.0)
+        cur = Arbre(numero_arbre="1", port_arbre="libre")
+        cur.brins[0].set_rayon(20.0)
+        for g in (0, 100, 200, 300):
+            ref.brins[0].sondages.append(
+                Sondage(grade=g, bois_sain_cm=8.0, bois_altere_cm=12.0))
+            cur.brins[0].sondages.append(
+                Sondage(grade=g, bois_sain_cm=5.0, bois_altere_cm=15.0))
+        cur.ajouter_brin()
+        cur.brins[1].set_rayon(15.0)
+        for g in (0, 100, 200, 300):
+            cur.brins[1].sondages.append(
+                Sondage(grade=g, bois_sain_cm=4.0, bois_altere_cm=11.0))
+
+        pairs = comparaison_par_brin(ref, cur, annees=2.0)
+        self.assertEqual([label for label, *_ in pairs], ["a", "b"])
+        # Brin a : homologue présent → 16 directions extrapolées, perte 8-5.
+        _, _, ref_a, det_a = pairs[0]
+        self.assertIsNotNone(ref_a)
+        self.assertEqual(len(det_a.directions), 16)
+        self.assertAlmostEqual(det_a.perte_moy_par_dir, 3.0)
+        # Brin b : pas d'homologue → comparé à None, classe_ref None.
+        _, _, ref_b, det_b = pairs[1]
+        self.assertIsNone(ref_b)
+        self.assertEqual(det_b.directions, [])
+        self.assertIsNone(det_b.classe_ref)
+
     def test_evolution_classe(self):
         self.assertEqual(evolution_classe("Vert", "Rouge"), 1)    # aggravation
         self.assertEqual(evolution_classe("Rouge", "Vert"), -1)   # amélioration
