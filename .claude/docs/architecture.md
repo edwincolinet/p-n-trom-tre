@@ -1,14 +1,11 @@
 # Architecture détaillée des modules
 
 Ce document détaille les **modules du cœur** (géométrie, modèle, diagnostic,
-persistance, rendu, exports, dialogues, canevas). La **couche App** — `App`
-et ses mixins (`app_arbres`, `app_recovery`, `app_export_actions`,
-`app_fichier`, helper `app_recent`) ainsi que les modules d'accessibilité
-(`app_settings`, `ui_fonts`, `app_style`, `aide_repliable`) et de
-ré-inspection (`comparaison`, `comparaison_render`) — est décrite dans
-**CLAUDE.md** ; on n'en duplique ici que la section `penetrometre.py` (ce qui
-reste dans l'orchestrateur). En cas de doute, CLAUDE.md fait foi pour la
-couche App.
+persistance, rendu, exports, dialogues, canevas). La **couche App** (`App`
++ ses 4 mixins + helpers + accessibilité + ré-inspection) est **cartographiée
+en bref en fin de document** (purpose + surface publique) avec renvoi à
+**CLAUDE.md** pour le détail — on évite d'y dupliquer la prose volatile.
+**En cas de doute, CLAUDE.md fait foi pour la couche App.**
 
 ## `bareme.py` — barème métier Silvavenir (stdlib uniquement)
 
@@ -228,13 +225,20 @@ avec logging. Thin wrappers depuis `App.action_export_*`.
 ## `app_menu.py` — barre de menu Tk
 
 `build_menu(app)` attache la barre de menu et bind les raccourcis
-globaux. Trois cascades :
+globaux. Quatre cascades :
 
 - **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
   (sous-menu populé par `refresh_recent_menu(app)` depuis
-  `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous,
-  exports PDF/CSV mission, Quitter.
-- **Arbres** : Ajouter (Ctrl+T), Dupliquer, Renommer, Supprimer.
+  `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous ;
+  **exports mission** (synthèse XLSX, synthèse CSV, toutes les fiches PDF,
+  sondages CSV) ; **ré-inspection** (comparer l'arbre courant à une
+  mission, choisir la mission de référence) ; ouvrir le dossier des
+  sauvegardes ; Quitter.
+- **Arbres** : Ajouter (Ctrl+T), Ajouter en héritant du précédent ;
+  Arbre suivant (Ctrl+PgDn) / précédent (Ctrl+PgUp) ; Dupliquer,
+  Renommer, Supprimer.
+- **Affichage** : Taille du texte (Petit/Normal/Grand/Très grand,
+  radiobuttons) ; Contraste élevé (checkbutton).
 - **Aide** : Raccourcis clavier, Ouvrir le fichier de log, À propos.
 
 `refresh_recent_menu(app)` est exposée pour être réappelée par l'App
@@ -489,7 +493,61 @@ désynchroniser. Ce qui reste **dans `penetrometre.py`** :
 - **Raccourci export** : `Ctrl+E` → `action_export_pdf_arbre`, bind dans
   `__init__` via `_on_export_shortcut` qui ne déclenche pas si un
   `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans Tk).
-- **Aide** : `action_about`, `action_shortcuts` (popup raccourcis),
+- **Aide** : `action_about`, `action_shortcuts` (popup raccourcis,
+  inclut Ctrl+Tab entre onglets via `nb.enable_traversal()`),
   `action_open_log` (ouvre `~/.penetrometre/penetrometre.log` avec
   l'éditeur par défaut, cross-platform via `os.startfile`/`open`/
   `xdg-open`).
+
+## Couche App — mixins et helpers (carte)
+
+`App` délègue par **responsabilité** à 4 mixins + 1 helper (couplage
+**assumé** : sauf `ExportActionsMixin`, les mixins lisent et mutent l'état
+d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
+4 mixins + 1 helper ») ; carte synthétique :
+
+- **`app_arbres.ArbreListMixin`** — panneau gauche « Arbres de la
+  mission » : filtre texte + classe de risque, `Treeview`, pastilles
+  d'état (`_arbre_etat` → colonnes État + Risque), footer de **triage**
+  (`_update_etat_footer` : `N rouge · N orange · N vert · N à finir`),
+  navigation clavier, CRUD (ajouter vierge / hériter, dupliquer, renommer,
+  supprimer).
+- **`app_recovery.RecoveryMixin`** — autosave anti-crash (tick 60 s tant
+  que `_dirty`) + récupération au démarrage. Fournit `_RECOVERY_PATH`.
+- **`app_export_actions.ExportActionsMixin`** — les `action_export_*`
+  (PNG, fiche PDF, PDF mission, CSV, synthèse XLSX/CSV, PRBS XLSX/HTML) ;
+  pur dispatcher en lecture seule vers `app_exports` (seul mixin découplé).
+- **`app_fichier.FichierMixin`** — cycle de vie du fichier mission
+  (new/open/save/save_as, `_open_path`, récents) + **ré-inspection**
+  (`action_load_reference`/`_compare_arbre`/`_export_comparison`). Fournit
+  `_BACKUP_PATH` (sauvegardes glissantes).
+- **`app_recent.RecentFilesStore`** (composition, pur) — historique des
+  fichiers récents (JSON, 8 max, déduplication, callback `on_change`).
+
+## Accessibilité & réglages
+
+- **`app_settings.SettingsStore`** (pur) — réglages UI persistés en JSON :
+  `ui_scale` (borné [0.8, 1.6]), `high_contrast`, positions des poignées
+  (`sash`). Tolérant aux valeurs absentes/corrompues.
+- **`ui_fonts`** (pur) — échelle du texte : facteur global de processus
+  (`set_ui_scale`/`get_ui_scale`) + helper `font(family, size, *opts)`.
+  `tk scaling` étant inopérant sur plusieurs builds Tk/Linux, on agit sur
+  le **nombre de taille** des polices. Identité à 1.0 → aucune régression.
+- **`aide_repliable.AideRepliable`** — bloc d'aide repliable (en-tête
+  « ⓘ Aide ▸/▾ »), **replié par défaut** ; fonctionne en `grid` comme en
+  `pack`.
+- **`palette.py`** — couleurs partagées **Tk ↔ PIL** (bois, écorce,
+  cavité, `COULEUR_CLASSE`, `COLOR_WARN`, `COLOR_ACCENT`…). Invariant :
+  `COLOR_BARK ≠ COLOR_ROT` (contraste dégradation/écorce).
+
+## Ré-inspection inter-missions
+
+- **`comparaison.py`** — fenêtre Tk `open_comparison(...)` redimensionnable :
+  3 sections côte à côte (référence | courant | **section d'évolution**),
+  tableau chiffré, verdict, export PNG + PDF. Référence chargée **par
+  session** (rien de persisté). Décisions métier dans CLAUDE.md.
+- **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
+  (couronne **orange** = bois sain perdu depuis la référence, contours
+  lissés Catmull-Rom), `render_comparison_page` (A4 paysage),
+  `save_comparison_{png,pdf}`, `metric_rows`/`verdict_evolution` partagés
+  fenêtre ↔ page.
