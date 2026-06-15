@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Garde-fou local avant `git push` — rejoue la validation de la CI
+# (.github/workflows/tests.yml) pour un retour immédiat, sans attendre
+# l'aller-retour GitHub Actions.
+#
+# Activation (une fois par clone) :
+#   git config core.hooksPath .githooks
+#
+# Désactivation ponctuelle (push d'urgence) :
+#   git push --no-verify
+#
+# N'exécute PAS mypy (lent à installer/lancer) : la CI s'en charge.
+# Ici on couvre le plus rentable et le plus rapide : lint + suite de tests.
+set -euo pipefail
+
+echo "→ ruff check ."
+ruff check .
+
+echo "→ tests (xvfb si dispo)"
+if command -v xvfb-run >/dev/null 2>&1; then
+    xvfb-run -a python3 -m unittest discover tests
+else
+    # Sans framebuffer virtuel, les tests Tk se skippent proprement.
+    python3 -m unittest discover tests
+fi
+
+echo "✓ validation locale OK"
