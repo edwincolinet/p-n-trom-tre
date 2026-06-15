@@ -823,5 +823,126 @@ class TestAideRepliable(unittest.TestCase):
         self.assertIn("▸", self.aide._header.cget("text"))
 
 
+@unittest.skipIf(_SKIP_TK, _SKIP_REASON)
+class TestSaisieGardeFous(unittest.TestCase):
+    """Garde-fous & feedback de la grille de sondages + footer de triage
+    (issus de la 2e analyse critique UX). Headless via `App`."""
+
+    def setUp(self) -> None:
+        import penetrometre
+        self.app = penetrometre.App()
+        self.app.update_idletasks()
+
+    def tearDown(self) -> None:
+        try:
+            self.app.destroy()
+        except tk.TclError:
+            pass
+
+    # --- Bandeau « rayon d'abord » ------------------------------------
+
+    def test_bandeau_rayon_visible_si_rayon_nul(self) -> None:
+        self.app._current_brin().set_rayon(0.0)
+        self.app.pane_s.refresh()
+        self.assertEqual(self.app.pane_s._lbl_no_radius.winfo_manager(),
+                         "pack")
+
+    def test_bandeau_rayon_masque_si_rayon_defini(self) -> None:
+        self.app._current_brin().set_rayon(20.0)
+        self.app.pane_s.refresh()
+        self.assertEqual(self.app.pane_s._lbl_no_radius.winfo_manager(), "")
+
+    # --- Plafonnement bois sain <= rayon (signalé) --------------------
+
+    def test_bois_sain_plafonne_au_rayon_et_signale(self) -> None:
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("99")          # clamp dès la frappe
+        self.assertEqual(pane._find_sondage(b, 0).bois_sain_cm, 20.0)
+        pane._on_focus_out(0)
+        self.assertEqual(pane._rows[0]["sain"].get(), "20")  # affichage recalé
+        self.assertIn("limité au rayon", self.app.lbl_status.cget("text"))
+
+    # --- Effacement destructeur signalé + undo immédiat ---------------
+
+    def test_effacer_sondage_avec_meta_signale_et_undo_immediat(self) -> None:
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0,
+                                  commentaire="cavité humide"))
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("")            # efface => supprime l'objet
+        self.assertEqual(len(b.sondages), 0)
+        self.assertIn("supprimé", self.app.lbl_status.cget("text"))
+        # Undo poussé TOUT DE SUITE (pas au focus-out) :
+        self.assertTrue(self.app._undo_stack.can_undo)
+        self.app._perform_undo()
+        s = pane._find_sondage(self.app._current_brin(), 0)
+        self.assertIsNotNone(s)
+        self.assertEqual(s.commentaire, "cavité humide")  # commentaire restauré
+
+    def test_effacer_sondage_sans_meta_est_silencieux(self) -> None:
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0))
+        pane = self.app.pane_s
+        pane.refresh()
+        self.app.set_status("BASE")
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("")
+        self.assertEqual(self.app.lbl_status.cget("text"), "BASE")
+
+    # --- Écho du brin courant (cépée) ---------------------------------
+
+    def test_echo_brin_masque_en_mono_caule(self) -> None:
+        self.app._reload_current_views()
+        for pane in (self.app.pane_s, self.app.pane_de, self.app.pane_cf):
+            self.assertEqual(pane._brin_title.winfo_manager(), "")
+
+    def test_echo_brin_visible_et_suit_le_brin_en_cepee(self) -> None:
+        self.app._current_arbre().ajouter_brin()   # brins a, b
+        self.app.set_current_brin(1)
+        for pane in (self.app.pane_s, self.app.pane_de, self.app.pane_cf):
+            self.assertEqual(pane._brin_title.winfo_manager(), "pack")
+            self.assertIn("brin b", pane._brin_title.cget("text"))
+        self.app.set_current_brin(0)
+        self.assertIn("brin a", self.app.pane_s._brin_title.cget("text"))
+
+    # --- Footer de triage ---------------------------------------------
+
+    def test_footer_compte_par_classe_et_a_finir(self) -> None:
+        from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+        ch = self.app.chantier  # contient déjà 1 arbre vierge (« à finir »)
+
+        def fiable(num: str, sain: float) -> Arbre:
+            a = Arbre(numero_arbre=num, essence="Chêne", port_arbre="libre")
+            a.brins[0].set_rayon(20.0)
+            for i in range(4):
+                a.brins[0].sondages.append(
+                    Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=sain))
+            return a
+
+        ch.arbres.append(fiable("10", 19.0))
+        ch.arbres.append(fiable("11", 1.0))
+        self.app._refresh_tree_arbres()
+        txt = self.app.lbl_etat_footer.cget("text")
+
+        # On vérifie que le footer reflète le tally produit par _arbre_etat
+        # (sans présumer du classement exact de données synthétiques).
+        risques = [self.app._arbre_etat(a)[1] for a in ch.arbres]
+        for cls, mot in ((CLASSE_ROUGE, "rouge"), (CLASSE_ORANGE, "orange"),
+                         (CLASSE_VERT, "vert")):
+            self.assertIn(f"{risques.count(cls)} {mot}", txt)
+        n_afinir = sum(1 for r in risques
+                       if r not in (CLASSE_ROUGE, CLASSE_ORANGE, CLASSE_VERT))
+        self.assertIn(f"{n_afinir} à finir", txt)
+        self.assertIn(f"({len(ch.arbres)})", txt)
+
+
 if __name__ == "__main__":
     unittest.main()
