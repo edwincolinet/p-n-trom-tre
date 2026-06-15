@@ -152,6 +152,71 @@ class CepeeExportLayoutTests(unittest.TestCase):
         self.assertGreater(last, 0.75 * H)
 
 
+@unittest.skipUnless(HAS_PIL, "Pillow absent")
+class ComparaisonExportPagesTests(unittest.TestCase):
+    """Export de la ré-inspection : une page par brin pour une cépée (PDF
+    multi-pages / PNG empilé), une page genet pour un mono-caule."""
+
+    @staticmethod
+    def _arbre(n_brins: int, sain: float):
+        from model import Arbre, Sondage
+        a = Arbre(numero_arbre="1", port_arbre="libre")
+        a.brins[0].set_rayon(20.0)
+        for g in (0, 100, 200, 300):
+            a.brins[0].sondages.append(
+                Sondage(grade=g, bois_sain_cm=sain,
+                        bois_altere_cm=20.0 - sain))
+        for _ in range(n_brins - 1):
+            a.ajouter_brin()
+        return a
+
+    def test_une_page_pour_mono_caule(self):
+        from comparaison_render import render_comparison_pages
+        pages = render_comparison_pages(
+            "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        self.assertEqual(len(pages), 1)
+
+    def test_une_page_par_brin_pour_cepee(self):
+        # Réf 1 brin, courant 3 brins → 3 pages (brins b, c orphelins).
+        from comparaison_render import render_comparison_pages
+        pages = render_comparison_pages(
+            "M", self._arbre(1, 8.0), self._arbre(3, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        self.assertEqual(len(pages), 3)
+
+    def test_show_sondages_false_masque_les_fleches(self):
+        # La case « Afficher sondages » doit être respectée dans l'export :
+        # avec sondages, les flèches ajoutent des pixels → rendu différent.
+        from PIL import ImageChops
+
+        from comparaison_render import render_comparison_pages
+        ref, cur = self._arbre(1, 8.0), self._arbre(1, 5.0)
+        on = render_comparison_pages("M", ref, cur, 2.0, ref_label="r",
+                                     cur_label="c", show_sondages=True)[0]
+        off = render_comparison_pages("M", ref, cur, 2.0, ref_label="r",
+                                      cur_label="c", show_sondages=False)[0]
+        self.assertIsNotNone(ImageChops.difference(on, off).getbbox())
+
+    def test_png_empile_les_pages_d_une_cepee(self):
+        import os
+        import tempfile
+
+        from PIL import Image
+
+        from comparaison_render import (
+            _PAGE_H,
+            render_comparison_pages,
+            save_comparison_png,
+        )
+        pages = render_comparison_pages(
+            "M", self._arbre(1, 8.0), self._arbre(2, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        path = os.path.join(tempfile.mkdtemp(), "c.png")
+        save_comparison_png(pages, path)
+        self.assertEqual(Image.open(path).height, 2 * _PAGE_H)
+
+
 def _regenerate_fixtures() -> None:
     if not HAS_PIL:
         print("Pillow absent — impossible de générer les fixtures.",

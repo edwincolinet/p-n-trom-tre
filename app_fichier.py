@@ -77,6 +77,7 @@ class FichierMixin(_MixinBase):
         var_ch_date: tk.StringVar
         var_filter: tk.StringVar
         var_risk_filter: tk.StringVar
+        var_show_sondages: tk.BooleanVar
 
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
@@ -163,26 +164,30 @@ class FichierMixin(_MixinBase):
         open_comparison(self, a, ref,
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
-                        export_cb=self._export_comparison)
+                        export_cb=self._export_comparison,
+                        show_sondages=self.var_show_sondages.get())
 
-    def _export_comparison(self, fmt: str,
-                           builder: Callable[[], Any]) -> None:
-        """Enregistre la page de comparaison (PNG ou PDF) construite par
-        `builder` (appelé par les boutons d'export de la fenêtre)."""
+    def _export_comparison(self, fmt: str, builder: Callable[[], Any],
+                           parent: "tk.Misc") -> None:
+        """Enregistre la comparaison (PNG ou PDF) construite par `builder`
+        (appelé par les boutons d'export de la fenêtre). `builder()` renvoie
+        une **liste de pages** (une par brin pour une cépée). `parent` = la
+        fenêtre de comparaison : on y ancre le filedialog pour qu'il s'ouvre
+        AU PREMIER PLAN (sinon il passe derrière la fenêtre)."""
         from comparaison_render import save_comparison_pdf, save_comparison_png
         ext = ".pdf" if fmt == "pdf" else ".png"
         typ = "PDF" if fmt == "pdf" else "Image PNG"
         p = filedialog.asksaveasfilename(
-            defaultextension=ext,
+            parent=parent, defaultextension=ext,
             filetypes=[(typ, f"*{ext}"), ("Tous", "*.*")])
         if not p:
             return
         try:
-            page = builder()
+            pages = builder()
             if fmt == "pdf":
-                save_comparison_pdf(page, p)
+                save_comparison_pdf(pages, p)
             else:
-                save_comparison_png(page, p)
+                save_comparison_png(pages, p)
             self.notify_export(p, "Comparaison d'inspections")
         except Exception as e:
             log.exception("Échec export comparaison")

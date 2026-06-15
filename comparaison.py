@@ -10,10 +10,13 @@ Design (choix métier, cf. mémoire) :
 - **Lien explicite par arbre** : l'opérateur choisit, dans un combobox,
   l'arbre de la mission de référence à comparer (défaut : même n° s'il
   existe). Robuste même si la numérotation a changé entre campagnes.
-- **Vue côte à côte** : référence | courant | **carte d'évolution**
-  (heatmap des 16 directions colorée par l'aggravation de l'altération),
-  un tableau chiffré (Δ PRBS, taux cm/an, compartimentation, t/R…) et un
-  verdict. Le tout **exportable** en PNG et PDF (livrable client).
+- **Vue côte à côte** : référence | courant | **section d'évolution**
+  (couronne orange = bois sain perdu depuis la référence), un tableau
+  chiffré (Δ PRBS, taux cm/an, compartimentation, t/R…) et un verdict.
+- **Cépée** : un bloc de comparaison **par brin**, empilés dans une zone
+  défilante (mono-caule = un seul bloc). Appariement automatique par
+  index/label ; un brin courant sans homologue de référence est comparé à
+  None. Le tout **exportable** PNG/PDF (une page par brin pour une cépée).
 
 Le calcul est délégué à `diagnostic` (`comparaison_detaillee`,
 `verdict_evolution`) et le rendu PIL à `comparaison_render` (sans Tk).
@@ -28,11 +31,10 @@ from typing import Any, Callable, Mapping, Optional
 from comparaison_render import (
     metric_rows,
     render_brin_section,
-    render_comparison_page,
+    render_comparison_pages,
     render_evolution_section_brin,
 )
 from diagnostic import (
-    comparaison_detaillee,
     comparaison_par_brin,
     evolution_classe,
     verdict_evolution,
@@ -51,12 +53,15 @@ def _photo(img: Any) -> Any:
 
 def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
                     *, cur_date: str, couleur_classe: Mapping[str, str],
-                    export_cb: Callable[[str, Callable[[], Any]], None]
-                    ) -> None:
+                    export_cb: Callable[[str, Callable[[], Any], tk.Misc],
+                                        None],
+                    show_sondages: bool = True) -> None:
     """Fenêtre de comparaison de `current` avec un arbre de la mission
     `reference`. `cur_date` = date de la mission courante (pour le taux
-    cm/an). `export_cb(fmt, builder)` est appelé par les boutons Export
-    (fmt ∈ {"png", "pdf"}, builder() renvoie la page PIL à enregistrer)."""
+    cm/an). `export_cb(fmt, builder, parent)` est appelé par les boutons
+    Export (fmt ∈ {"png", "pdf"}, builder() renvoie la liste de pages PIL,
+    `parent` = la fenêtre pour ancrer le filedialog au premier plan).
+    `show_sondages` reprend la case « Afficher sondages » sous le canevas."""
     refs = reference.arbres
     annees = annees_entre(reference.date_releve, cur_date)
     ref_label = reference.date_releve or reference.nom or "référence"
@@ -113,10 +118,10 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
     ttk.Button(foot, text="Fermer", style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
     ttk.Button(foot, text="🖼 PNG…", style="Ghost.TButton",
-               command=lambda: export_cb("png", _page_builder(state))
+               command=lambda: export_cb("png", _page_builder(state), dlg)
                ).pack(side="right", padx=6)
     ttk.Button(foot, text="📄 PDF…", style="Accent.TButton",
-               command=lambda: export_cb("pdf", _page_builder(state))
+               command=lambda: export_cb("pdf", _page_builder(state), dlg)
                ).pack(side="right")
 
     def _on_select(_e: Any = None) -> None:
@@ -125,9 +130,9 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
             return
         ref_arbre = refs[idx]
         state["ref_arbre"] = ref_arbre
-        # Mémo export (recalcule le détail à la demande dans le builder).
+        # Mémo export (les pages sont recalculées à la demande dans le builder).
         state["builder_args"] = (reference.nom, ref_arbre, current, annees,
-                                  ref_label, cur_label)
+                                  ref_label, cur_label, show_sondages)
         for w in inner.winfo_children():
             w.destroy()
         photos.clear()
@@ -136,7 +141,7 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
         for label, cur_b, ref_b, detail in pairs:
             _build_brin_block(inner, label if multi else None,
                               ref_arbre, current, cur_b, ref_b, detail,
-                              ref_label, cur_label, photos)
+                              ref_label, cur_label, photos, show_sondages)
         canvas.configure(scrollregion=canvas.bbox("all"))
         canvas.yview_moveto(0.0)
 
@@ -159,10 +164,11 @@ def open_comparison(parent: tk.Misc, current: Arbre, reference: Chantier,
 def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
                       cur_arbre: Arbre, cur_b: Any, ref_b: Any,
                       detail: Any, ref_label: str, cur_label: str,
-                      photos: list) -> None:
+                      photos: list, show_sondages: bool = True) -> None:
     """Construit un bloc de comparaison (3 dessins + tableau + verdict) pour
     un brin. `label=None` ⟹ mono-caule (pas d'en-tête de brin). `ref_b=None`
-    ⟹ brin courant sans homologue de référence (colonne réf. vide)."""
+    ⟹ brin courant sans homologue de référence (colonne réf. vide).
+    `show_sondages` reprend la case « Afficher sondages »."""
     block = ttk.Frame(parent, style="Panel.TFrame", padding=(0, 6))
     block.pack(fill="x", expand=True)
     if label is not None:
@@ -175,12 +181,14 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
     img_cur = _build_image_col(row, f"Courant — {cur_label}")
     img_evo = _build_image_col(row, "Évolution de l'altération")
     if ref_b is not None:
-        p = _photo(render_brin_section(ref_arbre, ref_b, _SEC))
+        p = _photo(render_brin_section(ref_arbre, ref_b, _SEC,
+                                       show_sondages=show_sondages))
         photos.append(p)
         img_ref.configure(image=p)
     else:
         img_ref.configure(text="(pas de brin de référence)")
-    pc = _photo(render_brin_section(cur_arbre, cur_b, _SEC))
+    pc = _photo(render_brin_section(cur_arbre, cur_b, _SEC,
+                                    show_sondages=show_sondages))
     photos.append(pc)
     img_cur.configure(image=pc)
     pe = _photo(render_evolution_section_brin(ref_b, cur_b, _SEC))
@@ -218,18 +226,18 @@ def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
 
 
 def _page_builder(state: dict) -> Callable[[], Any]:
-    """Renvoie une closure qui rend la page d'export à partir de la
-    sélection courante (capturée dans `state`). NB : l'export reste pour
-    l'instant au niveau **genet** (vue d'ensemble + évolution du brin a) ;
-    l'export par brin d'une cépée est une évolution prévue."""
+    """Renvoie une closure qui rend **la liste des pages** d'export depuis la
+    sélection courante (capturée dans `state`) : une page par brin pour une
+    cépée, une page genet pour un mono-caule (cf. `render_comparison_pages`)."""
     def _build() -> Any:
         args = state.get("builder_args")
         if args is None:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
-        nom, ref_arbre, cur, annees, ref_label, cur_label = args
-        detail = comparaison_detaillee(ref_arbre, cur, annees)
-        return render_comparison_page(nom, ref_arbre, cur, detail,
-                                      ref_label=ref_label, cur_label=cur_label)
+        (nom, ref_arbre, cur, annees, ref_label, cur_label,
+         show_sondages) = args
+        return render_comparison_pages(
+            nom, ref_arbre, cur, annees, ref_label=ref_label,
+            cur_label=cur_label, show_sondages=show_sondages)
     return _build
 
 
