@@ -487,6 +487,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
         nb = ttk.Notebook(frame)
         self.nb = nb
+        # Navigation clavier entre onglets (Ctrl+Tab / Ctrl+Maj+Tab) : sans
+        # cet appel, ttk.Notebook ne lie AUCUNE touche. Complète le flux de
+        # saisie au clavier (rayon → Ctrl+Tab → sondages → …) sans repasser
+        # par la souris. Pas de conflit avec Ctrl+PgUp/PgDown (navigation
+        # entre arbres) ni Ctrl+Z/Y.
+        nb.enable_traversal()
         nb.pack(fill="both", expand=True)
 
         # Onglet Identification — extrait dans son propre pane (cf.
@@ -1165,6 +1171,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             "  Ctrl+PgUp     Arbre précédent\n"
             "  Double-clic sur un arbre : le renommer\n"
             "  Clic droit sur un arbre : menu d'actions\n"
+            "\n"
+            "Onglets\n"
+            "  Ctrl+Tab      Onglet suivant\n"
+            "  Ctrl+Maj+Tab  Onglet précédent\n"
             "\n"
             "Édition\n"
             "  Ctrl+Z   Annuler\n"
