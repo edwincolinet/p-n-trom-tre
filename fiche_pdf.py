@@ -398,24 +398,31 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         y_preco += 10
         y_bar_top = y_preco   # départ de la barre d'accent latérale
 
+        _HDR_BG = "#EFEFEF"   # bande de fond des sous-titres de section
+        _HDR_H  = 26         # hauteur de la bande
+
         if has_intervention:
-            d.text((txt_x, y_preco), "Intervention",
+            # Bande de fond pour le sous-titre "Intervention"
+            d.rectangle([col_preco_left + 4, y_preco,
+                         col_preco_right, y_preco + _HDR_H],
+                        fill=_HDR_BG)
+            d.text((txt_x, y_preco + 6), "Intervention",
                    font=f(14, "sans_bold"), fill=COLOR_ACCENT)
-            y_preco += 22
+            y_preco += _HDR_H + 10
 
             if arbre.urgence:
                 urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
-                urg_bg = _URGENCE_BG.get(arbre.urgence, "#F0F0F0")
                 fnt = f(15, "sans_bold")
                 bb = d.textbbox((0, 0), arbre.urgence, font=fnt)
                 uw, uh = bb[2] - bb[0], bb[3] - bb[1]
-                px, py = 10, 5
+                px, py = 12, 7
+                # Badge solide : fond = couleur urgence, texte blanc
                 d.rectangle([txt_x, y_preco,
                              txt_x + uw + 2 * px, y_preco + uh + 2 * py],
-                            fill=urg_bg, outline=urg_color, width=1)
+                            fill=urg_color)
                 d.text((txt_x + px, y_preco + py), arbre.urgence,
-                       font=fnt, fill=urg_color)
-                y_preco += int(uh) + 2 * py + 8
+                       font=fnt, fill="white")
+                y_preco += int(uh) + 2 * py + 10
 
             if arbre.echeance:
                 lbl = "Échéance : "
@@ -424,24 +431,25 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
                 d.text((txt_x + lbl_w, y_preco), arbre.echeance,
                        font=f(14, "sans_bold"), fill=COLOR_INK)
-                y_preco += 22
+                y_preco += 24
 
             if arbre.preconisation:
+                y_preco += 2
                 for line in _wrap_lines(arbre.preconisation, f(14, "sans"),
                                         txt_w, d, max_lines=8):
                     d.text((txt_x, y_preco), line,
                            font=f(14, "sans"), fill=COLOR_INK)
                     y_preco += 20
-            y_preco += 8
+            y_preco += 10
 
         if has_suivi:
-            if has_intervention:
-                d.line([txt_x, y_preco, col_preco_right, y_preco],
-                       fill=COLOR_MUTED, width=1)
-                y_preco += 12
-            d.text((txt_x, y_preco), "Suivi",
+            # Bande de fond pour le sous-titre "Suivi"
+            d.rectangle([col_preco_left + 4, y_preco,
+                         col_preco_right, y_preco + _HDR_H],
+                        fill=_HDR_BG)
+            d.text((txt_x, y_preco + 6), "Suivi",
                    font=f(14, "sans_bold"), fill=COLOR_ACCENT)
-            y_preco += 22
+            y_preco += _HDR_H + 10
 
             if arbre.suivi_validite:
                 lbl = "Validité : "
@@ -450,9 +458,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
                 d.text((txt_x + lbl_w, y_preco), arbre.suivi_validite,
                        font=f(14, "sans_bold"), fill=COLOR_INK)
-                y_preco += 22
+                y_preco += 24
 
             if arbre.suivi_texte:
+                y_preco += 2
                 for line in _wrap_lines(arbre.suivi_texte, f(14, "sans"),
                                         txt_w, d, max_lines=8):
                     d.text((txt_x, y_preco), line,
