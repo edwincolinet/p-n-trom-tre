@@ -100,13 +100,18 @@ def _wrap_lines(text: str, font: Any, max_width: float,
     return lines
 
 
-# Couleur de l'intitulé d'urgence sur la fiche PDF (lecture du délai au
-# coup d'œil, comme la classe de risque). Défaut : encre.
+# Couleur du badge d'urgence (texte + contour) et fond du badge.
 _URGENCE_COLOR = {
     "Immédiate": "#C0392B",
     "< 6 mois":  "#E67E22",
     "< 1 an":    "#B7950B",
     "< 2 ans":   "#2D7A3E",
+}
+_URGENCE_BG = {
+    "Immédiate": "#FADBD8",
+    "< 6 mois":  "#FDEBD0",
+    "< 1 an":    "#FCF3CF",
+    "< 2 ans":   "#D5F5E3",
 }
 
 
@@ -381,51 +386,85 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     y_preco = y_section
     if has_preco:
-        preco_w = col_preco_right - col_preco_left
+        txt_x = col_preco_left + 10   # indent après la barre d'accent
+        txt_w = col_preco_right - txt_x
+
+        # Titre + filet horizontal
         d.text((col_preco_left, y_preco), "Préconisation",
                font=f(20, "serif_bold"), fill=COLOR_ACCENT)
-        y_preco += 30
+        y_preco += 26
+        d.line([col_preco_left, y_preco, col_preco_right, y_preco],
+               fill=COLOR_ACCENT, width=2)
+        y_preco += 10
+        y_bar_top = y_preco   # départ de la barre d'accent latérale
 
         if has_intervention:
-            d.text((col_preco_left, y_preco), "Intervention",
-                   font=f(14, "sans_bold"), fill=COLOR_INK)
+            d.text((txt_x, y_preco), "Intervention",
+                   font=f(14, "sans_bold"), fill=COLOR_ACCENT)
             y_preco += 22
+
             if arbre.urgence:
-                d.text((col_preco_left, y_preco),
-                       f"Urgence : {arbre.urgence}",
-                       font=f(15, "sans_bold"),
-                       fill=_URGENCE_COLOR.get(arbre.urgence, COLOR_INK))
-                y_preco += 22
+                urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
+                urg_bg = _URGENCE_BG.get(arbre.urgence, "#F0F0F0")
+                fnt = f(15, "sans_bold")
+                bb = d.textbbox((0, 0), arbre.urgence, font=fnt)
+                uw, uh = bb[2] - bb[0], bb[3] - bb[1]
+                px, py = 10, 5
+                d.rectangle([txt_x, y_preco,
+                             txt_x + uw + 2 * px, y_preco + uh + 2 * py],
+                            fill=urg_bg, outline=urg_color, width=1)
+                d.text((txt_x + px, y_preco + py), arbre.urgence,
+                       font=fnt, fill=urg_color)
+                y_preco += int(uh) + 2 * py + 8
+
             if arbre.echeance:
-                d.text((col_preco_left, y_preco),
-                       f"Échéance : {arbre.echeance}",
-                       font=f(15, "sans"), fill=COLOR_INK)
+                lbl = "Échéance : "
+                lb = d.textbbox((0, 0), lbl, font=f(14, "sans"))
+                lbl_w = lb[2] - lb[0]
+                d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
+                d.text((txt_x + lbl_w, y_preco), arbre.echeance,
+                       font=f(14, "sans_bold"), fill=COLOR_INK)
                 y_preco += 22
+
             if arbre.preconisation:
-                for line in _wrap_lines(arbre.preconisation, f(15, "sans"),
-                                        preco_w, d, max_lines=6):
-                    d.text((col_preco_left, y_preco), line,
-                           font=f(15, "sans"), fill=COLOR_INK)
+                for line in _wrap_lines(arbre.preconisation, f(14, "sans"),
+                                        txt_w, d, max_lines=8):
+                    d.text((txt_x, y_preco), line,
+                           font=f(14, "sans"), fill=COLOR_INK)
                     y_preco += 20
+            y_preco += 8
 
         if has_suivi:
-            y_preco += 10 if has_intervention else 0
-            d.text((col_preco_left, y_preco), "Suivi",
-                   font=f(14, "sans_bold"), fill=COLOR_INK)
+            if has_intervention:
+                d.line([txt_x, y_preco, col_preco_right, y_preco],
+                       fill=COLOR_MUTED, width=1)
+                y_preco += 12
+            d.text((txt_x, y_preco), "Suivi",
+                   font=f(14, "sans_bold"), fill=COLOR_ACCENT)
             y_preco += 22
-            if arbre.suivi_validite:
-                d.text((col_preco_left, y_preco),
-                       f"Validité : {arbre.suivi_validite}",
-                       font=f(15, "sans"), fill=COLOR_INK)
-                y_preco += 22
-            if arbre.suivi_texte:
-                for line in _wrap_lines(arbre.suivi_texte, f(15, "sans"),
-                                        preco_w, d, max_lines=6):
-                    d.text((col_preco_left, y_preco), line,
-                           font=f(15, "sans"), fill=COLOR_INK)
-                    y_preco += 20
 
-        # Séparateur vertical entre les deux colonnes.
+            if arbre.suivi_validite:
+                lbl = "Validité : "
+                lb = d.textbbox((0, 0), lbl, font=f(14, "sans"))
+                lbl_w = lb[2] - lb[0]
+                d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
+                d.text((txt_x + lbl_w, y_preco), arbre.suivi_validite,
+                       font=f(14, "sans_bold"), fill=COLOR_INK)
+                y_preco += 22
+
+            if arbre.suivi_texte:
+                for line in _wrap_lines(arbre.suivi_texte, f(14, "sans"),
+                                        txt_w, d, max_lines=8):
+                    d.text((txt_x, y_preco), line,
+                           font=f(14, "sans"), fill=COLOR_INK)
+                    y_preco += 20
+            y_preco += 6
+
+        # Barre d'accent verticale gauche (dessinée après : hauteur connue)
+        d.rectangle([col_preco_left, y_bar_top, col_preco_left + 3, y_preco],
+                    fill=COLOR_ACCENT)
+
+        # Séparateur vertical entre les deux colonnes
         sep_bot = max(y_diag, y_preco) + 6
         d.line([col_diag_right + 10, y_section,
                 col_diag_right + 10, sep_bot],

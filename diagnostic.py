@@ -556,78 +556,113 @@ def genet_diagnostic(arbre: "Arbre") -> GenetDiagnostic:
 def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
     """Résumé diagnostic du **brin courant** du genet (compat mono-brin,
     inchangé). Pour une cépée, voir `genet_summary_lines` (résumé agrégé
-    avec un bloc par brin). Lignes prêtes à `"\\n".join(...)` pour un Label
-    Tk. Fonction pure."""
-    return _section_summary_lines(arbre.brin_courant, arbre.port_arbre,
-                                  arbre.display_name)
+    avec un bloc par brin). Lignes prêtes à `"\\n".join(...)`. Fonction pure."""
+    return [t for t, _ in _section_summary_tagged(arbre.brin_courant,
+                                                   arbre.port_arbre,
+                                                   arbre.display_name)]
 
 
-def _section_summary_lines(section: "Section", port: str, titre: str, *,
-                           show_port: bool = True) -> List[str]:
-    """Cœur du résumé textuel pour UNE section (brin), paramétré par son
-    titre et le port (genet-level).
+# Tag couleur pour chaque classe (correspond aux tags tk.Text de pane_diagnostic).
+_TAG_CLASSE: Dict[str, str] = {"Vert": "vert", "Orange": "orange", "Rouge": "rouge"}
 
-    Couvre : identité/comptes, fiabilité de l'extrapolation, direction
-    critique (t/R min), répartition Vert/Orange/Rouge, t/R moyen + classe.
-    Rayon nul → ligne d'aide ; aucune altération → message court.
+
+def _section_summary_tagged(section: "Section", port: str, titre: str, *,
+                             show_port: bool = True) -> "List[Tuple[str, str]]":
+    """Cœur du résumé textuel pour UNE section (brin).
+
+    Retourne des tuples `(texte, tag)` — tag ∈ ``{"vert","orange","rouge","warn",""}``.
+    Les lignes de classe portent le tag coloré ; toutes les autres ont `""`.
     `show_port=False` masque la ligne « Port » (redondante dans un bloc de
     brin où le port du genet est déjà affiché en tête)."""
     if section.rayon_tronc_cm <= 0:
-        return ["Renseignez le rayon du tronc et ajoutez des "
-                "sondages pour obtenir un résumé."]
+        return [("Renseignez le rayon du tronc et ajoutez des "
+                 "sondages pour obtenir un résumé.", "")]
 
     R = section.rayon_tronc_cm
-    # Un seul appel à repartition_classes_brin : le snapshot porte aussi
-    # `ratios` et `extrapolation_text` pour qu'on n'ait pas à rejouer
-    # `ratio_tR_par_grade` ni `extrapolation_summary_text`.
     snap = repartition_classes_brin(section, port)
-    lignes: List[str] = [
-        f"« {titre} »",
-        f"Rayon : {R:g} cm   •   Sondages : {len(section.sondages)}"
-        f"   •   Dégrad. ext. : {len(section.degradations_externes)}"
-        f"   •   Contreforts : {len(section.contreforts)}",
+    lignes: List[Tuple[str, str]] = [
+        (f"« {titre} »", ""),
+        (f"Rayon : {R:g} cm   •   Sondages : {len(section.sondages)}"
+         f"   •   Dégrad. ext. : {len(section.degradations_externes)}"
+         f"   •   Contreforts : {len(section.contreforts)}", ""),
     ]
     if show_port:
-        lignes.append(f"Port : {port}")
-    lignes.append("")
+        lignes.append((f"Port : {port}", ""))
+    lignes.append(("", ""))
     if snap.extrapolation_text:
-        lignes.append(snap.extrapolation_text)
-        lignes.append("")
+        lignes.append((snap.extrapolation_text, ""))
+        lignes.append(("", ""))
 
-    # Si rien de saisi (t/R == 1 partout, à l'epsilon près)
     if all(r >= 0.999 for r in snap.ratios):
-        lignes.append("Aucune altération saisie (interne ou externe).")
+        lignes.append(("Aucune altération saisie (interne ou externe).", ""))
         return lignes
 
     lignes.append(
-        f"t/R minimal : {100*snap.tR_min:.1f} %  "
-        f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
-    lignes.append("")
+        (f"t/R minimal : {100*snap.tR_min:.1f} %  "
+         f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})", ""))
+    lignes.append(("", ""))
 
-    # En-dessous de 3 sondages, le diagnostic global n'est pas publié :
-    # trop peu de mesures réelles sur le pourtour (les directions non
-    # sondées sont extrapolées ou supposées saines), ce qui ferait
-    # afficher un t/R moyen et une classe globale faussement rassurants.
     diag = snap.diagnostic_global
     if diag is None:
         lignes.append(
-            "⚠ Diagnostic global indisponible : il faut au moins "
-            "3 directions sondées pour un diagnostic fiable.")
+            ("⚠ Diagnostic global indisponible : il faut au moins "
+             "3 directions sondées pour un diagnostic fiable.", "warn"))
         return lignes
     tR_moyen, classe_globale = diag
 
-    lignes.append("Répartition sur le pourtour (16 directions) :")
-    for cls, symbol in (("Vert", "🟢"), ("Orange", "🟠"),
-                         ("Rouge", "🔴")):
+    lignes.append(("Répartition sur le pourtour (16 directions) :", ""))
+    for cls in ("Vert", "Orange", "Rouge"):
         r = snap.par_classe(cls)
         if r.n > 0:
+            tag = _TAG_CLASSE[cls]
             lignes.append(
-                f"  {symbol} {cls:<7} : {r.n}/16 directions  "
-                f"({r.grades} gr / {r.pct:.0f} % du pourtour)")
-    lignes.append("")
+                (f"  ● {cls:<7} : {r.n}/16 directions  "
+                 f"({r.grades} gr / {r.pct:.0f} % du pourtour)", tag))
+    lignes.append(("", ""))
     lignes.append(
-        f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %")
-    lignes.append(f"→ Classe globale : {classe_globale}")
+        (f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %", ""))
+    lignes.append((f"→ Classe globale : {classe_globale}",
+                   _TAG_CLASSE.get(classe_globale, "")))
+    return lignes
+
+
+def _section_summary_lines(section: "Section", port: str, titre: str, *,
+                            show_port: bool = True) -> List[str]:
+    """Wrapper non coloré de `_section_summary_tagged` (lignes texte seules)."""
+    return [t for t, _ in _section_summary_tagged(
+        section, port, titre, show_port=show_port)]
+
+
+def genet_summary_tagged(arbre: "Arbre") -> "List[Tuple[str, str]]":
+    """Version taguée de `genet_summary_lines` : `(texte, tag)` par ligne.
+
+    Mono-caule → bloc unique ; cépée → en-tête + un bloc par brin.
+    Tag ∈ ``{"vert","orange","rouge","warn",""}`` — exploité par le widget
+    ``tk.Text`` de ``pane_diagnostic`` pour coloriser les lignes de classe.
+    Fonction pure."""
+    if len(arbre.brins) <= 1:
+        return _section_summary_tagged(arbre.brin_courant, arbre.port_arbre,
+                                       arbre.display_name)
+    gd = genet_diagnostic(arbre)
+    lignes: List[Tuple[str, str]] = [
+        (f"« {arbre.display_name} » — cépée à {len(arbre.brins)} brins", ""),
+        (f"Port : {arbre.port_arbre}", ""),
+    ]
+    if gd.classe_globale is not None:
+        lignes.append(
+            (f"→ Classe globale (pire brin fiable) : {gd.classe_globale}",
+             _TAG_CLASSE.get(gd.classe_globale, "")))
+    else:
+        lignes.append(
+            ("⚠ Classe globale indisponible : aucun brin avec au moins "
+             "3 directions sondées.", "warn"))
+    lignes.append(("", ""))
+    for b in arbre.brins:
+        lbl = b.label or "?"
+        lignes.append((f"──── Brin {lbl} ────", ""))
+        lignes.extend(_section_summary_tagged(
+            b, arbre.port_arbre, f"Brin {lbl}", show_port=False))
+        lignes.append(("", ""))
     return lignes
 
 
@@ -637,28 +672,7 @@ def genet_summary_lines(arbre: "Arbre") -> List[str]:
     Mono-caule → identique à `diagnostic_summary_lines`. Cépée → en-tête
     (classe globale = pire brin fiable) puis un **bloc par brin** (a, b, …).
     Fonction pure."""
-    if len(arbre.brins) <= 1:
-        return diagnostic_summary_lines(arbre)
-    gd = genet_diagnostic(arbre)
-    lignes: List[str] = [
-        f"« {arbre.display_name} » — cépée à {len(arbre.brins)} brins",
-        f"Port : {arbre.port_arbre}",
-    ]
-    if gd.classe_globale is not None:
-        lignes.append(
-            f"→ Classe globale (pire brin fiable) : {gd.classe_globale}")
-    else:
-        lignes.append(
-            "⚠ Classe globale indisponible : aucun brin avec au moins "
-            "3 directions sondées.")
-    lignes.append("")
-    for b in arbre.brins:
-        lbl = b.label or "?"
-        lignes.append(f"──── Brin {lbl} ────")
-        lignes.extend(_section_summary_lines(
-            b, arbre.port_arbre, f"Brin {lbl}", show_port=False))
-        lignes.append("")
-    return lignes
+    return [t for t, _ in genet_summary_tagged(arbre)]
 
 
 # ---------------------------------------------------------------------

@@ -28,7 +28,7 @@ from bareme import classer_prbs
 from diagnostic import (
     FUSION_WARN_TEXT,
     degradation_externe_par_grade,
-    genet_summary_lines,
+    genet_summary_tagged,
 )
 from dialogs import SUIVI_VALIDITES, ask_date, ask_urgences_custom, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
@@ -152,10 +152,15 @@ class DiagnosticPane(ttk.Frame):
         # --- Bloc résumé haut ---
         ttk.Label(parent, text="Résumé de l'arbre courant",
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
-        self.lbl_diag = ttk.Label(
-            parent, text="", style="Panel.TLabel",
-            wraplength=400, justify="left", font=ui_font("Helvetica", 10))
-        self.lbl_diag.pack(anchor="w", fill="x", pady=(0, 10))
+        self._txt_diag = tk.Text(
+            parent, state="disabled", wrap="word", relief="flat", bd=0,
+            bg=COLOR_PANEL, cursor="arrow", takefocus=False,
+            font=ui_font("Helvetica", 10), height=1)
+        self._txt_diag.tag_configure("vert",   foreground="#2D7A3E")
+        self._txt_diag.tag_configure("orange", foreground="#C25C00")
+        self._txt_diag.tag_configure("rouge",  foreground="#C0392B")
+        self._txt_diag.tag_configure("warn",   foreground=COLOR_WARN)
+        self._txt_diag.pack(anchor="w", fill="x", pady=(0, 10))
 
         # --- Bloc Préconisation (la décision = le livrable) ---
         self._build_preconisation(parent)
@@ -184,11 +189,11 @@ class DiagnosticPane(ttk.Frame):
         self.tbl_prbs.column("classe", width=90, anchor="center")
         self.tbl_prbs.pack(side="left", fill="x", expand=True)
         self.tbl_prbs.tag_configure(
-            "vert",   background="#E3F1E6", foreground="#1A5A2A")
+            "vert",   background="#A8D8AE", foreground="#1A4E22")
         self.tbl_prbs.tag_configure(
-            "orange", background="#FDEBD5", foreground="#8A4A10")
+            "orange", background="#FFCC80", foreground="#6D3000")
         self.tbl_prbs.tag_configure(
-            "rouge",  background="#FADBD8", foreground="#7B1B12")
+            "rouge",  background="#EF9A9A", foreground="#6B1010")
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh()` quand une ligne du tableau est écrêtée (⚠) — même
@@ -488,9 +493,15 @@ class DiagnosticPane(ttk.Frame):
 
         # --- Texte de résumé enrichi (agrégé par brin pour une cépée) ---
         if not a:
-            self.lbl_diag.configure(
-                text="Renseignez le rayon du tronc et ajoutez des "
-                     "sondages pour obtenir un résumé.")
-            return
-        self.lbl_diag.configure(
-            text="\n".join(genet_summary_lines(a)))
+            tagged = [("Renseignez le rayon du tronc et ajoutez des "
+                       "sondages pour obtenir un résumé.", "")]
+        else:
+            tagged = genet_summary_tagged(a)
+        self._txt_diag.configure(state="normal")
+        self._txt_diag.delete("1.0", "end")
+        for text, tag in tagged:
+            tags: tuple = (tag,) if tag else ()
+            self._txt_diag.insert("end", text + "\n", tags)
+        # Ajuste la hauteur du widget au nombre de lignes insérées.
+        n_lines = int(self._txt_diag.index("end-1c").split(".")[0])
+        self._txt_diag.configure(state="disabled", height=max(1, n_lines))
