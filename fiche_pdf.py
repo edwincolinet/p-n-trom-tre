@@ -231,25 +231,14 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # plus étroite). On réserve une bande pour elle dans le calcul.
     est_legend_h = 56
     footer_reserve = 60
-    # Estimation de la hauteur du bloc Préconisation (dessiné en pied,
-    # après le diagnostic). 0 si aucun champ renseigné.
+    # has_intervention/has_suivi : utilisés plus bas pour le layout côte à côte.
+    # La préconisation partage l'espace vertical du diagnostic → ne s'ajoute
+    # pas au budget (pas d'est_preco_h).
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
     has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
-    est_preco_h = 0
-    if has_intervention or has_suivi:
-        est_preco_h = 50           # titre + séparateur
-        if has_intervention:
-            est_preco_h += 24 + 26  # sous-titre + ligne urgence/date
-            if arbre.preconisation:
-                est_preco_h += min(96, 24 * (len(arbre.preconisation) // 50 + 1))
-        if has_suivi:
-            est_preco_h += 8 + 24 + 26  # gap + sous-titre + validité
-            if arbre.suivi_texte:
-                est_preco_h += min(96, 24 * (len(arbre.suivi_texte) // 50 + 1))
-        est_preco_h += 10          # marge basse
     used_so_far = y - margin   # depuis le haut de la page utile
     remaining = (H - margin - footer_reserve) - used_so_far \
-                - est_table_h - est_diag_h - est_legend_h - est_preco_h - 22
+                - est_table_h - est_diag_h - est_legend_h - 22
     drawing_h = max(420, min(900, remaining))
     if is_cepee:
         # Une cépée est LARGE (brins côte à côte, cadrée sur la largeur) :
@@ -369,60 +358,80 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 y += row_h
         y += 18
 
-    # --- Diagnostic ---
-    d.text((margin, y), "Diagnostic",
-           font=f(22, "serif_bold"), fill=COLOR_ACCENT)
-    y += 36
-    if multi_brins:
-        # Cépée : classe globale (pire brin) + une ligne de synthèse par brin.
-        y = int(_draw_cepee_diagnostic(d, f, arbre, margin, W, y))
-    else:
-        y = int(_draw_mono_diagnostic(d, f, arbre, margin, W, R, y))
+    # --- Diagnostic (col. gauche) + Préconisation (col. droite) côte à côte ---
+    # Si une préconisation est saisie, la page se partage en deux colonnes :
+    # diagnostic à gauche (680 px), trait de séparation, préconisation à droite
+    # (400 px). Sans préconisation, le diagnostic occupe toute la largeur.
+    has_preco = has_intervention or has_suivi
+    col_diag_left = margin
+    col_diag_right = (margin + 680) if has_preco else (W - margin)
+    col_preco_left = col_diag_right + 20
+    col_preco_right = W - margin
 
-    # --- Préconisation (en pied, après le diagnostic) ---
-    if has_intervention or has_suivi:
-        y += 14
-        d.text((margin, y), "Préconisation",
+    y_section = y                 # y commun aux deux colonnes
+    d.text((col_diag_left, y_section), "Diagnostic",
+           font=f(22, "serif_bold"), fill=COLOR_ACCENT)
+    y_diag = y_section + 36
+    if multi_brins:
+        y_diag = int(_draw_cepee_diagnostic(
+            d, f, arbre, col_diag_left, col_diag_right, y_diag))
+    else:
+        y_diag = int(_draw_mono_diagnostic(
+            d, f, arbre, col_diag_left, col_diag_right, R, y_diag))
+
+    y_preco = y_section
+    if has_preco:
+        preco_w = col_preco_right - col_preco_left
+        d.text((col_preco_left, y_preco), "Préconisation",
                font=f(20, "serif_bold"), fill=COLOR_ACCENT)
-        y += 30
+        y_preco += 30
 
         if has_intervention:
-            d.text((margin, y), "Intervention",
-                   font=f(15, "sans_bold"), fill=COLOR_INK)
-            y += 24
-            x: float = margin
+            d.text((col_preco_left, y_preco), "Intervention",
+                   font=f(14, "sans_bold"), fill=COLOR_INK)
+            y_preco += 22
             if arbre.urgence:
-                label = f"Urgence : {arbre.urgence}"
-                d.text((x, y), label, font=f(17, "sans_bold"),
+                d.text((col_preco_left, y_preco),
+                       f"Urgence : {arbre.urgence}",
+                       font=f(15, "sans_bold"),
                        fill=_URGENCE_COLOR.get(arbre.urgence, COLOR_INK))
-                x += d.textbbox((0, 0), label, font=f(17, "sans_bold"))[2] + 36
+                y_preco += 22
             if arbre.echeance:
-                d.text((x, y), f"Échéance : {arbre.echeance}",
-                       font=f(17, "sans"), fill=COLOR_INK)
-            if arbre.urgence or arbre.echeance:
-                y += 26
+                d.text((col_preco_left, y_preco),
+                       f"Échéance : {arbre.echeance}",
+                       font=f(15, "sans"), fill=COLOR_INK)
+                y_preco += 22
             if arbre.preconisation:
-                for line in _wrap_lines(arbre.preconisation, f(17, "sans"),
-                                        W - 2*margin, d, max_lines=4):
-                    d.text((margin, y), line, font=f(17, "sans"),
-                           fill=COLOR_INK)
-                    y += 24
+                for line in _wrap_lines(arbre.preconisation, f(15, "sans"),
+                                        preco_w, d, max_lines=6):
+                    d.text((col_preco_left, y_preco), line,
+                           font=f(15, "sans"), fill=COLOR_INK)
+                    y_preco += 20
 
         if has_suivi:
-            y += 8 if has_intervention else 0
-            d.text((margin, y), "Suivi",
-                   font=f(15, "sans_bold"), fill=COLOR_INK)
-            y += 24
+            y_preco += 10 if has_intervention else 0
+            d.text((col_preco_left, y_preco), "Suivi",
+                   font=f(14, "sans_bold"), fill=COLOR_INK)
+            y_preco += 22
             if arbre.suivi_validite:
-                d.text((margin, y), f"Validité : {arbre.suivi_validite}",
-                       font=f(17, "sans"), fill=COLOR_INK)
-                y += 26
+                d.text((col_preco_left, y_preco),
+                       f"Validité : {arbre.suivi_validite}",
+                       font=f(15, "sans"), fill=COLOR_INK)
+                y_preco += 22
             if arbre.suivi_texte:
-                for line in _wrap_lines(arbre.suivi_texte, f(17, "sans"),
-                                        W - 2*margin, d, max_lines=4):
-                    d.text((margin, y), line, font=f(17, "sans"),
-                           fill=COLOR_INK)
-                    y += 24
+                for line in _wrap_lines(arbre.suivi_texte, f(15, "sans"),
+                                        preco_w, d, max_lines=6):
+                    d.text((col_preco_left, y_preco), line,
+                           font=f(15, "sans"), fill=COLOR_INK)
+                    y_preco += 20
+
+        # Séparateur vertical entre les deux colonnes.
+        sep_bot = max(y_diag, y_preco) + 6
+        d.line([col_diag_right + 10, y_section,
+                col_diag_right + 10, sep_bot],
+               fill=COLOR_MUTED, width=1)
+
+    y = max(y_diag, y_preco) + 10
 
     # --- Pied de page ---
     d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
@@ -435,64 +444,50 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
 
 def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
-                          margin: int, W: int, R: float, y: float) -> float:
-    """Bloc diagnostic d'un genet mono-caule (comportement historique) :
-    t/R moyen + min, barre de répartition Vert/Orange/Rouge, encadré classe
-    globale. Renvoie l'ordonnée après le bloc."""
-    # `repartition_classes` renvoie un DiagnosticSnapshot self-contained
-    # (ratios + extrapolation_text inclus) : pas besoin de rappeler
-    # `ratio_tR_par_grade` / `extrapolation_summary_text` ici (chacun
-    # repasse par la chaîne compute_alteration_par_grade).
+                          x_left: int, x_right: int, R: float, y: float) -> float:
+    """Bloc diagnostic d'un genet mono-caule.
+
+    `x_left`/`x_right` délimitent la colonne allouée (permet le rendu côte
+    à côte avec la préconisation). Renvoie l'ordonnée après le bloc.
+    """
     snap = repartition_classes(arbre)
-    # Propriété diagnostic_global : encapsule la règle « publiable
-    # seulement si >= 3 sondages ». Tous les exports passent par là.
     diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
-        # t/R moyen et classe globale ne sont écrits que si le
-        # diagnostic est fiable (>= 3 sondages). Sinon on affiche
-        # l'avertissement et on saute la barre / l'encadré final.
         if diag is not None:
             tR_moyen_diag, _ = diag
-            d.text((margin, y),
+            d.text((x_left, y),
                    f"t/R moyen sur le pourtour : "
                    f"{100*tR_moyen_diag:.1f} %",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
             y += 28
-        d.text((margin, y),
+        d.text((x_left, y),
                f"t/R minimal : {100*snap.tR_min:.1f} %  "
                f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
         if snap.extrapolation_text:
-            d.text((margin, y), snap.extrapolation_text,
+            d.text((x_left, y), snap.extrapolation_text,
                    font=f(16, "sans"), fill=COLOR_MUTED)
             y += 28
         else:
             y += 4
         if diag is None:
-            # Avertissement en rouge sombre, en lieu et place de la
-            # barre de répartition et de l'encadré classe globale.
-            d.text((margin, y),
+            d.text((x_left, y),
                    "⚠ Diagnostic global indisponible : il faut au moins",
                    font=f(18, "sans_bold"), fill=(176, 0, 32))
             y += 26
-            d.text((margin, y),
+            d.text((x_left, y),
                    "2 directions sondées pour extrapoler le pourtour.",
                    font=f(18, "sans_bold"), fill=(176, 0, 32))
             y += 30
         else:
-            d.text((margin, y),
+            d.text((x_left, y),
                    "Répartition sur le pourtour (16 directions) :",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
             y += 30
-            # Barre horizontale empilée Vert/Orange/Rouge — plus haute
-            # pour que le pourcentage soit lisible même sur des segments
-            # étroits.
-            bar_w = W - 2*margin
+            bar_w = x_right - x_left
             bar_h = 36
-            x_cur: float = margin
-            # Petites étiquettes hors-barre pour les segments trop étroits
-            # pour porter leur texte à l'intérieur.
+            x_cur: float = x_left
             outside_labels = []
             for cls in ("Vert", "Orange", "Rouge"):
                 seg_pct = snap.par_classe(cls).pct
@@ -511,8 +506,6 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                                                 x_cur + seg_w/2))
                     x_cur += seg_w
             y += bar_h + 4
-            # Étiquettes externes (au-dessous de la barre, en couleur du
-            # segment), avec petit triangle indicateur au-dessus.
             for cls, pct, col, x_center in outside_labels:
                 d.polygon([(x_center, y),
                            (x_center - 6, y + 8),
@@ -523,10 +516,6 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                 y += 36
             else:
                 y += 8
-            # Détail textuel — sur UNE seule ligne pour économiser
-            # l'espace. On n'affiche que les classes non vides, séparées
-            # par " • ", et chaque libellé est rendu dans la couleur de
-            # sa classe.
             chunks = []
             for cls in ("Vert", "Orange", "Rouge"):
                 r = snap.par_classe(cls)
@@ -539,7 +528,7 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                 font_sep = f(17, "sans")
                 sep = "   •   "
                 sep_w = d.textbbox((0, 0), sep, font=font_sep)[2]
-                x_chunk: float = margin
+                x_chunk: float = x_left
                 for i, (txt, col) in enumerate(chunks):
                     if i > 0:
                         d.text((x_chunk, y), sep,
@@ -551,55 +540,52 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                     x_chunk += bbox[2] - bbox[0]
                 y += 28
             y += 10
-            # Gros marqueur coloré pour la classe globale (basée sur
-            # t/R moyen). Boîte plus large et plus haute pour rester
-            # proportionnée aux autres éléments de la page. On est
-            # dans le `else` d'un `if diag is None` ; donc diag est
-            # non-None.
             _, classe_g = diag
             col_g = COULEUR_CLASSE[classe_g]
             box_w, box_h = 460, 60
-            d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
-            d.text((margin+box_w/2, y+box_h/2),
+            d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
+            d.text((x_left+box_w/2, y+box_h/2),
                    f"Classe globale : {classe_g}",
                    font=f(24, "sans_bold"), fill="white", anchor="mm")
             y += box_h + 8
     else:
-        d.text((margin, y), "Aucune altération saisie.",
+        d.text((x_left, y), "Aucune altération saisie.",
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
     return y
 
 
 def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
-                           margin: int, W: int, y: float) -> float:
-    """Bloc diagnostic d'une cépée : encadré classe globale (pire brin
-    fiable) puis une ligne de synthèse par brin (classe + t/R moyen/min, ou
-    « non fiable »). Renvoie l'ordonnée après le bloc."""
+                           x_left: int, x_right: int, y: float) -> float:
+    """Bloc diagnostic d'une cépée.
+
+    `x_left`/`x_right` délimitent la colonne allouée. Renvoie l'ordonnée
+    après le bloc.
+    """
     gd = genet_diagnostic(arbre)
     port = arbre.port_arbre
     if gd.classe_globale is not None:
         col_g = COULEUR_CLASSE[gd.classe_globale]
         box_w, box_h = 560, 60
-        d.rectangle([margin, y, margin+box_w, y+box_h], fill=col_g)
-        d.text((margin+box_w/2, y+box_h/2),
+        d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
+        d.text((x_left+box_w/2, y+box_h/2),
                f"Classe globale (pire brin) : {gd.classe_globale}",
                font=f(22, "sans_bold"), fill="white", anchor="mm")
         y += box_h + 16
     else:
-        d.text((margin, y),
+        d.text((x_left, y),
                "⚠ Classe globale indisponible : aucun brin avec au moins "
                "3 directions sondées.",
                font=f(18, "sans_bold"), fill=(176, 0, 32))
         y += 36
-    d.text((margin, y), "Détail par brin :",
+    d.text((x_left, y), "Détail par brin :",
            font=f(18, "sans_bold"), fill=COLOR_INK)
     y += 32
     for b in arbre.brins:
         lbl = b.label or "?"
         prefix = f"Brin {lbl} :  "
-        d.text((margin, y), prefix, font=f(17, "sans_bold"), fill=COLOR_INK)
-        px = margin + d.textbbox((0, 0), prefix, font=f(17, "sans_bold"))[2]
+        d.text((x_left, y), prefix, font=f(17, "sans_bold"), fill=COLOR_INK)
+        px = x_left + d.textbbox((0, 0), prefix, font=f(17, "sans_bold"))[2]
         if b.rayon_tronc_cm <= 0:
             d.text((px, y), "rayon non renseigné.",
                    font=f(17, "sans"), fill=COLOR_MUTED)
