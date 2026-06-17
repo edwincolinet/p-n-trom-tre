@@ -513,13 +513,16 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # géométrie / Sondages / Dégradations / Contreforts) sur le brin
         # choisi. Masquée pour un genet mono-caule (1 brin) — voir
         # `_refresh_brin_selector`.
-        self.brin_bar = ttk.Frame(frame, style="Panel.TFrame")
+        self.brin_bar = ttk.Frame(frame, style="BrinBar.TFrame")
         self.var_current_brin = tk.IntVar(value=0)
         self._brin_btns: list[ttk.Radiobutton] = []
-        ttk.Label(self.brin_bar, text="Brin :", style="Panel.TLabel").pack(
-            side="left", padx=(0, 6))
-        self._brin_btns_holder = ttk.Frame(self.brin_bar, style="Panel.TFrame")
-        self._brin_btns_holder.pack(side="left")
+        # Barre d'accent verticale gauche (identique à la fiche PDF préconisation)
+        tk.Frame(self.brin_bar, bg=COLOR_ACCENT, width=3).pack(
+            side="left", fill="y", padx=(0, 10))
+        ttk.Label(self.brin_bar, text="Brin :", style="BrinBar.TLabel").pack(
+            side="left", padx=(0, 8), pady=7)
+        self._brin_btns_holder = ttk.Frame(self.brin_bar, style="BrinBar.TFrame")
+        self._brin_btns_holder.pack(side="left", pady=5)
 
         nb = ttk.Notebook(frame)
         self.nb = nb
@@ -976,11 +979,11 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             label = brin.label or chr(ord("a") + i)
             rb = ttk.Radiobutton(
                 self._brin_btns_holder, text=f"Brin {label}",
-                value=i, variable=self.var_current_brin, style="Toolbutton",
+                value=i, variable=self.var_current_brin, style="Brin.Toolbutton",
                 command=partial(self.set_current_brin, i))
-            rb.pack(side="left", padx=(0, 4))
+            rb.pack(side="left", padx=(0, 6))
             self._brin_btns.append(rb)
-        bar.pack(fill="x", pady=(0, 6), before=self.nb)
+        bar.pack(fill="x", pady=(0, 8), before=self.nb)
 
     def _load_arbre_to_ui(self) -> None:
         """Recharge l'UI complète depuis l'arbre courant : identification

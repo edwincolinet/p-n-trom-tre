@@ -110,6 +110,25 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                 font=_f("Helvetica", 10), borderwidth=1)
     s.map("Ghost.TMenubutton",
           background=[("active", COLOR_ACCENT_SOFT)])
+    # Sélecteur de brin (cépées) : barre et boutons-onglets.
+    _brin_bg = "#EBF5EE"   # très légère teinte verte (distinct du fond blanc)
+    s.configure("BrinBar.TFrame", background=_brin_bg)
+    s.configure("BrinBar.TLabel",
+                background=_brin_bg, foreground=muted,
+                font=_f("Helvetica", 9))
+    # Brin.Toolbutton hérite du layout Toolbutton (pas d'indicateur radio) ;
+    # selected = fond accent vert ; active = fond accent doux ; normal = blanc.
+    s.configure("Brin.Toolbutton",
+                background=COLOR_PANEL, foreground=ink,
+                padding=(12, 5),
+                font=_f("Helvetica", 10, "bold"))
+    s.map("Brin.Toolbutton",
+          background=[("selected", COLOR_ACCENT),
+                      ("pressed",  COLOR_ACCENT),
+                      ("active",   COLOR_ACCENT_SOFT)],
+          foreground=[("selected", "white"),
+                      ("pressed",  "white"),
+                      ("active",   COLOR_ACCENT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
                 foreground=ink, padding=3)
     # Cases à cocher posées sur un fond panneau (dialogues) : sans ça le
