@@ -336,7 +336,6 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
 
     header = ttk.Frame(dlg, style="Panel.TFrame")
     header.grid(row=0, column=0, padx=10, pady=(10, 2), sticky="we")
-    header.columnconfigure(1, weight=1)
     lbl_title = ttk.Label(header, style="Panel.TLabel", anchor="center",
                           font=ui_font("Helvetica", 11, "bold"))
 
@@ -386,11 +385,16 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
         state["month"] = m0 % 12 + 1
         render()
 
+    ttk.Button(header, text="«", width=3, style="Ghost.TButton",
+               command=lambda: shift(-12)).grid(row=0, column=0)
     ttk.Button(header, text="◀", width=3, style="Ghost.TButton",
-               command=lambda: shift(-1)).grid(row=0, column=0)
-    lbl_title.grid(row=0, column=1, sticky="we")
+               command=lambda: shift(-1)).grid(row=0, column=1)
+    lbl_title.grid(row=0, column=2, sticky="we")
     ttk.Button(header, text="▶", width=3, style="Ghost.TButton",
-               command=lambda: shift(1)).grid(row=0, column=2)
+               command=lambda: shift(1)).grid(row=0, column=3)
+    ttk.Button(header, text="»", width=3, style="Ghost.TButton",
+               command=lambda: shift(12)).grid(row=0, column=4)
+    header.columnconfigure(2, weight=1)
 
     footer = ttk.Frame(dlg, style="Panel.TFrame")
     footer.grid(row=2, column=0, padx=10, pady=(4, 10), sticky="we")
