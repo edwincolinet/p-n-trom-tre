@@ -459,12 +459,6 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                     y_preco += 22
             y_preco += 6
 
-        # Séparateur vertical entre les deux colonnes
-        sep_bot = max(y_diag, y_preco) + 6
-        d.line([col_diag_right + 10, y_section,
-                col_diag_right + 10, sep_bot],
-               fill=COLOR_MUTED, width=1)
-
     y = max(y_diag, y_preco) + 10
 
     # --- Pied de page ---
