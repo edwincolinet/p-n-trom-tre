@@ -22,7 +22,7 @@ from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from aide_repliable import AideRepliable
 from app_arbres import _RISK_FILTER_ALL, _RISK_FILTER_CHOICES, ArbreListMixin
@@ -144,6 +144,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self.pane_de: Optional[DegradationsPane] = None
         self.pane_cf: Optional[ContrefortsPane] = None
         self.pane_diag: Optional[DiagnosticPane] = None
+        # Déclarés ici pour que mypy connaisse les types avant _build_layout.
+        self._logo_image: Optional[Any] = None
+        self._logo_frame: tk.Frame = tk.Frame(self)  # réassigné dans _build_layout
 
         self._apply_styles()
         build_menu(self)  # type: ignore[arg-type]
@@ -217,6 +220,51 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         """Facteur d'échelle courant (pour cocher le bon item de menu)."""
         return self._settings.ui_scale
 
+    def _reload_logo(self) -> None:
+        """Recharge le logo depuis les settings et met à jour la zone header."""
+        for child in self._logo_frame.winfo_children():
+            child.destroy()
+        self._logo_image = None
+
+        logo_path_str = self._settings.logo_path
+        if not logo_path_str:
+            # Placeholder cliquable quand aucun logo n'est configuré
+            btn = ttk.Button(self._logo_frame,
+                             text="+ Logo cabinet",
+                             style="Ghost.TButton",
+                             command=self.action_cabinet_settings)
+            btn.pack()
+            return
+        try:
+            from PIL import Image as PILImage
+            from PIL import ImageTk
+            p = Path(logo_path_str)
+            if not p.exists():
+                log.warning("Logo configuré introuvable : %s", p)
+                return
+            pil = PILImage.open(p)
+            target_h = 56
+            ratio = target_h / pil.height
+            pil = pil.resize(  # type: ignore[assignment]
+                (int(pil.width * ratio), target_h),
+                PILImage.LANCZOS)  # type: ignore[attr-defined]
+            self._logo_image = ImageTk.PhotoImage(pil)
+            lbl = ttk.Label(self._logo_frame, image=self._logo_image)
+            lbl.pack()
+            lbl.bind("<Button-1>",
+                     lambda e: self.action_cabinet_settings())
+        except ImportError:
+            log.warning("Pillow indisponible — logo non affiché dans le header")
+        except Exception:
+            log.exception("Échec du chargement du logo")
+
+    def action_cabinet_settings(self) -> None:
+        """Ouvre le dialogue de configuration du cabinet (logo + nom)."""
+        from dialogs import ask_cabinet_settings
+        changed = ask_cabinet_settings(self, self._settings)
+        if changed:
+            self._reload_logo()
+
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
         """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
         champ texte a le focus : dans les `Entry`/`Combobox` Tk, Ctrl+E
@@ -239,46 +287,24 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Label(left, text="  Expertise arboricole",
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
 
-        # Bloc droit : logo Silvavenir (si disponible).
+        # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
-        # démarrage, l'utilisateur l'apprend ici (log + fallback texte)
-        # plutôt qu'au moment d'un clic « Exporter PDF » qui échouerait
-        # silencieusement. Le diagnostic est distingué de l'échec de
-        # chargement du logo (fichier manquant, image corrompue), qui
-        # est bénin.
-        self._logo_image = None
-        logo_loaded = False
+        # démarrage, l'utilisateur l'apprend ici (log) plutôt qu'au
+        # moment d'un clic « Exporter PDF » qui échouerait silencieusement.
+        self._logo_frame = tk.Frame(header, cursor="hand2")
+        self._logo_frame.pack(side="right", padx=(12, 0))
+        self._logo_frame.bind(
+            "<Button-1>", lambda e: self.action_cabinet_settings())
+        Tooltip(self._logo_frame,
+                "Cliquer pour configurer le logo et le nom du cabinet…")
         try:
-            from PIL import Image as PILImage
-            from PIL import ImageTk
-            logo_path = Path(__file__).parent / "assets" / "silvavenir_logo.jpg"
-            if logo_path.exists():
-                pil = PILImage.open(logo_path)
-                # Redimensionner à 60 px de haut en gardant le ratio
-                target_h = 56
-                ratio = target_h / pil.height
-                pil = pil.resize(  # type: ignore[assignment]
-                    (int(pil.width * ratio), target_h),
-                    PILImage.LANCZOS)  # type: ignore[attr-defined]
-                self._logo_image = ImageTk.PhotoImage(pil)
-                ttk.Label(header, image=self._logo_image
-                          ).pack(side="right")
-                logo_loaded = True
-            else:
-                log.warning("Logo Silvavenir introuvable à %s",
-                            logo_path)
+            from PIL import Image as PILImage  # noqa: F401
         except ImportError as exc:
             log.warning(
                 "Pillow indisponible (%s) — les exports PNG et PDF "
                 "ne pourront pas être générés. Installer Pillow via "
                 "`pip install -r requirements.txt`.", exc)
-        except Exception:
-            log.exception("Échec du chargement du logo")
-        if not logo_loaded:
-            # Fallback texte (Pillow absent, logo manquant ou
-            # image illisible)
-            ttk.Label(header, text="SILVAVENIR",
-                      style="Title.TLabel").pack(side="right")
+        self._reload_logo()
 
         meta = ttk.Frame(self)
         meta.pack(fill="x", padx=18, pady=(0, 10))
@@ -1163,8 +1189,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             "Tableau de sondages ↔ dessin synchronisés.\n"
             "Section ronde par interpolation spline.\n\n"
             "Note : « Résistographe » étant une marque déposée,\n"
-            "ce logiciel utilise le terme générique « pénétromètre »."
-            "\n\n— Silvavenir, Foresterie urbaine.")
+            "ce logiciel utilise le terme générique « pénétromètre ».")
 
     def action_shortcuts(self) -> None:
         messagebox.showinfo(

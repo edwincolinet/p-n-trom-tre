@@ -162,8 +162,7 @@ class DiagnosticPane(ttk.Frame):
         ttk.Label(parent, text="Paroi Résiduelle de Bois Sain par sondage",
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         ttk.Label(parent,
-                  text="Classe colorée selon t/R et le port (barème "
-                       "Silvavenir).",
+                  text="Classe colorée selon t/R et le port (barème expert).",
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
 
         prbs_frame = ttk.Frame(parent, style="Panel.TFrame")

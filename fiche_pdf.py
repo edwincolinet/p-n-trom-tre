@@ -113,7 +113,9 @@ _URGENCE_COLOR = {
 
 def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                    chantier: "Chantier",
-                                   show_sondages: bool = True) -> "PILImage":
+                                   show_sondages: bool = True,
+                                   logo_path: "str | None" = None,
+                                   cabinet_name: str = "") -> "PILImage":
     """Construit une page A4 portrait 150 DPI (1240 × 1754 px environ)
     avec : en-tête chantier, dessin, tableau PRBS, diagnostic.
 
@@ -135,15 +137,15 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     margin = 60
     y = margin
 
-    # --- En-tête mission avec logo Silvavenir ---
+    # --- En-tête mission avec logo cabinet ---
     header_h = 116
     d.rectangle([margin, y, W-margin, y+header_h], fill=COLOR_ACCENT)
     # Logo à droite
     logo_w = 0
     try:
-        logo_path = Path(__file__).parent / "assets" / "silvavenir_logo.jpg"
-        if logo_path.exists():
-            logo = Image.open(logo_path).convert("RGBA")
+        _logo_path = Path(logo_path) if logo_path else None
+        if _logo_path and _logo_path.exists():
+            logo = Image.open(_logo_path).convert("RGBA")
             target_h = header_h - 24
             ratio = target_h / logo.height
             logo = logo.resize(
@@ -390,8 +392,9 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     # --- Pied de page ---
     d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
+    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
     d.text((W/2, H-24),
-           f"Pénétromètre — Silvavenir, Foresterie urbaine   •   "
+           f"Pénétromètre{cab_suffix}   •   "
            f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
            font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
     return page

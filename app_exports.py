@@ -45,6 +45,14 @@ from pil_render import HAS_PIL, render_arbre_to_pil_image
 log = logging.getLogger("penetrometre")
 
 
+def _get_cabinet_info(parent: tk.Misc) -> "tuple[str, str | None]":
+    """Extrait (cabinet_name, logo_path) depuis les settings de l'hôte App."""
+    settings = getattr(parent, "_settings", None)
+    if settings is None:
+        return "", None
+    return getattr(settings, "cabinet_name", ""), getattr(settings, "logo_path", None)
+
+
 def _notify_export(parent: tk.Misc, path: str, label: str) -> None:
     """Feedback de succès d'export. Non-modal via la barre d'état de
     l'App (`notify_export`) si l'hôte la fournit ; sinon `messagebox`
@@ -113,8 +121,11 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
+        cabinet_name, logo_path = _get_cabinet_info(parent)
         page = render_fiche_arbre_to_pdf_page(arbre, chantier,
-                                              show_sondages=show_sondages)
+                                              show_sondages=show_sondages,
+                                              logo_path=logo_path,
+                                              cabinet_name=cabinet_name)
         # Pillow : sauvegarder une image en PDF donne un PDF 1 page
         page.save(p, "PDF", resolution=150.0)
         _notify_export(parent, p, "Fiche PDF enregistrée")
@@ -143,8 +154,11 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
     if not p:
         return
     try:
+        cabinet_name, logo_path = _get_cabinet_info(parent)
         pages = [render_fiche_arbre_to_pdf_page(a, chantier,
-                                                show_sondages=show_sondages)
+                                                show_sondages=show_sondages,
+                                                logo_path=logo_path,
+                                                cabinet_name=cabinet_name)
                  for a in arbres]
         pages[0].save(p, "PDF", resolution=150.0, save_all=True,
                       append_images=pages[1:])
@@ -278,9 +292,11 @@ def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
+        cabinet_name, _ = _get_cabinet_info(parent)
         export_prbs_xlsx(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
-                         classer_prbs=classer_prbs)
+                         classer_prbs=classer_prbs,
+                         cabinet_name=cabinet_name)
         _notify_export(parent, p, "Tableau XLSX enregistré")
     except Exception as e:
         log.exception("Échec export XLSX")
@@ -305,9 +321,11 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
+        cabinet_name, _ = _get_cabinet_info(parent)
         export_prbs_html(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
-                         classer_prbs=classer_prbs)
+                         classer_prbs=classer_prbs,
+                         cabinet_name=cabinet_name)
         _notify_export(parent, p, "Tableau HTML enregistré")
     except Exception as e:
         log.exception("Échec export HTML")

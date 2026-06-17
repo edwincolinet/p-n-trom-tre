@@ -66,6 +66,7 @@ class AppLike(Protocol):
     def get_ui_scale(self) -> float: ...
     def action_set_high_contrast(self, on: bool) -> None: ...
     def get_high_contrast(self) -> bool: ...
+    def action_cabinet_settings(self) -> None: ...
 
     # Aide
     def action_about(self) -> None: ...
@@ -172,6 +173,9 @@ def build_menu(app: AppLike) -> None:
     v.add_checkbutton(
         label="Contraste élevé", variable=hc_var,
         command=lambda: app.action_set_high_contrast(hc_var.get()))
+    v.add_separator()
+    v.add_command(label="Logo et nom du cabinet…",
+                  command=app.action_cabinet_settings)
     m.add_cascade(label="Affichage", menu=v)
 
     # Aide

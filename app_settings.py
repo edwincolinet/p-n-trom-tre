@@ -82,6 +82,31 @@ class SettingsStore:
         self._data["sash_positions"] = [int(p) for p in positions]
         self._save()
 
+    @property
+    def cabinet_name(self) -> str:
+        """Nom du cabinet affiché dans les exports (pied de page)."""
+        raw = self._data.get("cabinet_name", "")
+        return str(raw) if raw else ""
+
+    def set_cabinet_name(self, value: str) -> None:
+        """Persiste le nom du cabinet."""
+        self._data["cabinet_name"] = str(value)
+        self._save()
+
+    @property
+    def logo_path(self) -> "str | None":
+        """Chemin vers le logo du cabinet (copie locale dans ~/.penetrometre/)."""
+        raw = self._data.get("logo_path")
+        return str(raw) if raw else None
+
+    def set_logo_path(self, value: "str | None") -> None:
+        """Persiste le chemin du logo (None = pas de logo)."""
+        if value is None:
+            self._data.pop("logo_path", None)
+        else:
+            self._data["logo_path"] = str(value)
+        self._save()
+
     def _load(self) -> dict[str, object]:
         try:
             if self._path.exists():

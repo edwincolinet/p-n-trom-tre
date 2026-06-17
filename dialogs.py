@@ -1141,3 +1141,151 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     combo_centre.focus_set()  # focus sur le 1er champ utile
     dlg.wait_window()
     return result["ok"]
+
+
+def ask_cabinet_settings(parent: tk.Misc,
+                         settings: Any) -> bool:
+    """Dialogue de configuration du cabinet : nom et logo.
+
+    `settings` est un `SettingsStore`. Retourne True si au moins un
+    champ a été modifié (le caller peut alors recharger le logo).
+    """
+    import shutil
+    from pathlib import Path as _Path
+    from tkinter import filedialog as _filedialog
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Paramètres du cabinet")
+    dlg.resizable(False, False)
+    dlg.columnconfigure(1, weight=1)
+
+    result: dict[str, bool] = {"changed": False}
+    _pending_logo: list[str | None] = [getattr(settings, "logo_path", None)]
+    _preview_img: list[Any] = [None]
+
+    # --- Nom du cabinet ---
+    ttk.Label(dlg, text="Nom du cabinet :").grid(
+        row=0, column=0, sticky="w", padx=(16, 8), pady=(16, 6))
+    var_name = tk.StringVar(value=getattr(settings, "cabinet_name", ""))
+    ttk.Entry(dlg, textvariable=var_name, width=34).grid(
+        row=0, column=1, columnspan=2, sticky="ew", padx=(0, 16), pady=(16, 6))
+
+    # --- Logo ---
+    ttk.Label(dlg, text="Logo :").grid(
+        row=1, column=0, sticky="nw", padx=(16, 8), pady=(6, 0))
+
+    btn_frame = ttk.Frame(dlg)
+    btn_frame.grid(row=1, column=1, columnspan=2, sticky="w",
+                   padx=(0, 16), pady=(6, 0))
+
+    preview_lbl = ttk.Label(dlg, style="Muted.TLabel")
+    preview_lbl.grid(row=2, column=0, columnspan=3, padx=16, pady=(6, 4))
+
+    ttk.Label(dlg, text="Formats acceptés : PNG, JPEG, GIF, BMP, TIFF",
+              style="Muted.TLabel").grid(
+        row=3, column=0, columnspan=3, padx=16, pady=(0, 12))
+
+    def _update_preview(path: "str | None") -> None:
+        _pending_logo[0] = path
+        if not path:
+            preview_lbl.configure(image="", text="Aucun logo configuré")
+            _preview_img[0] = None
+            return
+        try:
+            from PIL import Image as _PILImage
+            from PIL import ImageTk as _ImageTk
+            pil = _PILImage.open(path)
+            target_h = 80
+            ratio = target_h / pil.height
+            pil = pil.resize(  # type: ignore[assignment]
+                (int(pil.width * ratio), target_h),
+                _PILImage.LANCZOS)  # type: ignore[attr-defined]
+            img = _ImageTk.PhotoImage(pil)
+            _preview_img[0] = img
+            preview_lbl.configure(image=img, text="")
+        except ImportError:
+            preview_lbl.configure(image="",
+                                  text=f"(aperçu indisponible — Pillow requis)")
+        except Exception:
+            preview_lbl.configure(image="", text="(image illisible)")
+
+    _update_preview(_pending_logo[0])
+
+    def _choose_logo() -> None:
+        p = _filedialog.askopenfilename(
+            parent=dlg,
+            title="Choisir un logo",
+            filetypes=[
+                ("Images", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff *.tif"),
+                ("PNG", "*.png"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("Tous les fichiers", "*.*"),
+            ],
+        )
+        if p:
+            _update_preview(p)
+
+    def _remove_logo() -> None:
+        _update_preview(None)
+
+    ttk.Button(btn_frame, text="Choisir un fichier…",
+               command=_choose_logo).pack(side="left", padx=(0, 8))
+    ttk.Button(btn_frame, text="Supprimer",
+               style="Ghost.TButton",
+               command=_remove_logo).pack(side="left")
+
+    ttk.Separator(dlg).grid(row=4, column=0, columnspan=3,
+                             sticky="ew", padx=16, pady=(4, 0))
+
+    def _ok() -> None:
+        # Persistance du nom
+        name = var_name.get().strip()
+        if name != getattr(settings, "cabinet_name", ""):
+            settings.set_cabinet_name(name)
+            result["changed"] = True
+
+        # Persistance du logo
+        new_logo = _pending_logo[0]
+        old_logo = getattr(settings, "logo_path", None)
+        if new_logo != old_logo:
+            result["changed"] = True
+            if new_logo:
+                ext = _Path(new_logo).suffix.lower()
+                dest_dir = _Path.home() / ".penetrometre"
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                # Supprimer les anciens logos (autre extension)
+                for old_f in dest_dir.glob("logo.*"):
+                    try:
+                        old_f.unlink()
+                    except Exception:
+                        pass
+                dest = dest_dir / f"logo{ext}"
+                shutil.copy2(new_logo, dest)
+                settings.set_logo_path(str(dest))
+            else:
+                # Supprimer le fichier copié s'il existe
+                if old_logo:
+                    try:
+                        _Path(old_logo).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                settings.set_logo_path(None)
+        dlg.destroy()
+
+    def _cancel() -> None:
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg)
+    btns.grid(row=5, column=0, columnspan=3, sticky="e",
+              padx=16, pady=(8, 16))
+    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+               command=_cancel).pack(side="right", padx=(8, 0))
+    ttk.Button(btns, text="OK", style="Accent.TButton",
+               command=_ok).pack(side="right")
+
+    dlg.bind("<Return>", lambda e: _ok())
+    dlg.bind("<Escape>", lambda e: _cancel())
+
+    _make_modal(dlg, parent)
+    dlg.wait_window()
+    return result["changed"]

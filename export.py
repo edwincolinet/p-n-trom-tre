@@ -287,7 +287,8 @@ _CLASSE_LEGENDE = {
 
 def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                      couleur_classe: Mapping[str, str],
-                     classer_prbs: ClasserPrbs) -> None:
+                     classer_prbs: ClasserPrbs,
+                     cabinet_name: str = "") -> None:
     """Écrit le tableau PRBS dans `path` (.xlsx). `couleur_classe` est
     le dict label → hex injecté depuis la couche UI."""
     if not HAS_OPENPYXL:
@@ -458,9 +459,10 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     row += 2
 
     # --- Pied : édition + signature ---
+    suffix = f" · {cabinet_name}" if cabinet_name else ""
     ws.cell(row=row, column=1,
             value=f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
-                  "— Pénétromètre, Silvavenir Foresterie urbaine").font = \
+                  f"— Pénétromètre{suffix}").font = \
         Font(name="Calibri", size=9, italic=True, color="6E7B73")
     ws.merge_cells(start_row=row, start_column=1,
                    end_row=row, end_column=last)
@@ -572,7 +574,8 @@ def _h(s: object) -> str:
 
 def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
                      couleur_classe: Mapping[str, str],
-                     classer_prbs: ClasserPrbs) -> None:
+                     classer_prbs: ClasserPrbs,
+                     cabinet_name: str = "") -> None:
     """Écrit le tableau PRBS dans `path` (.html). Aucun fichier externe :
     le CSS est embarqué."""
     rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
@@ -680,7 +683,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 <div class="classe-legend">{classe_legend_html}</div>
 
 <footer>
-Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre, Silvavenir Foresterie urbaine.
+Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre{' · ' + cabinet_name if cabinet_name else ''}.
 </footer>
 </body>
 </html>
