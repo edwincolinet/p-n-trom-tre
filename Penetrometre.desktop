@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Pénétromètre Silvavenir
-Comment=Expertise arboricole — dessin de section au pénétromètre
+Name=Pénétromètre
+Comment=Expertise arboricole — diagnostic de cavités par sondage
 Exec=python3 /home/edwin/Documents/penetrometre_silvavenir/penetrometre.py
 Path=/home/edwin/Documents/penetrometre_silvavenir
 Icon=/home/edwin/Documents/penetrometre_silvavenir/assets/Icone.jpeg
