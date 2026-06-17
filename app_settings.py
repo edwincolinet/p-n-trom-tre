@@ -120,6 +120,19 @@ class SettingsStore:
                                          if str(v).strip()]
         self._save()
 
+    def get_suivi_custom(self) -> "list[str]":
+        """Durées de suivi personnalisées ajoutées par l'utilisateur."""
+        raw = self._data.get("suivi_custom", [])
+        if not isinstance(raw, list):
+            return []
+        return [str(v) for v in raw if str(v).strip()]
+
+    def set_suivi_custom(self, values: "list[str]") -> None:
+        """Persiste les durées de suivi personnalisées (vides filtrées)."""
+        self._data["suivi_custom"] = [str(v) for v in values
+                                      if str(v).strip()]
+        self._save()
+
     def _load(self) -> dict[str, object]:
         try:
             if self._path.exists():

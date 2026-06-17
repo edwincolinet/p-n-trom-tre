@@ -1095,6 +1095,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         """Persiste les niveaux d'urgence personnalisés."""
         self._settings.set_urgences_custom(values)
 
+    def get_suivi_custom(self) -> "list[str]":
+        """Durées de suivi personnalisées persistées dans les réglages."""
+        return self._settings.get_suivi_custom()
+
+    def set_suivi_custom(self, values: "list[str]") -> None:
+        """Persiste les durées de suivi personnalisées."""
+        self._settings.set_suivi_custom(values)
+
     def capture_undo_snapshot(self) -> dict:
         """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé
         par les éditions live (grilles de saisie) : on capture l'état

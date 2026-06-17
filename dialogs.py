@@ -1299,11 +1299,11 @@ def ask_cabinet_settings(parent: tk.Misc,
     return result["changed"]
 
 
-def ask_urgences_custom(parent: tk.Misc,
-                        current: "list[str]") -> "Optional[list[str]]":
-    """Dialogue de gestion des niveaux d'urgence personnalisés.
+def ask_list_custom(parent: tk.Misc, title: str, description: str,
+                    current: "list[str]") -> "Optional[list[str]]":
+    """Dialogue générique de gestion d'une liste de valeurs personnalisées.
 
-    Affiche la liste des niveaux custom ; l'utilisateur peut en ajouter
+    Affiche la liste des valeurs custom ; l'utilisateur peut en ajouter
     (champ texte + bouton « ＋ Ajouter ») ou en supprimer (sélection +
     bouton « − Supprimer »). Renvoie la nouvelle liste si OK, `None` si
     Annulé.
@@ -1311,13 +1311,12 @@ def ask_urgences_custom(parent: tk.Misc,
     result: "dict[str, Optional[list[str]]]" = {"value": None}
 
     dlg = tk.Toplevel(parent)
-    dlg.title("Niveaux d'urgence personnalisés")
+    dlg.title(title)
     dlg.resizable(False, False)
 
-    ttk.Label(dlg, text="Niveaux d'urgence personnalisés",
+    ttk.Label(dlg, text=title,
               style="H.TLabel").pack(anchor="w", padx=16, pady=(14, 2))
-    ttk.Label(dlg,
-              text="Ces niveaux s'ajoutent aux niveaux standard dans le combobox.",
+    ttk.Label(dlg, text=description,
               style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 8))
 
     # --- Liste des niveaux existants ---
@@ -1393,3 +1392,25 @@ def ask_urgences_custom(parent: tk.Misc,
     _make_modal(dlg, parent)
     dlg.wait_window()
     return result["value"]
+
+
+def ask_urgences_custom(parent: tk.Misc,
+                        current: "list[str]") -> "Optional[list[str]]":
+    """Dialogue de gestion des niveaux d'urgence personnalisés (wrapper)."""
+    return ask_list_custom(
+        parent,
+        "Niveaux d'urgence personnalisés",
+        "Ces niveaux s'ajoutent aux niveaux standard dans le combobox.",
+        current,
+    )
+
+
+def ask_suivi_custom(parent: tk.Misc,
+                     current: "list[str]") -> "Optional[list[str]]":
+    """Dialogue de gestion des durées de suivi personnalisées."""
+    return ask_list_custom(
+        parent,
+        "Durées de suivi personnalisées",
+        "Ces durées s'ajoutent aux durées standard dans le combobox.",
+        current,
+    )

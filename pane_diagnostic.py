@@ -30,7 +30,8 @@ from diagnostic import (
     degradation_externe_par_grade,
     genet_summary_tagged,
 )
-from dialogs import SUIVI_VALIDITES, ask_date, ask_urgences_custom, normaliser_date
+from dialogs import (SUIVI_VALIDITES, ask_date, ask_suivi_custom,
+                     ask_urgences_custom, normaliser_date)
 from geometry import DIRECTION_LABELS, GRADES
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
@@ -56,6 +57,8 @@ class _DiagnosticHost(Protocol):
     def push_undo_snapshot(self, snap: dict) -> None: ...
     def get_urgences_custom(self) -> "list[str]": ...
     def set_urgences_custom(self, values: "list[str]") -> None: ...
+    def get_suivi_custom(self) -> "list[str]": ...
+    def set_suivi_custom(self, values: "list[str]") -> None: ...
 
 
 class DiagnosticPane(ttk.Frame):
@@ -240,7 +243,7 @@ class DiagnosticPane(ttk.Frame):
         self._cmb_urgence.pack(side="left", padx=(0, 4))
         self._cmb_urgence.bind("<<ComboboxSelected>>",
                                lambda e: self._on_urgence_changed())
-        btn_edit_urg = ttk.Button(line, text="✏", style="Ghost.TButton",
+        btn_edit_urg = ttk.Button(line, text="…", style="Ghost.TButton",
                                   width=3,
                                   command=self._edit_urgences_custom)
         btn_edit_urg.pack(side="left", padx=(0, 12))
@@ -280,11 +283,16 @@ class DiagnosticPane(ttk.Frame):
         self.var_suivi_validite = tk.StringVar(value=_SUIVI_VIDE)
         self._cmb_suivi = ttk.Combobox(
             suivi_line, textvariable=self.var_suivi_validite,
-            values=[_SUIVI_VIDE, *SUIVI_VALIDITES],
+            values=self._suivi_choices(),
             state="readonly", width=16)
-        self._cmb_suivi.pack(side="left")
+        self._cmb_suivi.pack(side="left", padx=(0, 4))
         self._cmb_suivi.bind("<<ComboboxSelected>>",
                              lambda e: self._on_suivi_validite_changed())
+        btn_edit_suivi = ttk.Button(suivi_line, text="…", style="Ghost.TButton",
+                                    width=3,
+                                    command=self._edit_suivi_custom)
+        btn_edit_suivi.pack(side="left")
+        Tooltip(btn_edit_suivi, "Gérer les durées de suivi personnalisées")
 
         ttk.Label(parent, text="Contenu du suivi (texte libre)",
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
@@ -310,6 +318,20 @@ class DiagnosticPane(ttk.Frame):
             self._host.set_urgences_custom(result)
             self._refresh_urgence_choices()
 
+    def _suivi_choices(self) -> "list[str]":
+        """Durées standards + personnalisées pour le combobox validité."""
+        return [_SUIVI_VIDE, *SUIVI_VALIDITES, *self._host.get_suivi_custom()]
+
+    def _refresh_suivi_choices(self) -> None:
+        """Met à jour les valeurs du combobox après modification des durées."""
+        self._cmb_suivi.configure(values=self._suivi_choices())
+
+    def _edit_suivi_custom(self) -> None:
+        result = ask_suivi_custom(self, self._host.get_suivi_custom())
+        if result is not None:
+            self._host.set_suivi_custom(result)
+            self._refresh_suivi_choices()
+
     def _refresh_preconisation(self, a: Optional[Arbre]) -> None:
         """Recharge les 5 champs depuis l'arbre courant **si l'arbre a
         changé** (cf. `_preco_loaded_id`), callbacks neutralisés
@@ -327,7 +349,8 @@ class DiagnosticPane(ttk.Frame):
             self.var_echeance.set(a.echeance if a else "")
             self.txt_preco.delete("1.0", "end")
             self.txt_preco.insert("1.0", a.preconisation if a else "")
-            sv = a.suivi_validite if a and a.suivi_validite in SUIVI_VALIDITES else ""
+            all_suivi = list(SUIVI_VALIDITES) + self._host.get_suivi_custom()
+            sv = a.suivi_validite if a and a.suivi_validite in all_suivi else ""
             self.var_suivi_validite.set(sv or _SUIVI_VIDE)
             self.txt_suivi.delete("1.0", "end")
             self.txt_suivi.insert("1.0", a.suivi_texte if a else "")
