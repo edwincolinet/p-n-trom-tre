@@ -356,13 +356,26 @@ class PreconisationRoundTripTests(unittest.TestCase):
     fichier ancien sans ces clés retombe sur les défauts vides."""
 
     def test_round_trip(self):
-        a = Arbre(numero_arbre="1", urgence="Court terme (< 1 an)",
+        a = Arbre(numero_arbre="1", urgence="< 1 an",
                   echeance="14/06/2027", preconisation="Élagage côté voirie")
         c = chantier_from_dict(chantier_to_dict(Chantier(arbres=[a])))
         a2 = c.arbres[0]
-        self.assertEqual(a2.urgence, "Court terme (< 1 an)")
+        self.assertEqual(a2.urgence, "< 1 an")
         self.assertEqual(a2.echeance, "14/06/2027")
         self.assertEqual(a2.preconisation, "Élagage côté voirie")
+
+    def test_migration_urgence_legacy(self):
+        """Les anciens libellés d'urgence sont migrés au chargement."""
+        legacy_map = {
+            "Court terme (< 1 an)":  "< 1 an",
+            "Moyen terme (1-3 ans)": "< 2 ans",
+            "Surveillance":          "",
+            "Sans objet":            "",
+        }
+        for old, new in legacy_map.items():
+            d = {"arbres": [{"numero_arbre": "1", "urgence": old}]}
+            a = chantier_from_dict(d).arbres[0]
+            self.assertEqual(a.urgence, new, f"Migration de {old!r}")
 
     def test_fichier_ancien_defauts_vides(self):
         d = {"arbres": [{"numero_arbre": "9", "rayon_tronc_cm": 18.0}]}

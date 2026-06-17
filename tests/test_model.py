@@ -1182,14 +1182,14 @@ class GenetDiagnosticTests(unittest.TestCase):
     def test_synthese_cepee_preconisation_sur_tete_pas_sous_lignes(self):
         from model import Chantier
         a = Arbre(numero_arbre="12", port_arbre="libre",
-                  urgence="Surveillance", preconisation="Revoir dans 2 ans",
+                  urgence="< 2 ans", preconisation="Revoir dans 2 ans",
                   brins=[
                       self._brin(16.0, [(0, 14.0), (100, 14.0), (200, 14.0)]),
                       self._brin(16.0, [(0, 2.0), (100, 2.0), (200, 2.0)]),
                   ])
         a._relabel_brins()
         rows = mission_synthesis_rows(Chantier(arbres=[a]))
-        self.assertEqual(rows[0].urgence, "Surveillance")          # tête
+        self.assertEqual(rows[0].urgence, "< 2 ans")               # tête
         self.assertEqual(rows[0].preconisation, "Revoir dans 2 ans")
         self.assertEqual([r.urgence for r in rows[1:]], ["", ""])  # sous-lignes
         self.assertEqual([r.preconisation for r in rows[1:]], ["", ""])

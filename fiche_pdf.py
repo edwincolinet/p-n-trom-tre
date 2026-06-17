@@ -103,11 +103,10 @@ def _wrap_lines(text: str, font: Any, max_width: float,
 # Couleur de l'intitulé d'urgence sur la fiche PDF (lecture du délai au
 # coup d'œil, comme la classe de risque). Défaut : encre.
 _URGENCE_COLOR = {
-    "Immédiate":             "#C0392B",
-    "Court terme (< 1 an)":  "#E67E22",
-    "Moyen terme (1-3 ans)": "#B7950B",
-    "Surveillance":          "#2D7A3E",
-    "Sans objet":            "#55605A",
+    "Immédiate": "#C0392B",
+    "< 6 mois":  "#E67E22",
+    "< 1 an":    "#B7950B",
+    "< 2 ans":   "#2D7A3E",
 }
 
 

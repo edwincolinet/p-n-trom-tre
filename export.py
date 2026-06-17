@@ -709,11 +709,10 @@ _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
 # Couleur de la cellule « Urgence » dans le XLSX : (fond, police) en hexa.
 # Aligne la lecture du délai d'intervention sur celle de la classe de risque.
 _URGENCE_FILL = {
-    "Immédiate":             ("C0392B", "FFFFFF"),
-    "Court terme (< 1 an)":  ("E67E22", "FFFFFF"),
-    "Moyen terme (1-3 ans)": ("F1C40F", "1A2E22"),
-    "Surveillance":          ("2D7A3E", "FFFFFF"),
-    "Sans objet":            ("E0E0E0", "1A2E22"),
+    "Immédiate": ("C0392B", "FFFFFF"),
+    "< 6 mois":  ("E67E22", "FFFFFF"),
+    "< 1 an":    ("F1C40F", "1A2E22"),
+    "< 2 ans":   ("A9DFBF", "1A2E22"),
 }
 
 

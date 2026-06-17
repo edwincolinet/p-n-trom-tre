@@ -45,10 +45,9 @@ from geometry import GRADES, ellipse_radius
 # urgent) pour trier la synthèse.
 URGENCE_NIVEAUX = (
     "Immédiate",
-    "Court terme (< 1 an)",
-    "Moyen terme (1-3 ans)",
-    "Surveillance",
-    "Sans objet",
+    "< 6 mois",
+    "< 1 an",
+    "< 2 ans",
 )
 URGENCE_RANG = {niveau: i for i, niveau in enumerate(URGENCE_NIVEAUX)}
 

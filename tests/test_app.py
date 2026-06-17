@@ -606,9 +606,9 @@ class TestAppMixins(unittest.TestCase):
     def test_preconisation_rechargee_au_changement_d_arbre(self) -> None:
         pane = self.app.pane_diag
         self.app.nb.select(pane)
-        self.app.chantier.arbres[0].urgence = "Sans objet"
+        self.app.chantier.arbres[0].urgence = "< 2 ans"
         pane.refresh()
-        self.assertEqual(pane.var_urgence.get(), "Sans objet")
+        self.assertEqual(pane.var_urgence.get(), "< 2 ans")
         # Nouvel arbre (urgence vide) → le pane recharge, pas de fuite.
         self.app.action_add_arbre()
         pane.refresh()

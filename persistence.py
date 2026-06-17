@@ -266,6 +266,13 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         "Libre, semi-libre ou traumatique": "libre",
         "Architecturé ou traumatique": "architecturé",
     }
+    # Migration des anciens niveaux d'urgence (renommage 2026-06)
+    urgence_legacy = {
+        "Court terme (< 1 an)":  "< 1 an",
+        "Moyen terme (1-3 ans)": "< 2 ans",
+        "Surveillance":          "",
+        "Sans objet":            "",
+    }
     # Champs connus de chaque dataclass : permet d'ignorer
     # silencieusement un champ inconnu dans un JSON futur (ascendance
     # garantie même si on ajoute un champ côté code et qu'on revient
@@ -333,6 +340,9 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                     a_norm.get("numero_arbre", "?"), raw_port)
                 normalized = "libre"
             a_norm["port_arbre"] = normalized
+        # Migration urgence (anciens libellés → nouveaux)
+        if a_norm.get("urgence") in urgence_legacy:
+            a_norm["urgence"] = urgence_legacy[a_norm["urgence"]]
         # Identité du genet : on exclut `brins` (reconstruit en objets
         # ci-dessous) et les anciens champs de géométrie/mesures (qui ne
         # sont plus des champs d'`Arbre` et seraient filtrés de toute façon).
