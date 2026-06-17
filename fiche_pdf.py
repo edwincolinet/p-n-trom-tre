@@ -100,18 +100,13 @@ def _wrap_lines(text: str, font: Any, max_width: float,
     return lines
 
 
-# Couleur du badge d'urgence (texte + contour) et fond du badge.
+# Couleur du badge d'urgence (fond plein, texte blanc) selon le délai —
+# gradient vert (peu urgent) → rouge (immédiat).
 _URGENCE_COLOR = {
     "Immédiate": "#C0392B",
     "< 6 mois":  "#E67E22",
     "< 1 an":    "#B7950B",
     "< 2 ans":   "#2D7A3E",
-}
-_URGENCE_BG = {
-    "Immédiate": "#FADBD8",
-    "< 6 mois":  "#FDEBD0",
-    "< 1 an":    "#FCF3CF",
-    "< 2 ans":   "#D5F5E3",
 }
 
 
@@ -386,92 +381,83 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     y_preco = y_section
     if has_preco:
-        txt_x = col_preco_left + 10   # indent après la barre d'accent
-        txt_w = col_preco_right - txt_x
+        pad = 12                       # padding interne sous les bandes
+        txt_x = col_preco_left + pad
+        txt_w = col_preco_right - pad - txt_x
 
-        # Titre + filet horizontal
+        # Titre aligné sur "Diagnostic" (même police, même baseline)
         d.text((col_preco_left, y_preco), "Préconisation",
-               font=f(20, "serif_bold"), fill=COLOR_ACCENT)
-        y_preco += 26
-        d.line([col_preco_left, y_preco, col_preco_right, y_preco],
-               fill=COLOR_ACCENT, width=2)
-        y_preco += 10
-        y_bar_top = y_preco   # départ de la barre d'accent latérale
+               font=f(22, "serif_bold"), fill=COLOR_ACCENT)
+        y_preco = y_section + 36
 
-        _HDR_BG = "#EFEFEF"   # bande de fond des sous-titres de section
-        _HDR_H  = 26         # hauteur de la bande
+        def _preco_header(title: str, y0: int) -> int:
+            """Sous-titre = bande verte pleine largeur, texte blanc — même
+            langage visuel que les en-têtes de tableau du reste de la page."""
+            bar_h = 32
+            d.rectangle([col_preco_left, y0, col_preco_right, y0 + bar_h],
+                        fill=COLOR_ACCENT)
+            d.text((col_preco_left + pad, y0 + bar_h / 2), title,
+                   font=f(16, "sans_bold"), fill="white", anchor="lm")
+            return y0 + bar_h + 12
 
         if has_intervention:
-            # Bande de fond pour le sous-titre "Intervention"
-            d.rectangle([col_preco_left + 4, y_preco,
-                         col_preco_right, y_preco + _HDR_H],
-                        fill=_HDR_BG)
-            d.text((txt_x, y_preco + 6), "Intervention",
-                   font=f(14, "sans_bold"), fill=COLOR_ACCENT)
-            y_preco += _HDR_H + 10
+            y_preco = _preco_header("Intervention", y_preco)
 
             if arbre.urgence:
+                # Ligne "Urgence : [badge coloré]" (symétrie avec "Échéance :")
+                lbl = "Urgence : "
+                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
                 urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
-                fnt = f(15, "sans_bold")
+                fnt = f(16, "sans_bold")
                 bb = d.textbbox((0, 0), arbre.urgence, font=fnt)
                 uw, uh = bb[2] - bb[0], bb[3] - bb[1]
-                px, py = 12, 7
-                # Badge solide : fond = couleur urgence, texte blanc
-                d.rectangle([txt_x, y_preco,
-                             txt_x + uw + 2 * px, y_preco + uh + 2 * py],
+                bx, by = 12, 7
+                d.text((txt_x, y_preco + by), lbl,
+                       font=f(16, "sans"), fill=COLOR_MUTED)
+                badge_x = txt_x + lbl_w
+                d.rectangle([badge_x, y_preco,
+                             badge_x + uw + 2 * bx, y_preco + uh + 2 * by],
                             fill=urg_color)
-                d.text((txt_x + px, y_preco + py), arbre.urgence,
+                d.text((badge_x + bx, y_preco + by), arbre.urgence,
                        font=fnt, fill="white")
-                y_preco += int(uh) + 2 * py + 10
+                y_preco += int(uh) + 2 * by + 12
 
             if arbre.echeance:
                 lbl = "Échéance : "
-                lb = d.textbbox((0, 0), lbl, font=f(14, "sans"))
-                lbl_w = lb[2] - lb[0]
-                d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
+                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
+                d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
                 d.text((txt_x + lbl_w, y_preco), arbre.echeance,
-                       font=f(14, "sans_bold"), fill=COLOR_INK)
-                y_preco += 24
+                       font=f(16, "sans_bold"), fill=COLOR_INK)
+                y_preco += 26
 
             if arbre.preconisation:
                 y_preco += 2
-                for line in _wrap_lines(arbre.preconisation, f(14, "sans"),
+                for line in _wrap_lines(arbre.preconisation, f(16, "sans"),
                                         txt_w, d, max_lines=8):
                     d.text((txt_x, y_preco), line,
-                           font=f(14, "sans"), fill=COLOR_INK)
-                    y_preco += 20
-            y_preco += 10
+                           font=f(16, "sans"), fill=COLOR_INK)
+                    y_preco += 22
+            y_preco += 14
 
         if has_suivi:
-            # Bande de fond pour le sous-titre "Suivi"
-            d.rectangle([col_preco_left + 4, y_preco,
-                         col_preco_right, y_preco + _HDR_H],
-                        fill=_HDR_BG)
-            d.text((txt_x, y_preco + 6), "Suivi",
-                   font=f(14, "sans_bold"), fill=COLOR_ACCENT)
-            y_preco += _HDR_H + 10
+            y_preco = _preco_header("Suivi", y_preco)
 
             if arbre.suivi_validite:
                 lbl = "Validité : "
-                lb = d.textbbox((0, 0), lbl, font=f(14, "sans"))
-                lbl_w = lb[2] - lb[0]
-                d.text((txt_x, y_preco), lbl, font=f(14, "sans"), fill=COLOR_MUTED)
+                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
+                d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
                 d.text((txt_x + lbl_w, y_preco), arbre.suivi_validite,
-                       font=f(14, "sans_bold"), fill=COLOR_INK)
-                y_preco += 24
+                       font=f(16, "sans_bold"), fill=COLOR_INK)
+                y_preco += 26
 
             if arbre.suivi_texte:
                 y_preco += 2
-                for line in _wrap_lines(arbre.suivi_texte, f(14, "sans"),
+                for line in _wrap_lines(arbre.suivi_texte, f(16, "sans"),
                                         txt_w, d, max_lines=8):
                     d.text((txt_x, y_preco), line,
-                           font=f(14, "sans"), fill=COLOR_INK)
-                    y_preco += 20
+                           font=f(16, "sans"), fill=COLOR_INK)
+                    y_preco += 22
             y_preco += 6
-
-        # Barre d'accent verticale gauche (dessinée après : hauteur connue)
-        d.rectangle([col_preco_left, y_bar_top, col_preco_left + 3, y_preco],
-                    fill=COLOR_ACCENT)
 
         # Séparateur vertical entre les deux colonnes
         sep_bot = max(y_diag, y_preco) + 6
