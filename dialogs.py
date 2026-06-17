@@ -106,6 +106,10 @@ ZONE_DEGRADEE_AIDE = (
     "bois sain perdu."
 )
 
+# --- Validités de suivi ---------------------------------------------------
+# Durées proposées dans le combobox « Validité » du bloc Suivi.
+SUIVI_VALIDITES = ("1 an", "2 ans", "3 ans", "4 ans", "5 ans")
+
 
 def zone_degradee_label(comprend_ecorce: bool) -> str:
     """Libellé affiché pour l'état `comprend_ecorce` d'une dégradation."""
@@ -1209,7 +1213,7 @@ def ask_cabinet_settings(parent: tk.Misc,
             preview_lbl.configure(image=img, text="")
         except ImportError:
             preview_lbl.configure(image="",
-                                  text=f"(aperçu indisponible — Pillow requis)")
+                                  text="(aperçu indisponible — Pillow requis)")
         except Exception:
             preview_lbl.configure(image="", text="(image illisible)")
 
@@ -1293,3 +1297,99 @@ def ask_cabinet_settings(parent: tk.Misc,
     _make_modal(dlg, parent)
     dlg.wait_window()
     return result["changed"]
+
+
+def ask_urgences_custom(parent: tk.Misc,
+                        current: "list[str]") -> "Optional[list[str]]":
+    """Dialogue de gestion des niveaux d'urgence personnalisés.
+
+    Affiche la liste des niveaux custom ; l'utilisateur peut en ajouter
+    (champ texte + bouton « ＋ Ajouter ») ou en supprimer (sélection +
+    bouton « − Supprimer »). Renvoie la nouvelle liste si OK, `None` si
+    Annulé.
+    """
+    result: "dict[str, Optional[list[str]]]" = {"value": None}
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Niveaux d'urgence personnalisés")
+    dlg.resizable(False, False)
+
+    ttk.Label(dlg, text="Niveaux d'urgence personnalisés",
+              style="H.TLabel").pack(anchor="w", padx=16, pady=(14, 2))
+    ttk.Label(dlg,
+              text="Ces niveaux s'ajoutent aux niveaux standard dans le combobox.",
+              style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 8))
+
+    # --- Liste des niveaux existants ---
+    list_frame = ttk.Frame(dlg)
+    list_frame.pack(fill="both", padx=16, pady=(0, 8))
+
+    lb = tk.Listbox(list_frame, height=6, width=32,
+                    font=ui_font("Helvetica", 10),
+                    selectmode="single", activestyle="none")
+    sb = ttk.Scrollbar(list_frame, orient="vertical", command=lb.yview)
+    lb.configure(yscrollcommand=sb.set)
+    lb.pack(side="left", fill="both", expand=True)
+    sb.pack(side="left", fill="y")
+
+    items: list[str] = list(current)
+    for item in items:
+        lb.insert("end", item)
+
+    # --- Champ d'ajout ---
+    add_frame = ttk.Frame(dlg)
+    add_frame.pack(fill="x", padx=16, pady=(0, 4))
+    var_new = tk.StringVar()
+    ent_new = ttk.Entry(add_frame, textvariable=var_new, width=24)
+    ent_new.pack(side="left", padx=(0, 6))
+
+    def _add() -> None:
+        txt = var_new.get().strip()
+        if not txt:
+            return
+        if txt in items:
+            messagebox.showwarning("Doublon",
+                                   f"« {txt} » est déjà dans la liste.",
+                                   parent=dlg)
+            return
+        items.append(txt)
+        lb.insert("end", txt)
+        var_new.set("")
+        ent_new.focus_set()
+
+    ttk.Button(add_frame, text="＋ Ajouter", style="Accent.TButton",
+               command=_add).pack(side="left")
+
+    def _remove() -> None:
+        sel = lb.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        lb.delete(idx)
+        del items[idx]
+
+    ttk.Button(dlg, text="− Supprimer la sélection", style="Ghost.TButton",
+               command=_remove).pack(anchor="w", padx=16, pady=(0, 8))
+
+    ttk.Separator(dlg, orient="horizontal").pack(fill="x", padx=16, pady=4)
+
+    def _ok() -> None:
+        result["value"] = list(items)
+        dlg.destroy()
+
+    def _cancel() -> None:
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg)
+    btns.pack(anchor="e", padx=16, pady=(4, 16))
+    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+               command=_cancel).pack(side="right", padx=(8, 0))
+    ttk.Button(btns, text="OK", style="Accent.TButton",
+               command=_ok).pack(side="right")
+
+    ent_new.bind("<Return>", lambda e: _add())
+    dlg.bind("<Escape>", lambda e: _cancel())
+
+    _make_modal(dlg, parent)
+    dlg.wait_window()
+    return result["value"]

@@ -1081,11 +1081,19 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def on_preconisation_changed(self) -> None:
         """Notifié par `DiagnosticPane` après édition de la préconisation
-        (urgence / échéance / texte). Marque dirty seulement : ces champs
-        n'affectent ni le dessin ni la pastille de la liste, et la synthèse
-        de mission est recalculée à l'export. On ne déclenche pas de redraw
-        (qui re-`refresh`-erait le pane et lutterait contre la frappe)."""
+        (urgence / échéance / texte / suivi). Marque dirty seulement : ces
+        champs n'affectent ni le dessin ni la pastille de la liste, et la
+        synthèse de mission est recalculée à l'export. On ne déclenche pas de
+        redraw (qui re-`refresh`-erait le pane et lutterait contre la frappe)."""
         self._mark_dirty()
+
+    def get_urgences_custom(self) -> "list[str]":
+        """Niveaux d'urgence personnalisés persistés dans les réglages."""
+        return self._settings.get_urgences_custom()
+
+    def set_urgences_custom(self, values: "list[str]") -> None:
+        """Persiste les niveaux d'urgence personnalisés."""
+        self._settings.set_urgences_custom(values)
 
     def capture_undo_snapshot(self) -> dict:
         """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé

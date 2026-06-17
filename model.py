@@ -458,6 +458,8 @@ class Arbre:
     urgence: str = ""        # niveau (cf. URGENCE_NIVEAUX), "" = non renseignée
     echeance: str = ""       # date limite d'intervention JJ/MM/AAAA, optionnelle
     preconisation: str = ""  # action recommandée, texte libre
+    suivi_validite: str = "" # durée de validité du suivi ("1 an" … "5 ans"), "" = non renseignée
+    suivi_texte: str = ""    # description du suivi, texte libre
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
 
     def __init__(
@@ -474,6 +476,8 @@ class Arbre:
         urgence: str = "",
         echeance: str = "",
         preconisation: str = "",
+        suivi_validite: str = "",
+        suivi_texte: str = "",
         # --- Compat Étape 0 : kwargs de géométrie/mesures qui vivaient sur
         # `Arbre` avant l'introduction des brins. Routés vers le brin courant
         # (brins[0]). À retirer quand les appelants construiront des `Brin`.
@@ -497,6 +501,8 @@ class Arbre:
         self.urgence = urgence
         self.echeance = echeance
         self.preconisation = preconisation
+        self.suivi_validite = suivi_validite
+        self.suivi_texte = suivi_texte
         self.brins = list(brins) if brins is not None else [Brin()]
         b = self.brins[0]
         if rayon_tronc_cm is not None:

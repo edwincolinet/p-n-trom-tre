@@ -30,16 +30,16 @@ from diagnostic import (
     degradation_externe_par_grade,
     genet_summary_lines,
 )
-from dialogs import ask_date, normaliser_date
+from dialogs import SUIVI_VALIDITES, ask_date, ask_urgences_custom, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
-# Premier item du combobox d'urgence = « non renseignée » (stocke "").
+# Premier item des comboboxes = « non renseignée » (stocke "").
 _URGENCE_VIDE = "— Non renseignée —"
-_URGENCE_CHOICES = (_URGENCE_VIDE, *URGENCE_NIVEAUX)
+_SUIVI_VIDE = "— Non renseignée —"
 
 
 class _DiagnosticHost(Protocol):
@@ -49,11 +49,13 @@ class _DiagnosticHost(Protocol):
     def action_export_prbs_xlsx(self) -> None: ...
     def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
-    # Préconisation (urgence / échéance / texte) — édition + undo/dirty.
+    # Préconisation (urgence / échéance / texte / suivi) — édition + undo/dirty.
     def on_preconisation_changed(self) -> None: ...
     def push_undo(self) -> None: ...
     def capture_undo_snapshot(self) -> dict: ...
     def push_undo_snapshot(self, snap: dict) -> None: ...
+    def get_urgences_custom(self) -> "list[str]": ...
+    def set_urgences_custom(self, values: "list[str]") -> None: ...
 
 
 class DiagnosticPane(ttk.Frame):
@@ -198,13 +200,13 @@ class DiagnosticPane(ttk.Frame):
     # --- Préconisation ------------------------------------------------
 
     def _build_preconisation(self, parent: ttk.Frame) -> None:
-        """Bloc « Préconisation » : urgence (combobox), échéance (date
-        facultative) et action recommandée (texte libre). Édite l'arbre
-        **genet** courant. `_loading` neutralise les callbacks pendant
-        `refresh()` (sinon recharger l'arbre marquerait dirty / empilerait
-        un undo parasite)."""
+        """Deux blocs indépendants : Intervention (urgence + échéance + texte)
+        et Suivi (validité + texte). Édite le genet courant. `_loading`
+        neutralise les callbacks pendant `refresh()` pour ne pas marquer dirty
+        / empiler un undo parasite."""
         self._loading = False
         self._preco_snapshot: Optional[dict] = None
+        self._suivi_snapshot: Optional[dict] = None
         # Identité du dernier arbre chargé : on ne recharge les champs que
         # lorsqu'elle change (changement d'arbre / undo restaurant un objet
         # neuf), JAMAIS sur un simple redraw — sinon on écraserait la frappe
@@ -215,18 +217,29 @@ class DiagnosticPane(ttk.Frame):
                   style="H.TLabel").pack(anchor="w", pady=(4, 2))
         ttk.Label(parent,
                   text="La décision d'expertise : quoi faire, et quand.",
-                  style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
+
+        # ── Intervention ──────────────────────────────────────────────
+        ttk.Label(parent, text="── Intervention ──",
+                  style="Sub.TLabel").pack(anchor="w", pady=(0, 6))
 
         line = ttk.Frame(parent, style="Panel.TFrame")
         line.pack(fill="x", pady=(0, 6))
         ttk.Label(line, text="Urgence", style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_urgence = tk.StringVar(value=_URGENCE_VIDE)
-        cmb = ttk.Combobox(line, textvariable=self.var_urgence,
-                           values=list(_URGENCE_CHOICES),
-                           state="readonly", width=20)
-        cmb.pack(side="left", padx=(0, 12))
-        cmb.bind("<<ComboboxSelected>>", lambda e: self._on_urgence_changed())
+        self._cmb_urgence = ttk.Combobox(
+            line, textvariable=self.var_urgence,
+            values=self._urgence_choices(),
+            state="readonly", width=18)
+        self._cmb_urgence.pack(side="left", padx=(0, 4))
+        self._cmb_urgence.bind("<<ComboboxSelected>>",
+                               lambda e: self._on_urgence_changed())
+        btn_edit_urg = ttk.Button(line, text="✏", style="Ghost.TButton",
+                                  width=3,
+                                  command=self._edit_urgences_custom)
+        btn_edit_urg.pack(side="left", padx=(0, 12))
+        Tooltip(btn_edit_urg, "Gérer les niveaux d'urgence personnalisés")
 
         ttk.Label(line, text="Échéance", style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
@@ -247,12 +260,53 @@ class DiagnosticPane(ttk.Frame):
         self.txt_preco = tk.Text(parent, height=3, wrap="word",
                                  font=ui_font("Helvetica", 10),
                                  relief="solid", borderwidth=1)
-        self.txt_preco.pack(fill="x", pady=(0, 12))
+        self.txt_preco.pack(fill="x", pady=(0, 14))
         self.txt_preco.bind("<FocusIn>", lambda e: self._preco_focus_in())
         self.txt_preco.bind("<FocusOut>", lambda e: self._on_preco_focus_out())
 
+        # ── Suivi ─────────────────────────────────────────────────────
+        ttk.Label(parent, text="── Suivi ──",
+                  style="Sub.TLabel").pack(anchor="w", pady=(0, 6))
+
+        suivi_line = ttk.Frame(parent, style="Panel.TFrame")
+        suivi_line.pack(fill="x", pady=(0, 6))
+        ttk.Label(suivi_line, text="Validité", style="Panel.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_suivi_validite = tk.StringVar(value=_SUIVI_VIDE)
+        self._cmb_suivi = ttk.Combobox(
+            suivi_line, textvariable=self.var_suivi_validite,
+            values=[_SUIVI_VIDE, *SUIVI_VALIDITES],
+            state="readonly", width=16)
+        self._cmb_suivi.pack(side="left")
+        self._cmb_suivi.bind("<<ComboboxSelected>>",
+                             lambda e: self._on_suivi_validite_changed())
+
+        ttk.Label(parent, text="Contenu du suivi (texte libre)",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
+        self.txt_suivi = tk.Text(parent, height=3, wrap="word",
+                                 font=ui_font("Helvetica", 10),
+                                 relief="solid", borderwidth=1)
+        self.txt_suivi.pack(fill="x", pady=(0, 12))
+        self.txt_suivi.bind("<FocusIn>", lambda e: self._suivi_focus_in())
+        self.txt_suivi.bind("<FocusOut>", lambda e: self._on_suivi_texte_focus_out())
+
+    def _urgence_choices(self) -> "list[str]":
+        """Niveaux standards + personnalisés pour le combobox urgence."""
+        return [_URGENCE_VIDE, *URGENCE_NIVEAUX,
+                *self._host.get_urgences_custom()]
+
+    def _refresh_urgence_choices(self) -> None:
+        """Met à jour les valeurs du combobox après modification des niveaux."""
+        self._cmb_urgence.configure(values=self._urgence_choices())
+
+    def _edit_urgences_custom(self) -> None:
+        result = ask_urgences_custom(self, self._host.get_urgences_custom())
+        if result is not None:
+            self._host.set_urgences_custom(result)
+            self._refresh_urgence_choices()
+
     def _refresh_preconisation(self, a: Optional[Arbre]) -> None:
-        """Recharge les 3 champs depuis l'arbre courant **si l'arbre a
+        """Recharge les 5 champs depuis l'arbre courant **si l'arbre a
         changé** (cf. `_preco_loaded_id`), callbacks neutralisés
         (`_loading`). Ne touche à rien sur un redraw du même arbre → ne
         lutte pas contre la frappe."""
@@ -262,18 +316,26 @@ class DiagnosticPane(ttk.Frame):
         self._preco_loaded_id = aid
         self._loading = True
         try:
-            urg = a.urgence if a and a.urgence in URGENCE_NIVEAUX else ""
+            all_urg = list(URGENCE_NIVEAUX) + self._host.get_urgences_custom()
+            urg = a.urgence if a and a.urgence in all_urg else ""
             self.var_urgence.set(urg or _URGENCE_VIDE)
             self.var_echeance.set(a.echeance if a else "")
             self.txt_preco.delete("1.0", "end")
             self.txt_preco.insert("1.0", a.preconisation if a else "")
+            sv = a.suivi_validite if a and a.suivi_validite in SUIVI_VALIDITES else ""
+            self.var_suivi_validite.set(sv or _SUIVI_VIDE)
+            self.txt_suivi.delete("1.0", "end")
+            self.txt_suivi.insert("1.0", a.suivi_texte if a else "")
         finally:
             self._loading = False
 
     def _preco_focus_in(self) -> None:
-        # Snapshot pré-édition (empilé au focus-out si la valeur change).
         if not self._loading:
             self._preco_snapshot = self._host.capture_undo_snapshot()
+
+    def _suivi_focus_in(self) -> None:
+        if not self._loading:
+            self._suivi_snapshot = self._host.capture_undo_snapshot()
 
     def _on_urgence_changed(self) -> None:
         if self._loading:
@@ -285,7 +347,7 @@ class DiagnosticPane(ttk.Frame):
         new = "" if choice == _URGENCE_VIDE else choice
         if new == a.urgence:
             return
-        self._host.push_undo()           # mutation discrète → undo immédiat
+        self._host.push_undo()
         a.urgence = new
         self._host.on_preconisation_changed()
 
@@ -327,12 +389,40 @@ class DiagnosticPane(ttk.Frame):
             self._host.on_preconisation_changed()
         self._preco_snapshot = None
 
+    def _on_suivi_validite_changed(self) -> None:
+        if self._loading:
+            return
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        choice = self.var_suivi_validite.get()
+        new = "" if choice == _SUIVI_VIDE else choice
+        if new == a.suivi_validite:
+            return
+        self._host.push_undo()
+        a.suivi_validite = new
+        self._host.on_preconisation_changed()
+
+    def _on_suivi_texte_focus_out(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        new = self.txt_suivi.get("1.0", "end-1c")
+        if new != a.suivi_texte:
+            self._commit_suivi_undo()
+            a.suivi_texte = new
+            self._host.on_preconisation_changed()
+        self._suivi_snapshot = None
+
     def _commit_preco_undo(self) -> None:
-        """Empile le snapshot pré-édition capturé au focus-in (s'il existe)
-        avant d'appliquer la mutation."""
         if self._preco_snapshot is not None:
             self._host.push_undo_snapshot(self._preco_snapshot)
             self._preco_snapshot = None
+
+    def _commit_suivi_undo(self) -> None:
+        if self._suivi_snapshot is not None:
+            self._host.push_undo_snapshot(self._suivi_snapshot)
+            self._suivi_snapshot = None
 
     def refresh(self) -> None:
         """Recharge le tableau PRBS et le résumé textuel à partir de

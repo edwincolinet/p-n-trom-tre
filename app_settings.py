@@ -107,6 +107,19 @@ class SettingsStore:
             self._data["logo_path"] = str(value)
         self._save()
 
+    def get_urgences_custom(self) -> "list[str]":
+        """Niveaux d'urgence personnalisés ajoutés par l'utilisateur."""
+        raw = self._data.get("urgences_custom", [])
+        if not isinstance(raw, list):
+            return []
+        return [str(v) for v in raw if str(v).strip()]
+
+    def set_urgences_custom(self, values: "list[str]") -> None:
+        """Persiste les niveaux d'urgence personnalisés (vides filtrés)."""
+        self._data["urgences_custom"] = [str(v) for v in values
+                                         if str(v).strip()]
+        self._save()
+
     def _load(self) -> dict[str, object]:
         try:
             if self._path.exists():

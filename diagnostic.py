@@ -698,6 +698,9 @@ class MissionSynthesisRow(NamedTuple):
     urgence: str = ""
     echeance: str = ""
     preconisation: str = ""
+    # Suivi (même portée genet).
+    suivi_validite: str = ""
+    suivi_texte: str = ""
 
 
 def _synthesis_row_for_section(numero: str, essence: str, port: str,
@@ -781,7 +784,9 @@ def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
                         arbre: "Arbre" = a) -> MissionSynthesisRow:
             return row._replace(urgence=arbre.urgence,
                                 echeance=arbre.echeance,
-                                preconisation=arbre.preconisation)
+                                preconisation=arbre.preconisation,
+                                suivi_validite=arbre.suivi_validite,
+                                suivi_texte=arbre.suivi_texte)
         if len(a.brins) <= 1:
             rows.append(_with_preco(_synthesis_row_for_section(
                 a.numero_arbre, a.essence, a.port_arbre, a.brin_courant)))

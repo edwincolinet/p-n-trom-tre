@@ -192,36 +192,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         d.text((margin, y), comm, font=f(17, "sans"), fill=COLOR_INK)
         y += 30
 
-    # --- Préconisation (la décision d'expertise : quoi faire, et quand) ---
-    if arbre.urgence or arbre.echeance or arbre.preconisation:
-        d.text((margin, y), "Préconisation",
-               font=f(20, "serif_bold"), fill=COLOR_ACCENT)
-        y += 30
-        # Urgence (colorée par niveau) + échéance sur une ligne.
-        x: float = margin
-        if arbre.urgence:
-            label = f"Urgence : {arbre.urgence}"
-            d.text((x, y), label, font=f(17, "sans_bold"),
-                   fill=_URGENCE_COLOR.get(arbre.urgence, COLOR_INK))
-            x += d.textbbox((0, 0), label, font=f(17, "sans_bold"))[2] + 36
-        if arbre.echeance:
-            d.text((x, y), f"Échéance : {arbre.echeance}",
-                   font=f(17, "sans"), fill=COLOR_INK)
-        if arbre.urgence or arbre.echeance:
-            y += 30
-        if arbre.preconisation:
-            for line in _wrap_lines(arbre.preconisation, f(17, "sans"),
-                                    W - 2*margin, d, max_lines=4):
-                d.text((margin, y), line, font=f(17, "sans"), fill=COLOR_INK)
-                y += 26
-        y += 10
-
     # --- Dessin ---
     # Taille adaptative : on estime la hauteur que vont occuper le
-    # tableau PRBS et le diagnostic, puis on alloue le reste au dessin
-    # (entre 480 et 900 px). Évite que la page déborde quand l'arbre a
-    # beaucoup de sondages, sans rapetisser inutilement le dessin quand
-    # il en a peu.
+    # tableau PRBS, le diagnostic et la préconisation (en pied), puis on
+    # alloue le reste au dessin (entre 480 et 900 px).
     multi_brins = len(arbre.brins) > 1
     # Cépée = même prédicat de routage que les renderers (≥ 2 brins, ou un
     # brin décentré) : le dessin part alors en composition multi-brins.
@@ -257,9 +231,25 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     # plus étroite). On réserve une bande pour elle dans le calcul.
     est_legend_h = 56
     footer_reserve = 60
+    # Estimation de la hauteur du bloc Préconisation (dessiné en pied,
+    # après le diagnostic). 0 si aucun champ renseigné.
+    has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
+    has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
+    est_preco_h = 0
+    if has_intervention or has_suivi:
+        est_preco_h = 50           # titre + séparateur
+        if has_intervention:
+            est_preco_h += 24 + 26  # sous-titre + ligne urgence/date
+            if arbre.preconisation:
+                est_preco_h += min(96, 24 * (len(arbre.preconisation) // 50 + 1))
+        if has_suivi:
+            est_preco_h += 8 + 24 + 26  # gap + sous-titre + validité
+            if arbre.suivi_texte:
+                est_preco_h += min(96, 24 * (len(arbre.suivi_texte) // 50 + 1))
+        est_preco_h += 10          # marge basse
     used_so_far = y - margin   # depuis le haut de la page utile
     remaining = (H - margin - footer_reserve) - used_so_far \
-                - est_table_h - est_diag_h - est_legend_h - 22
+                - est_table_h - est_diag_h - est_legend_h - est_preco_h - 22
     drawing_h = max(420, min(900, remaining))
     if is_cepee:
         # Une cépée est LARGE (brins côte à côte, cadrée sur la largeur) :
@@ -388,6 +378,51 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         y = int(_draw_cepee_diagnostic(d, f, arbre, margin, W, y))
     else:
         y = int(_draw_mono_diagnostic(d, f, arbre, margin, W, R, y))
+
+    # --- Préconisation (en pied, après le diagnostic) ---
+    if has_intervention or has_suivi:
+        y += 14
+        d.text((margin, y), "Préconisation",
+               font=f(20, "serif_bold"), fill=COLOR_ACCENT)
+        y += 30
+
+        if has_intervention:
+            d.text((margin, y), "Intervention",
+                   font=f(15, "sans_bold"), fill=COLOR_INK)
+            y += 24
+            x: float = margin
+            if arbre.urgence:
+                label = f"Urgence : {arbre.urgence}"
+                d.text((x, y), label, font=f(17, "sans_bold"),
+                       fill=_URGENCE_COLOR.get(arbre.urgence, COLOR_INK))
+                x += d.textbbox((0, 0), label, font=f(17, "sans_bold"))[2] + 36
+            if arbre.echeance:
+                d.text((x, y), f"Échéance : {arbre.echeance}",
+                       font=f(17, "sans"), fill=COLOR_INK)
+            if arbre.urgence or arbre.echeance:
+                y += 26
+            if arbre.preconisation:
+                for line in _wrap_lines(arbre.preconisation, f(17, "sans"),
+                                        W - 2*margin, d, max_lines=4):
+                    d.text((margin, y), line, font=f(17, "sans"),
+                           fill=COLOR_INK)
+                    y += 24
+
+        if has_suivi:
+            y += 8 if has_intervention else 0
+            d.text((margin, y), "Suivi",
+                   font=f(15, "sans_bold"), fill=COLOR_INK)
+            y += 24
+            if arbre.suivi_validite:
+                d.text((margin, y), f"Validité : {arbre.suivi_validite}",
+                       font=f(17, "sans"), fill=COLOR_INK)
+                y += 26
+            if arbre.suivi_texte:
+                for line in _wrap_lines(arbre.suivi_texte, f(17, "sans"),
+                                        W - 2*margin, d, max_lines=4):
+                    d.text((margin, y), line, font=f(17, "sans"),
+                           fill=COLOR_INK)
+                    y += 24
 
     # --- Pied de page ---
     d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
