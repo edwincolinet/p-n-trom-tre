@@ -110,6 +110,41 @@ _URGENCE_COLOR = {
 }
 
 
+def _estimate_preco_height(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
+                           txt_w: int, has_intervention: bool,
+                           has_suivi: bool) -> int:
+    """Hauteur (px) qu'occupera la colonne préconisation.
+
+    Miroir **exact** des incréments de `y_preco` dans le dessin
+    (`render_fiche_arbre_to_pdf_page`), pour réserver la place dans le
+    budget vertical : sans ça, un suivi (ou une intervention) long déborde
+    sur le pied de page, le dessin ne rétrécissant que pour le diagnostic.
+    Toute modif des incréments de dessin doit être répercutée ici."""
+    h = 36  # titre "Préconisation" (y_preco = y_section + 36)
+    if has_intervention:
+        h += 32 + 12   # bande "Intervention" (_preco_header)
+        if arbre.urgence:
+            bb = d.textbbox((0, 0), arbre.urgence, font=f(16, "sans_bold"))
+            h += int(bb[3] - bb[1]) + 2 * 7 + 12   # badge
+        if arbre.echeance:
+            h += 26
+        if arbre.preconisation:
+            n = len(_wrap_lines(arbre.preconisation, f(16, "sans"),
+                                txt_w, d, max_lines=8))
+            h += 2 + n * 22
+        h += 14
+    if has_suivi:
+        h += 32 + 12   # bande "Suivi"
+        if arbre.suivi_validite:
+            h += 26
+        if arbre.suivi_texte:
+            n = len(_wrap_lines(arbre.suivi_texte, f(16, "sans"),
+                                txt_w, d, max_lines=8))
+            h += 2 + n * 22
+        h += 6
+    return h
+
+
 def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                    chantier: "Chantier",
                                    show_sondages: bool = True,
@@ -232,14 +267,29 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     est_legend_h = 56
     footer_reserve = 60
     # has_intervention/has_suivi : utilisés plus bas pour le layout côte à côte.
-    # La préconisation partage l'espace vertical du diagnostic → ne s'ajoute
-    # pas au budget (pas d'est_preco_h).
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
     has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
+    # La préconisation (colonne droite) partage la bande verticale du
+    # diagnostic ; on réserve donc le MAX des deux hauteurs, sinon une
+    # préconisation plus haute que le diagnostic déborde sur le pied de page
+    # (le dessin ne rétrécissant que pour le diagnostic). La géométrie de la
+    # colonne droite est dérivée à l'identique du dessin (cf. plus bas).
+    if has_intervention or has_suivi:
+        _preco_left = (margin + 680) + 20
+        _preco_txt_w = (W - margin) - 12 - (_preco_left + 12)
+        est_preco_h = _estimate_preco_height(
+            d, f, arbre, _preco_txt_w, has_intervention, has_suivi)
+    else:
+        est_preco_h = 0
+    est_section_h = max(est_diag_h, est_preco_h)
     used_so_far = y - margin   # depuis le haut de la page utile
     remaining = (H - margin - footer_reserve) - used_so_far \
-                - est_table_h - est_diag_h - est_legend_h - 22
-    drawing_h = max(420, min(900, remaining))
+                - est_table_h - est_section_h - est_legend_h - 22
+    # Plancher modeste (340) : il ne s'active que sur une page chargée
+    # (beaucoup de sondages / longue préconisation), cas où l'on VEUT que
+    # le dessin rétrécisse pour honorer le budget vertical et éviter de
+    # rogner le texte. Sur une page normale, `remaining` dépasse le plancher.
+    drawing_h = max(340, min(900, remaining))
     if is_cepee:
         # Une cépée est LARGE (brins côte à côte, cadrée sur la largeur) :
         # dans le carré historique chaque brin devenait minuscule. Pleine
@@ -390,6 +440,14 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                font=f(22, "serif_bold"), fill=COLOR_ACCENT)
         y_preco = y_section + 36
 
+        # Filet de sécurité : ligne basse que le rendu ne franchit JAMAIS,
+        # calée 8 px au-dessus du filet de pied de page (tracé à H-46).
+        # Le budget vertical réserve déjà max(diagnostic, préconisation) et
+        # rétrécit le dessin, mais un cas pathologique (beaucoup de sondages
+        # ET deux textes longs) ne tient pas sur une A4 : on tronque alors le
+        # texte (« … ») plutôt que de déborder sur le pied de page.
+        y_limit = (H - 46) - 8
+
         def _preco_header(title: str, y0: int) -> int:
             """Sous-titre = bande verte pleine largeur, texte blanc — même
             langage visuel que les en-têtes de tableau du reste de la page."""
@@ -400,10 +458,24 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                    font=f(16, "sans_bold"), fill="white", anchor="lm")
             return y0 + bar_h + 12
 
-        if has_intervention:
+        def _draw_preco_text(text: str, y0: int) -> int:
+            """Dessine `text` en lignes 16 pt sans jamais dépasser `y_limit`
+            (tronque avec « … » si la place manque)."""
+            avail = int((y_limit - y0) // 22)
+            if avail < 1:
+                return y0
+            for line in _wrap_lines(text, f(16, "sans"), txt_w, d,
+                                    max_lines=min(8, avail)):
+                d.text((txt_x, y0), line, font=f(16, "sans"), fill=COLOR_INK)
+                y0 += 22
+            return y0
+
+        # On ne pose une bande d'en-tête que si au moins une ligne de
+        # contenu peut suivre (sinon une bande verte vide en bas de page).
+        if has_intervention and y_preco + 32 + 24 <= y_limit:
             y_preco = _preco_header("Intervention", y_preco)
 
-            if arbre.urgence:
+            if arbre.urgence and y_preco + 46 <= y_limit:
                 # Ligne "Urgence : [badge coloré]" (symétrie avec "Échéance :")
                 lbl = "Urgence : "
                 lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
@@ -422,7 +494,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                        font=fnt, fill="white")
                 y_preco += int(uh) + 2 * by + 12
 
-            if arbre.echeance:
+            if arbre.echeance and y_preco + 26 <= y_limit:
                 lbl = "Échéance : "
                 lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
                 d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
@@ -431,18 +503,13 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 y_preco += 26
 
             if arbre.preconisation:
-                y_preco += 2
-                for line in _wrap_lines(arbre.preconisation, f(16, "sans"),
-                                        txt_w, d, max_lines=8):
-                    d.text((txt_x, y_preco), line,
-                           font=f(16, "sans"), fill=COLOR_INK)
-                    y_preco += 22
+                y_preco = _draw_preco_text(arbre.preconisation, y_preco + 2)
             y_preco += 14
 
-        if has_suivi:
+        if has_suivi and y_preco + 32 + 24 <= y_limit:
             y_preco = _preco_header("Suivi", y_preco)
 
-            if arbre.suivi_validite:
+            if arbre.suivi_validite and y_preco + 26 <= y_limit:
                 lbl = "Validité : "
                 lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
                 d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
@@ -451,12 +518,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 y_preco += 26
 
             if arbre.suivi_texte:
-                y_preco += 2
-                for line in _wrap_lines(arbre.suivi_texte, f(16, "sans"),
-                                        txt_w, d, max_lines=8):
-                    d.text((txt_x, y_preco), line,
-                           font=f(16, "sans"), fill=COLOR_INK)
-                    y_preco += 22
+                y_preco = _draw_preco_text(arbre.suivi_texte, y_preco + 2)
             y_preco += 6
 
     y = max(y_diag, y_preco) + 10
