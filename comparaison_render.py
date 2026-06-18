@@ -21,10 +21,14 @@ from diagnostic import (
     comparaison_detaillee,
     comparaison_par_brin,
     evolution_classe,
-    rayon_par_grade,
     verdict_evolution,
 )
-from geometry import GRADES, catmull_rom_closed
+from geometry import (
+    GRADES,
+    cavity_polygon,
+    contour_polygon,
+    degradation_externe_outline,
+)
 from palette import (
     COLOR_ACCENT,
     COLOR_BARK,
@@ -45,19 +49,6 @@ if TYPE_CHECKING:
 # Nord (grade 0) est en haut → −90°.
 _GR_TO_DEG = 0.9
 _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
-
-
-def _poly(cx: float, cy: float, scale: float,
-          radii: list) -> list:
-    """Contour **lissé** (spline Catmull-Rom fermée, comme le rendu des
-    sections) passant par les 16 directions (grade 0 = Nord, sens horaire)
-    aux rayons `radii` (cm) — évite l'aspect « cubique » du 16-gon."""
-    pts = []
-    for i, g in enumerate(GRADES):
-        ang = math.radians(g * _GR_TO_DEG - 90)
-        r = max(0.0, radii[i]) * scale
-        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-    return catmull_rom_closed(pts, samples_per_segment=12)
 
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
@@ -106,61 +97,91 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     `ref_b=None` (brin sans homologue de référence) ⟹ aucune couronne orange
     (réf = courant) et une légende « pas de brin de référence ».
 
-    Tout est exprimé sur le rayon LOCAL courant (`rayon_par_grade`) et les
-    altérations **extrapolées** sur 16 directions, donc complet même sur les
-    directions non sondées. Schématique (16-gon), pas les cernes."""
+    Rendu avec **les mêmes primitives géométriques que la section réelle**
+    (`pil_render`) : ellipse native pour un tronc circulaire, `contour_polygon`
+    pour un ovale, `cavity_polygon` pour la cavité interne, et surtout
+    `degradation_externe_outline` pour les dégradations externes — donc des
+    **arcs exacts** (ne débordent jamais de leur secteur) et la **même
+    qualité** de tracé que les autres dessins. La perte depuis la référence
+    est obtenue par superposition : on peint l'état COURANT en orange (bois
+    perdu), puis l'état de RÉFÉRENCE en `COLOR_ROT` par-dessus → l'orange ne
+    subsiste que dans la zone creusée entre les deux campagnes."""
     from PIL import Image, ImageDraw
 
-    from diagnostic import (
-        compute_alteration_par_grade,
-        degradation_externe_par_grade,
-    )
+    from diagnostic import compute_alteration_par_grade
+
     img = Image.new("RGB", (size, size), "white")
-    d = ImageDraw.Draw(img)
+    d = ImageDraw.Draw(img, "RGBA")          # mode RGBA, comme le rendu réel
     f = _pil_load_fonts()
 
-    R = rayon_par_grade(cur_b)                 # rayon local courant, 16 dir.
+    rot = cur_b.rotation_grades
     ep = max(0.0, cur_b.epaisseur_ecorce_cm)
-    cur_alt = compute_alteration_par_grade(cur_b)      # cavité interne (centre)
-    cur_deg = degradation_externe_par_grade(cur_b)     # dégrad. externe (bord)
+    R_of = cur_b.rayon_a_grade               # callable grade→rayon (cm)
+    cur_alt = compute_alteration_par_grade(cur_b)
     if ref_b is not None:
         ref_alt = compute_alteration_par_grade(ref_b)
-        ref_deg = degradation_externe_par_grade(ref_b)
+        ref_degs = ref_b.degradations_externes
     else:
-        # Pas d'homologue : rien à comparer → on montre l'état courant seul
-        # (réf = courant ⟹ aucune bande orange).
-        ref_alt, ref_deg = list(cur_alt), list(cur_deg)
+        # Pas d'homologue : réf = courant → l'état courant repeint en ROT
+        # par-dessus l'orange ⟹ aucune bande orange (état courant seul).
+        ref_alt = list(cur_alt)
+        ref_degs = cur_b.degradations_externes
 
-    outer = [R[i] + ep for i in range(16)]
-    rmax = max(outer) if outer else 1.0
+    # Cadrage : rayon + écorce + saillie max des contreforts (la dégradation
+    # suit la cloche). Centre légèrement remonté pour la légende du bas.
+    expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
+    r_ext_max = max(R_of(g) for g in GRADES) + expansion
     cx, cy = size / 2.0, size * 0.45
-    scale = (size * 0.40) / (rmax if rmax > 0 else 1.0)
+    scale = (size * 0.40) / (r_ext_max if r_ext_max > 0 else 1.0)
 
-    # Empilement de disques centrés tronqués au rayon LOCAL, du bord externe
-    # vers le centre. Un running-min par direction borne chaque rayon au
-    # précédent : l'ordre des couches reste valide même si une mesure
-    # « s'améliore » (cas non physique : cavité/dégradation ne se referment
-    # pas — la bande orange se replie alors au lieu d'apparaître à tort).
-    layers = [
-        ([R[i] + ep         for i in range(16)], COLOR_BARK),   # écorce
-        ([R[i]              for i in range(16)], COLOR_ROT),    # ext. au ref
-        ([R[i] - ref_deg[i] for i in range(16)], _ORANGE),     # ext. perdu
-        ([R[i] - cur_deg[i] for i in range(16)], COLOR_WOOD),  # bois sain
-        ([cur_alt[i]        for i in range(16)], _ORANGE),     # int. perdu
-        ([ref_alt[i]        for i in range(16)], COLOR_ROT),   # cavité au ref
-    ]
-    running = [float("inf")] * 16
-    for radii, color in layers:
-        clamped = [max(0.0, min(radii[i], running[i])) for i in range(16)]
-        running = clamped
-        d.polygon(_poly(cx, cy, scale, clamped), fill=color)
+    # --- Couches, du fond vers le premier plan ---
+    # Écorce + bois sain : cercle = ellipse native (nette), ovale = contour
+    # lissé — exactement comme `_pil_draw_bois_sain` / `_pil_draw_ecorce`.
+    if cur_b.est_ovale:
+        if ep > 0:
+            d.polygon(contour_polygon(lambda g: R_of(g) + ep, cx, cy, scale,
+                                      rotation_grades=rot), fill=COLOR_BARK)
+        d.polygon(contour_polygon(R_of, cx, cy, scale, rotation_grades=rot),
+                  fill=COLOR_WOOD)
+    else:
+        R = R_of(0.0)
+        if ep > 0:
+            rext = (R + ep) * scale
+            d.ellipse([cx - rext, cy - rext, cx + rext, cy + rext],
+                      fill=COLOR_BARK)
+        rw = R * scale
+        d.ellipse([cx - rw, cy - rw, cx + rw, cy + rw], fill=COLOR_WOOD)
+
+    # Dégradation externe : profondeur COURANTE en orange, profondeur de
+    # RÉFÉRENCE en ROT par-dessus → orange = bande approfondie depuis la réf.
+    # Arcs EXACTS (`degradation_externe_outline`) : plus de débordement.
+    for deg in cur_b.degradations_externes:
+        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
+                                          cx, cy, scale, rotation_grades=rot)
+        if pts:
+            d.polygon(pts, fill=_ORANGE)
+    for deg in ref_degs:
+        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
+                                          cx, cy, scale, rotation_grades=rot)
+        if pts:
+            d.polygon(pts, fill=COLOR_ROT)
+
+    # Cavité interne : courante en orange, référence en ROT par-dessus →
+    # orange = anneau creusé depuis la réf. `cavity_polygon` = primitive du
+    # rendu réel (Catmull-Rom centrée, pas de bord arc → lissage légitime).
+    if any(a > 0 for a in cur_alt):
+        d.polygon(cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot),
+                  fill=_ORANGE)
+    if any(a > 0 for a in ref_alt):
+        d.polygon(cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot),
+                  fill=COLOR_ROT)
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
     for g, lbl in ((0, "N"), (100, "E"), (200, "S"), (300, "O")):
         ang = math.radians(g * _GR_TO_DEG - 90)
-        lx = cx + (rmax * scale + 18) * math.cos(ang)
-        ly = cy + (rmax * scale + 18) * math.sin(ang)
+        lx = cx + (r_ext_max * scale + 18) * math.cos(ang)
+        ly = cy + (r_ext_max * scale + 18) * math.sin(ang)
         d.text((lx, ly), lbl, font=f(int(size * 0.046), "serif_bold"),
                fill=COLOR_INK, anchor="mm")
 
