@@ -1139,6 +1139,44 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertEqual(det_b.directions, [])
         self.assertIsNone(det_b.classe_ref)
 
+    def test_comparaison_porte_les_rayons_des_deux_campagnes(self):
+        # Un arbre croît en diamètre : la comparaison expose les rayons réf
+        # et courant (chaque PRBS/t/R est déjà rapporté à SON rayon).
+        ref = Arbre(numero_arbre="1", rayon_tronc_cm=18.0, port_arbre="libre")
+        cur = Arbre(numero_arbre="1", rayon_tronc_cm=20.0, port_arbre="libre")
+        for g in (0, 100, 200, 300):
+            ref.sondages.append(Sondage(grade=g, bois_sain_cm=15.0,
+                                        bois_altere_cm=3.0))
+            cur.sondages.append(Sondage(grade=g, bois_sain_cm=15.0,
+                                        bois_altere_cm=5.0))
+        det = comparaison_detaillee(ref, cur, annees=2.0)
+        self.assertAlmostEqual(det.rayon_ref, 18.0)
+        self.assertAlmostEqual(det.rayon_cur, 20.0)
+
+    def test_comparaison_rayon_ref_none_si_pas_dhomologue(self):
+        from diagnostic import _comparaison_core, arbre_compare_summary
+        cur = Arbre(numero_arbre="1", rayon_tronc_cm=20.0)
+        det = _comparaison_core(None, cur.brins[0], 1.0,
+                                arbre_compare_summary(Arbre()),
+                                arbre_compare_summary(cur))
+        self.assertIsNone(det.rayon_ref)
+        self.assertAlmostEqual(det.rayon_cur, 20.0)
+
+    def test_metric_rows_ligne_diametre_avec_croissance(self):
+        from comparaison_render import metric_rows
+        ref = Arbre(numero_arbre="1", rayon_tronc_cm=18.0)
+        cur = Arbre(numero_arbre="1", rayon_tronc_cm=20.0)
+        for g in (0, 100, 200, 300):
+            ref.sondages.append(Sondage(grade=g, bois_sain_cm=15.0,
+                                        bois_altere_cm=3.0))
+            cur.sondages.append(Sondage(grade=g, bois_sain_cm=15.0,
+                                        bois_altere_cm=5.0))
+        rows = metric_rows(comparaison_detaillee(ref, cur, annees=2.0))
+        diam = [r for r in rows if r[0] == "Diamètre du tronc"]
+        self.assertEqual(len(diam), 1)
+        self.assertEqual(diam[0], ("Diamètre du tronc", "36.0 cm",
+                                   "40.0 cm", "+4.0 cm"))
+
     def test_evolution_classe(self):
         self.assertEqual(evolution_classe("Vert", "Rouge"), 1)    # aggravation
         self.assertEqual(evolution_classe("Rouge", "Vert"), -1)   # amélioration

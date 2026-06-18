@@ -301,6 +301,25 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Label(left, text="  Expertise arboricole",
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
 
+        # Boutons « Comparaison » mis en avant (la ré-inspection n'est plus
+        # une fonctionnalité cachée du menu). Cf. menu Comparaison (app_menu).
+        comp = ttk.Frame(header)
+        comp.pack(side="left", padx=(28, 0))
+        btn_reinsp = ttk.Button(
+            comp, text="🔍 Faire une comparaison…", style="Accent.TButton",
+            command=self.action_reinspection)
+        btn_reinsp.pack(side="left")
+        Tooltip(btn_reinsp,
+                "Repartir d'une mission antérieure comme base : on met à jour "
+                "diamètres et sondages au lieu de tout ressaisir, et elle sert "
+                "de référence.")
+        btn_diag = ttk.Button(
+            comp, text="📊 Diagnostic de la comparaison…", style="Ghost.TButton",
+            command=self.action_compare_arbre)
+        btn_diag.pack(side="left", padx=(6, 0))
+        Tooltip(btn_diag, "Ouvrir la fenêtre de comparaison de l'arbre "
+                          "courant avec la mission de référence.")
+
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
         # démarrage, l'utilisateur l'apprend ici (log) plutôt qu'au

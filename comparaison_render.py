@@ -202,6 +202,18 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
     # Classe globale
     rows.append(("Classe globale", _classe_aff(detail.classe_ref),
                  _classe_aff(detail.classe_cur), ""))
+    # Diamètre du tronc — un arbre croît en diamètre entre deux campagnes.
+    # Le rendre explicite : chaque PRBS/t/R est déjà rapporté à SON rayon,
+    # mais l'opérateur doit voir la croissance (et penser à la saisir).
+    if detail.rayon_cur is not None or detail.rayon_ref is not None:
+        diam_ref = (f"{2 * detail.rayon_ref:.1f} cm"
+                    if detail.rayon_ref is not None else "—")
+        diam_cur = (f"{2 * detail.rayon_cur:.1f} cm"
+                    if detail.rayon_cur is not None else "—")
+        evo_diam = ""
+        if detail.rayon_ref is not None and detail.rayon_cur is not None:
+            evo_diam = f"{2 * (detail.rayon_cur - detail.rayon_ref):+.1f} cm"
+        rows.append(("Diamètre du tronc", diam_ref, diam_cur, evo_diam))
     # t/R moyen
     evo_tr = ""
     if detail.tR_moy_ref is not None and detail.tR_moy_cur is not None:

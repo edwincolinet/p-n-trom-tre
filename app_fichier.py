@@ -147,14 +147,81 @@ class FichierMixin(_MixinBase):
                         f"({n} arbre(s)). « Comparer l'arbre courant… »")
         return True
 
+    def action_reinspection(self) -> None:
+        """« Faire une comparaison » (ré-inspection) : charge une mission
+        antérieure comme **base de travail** (on ré-mesure au lieu de tout
+        ressaisir) ET la **fige comme référence** dans le même geste.
+
+        Trois garde-fous, conformes au protocole de ré-inspection :
+        - la **date de relevé** est redemandée (campagne nouvelle ; aujourd'hui
+          par défaut) — sinon `annees=0` rendrait la comparaison absurde ;
+        - le **lien fichier est détaché** (`current_file=None`) → « Enregistrer »
+          forcera un « Enregistrer sous… », pour ne JAMAIS écraser la mission
+          de référence ;
+        - la référence est un **instantané pris avant toute édition**
+          (`deepcopy`), donc figée pendant qu'on met à jour diamètres/sondages.
+        """
+        import copy
+        from datetime import datetime
+
+        from dialogs import ask_date
+
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Faire une comparaison",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Continuer quand même ?"):
+                return
+        p = filedialog.askopenfilename(
+            title="Mission antérieure à ré-inspecter (servira de référence)",
+            filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
+        if not p:
+            return
+        try:
+            loaded = load_chantier(p)
+        except Exception as e:
+            log.exception("Échec chargement pour ré-inspection")
+            messagebox.showerror("Erreur", str(e))
+            return
+        # Nouvelle date de relevé (aujourd'hui par défaut). Annulé → on
+        # abandonne ; effacé → on retombe sur aujourd'hui (une date est
+        # indispensable au calcul du taux d'évolution).
+        today = datetime.now().strftime("%d/%m/%Y")
+        new_date = ask_date(self, today)
+        if new_date is None:
+            return
+        if not new_date:
+            new_date = today
+
+        # Référence = instantané figé AVANT toute édition (garde l'ancienne
+        # date, donc l'intervalle « annees » est correct).
+        self._reference_chantier = copy.deepcopy(loaded)
+        ref_date = self._reference_chantier.date_releve or "?"
+
+        self._undo_stack.clear()
+        clear_recovery(_RECOVERY_PATH)
+        self.chantier = loaded
+        self.chantier.date_releve = new_date
+        self.current_file = None          # détaché → Enregistrer sous… forcé
+        self._dirty = True
+        self._install_chantier_ui()
+        n = len(self.chantier.arbres)
+        self.set_status(
+            f"Ré-inspection : « {Path(p).name} » chargée comme base "
+            f"({n} arbre(s) ; réf. du {ref_date} → courant du {new_date}). "
+            "Mettez à jour les diamètres et sondages, puis « Diagnostic de "
+            "la comparaison ».")
+
     def action_compare_arbre(self) -> None:
-        """Ouvre la fenêtre de comparaison de l'arbre courant avec un arbre
-        de la mission de référence (chargée à la 1re utilisation)."""
+        """Ouvre la fenêtre « Diagnostic de la comparaison » : l'arbre courant
+        confronté à son homologue de la mission de référence (figée par
+        `action_reinspection`, ou choisie manuellement à la 1re utilisation)."""
         if self._reference_chantier is None:
             messagebox.showinfo(
-                "Comparer une inspection",
-                "Choisissez d'abord la mission de référence — la campagne "
-                "antérieure à laquelle comparer.")
+                "Diagnostic de la comparaison",
+                "Aucune mission de référence n'est chargée.\n\n"
+                "Utilisez « Faire une comparaison… » pour partir d'une mission "
+                "antérieure, ou choisissez ici la mission de référence.")
             if not self.action_load_reference():
                 return
         ref = self._reference_chantier
@@ -194,6 +261,25 @@ class FichierMixin(_MixinBase):
             log.exception("Échec export comparaison")
             messagebox.showerror("Erreur", str(e))
 
+    def _install_chantier_ui(self) -> None:
+        """Recharge toute l'UI depuis `self.chantier` (méta, liste d'arbres,
+        onglets, filtres remis à zéro). Mutualisé entre l'ouverture de fichier
+        et la ré-inspection. NE touche PAS `current_file` / `_dirty` / récents
+        — câblés par l'appelant selon le contexte (ouverture vs ré-inspection)."""
+        if not self.chantier.arbres:
+            self.chantier.arbres.append(Arbre())
+        self.current_idx = 0
+        with self._suspend_sync_block():
+            self.var_ch_nom.set(self.chantier.nom)
+            self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_ope.set(self.chantier.operateur)
+            self.var_ch_date.set(self.chantier.date_releve)
+        self.var_filter.set("")  # mission rechargée → filtres remis à zéro
+        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+        self._update_title()
+
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise
         `action_open` et `action_open_recent`). Pousse le chemin dans
@@ -203,20 +289,8 @@ class FichierMixin(_MixinBase):
             self._dirty = False
             clear_recovery(_RECOVERY_PATH)
             self.chantier = load_chantier(p)
-            if not self.chantier.arbres:
-                self.chantier.arbres.append(Arbre())
-            self.current_idx = 0
             self.current_file = Path(p)
-            with self._suspend_sync_block():
-                self.var_ch_nom.set(self.chantier.nom)
-                self.var_ch_adr.set(self.chantier.adresse)
-                self.var_ch_ope.set(self.chantier.operateur)
-                self.var_ch_date.set(self.chantier.date_releve)
-            self.var_filter.set("")  # mission ouverte → filtres remis à zéro
-            self.var_risk_filter.set(_RISK_FILTER_ALL)
-            self._refresh_tree_arbres()
-            self._load_arbre_to_ui()
-            self._update_title()
+            self._install_chantier_ui()
             self._recent.push(p)
         except FileNotFoundError:
             messagebox.showerror(

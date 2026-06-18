@@ -43,6 +43,7 @@ class AppLike(Protocol):
     def action_open_backups_folder(self) -> None: ...
     def action_load_reference(self) -> bool: ...
     def action_compare_arbre(self) -> None: ...
+    def action_reinspection(self) -> None: ...
     # Exports globaux (mission) — les exports individuels (PNG, fiche
     # PDF, tableau XLSX/HTML) restent accessibles depuis l'onglet
     # Diagnostic, qui les expose en haut du pane.
@@ -122,16 +123,22 @@ def build_menu(app: AppLike) -> None:
     f.add_command(label="Exporter sondages mission (CSV)…",
                   command=app.action_export_csv)
     f.add_separator()
-    f.add_command(label="Comparer l'arbre courant à une mission…",
-                  command=app.action_compare_arbre)
-    f.add_command(label="Choisir la mission de référence…",
-                  command=app.action_load_reference)
-    f.add_separator()
     f.add_command(label="Ouvrir le dossier des sauvegardes…",
                   command=app.action_open_backups_folder)
     f.add_separator()
     f.add_command(label="Quitter", command=app.destroy)
     m.add_cascade(label="Fichier", menu=f)
+
+    # Comparaison (ré-inspection) — menu dédié, fonctionnalité mise en avant.
+    c = tk.Menu(m, tearoff=0)
+    c.add_command(label="Faire une comparaison (ré-inspection)…",
+                  command=app.action_reinspection)
+    c.add_command(label="Diagnostic de la comparaison…",
+                  command=app.action_compare_arbre)
+    c.add_separator()
+    c.add_command(label="Choisir la mission de référence…",
+                  command=app.action_load_reference)
+    m.add_cascade(label="Comparaison", menu=c)
 
     # Arbres
     a = tk.Menu(m, tearoff=0)

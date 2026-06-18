@@ -967,6 +967,11 @@ class ComparaisonDetail(NamedTuple):
     classe_cur: Optional[str]
     tR_moy_ref: Optional[float]
     tR_moy_cur: Optional[float]
+    # Rayon du tronc (cm) de chaque campagne — un arbre croît en diamètre
+    # avec le temps. Surfacé dans le tableau (ligne « Diamètre ») et déjà
+    # pris en compte dans les calculs (chaque PRBS/t/R utilise SON rayon).
+    rayon_ref: Optional[float] = None
+    rayon_cur: Optional[float] = None
 
 
 def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
@@ -1020,7 +1025,10 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
         compart_changees=sum(1 for d in directions
                              if d.compart_ref != d.compart_cur),
         classe_ref=s_ref.classe, classe_cur=s_cur.classe,
-        tR_moy_ref=s_ref.tR_moyen_pct, tR_moy_cur=s_cur.tR_moyen_pct)
+        tR_moy_ref=s_ref.tR_moyen_pct, tR_moy_cur=s_cur.tR_moyen_pct,
+        rayon_ref=(ref_b.rayon_tronc_cm if ref_b is not None
+                   and ref_b.rayon_tronc_cm > 0 else None),
+        rayon_cur=(cur_b.rayon_tronc_cm if cur_b.rayon_tronc_cm > 0 else None))
 
 
 def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
