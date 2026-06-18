@@ -549,7 +549,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Label(self.brin_bar, text="Brin :", style="BrinBar.TLabel").pack(
             side="left", padx=(0, 8), pady=7)
         self._brin_btns_holder = ttk.Frame(self.brin_bar, style="BrinBar.TFrame")
-        self._brin_btns_holder.pack(side="left", pady=5)
+        self._brin_btns_holder.pack(side="left", fill="x", expand=True, pady=5)
+        # Flow layout : re-répartir les boutons de brin quand la largeur
+        # disponible change (sinon, sur une cépée à nombreux brins, la
+        # rangée unique déborde du panneau — cf. `_reflow_brin_btns`).
+        self._brin_bar_last_w = -1
+        self._brin_btns_holder.bind("<Configure>", self._on_brin_bar_configure)
 
         nb = ttk.Notebook(frame)
         self.nb = nb
@@ -1008,9 +1013,41 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 self._brin_btns_holder, text=f"Brin {label}",
                 value=i, variable=self.var_current_brin, style="Brin.Toolbutton",
                 command=partial(self.set_current_brin, i))
-            rb.pack(side="left", padx=(0, 6))
             self._brin_btns.append(rb)
         bar.pack(fill="x", pady=(0, 8), before=self.nb)
+        self._reflow_brin_btns()
+
+    def _on_brin_bar_configure(self, event: "tk.Event[tk.Misc]") -> None:
+        """Re-répartit les boutons de brin quand la largeur du holder
+        change (redimensionnement du panneau central)."""
+        w = event.width
+        if w == self._brin_bar_last_w:
+            return
+        self._brin_bar_last_w = w
+        self._reflow_brin_btns(avail=w)
+
+    def _reflow_brin_btns(self, avail: "int | None" = None) -> None:
+        """Dispose les boutons de brin en grille à retour à la ligne.
+
+        Une rangée unique `side="left"` déborde du panneau central sur une
+        cépée à nombreux brins → les derniers brins sortent de la page et
+        deviennent incliquables. On calcule combien de boutons tiennent dans
+        la largeur disponible et on les répartit sur plusieurs rangées."""
+        btns = self._brin_btns
+        if not btns:
+            return
+        holder = self._brin_btns_holder
+        if avail is None:
+            holder.update_idletasks()
+            avail = holder.winfo_width()
+        pad = 6
+        bw = max((b.winfo_reqwidth() for b in btns), default=1) + pad
+        # avail <= 1 : holder pas encore dimensionné → tout sur une rangée
+        # (sera reflowé au 1er <Configure>).
+        cols = len(btns) if avail <= 1 else max(1, avail // bw)
+        for idx, b in enumerate(btns):
+            r, c = divmod(idx, cols)
+            b.grid(row=r, column=c, padx=(0, pad), pady=2, sticky="w")
 
     def _load_arbre_to_ui(self) -> None:
         """Recharge l'UI complète depuis l'arbre courant : identification

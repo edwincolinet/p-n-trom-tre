@@ -29,8 +29,10 @@ from tkinter import ttk
 from typing import Any, Callable, Mapping, Optional
 
 from comparaison_render import (
+    PTS_LEGENDE,
     metric_rows,
     render_brin_section,
+    render_comparison_cards,
     render_comparison_pages,
     render_evolution_section_brin,
 )
@@ -171,10 +173,10 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     ttk.Button(foot, text="Fermer", style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
     ttk.Button(foot, text="🖼 PNG…", style="Ghost.TButton",
-               command=lambda: export_cb("png", _page_builder(state), dlg)
+               command=lambda: export_cb("png", _page_builder(state, "png"), dlg)
                ).pack(side="right", padx=6)
     ttk.Button(foot, text="📄 PDF…", style="Accent.TButton",
-               command=lambda: export_cb("pdf", _page_builder(state), dlg)
+               command=lambda: export_cb("pdf", _page_builder(state, "pdf"), dlg)
                ).pack(side="right")
 
     def _on_select(_e: Any = None) -> None:
@@ -266,6 +268,10 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
         tbl.insert("", "end", values=r)
     tbl.pack(fill="x")
 
+    ttk.Label(block, text=PTS_LEGENDE, style="Muted.TLabel",
+              wraplength=900, justify="left").pack(anchor="w", padx=12,
+                                                   pady=(2, 0))
+
     ttk.Label(block, text=verdict_evolution(detail), style="Panel.TLabel",
               font=("Helvetica", 11, "bold"), wraplength=900, justify="left",
               foreground=_verdict_color(detail.classe_ref, detail.classe_cur)
@@ -282,17 +288,23 @@ def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
     return img
 
 
-def _page_builder(state: dict) -> Callable[[], Any]:
-    """Renvoie une closure qui rend **la liste des pages** d'export depuis la
-    sélection courante (capturée dans `state`) : une page par brin pour une
-    cépée, une page genet pour un mono-caule (cf. `render_comparison_pages`)."""
+def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
+    """Renvoie une closure qui rend **la liste des images** d'export depuis la
+    sélection courante (capturée dans `state`), une par brin pour une cépée.
+
+    Le format dicte la composition : `pdf` → feuilles A4 livrables (en-tête,
+    3 dessins, tableau chiffré, verdict — `render_comparison_pages`) ; `png` →
+    cartes visuelles resserrées (3 dessins + verdict, sans tableau —
+    `render_comparison_cards`)."""
     def _build() -> Any:
         args = state.get("builder_args")
         if args is None:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
         (nom, ref_arbre, cur, annees, ref_label, cur_label,
          show_sondages) = args
-        return render_comparison_pages(
+        render = (render_comparison_cards if fmt == "png"
+                  else render_comparison_pages)
+        return render(
             nom, ref_arbre, cur, annees, ref_label=ref_label,
             cur_label=cur_label, show_sondages=show_sondages)
     return _build

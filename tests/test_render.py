@@ -216,6 +216,45 @@ class ComparaisonExportPagesTests(unittest.TestCase):
         save_comparison_png(pages, path)
         self.assertEqual(Image.open(path).height, 2 * _PAGE_H)
 
+    def test_carte_une_pour_mono_caule(self):
+        from comparaison_render import render_comparison_cards
+        cards = render_comparison_cards(
+            "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        self.assertEqual(len(cards), 1)
+
+    def test_carte_une_par_brin_pour_cepee(self):
+        from comparaison_render import render_comparison_cards
+        cards = render_comparison_cards(
+            "M", self._arbre(1, 8.0), self._arbre(3, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        self.assertEqual(len(cards), 3)
+
+    def test_carte_n_est_pas_une_page_a4(self):
+        # La carte PNG est resserrée (pas de tableau) → largeur dédiée et
+        # hauteur nettement inférieure à la feuille A4 (≠ copie du PDF).
+        from comparaison_render import (
+            _CARD_W,
+            _PAGE_H,
+            render_comparison_cards,
+        )
+        card = render_comparison_cards(
+            "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")[0]
+        self.assertEqual(card.width, _CARD_W)
+        self.assertLess(card.height, _PAGE_H)
+
+    def test_carte_show_sondages_false_masque_les_fleches(self):
+        from PIL import ImageChops
+
+        from comparaison_render import render_comparison_cards
+        ref, cur = self._arbre(1, 8.0), self._arbre(1, 5.0)
+        on = render_comparison_cards("M", ref, cur, 2.0, ref_label="r",
+                                     cur_label="c", show_sondages=True)[0]
+        off = render_comparison_cards("M", ref, cur, 2.0, ref_label="r",
+                                      cur_label="c", show_sondages=False)[0]
+        self.assertIsNotNone(ImageChops.difference(on, off).getbbox())
+
 
 def _regenerate_fixtures() -> None:
     if not HAS_PIL:

@@ -15,12 +15,12 @@ Module sans Tk (PIL pur). Les calculs viennent de `diagnostic`
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 from diagnostic import (
     comparaison_detaillee,
     comparaison_par_brin,
-    prbs_par_grade,
+    evolution_classe,
     rayon_par_grade,
     verdict_evolution,
 )
@@ -88,40 +88,73 @@ def render_brin_section(src: "Arbre", brin: "Brin", size: int = 460,
 def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
                                   size: int = 460) -> "PILImage":
     """« Section d'évolution » d'**un brin** : sur la géométrie du brin
-    COURANT, la couronne de bois sain **perdu depuis la référence** est
-    surlignée en orange — entre l'ancien bord de cavité (R − PRBS_réf) et le
-    nouveau (R − PRBS_courant). Au centre : la cavité déjà altérée à la
-    référence.
+    COURANT, le bois sain **perdu depuis la référence** est surligné en
+    orange. Contrairement à une lecture « tout depuis le centre », la perte
+    est placée À SA VRAIE POSITION :
 
-    `ref_b=None` (brin sans homologue de référence) ⟹ pas de couronne orange
-    (PRBS_réf = PRBS_courant) et une légende « pas de brin de référence ».
+    - l'**altération interne** (cavité) creuse depuis le **centre** ;
+    - la **dégradation externe** ronge depuis la **surface du bois** (sous
+      l'écorce).
+
+    Couches concentriques par direction (du bord vers le centre) : écorce →
+    bande externe déjà dégradée au ref (`COLOR_ROT`) → bois perdu en externe
+    depuis le ref (orange) → bois sain restant (`COLOR_WOOD`) → cavité interne
+    nouvelle depuis le ref (orange) → cavité interne déjà présente au ref
+    (`COLOR_ROT`). La section ressemble alors à la section réelle (l'encoche
+    externe reste sur le pourtour, plus jamais aspirée vers le cœur).
+
+    `ref_b=None` (brin sans homologue de référence) ⟹ aucune couronne orange
+    (réf = courant) et une légende « pas de brin de référence ».
 
     Tout est exprimé sur le rayon LOCAL courant (`rayon_par_grade`) et les
-    PRBS **extrapolées** sur 16 directions, donc complet même sur les
+    altérations **extrapolées** sur 16 directions, donc complet même sur les
     directions non sondées. Schématique (16-gon), pas les cernes."""
     from PIL import Image, ImageDraw
+
+    from diagnostic import (
+        compute_alteration_par_grade,
+        degradation_externe_par_grade,
+    )
     img = Image.new("RGB", (size, size), "white")
     d = ImageDraw.Draw(img)
     f = _pil_load_fonts()
 
     R = rayon_par_grade(cur_b)                 # rayon local courant, 16 dir.
     ep = max(0.0, cur_b.epaisseur_ecorce_cm)
-    prbs_c = prbs_par_grade(cur_b)
-    # Pas d'homologue de référence → on prend la PRBS courante (aucune
-    # couronne orange : rien à comparer, on montre l'état courant seul).
-    prbs_r = prbs_par_grade(ref_b) if ref_b is not None else list(prbs_c)
-    outer = [R[i] + ep for i in range(16)]
-    cur_cav = [R[i] - prbs_c[i] for i in range(16)]   # nouvelle cavité
-    ref_cav = [R[i] - prbs_r[i] for i in range(16)]   # ancienne cavité
+    cur_alt = compute_alteration_par_grade(cur_b)      # cavité interne (centre)
+    cur_deg = degradation_externe_par_grade(cur_b)     # dégrad. externe (bord)
+    if ref_b is not None:
+        ref_alt = compute_alteration_par_grade(ref_b)
+        ref_deg = degradation_externe_par_grade(ref_b)
+    else:
+        # Pas d'homologue : rien à comparer → on montre l'état courant seul
+        # (réf = courant ⟹ aucune bande orange).
+        ref_alt, ref_deg = list(cur_alt), list(cur_deg)
 
+    outer = [R[i] + ep for i in range(16)]
     rmax = max(outer) if outer else 1.0
     cx, cy = size / 2.0, size * 0.45
     scale = (size * 0.40) / (rmax if rmax > 0 else 1.0)
 
-    d.polygon(_poly(cx, cy, scale, outer), fill=COLOR_BARK)        # écorce
-    d.polygon(_poly(cx, cy, scale, R), fill=COLOR_WOOD)           # bois sain
-    d.polygon(_poly(cx, cy, scale, cur_cav), fill=_ORANGE)        # bois perdu
-    d.polygon(_poly(cx, cy, scale, ref_cav), fill=COLOR_ROT)      # cavité réf.
+    # Empilement de disques centrés tronqués au rayon LOCAL, du bord externe
+    # vers le centre. Un running-min par direction borne chaque rayon au
+    # précédent : l'ordre des couches reste valide même si une mesure
+    # « s'améliore » (cas non physique : cavité/dégradation ne se referment
+    # pas — la bande orange se replie alors au lieu d'apparaître à tort).
+    layers = [
+        ([R[i] + ep         for i in range(16)], COLOR_BARK),   # écorce
+        ([R[i]              for i in range(16)], COLOR_ROT),    # ext. au ref
+        ([R[i] - ref_deg[i] for i in range(16)], _ORANGE),     # ext. perdu
+        ([R[i] - cur_deg[i] for i in range(16)], COLOR_WOOD),  # bois sain
+        ([cur_alt[i]        for i in range(16)], _ORANGE),     # int. perdu
+        ([ref_alt[i]        for i in range(16)], COLOR_ROT),   # cavité au ref
+    ]
+    running = [float("inf")] * 16
+    for radii, color in layers:
+        clamped = [max(0.0, min(radii[i], running[i])) for i in range(16)]
+        running = clamped
+        d.polygon(_poly(cx, cy, scale, clamped), fill=color)
+
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
     for g, lbl in ((0, "N"), (100, "E"), (200, "S"), (300, "O")):
@@ -144,6 +177,14 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
                "= bois sain perdu depuis la référence",
                font=sf, fill=COLOR_MUTED, anchor="lm")
     return img
+
+
+# Légende du « pts » de la ligne t/R moyen — partagée par la fenêtre Tk, la
+# page PDF et (en version courte) la carte PNG. Le « pts » = points de
+# pourcentage est correct mais jargonneux : un écart de 15 pts entre 45 % et
+# 30 % n'est PAS une baisse de 15 % (c'est −33 % en relatif). On l'explicite.
+PTS_LEGENDE = ("« pts » = points de pourcentage de t/R : l'écart direct entre "
+               "les deux % (et non une variation relative).")
 
 
 def _classe_aff(classe: Optional[str]) -> str:
@@ -275,8 +316,12 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
         y += row_h
     d.rectangle([margin, y_img + sec + 24, W - margin, y], outline="#BBBBBB")
 
+    # Note explicative du « pts » (sous le tableau).
+    y += 8
+    d.text((margin, y), PTS_LEGENDE, font=f(13, "sans"), fill=COLOR_MUTED)
+
     # Verdict.
-    y += 18
+    y += 28
     d.text((margin, y), verdict_evolution(detail),
            font=f(18, "sans_bold"), fill=COLOR_INK)
     return page
@@ -332,6 +377,155 @@ def render_comparison_pages(mission_nom: str, ref_arbre: "Arbre",
             mission_nom, titre, ref_label, cur_label,
             ref_img, cur_img, evo_img, detail))
     return pages
+
+
+# --- « Carte visuelle » de comparaison (export PNG) ----------------------
+# Le PNG n'est plus une rasterisation de la feuille A4 (en-tête, tableau
+# chiffré, verdict) : c'est une image resserrée, centrée sur les TROIS
+# dessins (référence / courant / évolution) + le verdict. Pensée pour le
+# partage rapide ou l'insertion dans un rapport, là où la fiche A4 (PDF)
+# reste le livrable formel. Cf. choix produit (carte visuelle).
+_CARD_MARGIN = 40
+_CARD_GAP = 24
+_CARD_SEC = _PAGE_SEC                                   # 532, dessins nets
+_CARD_W = 2 * _CARD_MARGIN + 3 * _CARD_SEC + 2 * _CARD_GAP
+
+
+def _verdict_rgb(detail: "ComparaisonDetail") -> Any:
+    """Couleur du verdict selon l'évolution de classe (aggravation = rouge,
+    amélioration = vert, stable = encre). Pendant PIL de `_verdict_color`
+    (côté Tk) — gardé local pour que ce module reste sans dépendance UI."""
+    evo = evolution_classe(detail.classe_ref, detail.classe_cur)
+    if evo is None:
+        return COLOR_MUTED
+    if evo > 0:
+        return "#C0392B"
+    if evo < 0:
+        return "#2D7A3E"
+    return COLOR_INK
+
+
+def _wrap_card(text: str, font: Any, max_w: float, draw: Any,
+               max_lines: int = 3) -> List[str]:
+    """Retour à la ligne par mots pour le verdict de la carte (borné)."""
+    lines: List[str] = []
+    cur = ""
+    for word in (text or "").split():
+        trial = (cur + " " + word).strip()
+        if not cur or draw.textbbox((0, 0), trial, font=font)[2] <= max_w:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines[:max_lines]
+
+
+def _compose_comparison_card(titre: str, sous_titre: str, ref_label: str,
+                             cur_label: str, ref_img: "PILImage",
+                             cur_img: "PILImage", evo_img: "PILImage",
+                             detail: "ComparaisonDetail") -> "PILImage":
+    """Compose une carte visuelle : titre léger, 3 dessins côte à côte avec
+    en-têtes de colonne, verdict coloré dessous. Pas de bandeau plein ni de
+    tableau chiffré (≠ page A4). Hauteur ajustée au verdict (1 à 3 lignes)."""
+    from PIL import Image, ImageDraw
+    f = _pil_load_fonts()
+    margin, gap, sec, W = _CARD_MARGIN, _CARD_GAP, _CARD_SEC, _CARD_W
+
+    title_font = f(30, "serif_bold")
+    sub_font = f(17, "sans")
+    col_font = f(20, "sans_bold")
+    verdict_font = f(21, "sans_bold")
+    note_font = f(14, "sans")
+
+    title_h, sub_h = 40, (26 if sous_titre else 0)
+    gap_after_title, col_h, gap_after_img, line_h = 18, 34, 22, 30
+
+    # Pré-mesure du verdict (wrap) pour dimensionner la hauteur de la carte.
+    tmp = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    verdict = verdict_evolution(detail)
+    vlines = _wrap_card(verdict, verdict_font, W - 2 * margin, tmp)
+    verdict_h = max(1, len(vlines)) * line_h
+    # Note « pts » seulement si le verdict en contient (t/R comparable).
+    show_note = "pts" in verdict
+    note_h = 28 if show_note else 0
+
+    total_h = (margin + title_h + sub_h + gap_after_title + col_h + sec
+               + gap_after_img + verdict_h + note_h + margin)
+
+    card = Image.new("RGB", (W, total_h), "white")
+    d = ImageDraw.Draw(card)
+
+    # Filet d'accent vertical à gauche (rappel du langage visuel des fiches).
+    d.rectangle([0, 0, 6, total_h], fill=COLOR_ACCENT)
+
+    y = margin
+    d.text((margin, y), titre, font=title_font, fill=COLOR_INK)
+    y += title_h
+    if sous_titre:
+        d.text((margin, y), sous_titre, font=sub_font, fill=COLOR_MUTED)
+        y += sub_h
+    y += gap_after_title
+
+    cols = ((f"Référence — {ref_label}", ref_img),
+            (f"Courant — {cur_label}", cur_img),
+            ("Évolution de l'altération", evo_img))
+    y_img = y + col_h
+    for i, (titre_col, img) in enumerate(cols):
+        x = margin + i * (sec + gap)
+        d.text((x + sec / 2, y), titre_col, font=col_font,
+               fill=COLOR_INK, anchor="ma")
+        card.paste(img, (x, y_img))
+    y = y_img + sec + gap_after_img
+
+    vcol = _verdict_rgb(detail)
+    for line in vlines:
+        d.text((margin, y), line, font=verdict_font, fill=vcol)
+        y += line_h
+    if show_note:
+        y += 4
+        d.text((margin, y), PTS_LEGENDE, font=note_font, fill=COLOR_MUTED)
+    return card
+
+
+def render_comparison_cards(mission_nom: str, ref_arbre: "Arbre",
+                            cur_arbre: "Arbre", annees: Optional[float],
+                            *, ref_label: str, cur_label: str,
+                            show_sondages: bool = True) -> List["PILImage"]:
+    """Cartes visuelles d'export PNG : **une carte par brin** pour une cépée,
+    une carte **genet** pour un mono-caule. Même appariement et même choix de
+    dessins que `render_comparison_pages`, mais composition resserrée (3
+    dessins + verdict, sans tableau). Le sous-titre rappelle la mission."""
+    sous_titre = f"Mission « {mission_nom or 'Mission'} »"
+    if len(cur_arbre.brins) <= 1:
+        detail = comparaison_detaillee(ref_arbre, cur_arbre, annees)
+        ref_img = render_arbre_to_pil_image(
+            ref_arbre, _CARD_SEC, _CARD_SEC, show_sondages=show_sondages,
+            show_title=False, show_legend=False)
+        cur_img = render_arbre_to_pil_image(
+            cur_arbre, _CARD_SEC, _CARD_SEC, show_sondages=show_sondages,
+            show_title=False, show_legend=False)
+        evo_img = render_evolution_section(ref_arbre, cur_arbre, _CARD_SEC)
+        return [_compose_comparison_card(
+            f"Comparaison d'inspections — {cur_arbre.display_name}",
+            sous_titre, ref_label, cur_label,
+            ref_img, cur_img, evo_img, detail)]
+    cards: List["PILImage"] = []
+    for label, cur_b, ref_b, detail in comparaison_par_brin(
+            ref_arbre, cur_arbre, annees):
+        ref_img = (render_brin_section(ref_arbre, ref_b, _CARD_SEC,
+                                       show_sondages=show_sondages)
+                   if ref_b is not None
+                   else _blank_section(_CARD_SEC, "pas de brin de référence"))
+        cur_img = render_brin_section(cur_arbre, cur_b, _CARD_SEC,
+                                      show_sondages=show_sondages)
+        evo_img = render_evolution_section_brin(ref_b, cur_b, _CARD_SEC)
+        cards.append(_compose_comparison_card(
+            f"Comparaison d'inspections — {cur_arbre.display_name} — Brin {label}",
+            sous_titre, ref_label, cur_label,
+            ref_img, cur_img, evo_img, detail))
+    return cards
 
 
 def save_comparison_png(pages: List["PILImage"], path: str) -> None:
