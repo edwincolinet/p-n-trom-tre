@@ -32,7 +32,8 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
-from dialogs import ask_forme_tronc, to_float, validate_numeric
+from dialogs import ask_forme_tronc
+from dialogs_shared import to_float, validate_numeric
 from model import Arbre, Brin
 from palette import COLOR_PANEL
 from tooltip import Tooltip

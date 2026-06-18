@@ -36,7 +36,8 @@ from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
-from dialogs import edit_contrefort, to_float, validate_numeric
+from dialogs import edit_contrefort
+from dialogs_shared import to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from model import Brin, Contrefort
 from palette import COLOR_ACCENT

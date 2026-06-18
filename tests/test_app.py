@@ -585,6 +585,36 @@ class TestAppMixins(unittest.TestCase):
         self.app.var_filter.set("plat")         # concorde + Vert
         self.assertTrue(self.app._arbre_matches_filter(a))
 
+    def test_filtre_urgence_niveau(self) -> None:
+        a0 = self.app.chantier.arbres[0]
+        a0.urgence = "Immédiate"
+        self.app.action_add_arbre()
+        a1 = self.app.chantier.arbres[1]
+        a1.urgence = "< 2 ans"
+        self.app.action_add_arbre()
+        a2 = self.app.chantier.arbres[2]
+        a2.urgence = ""  # non renseignée
+
+        self.app.var_urgence_filter.set("Immédiate")
+        self.assertTrue(self.app._arbre_matches_filter(a0))
+        self.assertFalse(self.app._arbre_matches_filter(a1))
+        self.assertFalse(self.app._arbre_matches_filter(a2))
+
+        self.app.var_urgence_filter.set("Non renseignée")
+        self.assertFalse(self.app._arbre_matches_filter(a0))
+        self.assertFalse(self.app._arbre_matches_filter(a1))
+        self.assertTrue(self.app._arbre_matches_filter(a2))
+
+        self.app.var_urgence_filter.set("Toutes")
+        self.assertTrue(self.app._arbre_matches_filter(a0))
+        self.assertTrue(self.app._arbre_matches_filter(a1))
+        self.assertTrue(self.app._arbre_matches_filter(a2))
+
+    def test_filtre_urgence_efface_a_la_creation(self) -> None:
+        self.app.var_urgence_filter.set("Immédiate")
+        self.app.action_add_arbre()
+        self.assertEqual(self.app.var_urgence_filter.get(), "Toutes")
+
     def test_preconisation_edition_et_undo(self) -> None:
         pane = self.app.pane_diag
         self.app.nb.select(pane)

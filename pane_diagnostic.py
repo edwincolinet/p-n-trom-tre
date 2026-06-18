@@ -30,8 +30,9 @@ from diagnostic import (
     degradation_externe_par_grade,
     genet_summary_tagged,
 )
-from dialogs import (SUIVI_VALIDITES, ask_date, ask_suivi_custom,
-                     ask_urgences_custom, normaliser_date)
+from dialogs import ask_date
+from dialogs_settings import ask_suivi_custom, ask_urgences_custom
+from dialogs_shared import SUIVI_VALIDITES, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
@@ -46,6 +47,7 @@ _SUIVI_VIDE = "— Non renseignée —"
 class _DiagnosticHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
     def action_export_pdf_arbre(self) -> None: ...
+    def action_print_arbre(self) -> None: ...
     def action_export_png(self) -> None: ...
     def action_export_prbs_xlsx(self) -> None: ...
     def action_export_prbs_html(self) -> None: ...
@@ -127,6 +129,12 @@ class DiagnosticPane(ttk.Frame):
         btn_pdf.pack(side="left", padx=(0, 6))
         Tooltip(btn_pdf, "Exporter la fiche PDF de l'arbre courant "
                          "(dessin + tableau + diagnostic) — Ctrl+E")
+        btn_print = ttk.Button(btn_exp, text="🖨 Imprimer",
+                               style="Ghost.TButton",
+                               command=self._host.action_print_arbre)
+        btn_print.pack(side="left", padx=(0, 6))
+        Tooltip(btn_print, "Imprimer la fiche PDF directement "
+                           "(sans dialogue de sauvegarde) — Ctrl+P")
         btn_png = ttk.Button(btn_exp, text="🖼 PNG du dessin",
                              style="Ghost.TButton",
                              command=self._host.action_export_png)

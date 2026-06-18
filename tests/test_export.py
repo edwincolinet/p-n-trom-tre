@@ -402,6 +402,65 @@ class MissionSynthesisRowsTests(unittest.TestCase):
         self.assertIsNone(r.classe_globale)
         self.assertIsNone(r.tR_min_pct)
 
+    def test_trier_par_urgence_ordonne_les_groupes(self):
+        from diagnostic import mission_synthesis_rows
+        from model import Chantier
+        grades_fiables = list(range(0, 400, 25))  # 16 sondages
+        c = Chantier()
+        # a1 : urgence basse (< 2 ans), classe Rouge
+        a1 = Arbre(numero_arbre="1", port_arbre="libre",
+                   rayon_tronc_cm=20.0, urgence="< 2 ans")
+        for g in grades_fiables:
+            a1.sondages.append(Sondage(grade=g, bois_sain_cm=2.0,
+                                       bois_altere_cm=18.0))
+        # a2 : urgence haute (Immédiate), classe Vert
+        a2 = Arbre(numero_arbre="2", port_arbre="libre",
+                   rayon_tronc_cm=20.0, urgence="Immédiate")
+        for g in grades_fiables:
+            a2.sondages.append(Sondage(grade=g, bois_sain_cm=18.0,
+                                       bois_altere_cm=2.0))
+        # a3 : urgence non renseignée
+        a3 = Arbre(numero_arbre="3", urgence="")
+        c.arbres = [a1, a2, a3]
+        rows = mission_synthesis_rows(c, trier_par_urgence=True)
+        numeros = [r.numero for r in rows if not r.brin_label]
+        # Immédiate < < 2 ans < non renseignée
+        self.assertEqual(numeros, ["2", "1", "3"])
+
+    def test_trier_par_urgence_egale_rouge_avant_vert(self):
+        from diagnostic import mission_synthesis_rows
+        from model import Chantier
+        grades_fiables = list(range(0, 400, 25))
+        c = Chantier()
+        # a1 : Immédiate + Vert
+        a1 = Arbre(numero_arbre="1", port_arbre="libre",
+                   rayon_tronc_cm=20.0, urgence="Immédiate")
+        for g in grades_fiables:
+            a1.sondages.append(Sondage(grade=g, bois_sain_cm=18.0,
+                                       bois_altere_cm=2.0))
+        # a2 : Immédiate + Rouge
+        a2 = Arbre(numero_arbre="2", port_arbre="libre",
+                   rayon_tronc_cm=20.0, urgence="Immédiate")
+        for g in grades_fiables:
+            a2.sondages.append(Sondage(grade=g, bois_sain_cm=2.0,
+                                       bois_altere_cm=18.0))
+        c.arbres = [a1, a2]
+        rows = mission_synthesis_rows(c, trier_par_urgence=True)
+        numeros = [r.numero for r in rows]
+        # même urgence : Rouge avant Vert
+        self.assertEqual(numeros, ["2", "1"])
+
+    def test_trier_par_urgence_false_conserve_ordre_saisie(self):
+        from diagnostic import mission_synthesis_rows
+        from model import Chantier
+        c = Chantier()
+        c.arbres = [
+            Arbre(numero_arbre="1", urgence="< 2 ans"),
+            Arbre(numero_arbre="2", urgence="Immédiate"),
+        ]
+        rows = mission_synthesis_rows(c, trier_par_urgence=False)
+        self.assertEqual([r.numero for r in rows], ["1", "2"])
+
 
 class SynthesisExportSmokeTests(unittest.TestCase):
     """Smoke-tests des exports de synthèse : on vérifie que les données

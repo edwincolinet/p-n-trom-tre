@@ -134,6 +134,54 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         messagebox.showerror("Erreur d'export PDF", str(e))
 
 
+def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
+                    chantier: Chantier,
+                    show_sondages: bool = True) -> None:
+    """Impression directe de la fiche PDF de l'arbre courant.
+
+    Génère la fiche dans un fichier temporaire, puis l'envoie à
+    l'imprimante par défaut (`lp` sur Linux, `lpr` sur macOS,
+    `os.startfile('print')` sur Windows). Aucun filedialog."""
+    if not _need_pil("PDF"):
+        return
+    if not arbre:
+        return
+    import subprocess
+    import sys
+    import tempfile
+    try:
+        cabinet_name, logo_path = _get_cabinet_info(parent)
+        page = render_fiche_arbre_to_pdf_page(arbre, chantier,
+                                              show_sondages=show_sondages,
+                                              logo_path=logo_path,
+                                              cabinet_name=cabinet_name)
+        num = arbre.numero_arbre or "arbre"
+        with tempfile.NamedTemporaryFile(
+                suffix=".pdf",
+                prefix=f"penetrometre_{num}_",
+                delete=False) as tmp:
+            tmp_path = tmp.name
+        page.save(tmp_path, "PDF", resolution=150.0)
+
+        if sys.platform.startswith("win"):
+            import os as _os
+            _os.startfile(tmp_path, "print")  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.run(["lpr", tmp_path], check=False)
+        else:
+            res = subprocess.run(["lp", tmp_path], capture_output=True)
+            if res.returncode != 0:
+                # CUPS absent ou non configuré → ouvrir dans le visualiseur
+                subprocess.run(["xdg-open", tmp_path], check=False)
+
+        set_status = getattr(parent, "set_status", None)
+        if set_status:
+            set_status(f"Impression envoyée — arbre n°{num}")
+    except Exception as e:
+        log.exception("Échec impression directe")
+        messagebox.showerror("Erreur d'impression", str(e))
+
+
 def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
                        show_sondages: bool = True) -> None:
     """Exporte un PDF unique multi-pages regroupant les fiches de tous
@@ -232,7 +280,8 @@ def export_synthesis_csv_mission(parent: tk.Misc,
     if not p:
         return
     try:
-        export_synthesis_csv(mission_synthesis_rows(chantier), p)
+        export_synthesis_csv(
+            mission_synthesis_rows(chantier, trier_par_urgence=True), p)
         _notify_export(parent, p, "Synthèse mission CSV enregistrée")
     except Exception as e:
         log.exception("Échec export synthèse CSV")
@@ -258,7 +307,8 @@ def export_synthesis_xlsx_mission(parent: tk.Misc,
     if not p:
         return
     try:
-        export_synthesis_xlsx(mission_synthesis_rows(chantier), chantier, p,
+        export_synthesis_xlsx(
+            mission_synthesis_rows(chantier, trier_par_urgence=True), chantier, p,
                               couleur_classe=COULEUR_CLASSE)
         _notify_export(parent, p, "Synthèse mission XLSX enregistrée")
     except Exception as e:

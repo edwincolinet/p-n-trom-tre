@@ -46,6 +46,11 @@ class ExportActionsMixin(_MixinBase):
                                      self.chantier,
                                      self.var_show_sondages.get())
 
+    def action_print_arbre(self) -> None:
+        app_exports.print_pdf_arbre(self, self._current_arbre(),
+                                    self.chantier,
+                                    self.var_show_sondages.get())
+
     def action_export_pdf_mission(self) -> None:
         app_exports.export_pdf_mission(self, self.chantier,
                                        self.var_show_sondages.get())

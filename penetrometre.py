@@ -25,7 +25,11 @@ from tkinter import messagebox, ttk
 from typing import Any, Iterator, Optional
 
 from aide_repliable import AideRepliable
-from app_arbres import _RISK_FILTER_ALL, _RISK_FILTER_CHOICES, ArbreListMixin
+from app_arbres import (
+    _RISK_FILTER_ALL, _RISK_FILTER_CHOICES,
+    _URGENCE_FILTER_ALL, _URGENCE_FILTER_NONE,
+    ArbreListMixin,
+)
 from app_export_actions import ExportActionsMixin
 from app_fichier import _BACKUP_PATH, FichierMixin
 from app_menu import build_menu, refresh_recent_menu
@@ -45,7 +49,8 @@ from dialogs import (
     edit_sondage,
     normaliser_date,
 )
-from model import Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
+from model import (Arbre, Brin, Chantier, Contrefort, DegradationExterne,
+                   Sondage, URGENCE_NIVEAUX)
 from palette import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_WARN, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -159,6 +164,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
         self.bind_all("<Control-e>", self._on_export_shortcut)
+        self.bind_all("<Control-p>", self._on_print_shortcut)
         # Navigation clavier entre arbres (Ctrl+PageDown/PageUp). Libre de
         # conflit : ttk.Notebook ne lie que Ctrl+Tab.
         self.bind_all("<Control-Next>", lambda e: self.action_next_arbre())
@@ -260,7 +266,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def action_cabinet_settings(self) -> None:
         """Ouvre le dialogue de configuration du cabinet (logo + nom)."""
-        from dialogs import ask_cabinet_settings
+        from dialogs_settings import ask_cabinet_settings
         changed = ask_cabinet_settings(self, self._settings)
         if changed:
             self._reload_logo()
@@ -274,6 +280,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
             return
         self.action_export_pdf_arbre()
+
+    def _on_print_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
+        """Ctrl+P → impression directe de la fiche PDF de l'arbre courant.
+        Neutralisé dans les champs texte (Ctrl+P = début de ligne)."""
+        w = self.focus_get()
+        if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
+            return
+        self.action_print_arbre()
 
     def _build_layout(self) -> None:
         header = ttk.Frame(self)
@@ -366,7 +380,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
-        # Filtre de la liste (par n° ou essence) — utile dès que la
+        # Filtre de la liste (par n°, essence ou commentaire) — utile dès que la
         # mission compte beaucoup d'arbres. N'altère PAS le modèle : ne
         # fait que masquer les lignes non concordantes (les iid `a{i}`
         # restent indexés sur la position réelle dans `chantier.arbres`,
@@ -389,7 +403,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # rouges » est le tri prioritaire de l'expert. Cf. _RISK_FILTER_*
         # et `_arbre_matches_filter`.
         rfilt = ttk.Frame(frame, style="Side.TFrame")
-        rfilt.pack(fill="x", pady=(0, 6))
+        rfilt.pack(fill="x", pady=(0, 4))
         ttk.Label(rfilt, text="Risque", style="Side.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_risk_filter = tk.StringVar(value=_RISK_FILTER_ALL)
@@ -399,6 +413,19 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         cmb_risk.pack(side="left", fill="x", expand=True)
         cmb_risk.bind("<<ComboboxSelected>>",
                       lambda e: self._refresh_tree_arbres())
+
+        ufilt = ttk.Frame(frame, style="Side.TFrame")
+        ufilt.pack(fill="x", pady=(0, 6))
+        ttk.Label(ufilt, text="Urgence", style="Side.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_urgence_filter = tk.StringVar(value=_URGENCE_FILTER_ALL)
+        self._cmb_urgence_filter = ttk.Combobox(
+            ufilt, textvariable=self.var_urgence_filter,
+            values=self._urgence_filter_choices(),
+            state="readonly", width=12)
+        self._cmb_urgence_filter.pack(side="left", fill="x", expand=True)
+        self._cmb_urgence_filter.bind("<<ComboboxSelected>>",
+                                      lambda e: self._refresh_tree_arbres())
 
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
@@ -1097,6 +1124,21 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def set_urgences_custom(self, values: "list[str]") -> None:
         """Persiste les niveaux d'urgence personnalisés."""
         self._settings.set_urgences_custom(values)
+        self._refresh_urgence_filter_choices()
+
+    def _urgence_filter_choices(self) -> "list[str]":
+        """Choices du filtre urgence : Toutes + standards + personnalisés + Non renseignée."""
+        return ([_URGENCE_FILTER_ALL]
+                + list(URGENCE_NIVEAUX)
+                + self.get_urgences_custom()
+                + [_URGENCE_FILTER_NONE])
+
+    def _refresh_urgence_filter_choices(self) -> None:
+        """Met à jour les valeurs du combobox filtre urgence après un changement
+        des niveaux personnalisés. No-op si le combobox n'est pas encore construit."""
+        if hasattr(self, "_cmb_urgence_filter"):
+            self._cmb_urgence_filter.configure(
+                values=self._urgence_filter_choices())
 
     def get_suivi_custom(self) -> "list[str]":
         """Durées de suivi personnalisées persistées dans les réglages."""
@@ -1218,6 +1260,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             "  Ctrl+O   Ouvrir une mission\n"
             "  Ctrl+S   Enregistrer\n"
             "  Ctrl+E   Exporter la fiche PDF de l'arbre courant\n"
+            "  Ctrl+P   Imprimer la fiche PDF de l'arbre courant\n"
             "\n"
             "Arbres\n"
             "  Ctrl+T        Ajouter un arbre\n"

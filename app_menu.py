@@ -46,6 +46,7 @@ class AppLike(Protocol):
     # Exports globaux (mission) — les exports individuels (PNG, fiche
     # PDF, tableau XLSX/HTML) restent accessibles depuis l'onglet
     # Diagnostic, qui les expose en haut du pane.
+    def action_print_arbre(self) -> None: ...
     def action_export_pdf_mission(self) -> None: ...
     def action_export_csv(self) -> None: ...
     def action_export_synthesis_xlsx(self) -> None: ...
@@ -107,6 +108,10 @@ def build_menu(app: AppLike) -> None:
     f.add_command(label="Enregistrer", accelerator="Ctrl+S",
                   command=app.action_save)
     f.add_command(label="Enregistrer sous…", command=app.action_save_as)
+    f.add_separator()
+    f.add_command(label="Imprimer la fiche (arbre courant)",
+                  accelerator="Ctrl+P",
+                  command=app.action_print_arbre)
     f.add_separator()
     f.add_command(label="Exporter la synthèse mission (XLSX)…",
                   command=app.action_export_synthesis_xlsx)

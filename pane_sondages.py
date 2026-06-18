@@ -40,7 +40,8 @@ from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
-from dialogs import edit_sondage, to_float, validate_numeric
+from dialogs import edit_sondage
+from dialogs_shared import to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from model import Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_WARN

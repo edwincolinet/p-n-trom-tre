@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Optional
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import genet_diagnostic
 from dialogs import ask_string
-from model import Arbre
+from model import Arbre, URGENCE_NIVEAUX
 
 # Cf. note dans `app_recovery` : base `tk.Tk` pour mypy (self = widget),
 # `object` au runtime.
@@ -50,6 +50,13 @@ _RISK_FILTER_UNRELIABLE = "Non fiable"
 _RISK_FILTER_CHOICES = (_RISK_FILTER_ALL, CLASSE_VERT, CLASSE_ORANGE,
                         CLASSE_ROUGE, _RISK_FILTER_UNRELIABLE)
 
+# Filtre par urgence de préconisation. « Non renseignée » = urgence == "".
+_URGENCE_FILTER_ALL = "Toutes"
+_URGENCE_FILTER_NONE = "Non renseignée"
+_URGENCE_FILTER_CHOICES = (
+    (_URGENCE_FILTER_ALL,) + tuple(URGENCE_NIVEAUX) + (_URGENCE_FILTER_NONE,)
+)
+
 
 class ArbreListMixin(_MixinBase):
     """Méthodes du panneau « Arbres de la mission ». Mixin de `App`."""
@@ -64,6 +71,7 @@ class ArbreListMixin(_MixinBase):
         tree_arbres: ttk.Treeview
         var_filter: tk.StringVar
         var_risk_filter: tk.StringVar
+        var_urgence_filter: tk.StringVar
         lbl_etat_footer: ttk.Label
         _tree_arbres_ctx_menu: tk.Menu
         pane_id: IdentificationPane
@@ -77,14 +85,16 @@ class ArbreListMixin(_MixinBase):
 
     def _arbre_matches_filter(self, a: Arbre) -> bool:
         """Vrai si l'arbre concorde avec les filtres courants : recherche
-        texte (sous-chaîne insensible à la casse sur n° OU essence) **ET**
-        filtre par classe de risque. Filtres vides = tout passe. Tolérant
-        si appelé avant la construction des champs."""
+        texte (sous-chaîne insensible à la casse sur n°, essence **ou
+        commentaire**) **ET** filtre par classe de risque **ET** filtre par
+        urgence de préconisation. Filtres vides = tout passe. Tolérant si
+        appelé avant la construction."""
         q = getattr(self, "var_filter", None)
         if q is not None:
             needle = q.get().strip().lower()
             if needle and not (needle in a.numero_arbre.lower()
-                               or needle in a.essence.lower()):
+                               or needle in a.essence.lower()
+                               or needle in a.commentaire.lower()):
                 return False
         rf = getattr(self, "var_risk_filter", None)
         if rf is not None:
@@ -95,6 +105,15 @@ class ArbreListMixin(_MixinBase):
                     if risque != "—":
                         return False
                 elif risque != choice:
+                    return False
+        uf = getattr(self, "var_urgence_filter", None)
+        if uf is not None:
+            choice = uf.get()
+            if choice and choice != _URGENCE_FILTER_ALL:
+                if choice == _URGENCE_FILTER_NONE:
+                    if a.urgence != "":
+                        return False
+                elif a.urgence != choice:
                     return False
         return True
 
@@ -268,7 +287,7 @@ class ArbreListMixin(_MixinBase):
         self._load_arbre_to_ui()
 
     def _clear_filter_if_set(self) -> None:
-        """Vide les filtres de la liste (texte ET risque) s'ils sont
+        """Vide les filtres de la liste (texte, risque ET urgence) s'ils sont
         actifs — pour qu'un arbre nouvellement créé (toujours « Non
         fiable » au départ) reste visible. No-op si déjà vides (pas de
         refresh parasite)."""
@@ -278,6 +297,9 @@ class ArbreListMixin(_MixinBase):
         if (getattr(self, "var_risk_filter", None) is not None
                 and self.var_risk_filter.get() != _RISK_FILTER_ALL):
             self.var_risk_filter.set(_RISK_FILTER_ALL)
+        if (getattr(self, "var_urgence_filter", None) is not None
+                and self.var_urgence_filter.get() != _URGENCE_FILTER_ALL):
+            self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
 
     def action_add_arbre_inherit(self) -> None:
         """Ajoute un arbre héritant des champs d'« identité » de l'arbre

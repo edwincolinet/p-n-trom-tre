@@ -35,10 +35,10 @@ from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
-from dialogs import (
+from dialogs import edit_degradation
+from dialogs_shared import (
     ZONE_DEGRADEE_AIDE,
     ZONE_DEGRADEE_CHOICES,
-    edit_degradation,
     find_grade_choice,
     grade_choices,
     message_chevauchement,

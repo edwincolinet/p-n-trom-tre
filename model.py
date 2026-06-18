@@ -436,13 +436,11 @@ class Arbre:
     Un arbre ordinaire (mono-caule) a exactement **un** brin ; une **cépée**
     en a plusieurs.
 
-    Compatibilité (transition Étape 0) : la géométrie et les mesures vivaient
-    auparavant directement sur `Arbre`. Pour ne pas réécrire les ~140 points
-    d'accès du code (panes, renderers, exports, diagnostic) tant que l'UI ne
-    gère qu'un brin, des **propriétés-relais** (`rayon_tronc_cm`, `sondages`,
-    …) et des méthodes-relais (`set_rayon`, `renumeroter_*`) délèguent au
-    **premier brin** (`brins[0]`). Ces relais sont des points de couplage
-    *temporaires* — ils disparaîtront quand l'UI saura sélectionner un brin.
+    Compatibilité : la géométrie et les mesures vivaient auparavant directement
+    sur `Arbre`. Des **propriétés-relais** (`rayon_tronc_cm`, `sondages`, …) et
+    des méthodes-relais (`set_rayon`, `renumeroter_*`) délèguent au **premier
+    brin** (`brins[0]`) pour que le code mono-caule (panes, renderers, exports,
+    diagnostic) continue de fonctionner sans changement.
     """
     numero_arbre: str = "1"
     essence: str = ""
@@ -478,9 +476,8 @@ class Arbre:
         preconisation: str = "",
         suivi_validite: str = "",
         suivi_texte: str = "",
-        # --- Compat Étape 0 : kwargs de géométrie/mesures qui vivaient sur
-        # `Arbre` avant l'introduction des brins. Routés vers le brin courant
-        # (brins[0]). À retirer quand les appelants construiront des `Brin`.
+        # --- Compat : kwargs de géométrie/mesures hérités de l'API pré-brins.
+        # Routés vers le premier brin (brins[0]) pour la compatibilité fichiers.
         rayon_tronc_cm: "Optional[float]" = None,
         diametre_sous_ecorce_cm: "Optional[float]" = None,
         epaisseur_ecorce_cm: "Optional[float]" = None,
@@ -518,17 +515,15 @@ class Arbre:
         if contreforts is not None:
             b.contreforts = contreforts
 
-    # ---- Relais de compatibilité vers le premier brin (Étape 0) ----------
-    # Délèguent au brin courant (brins[0]) pour que tout le code écrit avant
-    # l'introduction des cépées continue de fonctionner sans changement. À
-    # retirer progressivement quand chaque appelant ciblera un brin explicite.
+    # ---- Relais de compatibilité vers le premier brin ---------------------
+    # Délèguent à brins[0] pour que le code mono-caule continue de fonctionner
+    # sans changement. Le brin courant de l'UI est sélectionné via App.
 
     @property
     def brin_courant(self) -> Brin:
-        """Le brin actuellement piloté par les relais de compat (brins[0]).
+        """Premier brin (brins[0]), cible des propriétés-relais de compatibilité.
 
-        Garantit la présence d'au moins un brin (auto-réparation défensive si
-        une désérialisation produisait une liste vide)."""
+        Auto-répare une liste vide issue d'une désérialisation corrompue."""
         if not self.brins:
             self.brins = [Brin()]
         return self.brins[0]

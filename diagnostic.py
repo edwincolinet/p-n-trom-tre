@@ -38,11 +38,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union
 
-from bareme import classer_prbs
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
 from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy, polar_to_xy
+from model import URGENCE_NIVEAUX, URGENCE_RANG
 
 if TYPE_CHECKING:
     from model import Arbre, Brin, Chantier, DegradationExterne  # noqa: F401
+    # URGENCE_NIVEAUX / URGENCE_RANG sont importés à l'exécution ci-dessus.
 
     # Une « section » = tout ce qui expose la surface géométrique d'une tige
     # (rayon par direction, sondages, dégradations) : un `Brin` (= ramet,
@@ -782,14 +784,28 @@ def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
         brin_label="")
 
 
-def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
-    """Synthèse de la mission, dans l'ordre de la liste d'arbres.
+# Rang de tri pour la classe de risque : Rouge = priorité haute, None/inconnu
+# = priorité basse (non fiable). Utilisé par `mission_synthesis_rows`.
+_CLASSE_RANG: Dict[Optional[str], int] = {
+    CLASSE_ROUGE: 0, CLASSE_ORANGE: 1, CLASSE_VERT: 2
+}
+
+
+def mission_synthesis_rows(chantier: "Chantier", *,
+                           trier_par_urgence: bool = False,
+                           ) -> List[MissionSynthesisRow]:
+    """Synthèse de la mission.
 
     Un genet **mono-caule** = une ligne (comportement historique). Une
     **cépée** = une ligne de tête (classe globale = pire brin) suivie d'une
     sous-ligne par brin (`brin_label` renseigné). Fonction pure ; respecte
     la règle « pas de diagnostic global < 3 sondages ». Source unique des
     exports de synthèse (XLSX/CSV) et de tout récap à l'écran.
+
+    Si `trier_par_urgence=True`, les lignes sont triées par urgence
+    décroissante (Immédiate → … → non renseignée) puis par classe de risque
+    (Rouge → Orange → Vert → non fiable). Les sous-lignes de brin (cépées)
+    restent groupées sous leur ligne de tête.
     """
     rows: List[MissionSynthesisRow] = []
     for a in chantier.arbres:
@@ -810,6 +826,28 @@ def mission_synthesis_rows(chantier: "Chantier") -> List[MissionSynthesisRow]:
             rows.append(_synthesis_row_for_section(
                 a.numero_arbre, a.essence, a.port_arbre, b,
                 brin_label=b.label or "?"))
+
+    if trier_par_urgence:
+        # Regroupe les lignes : chaque groupe = ligne genet + éventuelles
+        # sous-lignes de brin (brin_label != ""). La ligne de tête pilote
+        # le tri ; les sous-lignes restent collées à elle.
+        groups: List[List[MissionSynthesisRow]] = []
+        for row in rows:
+            if not row.brin_label:
+                groups.append([row])
+            else:
+                groups[-1].append(row)
+
+        def _group_key(g: List[MissionSynthesisRow]) -> Tuple[int, int]:
+            head = g[0]
+            return (
+                URGENCE_RANG.get(head.urgence, len(URGENCE_NIVEAUX)),
+                _CLASSE_RANG.get(head.classe_globale, 3),
+            )
+
+        groups.sort(key=_group_key)
+        rows = [r for g in groups for r in g]
+
     return rows
 
 

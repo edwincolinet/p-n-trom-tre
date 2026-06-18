@@ -39,7 +39,7 @@ from diagnostic import (
     evolution_classe,
     verdict_evolution,
 )
-from dialogs import annees_entre
+from dialogs_shared import annees_entre
 from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
 
