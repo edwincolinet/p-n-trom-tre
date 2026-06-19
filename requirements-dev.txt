@@ -16,3 +16,8 @@ ruff>=0.15,<1
 # annotés — leur correction visuelle est verrouillée par les
 # golden-tests Tk et PIL.
 mypy>=1.10,<2
+
+# Packaging — produit un dossier autonome (dist/Penetrometre/) que les
+# scripts build/*.sh + build/installer.iss transforment en installeur
+# natif selon la plateforme (voir .github/workflows/build.yml).
+pyinstaller>=6.0,<7
