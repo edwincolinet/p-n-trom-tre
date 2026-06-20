@@ -52,6 +52,7 @@ from dialogs import (
     edit_sondage,
     normaliser_date,
 )
+from i18n import _, get_language, setup_language
 from model import URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_WARN, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
@@ -123,6 +124,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # les paddings ne sont pas affectés.
         self._settings = SettingsStore(_SETTINGS_PATH)
         self._apply_ui_scale(self._settings.ui_scale)
+        # Langue AVANT la création des widgets (les chaînes sont évaluées
+        # à la création — un changement de langue nécessite un redémarrage).
+        setup_language(self._settings.language())
         self._apply_bareme()
 
         self.chantier = Chantier()
@@ -259,6 +263,18 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def get_check_updates(self) -> bool:
         """État courant du réglage de vérification automatique."""
         return self._settings.check_updates()
+
+    def action_set_language(self, lang: str) -> None:
+        """Change la langue de l'interface (redémarrage requis)."""
+        if lang == self._settings.language():
+            return
+        self._settings.set_language(lang)
+        self.set_status(
+            _("Langue modifiée. Relancez l'application pour appliquer."))
+
+    def get_language_code(self) -> str:
+        """Code de langue courante (fr/en/it)."""
+        return get_language()
 
     def _apply_bareme(self) -> None:
         """Charge le barème personnalisé depuis ~/.penetrometre/bareme.json

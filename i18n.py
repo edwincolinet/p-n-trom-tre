@@ -1,0 +1,67 @@
+"""
+Internationalisation (i18n) du logiciel Pénétromètre.
+
+Fournit `_()` pour marquer et traduire les chaînes visibles.
+La langue est choisie dans les réglages (SettingsStore.language) et
+appliquée au démarrage — un changement nécessite un redémarrage.
+
+Langues : fr (source, défaut), en (English), it (Italiano).
+Les traductions vivent dans locale/en.py et locale/it.py sous forme
+de dicts Python {fr: traduction}. Cette approche évite de compiler des
+fichiers .mo et reste lisible/éditable sans outillage particulier.
+
+Pour ajouter une langue :
+  1. Copier locale/en.py → locale/<code>.py.
+  2. Remplir les valeurs manquantes.
+  3. Ajouter le code dans LANGUAGES ci-dessous.
+  4. Incrémenter settings.language.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Dict
+
+log = logging.getLogger("penetrometre")
+
+# Langues disponibles : code ISO 639-1 → label affiché dans le menu
+LANGUAGES: Dict[str, str] = {
+    "fr": "Français",
+    "en": "English",
+    "it": "Italiano",
+}
+
+_current_lang: str = "fr"
+_catalog: Dict[str, str] = {}
+
+
+def setup_language(lang: str) -> None:
+    """Charge le catalogue pour `lang`. Appelé une fois au démarrage,
+    AVANT la création des widgets. Repasse à `fr` si langue inconnue."""
+    global _current_lang, _catalog
+    _current_lang = lang if lang in LANGUAGES else "fr"
+    _catalog = {}
+    if _current_lang == "fr":
+        return
+    try:
+        if _current_lang == "en":
+            from locale.en import TRANSLATIONS
+        elif _current_lang == "it":
+            from locale.it import TRANSLATIONS
+        else:
+            TRANSLATIONS = {}
+        _catalog = TRANSLATIONS
+    except ImportError:
+        log.debug("i18n: catalogue '%s' introuvable, langue fr utilisée", lang)
+
+
+def get_language() -> str:
+    return _current_lang
+
+
+def _(text: str) -> str:
+    """Renvoie la traduction de `text` dans la langue courante.
+    Repasse au texte source (français) si la traduction est absente."""
+    if not _catalog:
+        return text
+    return _catalog.get(text, text)

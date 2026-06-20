@@ -62,6 +62,14 @@ class SettingsStore:
         self._data["high_contrast"] = bool(value)
         self._save()
 
+    def language(self) -> str:
+        """Code de langue de l'interface (fr/en/it). Défaut : fr."""
+        return str(self._data.get("language", "fr"))
+
+    def set_language(self, value: str) -> None:
+        self._data["language"] = str(value)
+        self._save()
+
     def check_updates(self) -> bool:
         """Vérification automatique des mises à jour au démarrage (défaut : True)."""
         return bool(self._data.get("check_updates", True))

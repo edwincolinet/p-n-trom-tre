@@ -18,6 +18,8 @@ import tkinter as tk
 from functools import partial
 from typing import Any, Callable, Protocol, cast
 
+from i18n import LANGUAGES, _
+
 
 class AppLike(Protocol):
     """Surface attendue de l'`App` par la barre de menu.
@@ -72,6 +74,8 @@ class AppLike(Protocol):
     def get_high_contrast(self) -> bool: ...
     def action_cabinet_settings(self) -> None: ...
     def action_bareme_settings(self) -> None: ...
+    def action_set_language(self, lang: str) -> None: ...
+    def get_language_code(self) -> str: ...
 
     # Aide
     def action_about(self) -> None: ...
@@ -99,125 +103,123 @@ def build_menu(app: AppLike) -> None:
 
     # Fichier
     f = tk.Menu(m, tearoff=0)
-    f.add_command(label="Ouvrir la mission d'exemple…",
+    f.add_command(label=_("Ouvrir la mission d'exemple…"),
                   command=app.action_open_demo)
-    f.add_command(label="Importer depuis CSV…",
+    f.add_command(label=_("Importer depuis CSV…"),
                   command=app.action_import_csv)
     f.add_separator()
-    f.add_command(label="Nouvelle mission", accelerator="Ctrl+N",
+    f.add_command(label=_("Nouvelle mission"), accelerator="Ctrl+N",
                   command=app.action_new)
-    f.add_command(label="Ouvrir mission…", accelerator="Ctrl+O",
+    f.add_command(label=_("Ouvrir mission…"), accelerator="Ctrl+O",
                   command=app.action_open)
-    # Sous-menu Récents — populé par `refresh_recent_menu` (appelé par
-    # l'App au démarrage et après chaque ouverture/enregistrement).
     recent_menu = tk.Menu(f, tearoff=0)
-    f.add_cascade(label="Ouvrir récent", menu=recent_menu)
-    # Exposer le menu sur l'App pour qu'elle puisse le rafraîchir sans
-    # reconstruire toute la barre de menu (réutilise les méthodes Tk
-    # de Menu : delete / add_command).
+    f.add_cascade(label=_("Ouvrir récent"), menu=recent_menu)
     setattr(app, "_recent_menu", recent_menu)
     refresh_recent_menu(app)
-    f.add_command(label="Enregistrer", accelerator="Ctrl+S",
+    f.add_command(label=_("Enregistrer"), accelerator="Ctrl+S",
                   command=app.action_save)
-    f.add_command(label="Enregistrer sous…", command=app.action_save_as)
+    f.add_command(label=_("Enregistrer sous…"), command=app.action_save_as)
     f.add_separator()
-    f.add_command(label="Imprimer la fiche (arbre courant)",
+    f.add_command(label=_("Imprimer la fiche (arbre courant)"),
                   accelerator="Ctrl+P",
                   command=app.action_print_arbre)
     f.add_separator()
-    f.add_command(label="Exporter la synthèse mission (XLSX)…",
+    f.add_command(label=_("Exporter la synthèse mission (XLSX)…"),
                   command=app.action_export_synthesis_xlsx)
-    f.add_command(label="Exporter la synthèse mission (CSV)…",
+    f.add_command(label=_("Exporter la synthèse mission (CSV)…"),
                   command=app.action_export_synthesis_csv)
-    f.add_command(label="Exporter toutes les fiches (PDF)…",
+    f.add_command(label=_("Exporter toutes les fiches (PDF)…"),
                   command=app.action_export_pdf_mission)
-    f.add_command(label="Exporter sondages mission (CSV)…",
+    f.add_command(label=_("Exporter sondages mission (CSV)…"),
                   command=app.action_export_csv)
     f.add_separator()
-    f.add_command(label="Ouvrir le dossier des sauvegardes…",
+    f.add_command(label=_("Ouvrir le dossier des sauvegardes…"),
                   command=app.action_open_backups_folder)
     f.add_separator()
-    f.add_command(label="Quitter", command=app.destroy)
-    m.add_cascade(label="Fichier", menu=f)
+    f.add_command(label=_("Quitter"), command=app.destroy)
+    m.add_cascade(label=_("Fichier"), menu=f)
 
-    # Comparaison (ré-inspection) — menu dédié, fonctionnalité mise en avant.
+    # Comparaison (ré-inspection)
     c = tk.Menu(m, tearoff=0)
-    c.add_command(label="Faire une comparaison (ré-inspection)…",
+    c.add_command(label=_("Faire une comparaison (ré-inspection)…"),
                   command=app.action_reinspection)
-    c.add_command(label="Diagnostic de la comparaison…",
+    c.add_command(label=_("Diagnostic de la comparaison…"),
                   command=app.action_compare_arbre, state="disabled")
     app._menu_comparaison = c  # type: ignore[attr-defined]
-    m.add_cascade(label="Comparaison", menu=c)
+    m.add_cascade(label=_("Comparaison"), menu=c)
 
     # Arbres
     a = tk.Menu(m, tearoff=0)
-    a.add_command(label="Ajouter un arbre", accelerator="Ctrl+T",
+    a.add_command(label=_("Ajouter un arbre"), accelerator="Ctrl+T",
                   command=app.action_add_arbre)
-    a.add_command(label="Ajouter (hériter du précédent)",
+    a.add_command(label=_("Ajouter (hériter du précédent)"),
                   command=app.action_add_arbre_inherit)
     a.add_separator()
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
                   command=app.action_next_arbre)
     a.add_command(label="Arbre précédent", accelerator="Ctrl+PgUp",
                   command=app.action_prev_arbre)
-    a.add_command(label="Prochain arbre à finir",
+    a.add_command(label=_("Prochain arbre à finir"),
                   command=app.action_next_a_finir)
     a.add_separator()
-    a.add_command(label="Dupliquer l'arbre courant",
+    a.add_command(label=_("Dupliquer l'arbre courant"),
                   command=app.action_dup_arbre)
-    a.add_command(label="Renommer l'arbre courant",
+    a.add_command(label=_("Renommer l'arbre courant…"),
                   command=app.action_rename_arbre)
-    a.add_command(label="Supprimer l'arbre courant",
+    a.add_command(label=_("Supprimer l'arbre courant…"),
                   command=app.action_del_arbre)
-    m.add_cascade(label="Arbres", menu=a)
+    m.add_cascade(label=_("Arbres"), menu=a)
 
-    # Affichage — taille du texte (accessibilité : laptops de terrain en
-    # plein soleil, écrans HiDPI). Radiobuttons sur un facteur d'échelle.
+    # Affichage
     v = tk.Menu(m, tearoff=0)
     scale_var = tk.DoubleVar(value=app.get_ui_scale())
-    # Gardée vivante sur l'App (sinon la var Tk est ramassée par le GC et
-    # les radiobuttons perdent leur état).
     setattr(app, "_ui_scale_var", scale_var)
     taille = tk.Menu(v, tearoff=0)
-    for label, factor in (("Petit", 0.85), ("Normal", 1.0),
-                          ("Grand", 1.2), ("Très grand", 1.4)):
-        # `partial` plutôt qu'un lambda à argument par défaut : évite le
-        # bruit mypy « Cannot infer type of lambda » des stubs tkinter.
+    for label, factor in ((_("Petit"), 0.85), (_("Normal"), 1.0),
+                          (_("Grand"), 1.2), (_("Très grand"), 1.4)):
         taille.add_radiobutton(
             label=label, value=factor, variable=scale_var,
             command=partial(app.action_set_ui_scale, factor))
-    v.add_cascade(label="Taille du texte", menu=taille)
-    # Contraste élevé (accessibilité plein soleil) : texte noir + gris
-    # sombre. Checkbutton dont l'état initial reflète le réglage persisté.
+    v.add_cascade(label=_("Taille du texte"), menu=taille)
     hc_var = tk.BooleanVar(value=app.get_high_contrast())
     setattr(app, "_high_contrast_var", hc_var)
     v.add_checkbutton(
-        label="Contraste élevé", variable=hc_var,
+        label=_("Contraste élevé"), variable=hc_var,
         command=lambda: app.action_set_high_contrast(hc_var.get()))
     v.add_separator()
-    v.add_command(label="Logo et nom du cabinet…",
+    v.add_command(label=_("Logo et nom du cabinet…"),
                   command=app.action_cabinet_settings)
-    v.add_command(label="Barème de classification…",
+    v.add_command(label=_("Barème de classification…"),
                   command=app.action_bareme_settings)
-    m.add_cascade(label="Affichage", menu=v)
+    # Sous-menu Langue (fr / en / it)
+    lang_menu = tk.Menu(v, tearoff=0)
+    cur_lang = app.get_language_code()
+    lang_var = tk.StringVar(value=cur_lang)
+    setattr(app, "_lang_var", lang_var)
+    for code, label in LANGUAGES.items():
+        lang_menu.add_radiobutton(
+            label=label, value=code, variable=lang_var,
+            command=partial(app.action_set_language, code))
+    v.add_cascade(label=_("Langue"), menu=lang_menu)
+    m.add_cascade(label=_("Affichage"), menu=v)
 
     # Aide
     h = tk.Menu(m, tearoff=0)
-    h.add_command(label="Raccourcis clavier…",
+    h.add_command(label=_("Raccourcis clavier…"),
                   command=app.action_shortcuts)
-    h.add_command(label="Ouvrir le fichier de log",
+    h.add_command(label=_("Ouvrir le fichier de log"),
                   command=app.action_open_log)
     h.add_separator()
-    h.add_command(label="Vérifier les mises à jour",
+    h.add_command(label=_("Vérifier les mises à jour"),
                   command=app.action_check_updates)
     chk_var = tk.BooleanVar(value=app.get_check_updates())
     h.add_checkbutton(
-        label="Vérification automatique au démarrage",
+        label=_("Vérification automatique au démarrage"),
         variable=chk_var,
         command=app.action_toggle_check_updates)
     h.add_separator()
-    h.add_command(label="À propos", command=app.action_about)
-    m.add_cascade(label="Aide", menu=h)
+    h.add_command(label=_("À propos"), command=app.action_about)
+    m.add_cascade(label=_("Aide"), menu=h)
 
     # Raccourcis globaux
     app.bind_all("<Control-n>", lambda e: app.action_new())

@@ -1,0 +1,213 @@
+"""English translations for Pénétromètre — source language is French."""
+
+TRANSLATIONS = {
+    # ── Menu Fichier ──────────────────────────────────────────────────
+    "Fichier":                              "File",
+    "Ouvrir la mission d'exemple…":        "Open example project…",
+    "Importer depuis CSV…":                "Import from CSV…",
+    "Nouvelle mission":                    "New project",
+    "Ouvrir mission…":                     "Open project…",
+    "Ouvrir récent":                       "Recent projects",
+    "Enregistrer":                         "Save",
+    "Enregistrer sous…":                   "Save as…",
+    "Imprimer la fiche (arbre courant)":   "Print tree report",
+    "Exporter la synthèse mission (XLSX)…":"Export mission summary (XLSX)…",
+    "Exporter la synthèse mission (CSV)…": "Export mission summary (CSV)…",
+    "Exporter toutes les fiches (PDF)…":   "Export all reports (PDF)…",
+    "Exporter sondages mission (CSV)…":    "Export soundings (CSV)…",
+    "Ouvrir le dossier des sauvegardes…":  "Open backups folder…",
+    "Quitter":                             "Quit",
+
+    # ── Menu Comparaison ──────────────────────────────────────────────
+    "Comparaison":                         "Comparison",
+    "Faire une comparaison (ré-inspection)…":
+                                           "Start comparison (re-inspection)…",
+    "Diagnostic de la comparaison…":       "Comparison report…",
+
+    # ── Menu Arbres ───────────────────────────────────────────────────
+    "Arbres":                              "Trees",
+    "Ajouter un arbre":                    "Add a tree",
+    "Ajouter (hériter du précédent)":      "Add (inherit from previous)",
+    "Dupliquer l'arbre courant":           "Duplicate current tree",
+    "Renommer l'arbre courant…":           "Rename current tree…",
+    "Supprimer l'arbre courant…":          "Delete current tree…",
+    "Prochain arbre à finir":              "Next unfinished tree",
+
+    # ── Menu Affichage ────────────────────────────────────────────────
+    "Affichage":                           "View",
+    "Taille du texte":                     "Text size",
+    "Petit":                               "Small",
+    "Normal":                              "Normal",
+    "Grand":                               "Large",
+    "Très grand":                          "Extra large",
+    "Contraste élevé":                     "High contrast",
+    "Logo et nom du cabinet…":             "Office logo and name…",
+    "Barème de classification…":           "Classification thresholds…",
+    "Langue":                              "Language",
+
+    # ── Menu Aide ─────────────────────────────────────────────────────
+    "Aide":                                "Help",
+    "Raccourcis clavier…":                 "Keyboard shortcuts…",
+    "Ouvrir le fichier de log":            "Open log file",
+    "Vérifier les mises à jour":           "Check for updates",
+    "Vérification automatique au démarrage":
+                                           "Auto-check for updates at startup",
+    "À propos":                            "About",
+
+    # ── En-tête principal ─────────────────────────────────────────────
+    "Mission":                             "Project",
+    "Adresse":                             "Location",
+    "Opérateur":                           "Operator",
+    "Date":                                "Date",
+    "🔍 Faire une comparaison…":           "🔍 Start comparison…",
+    "📊 Diagnostic de la comparaison…":    "📊 Comparison report…",
+
+    # ── Panneau gauche — liste d'arbres ───────────────────────────────
+    "Arbres de la mission":                "Project trees",
+    "Risque":                              "Risk",
+    "Urgence":                             "Priority",
+    "Tous":                                "All",
+    "Non fiable":                          "Unreliable",
+    "＋ Ajouter":                          "＋ Add",
+    "Arbre vierge":                        "Blank tree",
+    "Hériter du précédent (essence, port, mèche…)":
+                                           "Inherit from previous (species, type, probe…)",
+    "Dupliquer":                           "Duplicate",
+    "Supprimer":                           "Delete",
+    "⏭ Prochain arbre à finir":           "⏭ Next unfinished tree",
+    "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
+    "« Hériter du précédent » pour reprendre essence, "
+    "port et mèche d'un alignement.":
+        "Add a tree. « Blank tree » (Ctrl+T) or "
+        "« Inherit from previous » to reuse species, type and probe from an alignment.",
+
+    # ── Onglets principaux ────────────────────────────────────────────
+    "Identification":                      "Identification",
+    "Sondages":                            "Soundings",
+    "Dégradations externes":               "External damage",
+    "Contreforts":                         "Buttress roots",
+    "Diagnostic":                          "Diagnosis",
+
+    # ── Onglet Identification ─────────────────────────────────────────
+    "N° d'inventaire":                     "Tree ID",
+    "Essence":                             "Species",
+    "Port arbre":                          "Growth habit",
+    "Hauteur arbre (m)":                   "Tree height (m)",
+    "Hauteur sondage (cm)":                "Sounding height (cm)",
+    "Longueur mèche (cm)":                 "Probe length (cm)",
+    "Rayon (cm)":                          "Radius (cm)",
+    "Diamètre (cm)":                       "Diameter (cm)",
+    "Épaisseur écorce (cm)":               "Bark thickness (cm)",
+    "Forme du tronc…":                     "Trunk shape…",
+    "＋ Brin":                             "＋ Stem",
+    "− Brin":                              "− Stem",
+    "Disposition…":                        "Layout…",
+
+    # ── Onglet Sondages ───────────────────────────────────────────────
+    "Direction":                           "Direction",
+    "Grade":                               "Grade",
+    "Bois sain (cm)":                      "Sound wood (cm)",
+    "Altéré (cm)":                         "Altered (cm)",
+    "Comp.":                               "Comp.",
+    "＋ Ajouter sondage":                  "＋ Add sounding",
+
+    # ── Onglet Dégradations ───────────────────────────────────────────
+    "N°":                                  "No.",
+    "Arc (gr)":                            "Arc (gr)",
+    "Largeur (gr)":                        "Width (gr)",
+    "Profondeur (cm)":                     "Depth (cm)",
+    "Zone dégradée":                       "Damaged area",
+    "＋ Ajouter dégradation":              "＋ Add damage",
+
+    # ── Onglet Diagnostic ─────────────────────────────────────────────
+    "Urgence :":                           "Priority:",
+    "Échéance :":                          "Deadline:",
+    "Préconisation :":                     "Recommendation:",
+    "Suivi validité :":                    "Follow-up validity:",
+    "Suivi :":                             "Follow-up:",
+
+    # ── Barre d'état ─────────────────────────────────────────────────
+    "💾 Enregistrer":                      "💾 Save",
+    "Ouvrir le fichier":                   "Open file",
+    "Ouvrir le dossier":                   "Open folder",
+    "Prêt.":                               "Ready.",
+    "● Modifications non enregistrées":    "● Unsaved changes",
+    "✓ Enregistré":                        "✓ Saved",
+    "Mission non enregistrée":             "Unsaved project",
+
+    # ── À propos ─────────────────────────────────────────────────────
+    "Pénétromètre — Expertise arboricole":     "Pénétromètre — Tree expertise",
+    "Version":                             "Version",
+    "Auteur":                              "Author",
+    "Contact":                             "Contact",
+    "Licence":                             "Licence",
+    "Usage commercial soumis à licence":   "Commercial use requires a licence",
+    "Licence (CLU)":                       "Licence (EULA)",
+    "Confidentialité":                     "Privacy",
+    "Fermer":                              "Close",
+
+    # ── Messages courants ─────────────────────────────────────────────
+    "Des modifications n'ont pas été enregistrées.\n"
+    "Continuer quand même ?":
+        "There are unsaved changes.\nContinue anyway?",
+    "Ouvrir":                              "Open",
+    "Erreur":                              "Error",
+    "Erreur d'ouverture":                  "Open error",
+    "Fichier introuvable":                 "File not found",
+    "Le fichier suivant n'existe plus :\n{p}\n\n"
+    "Il a été retiré de la liste des fichiers récents.":
+        "The following file no longer exists:\n{p}\n\n"
+        "It has been removed from the recent files list.",
+
+    # ── Mise à jour ───────────────────────────────────────────────────
+    "🆕 Nouvelle version disponible : {tag}":
+                                           "🆕 New version available: {tag}",
+    "Télécharger":                         "Download",
+    "Vérification des mises à jour…":      "Checking for updates…",
+    "Mises à jour":                        "Updates",
+    "Vous utilisez la version {version}.\n\n"
+    "Aucune mise à jour disponible ou aucune connexion réseau.":
+        "You are using version {version}.\n\n"
+        "No updates available or no network connection.",
+    "Vérification automatique des mises à jour activée.":
+                                           "Automatic update check enabled.",
+    "Vérification automatique des mises à jour désactivée.":
+                                           "Automatic update check disabled.",
+
+    # ── Import CSV ────────────────────────────────────────────────────
+    "Importer depuis CSV":                 "Import from CSV",
+    "Import CSV — Correspondance des colonnes":
+                                           "CSV Import — Column mapping",
+    "Importer":                            "Import",
+    "Annuler":                             "Cancel",
+    "N° arbre (requis)":                   "Tree ID (required)",
+    "Hauteur de sondage (cm)":             "Sounding height (cm)",
+    "Grade sondage (gr)":                  "Sounding grade (gr)",
+    "PRBS sondage (cm)":                   "PRBS sounding (cm)",
+
+    # ── Mission d'exemple ─────────────────────────────────────────────
+    "Mission d'exemple ouverte en lecture seule. "
+    "Utilisez « Enregistrer sous… » pour créer votre propre mission.":
+        "Example project opened as read-only. "
+        "Use « Save as… » to create your own project.",
+
+    # ── Barème ───────────────────────────────────────────────────────
+    "Paramétrage du barème":               "Classification thresholds",
+    "Seuils de classification t/R par groupe de port":
+                                           "t/R classification thresholds by growth habit group",
+    "Libre / Semi-libre / Délaissé":       "Free / Semi-free / Neglected",
+    "Végétation en développement libre ou naturel":
+                                           "Freely or naturally developing vegetation",
+    "Architecturé / Traumatique":          "Shaped / Traumatic",
+    "Végétation taillée ou ayant subi un traumatisme":
+                                           "Pruned or trauma-affected vegetation",
+    "Seuil Vert (%)":                      "Green threshold (%)",
+    "Seuil Orange (%)":                    "Orange threshold (%)",
+    "Restaurer les valeurs par défaut":    "Restore defaults",
+    "Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.":
+                                           "Thresholds updated. Diagnoses now use the new values.",
+
+    # ── Langue ────────────────────────────────────────────────────────
+    "Langue modifiée. Relancez l'application pour appliquer.":
+                                           "Language changed. Restart the application to apply.",
+}
