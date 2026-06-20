@@ -34,23 +34,41 @@ from typing import Any, List, Optional, Tuple, Union
 
 from dialogs_shared import (
     SUIVI_VALIDITES as SUIVI_VALIDITES,  # noqa: PLC0414 — re-exported
+)
+from dialogs_shared import (
     ZONE_BOIS_SEUL as ZONE_BOIS_SEUL,
+)
+from dialogs_shared import (
     ZONE_DEGRADEE_AIDE as ZONE_DEGRADEE_AIDE,
+)
+from dialogs_shared import (
     ZONE_DEGRADEE_CHOICES as ZONE_DEGRADEE_CHOICES,
+)
+from dialogs_shared import (
     ZONE_ECORCE_BOIS as ZONE_ECORCE_BOIS,
+)
+from dialogs_shared import (
     _round_to_25,
-    annees_entre as annees_entre,
     find_grade_choice,
     grade_choices,
     message_chevauchement,
-    normaliser_date as normaliser_date,
     parse_grade,
-    to_float as to_float,
-    validate_numeric as validate_numeric,
     zone_degradee_label,
     zone_degradee_to_bool,
 )
-from geometry import DIRECTION_LABELS, GRADES, brins_layout, contour_polygon
+from dialogs_shared import (
+    annees_entre as annees_entre,
+)
+from dialogs_shared import (
+    normaliser_date as normaliser_date,
+)
+from dialogs_shared import (
+    to_float as to_float,
+)
+from dialogs_shared import (
+    validate_numeric as validate_numeric,
+)
+from geometry import DIRECTION_LABELS, brins_layout, contour_polygon
 from model import (
     Arbre,
     Brin,

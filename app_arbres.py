@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Optional
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import genet_diagnostic
 from dialogs import ask_string
-from model import Arbre, URGENCE_NIVEAUX
+from model import URGENCE_NIVEAUX, Arbre
 
 # Cf. note dans `app_recovery` : base `tk.Tk` pour mypy (self = widget),
 # `object` au runtime.
@@ -74,12 +74,16 @@ class ArbreListMixin(_MixinBase):
         var_urgence_filter: tk.StringVar
         lbl_etat_footer: ttk.Label
         _tree_arbres_ctx_menu: tk.Menu
+        _filtre_actif_frame: ttk.Frame
+        _lbl_filtre_actif: ttk.Label
+        _lst_frame: ttk.Frame
         pane_id: IdentificationPane
 
         def push_undo(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def _load_arbre_to_ui(self) -> None: ...
         def set_status(self, text: str) -> None: ...
+        def _reset_all_filters(self) -> None: ...
 
     # --- Liste d'arbres ---------------------------------------------
 
@@ -134,6 +138,19 @@ class ArbreListMixin(_MixinBase):
                                     tags=(tag,))
         # Footer = vue macro sur TOUTE la mission (pas la sous-liste filtrée).
         self._update_etat_footer()
+        # Bandeau "filtre actif" : signale le nombre d'arbres masqués et
+        # propose un bouton de réinitialisation rapide.
+        if hasattr(self, "_filtre_actif_frame"):
+            n_masques = len(self.chantier.arbres) - len(
+                self.tree_arbres.get_children())
+            if n_masques > 0:
+                self._lbl_filtre_actif.configure(
+                    text=f"{n_masques} arbre(s) masqué(s) par le filtre")
+                if not self._filtre_actif_frame.winfo_ismapped():
+                    self._filtre_actif_frame.pack(fill="x", pady=(0, 4),
+                                                  before=self._lst_frame)
+            else:
+                self._filtre_actif_frame.pack_forget()
         # Re-sélectionne l'arbre courant s'il est visible dans la liste
         # filtrée (sinon on laisse la sélection vide : le panneau de droite
         # continue d'afficher l'arbre courant).
@@ -402,17 +419,7 @@ class ArbreListMixin(_MixinBase):
             return
         self.push_undo()
         new = copy.deepcopy(a)
-        # Nouveau numéro = numéro existant + suffixe 'bis', 'ter', etc.
-        suffixes = ["", " bis", " ter", " quater"]
-        base = a.numero_arbre
-        for suf in suffixes[1:]:
-            candidate = base + suf
-            if not any(x.numero_arbre == candidate
-                       for x in self.chantier.arbres):
-                new.numero_arbre = candidate
-                break
-        else:
-            new.numero_arbre = base + " (copie)"
+        new.numero_arbre = self._next_arbre_numero()
         self.chantier.arbres.insert(self.current_idx + 1, new)
         self.current_idx += 1
         self._clear_filter_if_set()

@@ -26,8 +26,10 @@ from typing import Any, Iterator, Optional
 
 from aide_repliable import AideRepliable
 from app_arbres import (
-    _RISK_FILTER_ALL, _RISK_FILTER_CHOICES,
-    _URGENCE_FILTER_ALL, _URGENCE_FILTER_NONE,
+    _RISK_FILTER_ALL,
+    _RISK_FILTER_CHOICES,
+    _URGENCE_FILTER_ALL,
+    _URGENCE_FILTER_NONE,
     ArbreListMixin,
 )
 from app_export_actions import ExportActionsMixin
@@ -49,8 +51,7 @@ from dialogs import (
     edit_sondage,
     normaliser_date,
 )
-from model import (Arbre, Brin, Chantier, Contrefort, DegradationExterne,
-                   Sondage, URGENCE_NIVEAUX)
+from model import URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_WARN, COULEUR_CLASSE
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -446,8 +447,24 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self._cmb_urgence_filter.bind("<<ComboboxSelected>>",
                                       lambda e: self._refresh_tree_arbres())
 
+        # Bandeau "filtre actif" : apparaît sous les filtres quand au moins
+        # un arbre est masqué. Propose un bouton de réinitialisation rapide
+        # — évite de devoir remettre chaque combobox à la main.
+        self._filtre_actif_frame = ttk.Frame(frame, style="Side.TFrame")
+        self._lbl_filtre_actif = ttk.Label(
+            self._filtre_actif_frame, text="",
+            style="Side.TLabel", foreground=COLOR_ACCENT,
+            font=ui_font("Helvetica", 9, "italic"))
+        self._lbl_filtre_actif.pack(side="left", padx=(0, 6))
+        ttk.Button(
+            self._filtre_actif_frame, text="✕ Réinitialiser",
+            style="Ghost.TButton",
+            command=self._reset_all_filters,
+        ).pack(side="left")
+
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         lst_frame.pack(fill="both", expand=True)
+        self._lst_frame = lst_frame
         self.tree_arbres = ttk.Treeview(
             lst_frame, columns=("ess", "etat", "risque"),
             show="tree headings", height=20, style="Side.Treeview")
@@ -641,6 +658,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             "direction libre pour ajouter un sondage.",
             wraplength=440,
         ).pack(anchor="w", pady=(2, 0))
+        # Indice visible quand l'arbre n'a aucun sondage : guide le premier
+        # geste de saisie sans devoir déplier l'aide. Disparaît dès que le
+        # premier sondage est ajouté.
+        self._lbl_canvas_hint = ttk.Label(
+            frame,
+            text="→ Cliquer sur une direction libre du dessin pour ajouter "
+                 "un sondage",
+            style="Muted.TLabel", wraplength=440)
+        self._lbl_canvas_hint.pack(anchor="w", pady=(2, 0))
 
     # --- Poignées de disposition (PanedWindow) -------------------------
 
@@ -1105,6 +1131,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # passer de 0 à 2 sondages laisserait la pastille rouge.
         self._refresh_current_arbre_etat()
         self._refresh_tab_progress()
+        self._update_canvas_hint()
         # Garde-fou fusion (⚠ non bloquant) : recalculé après toute
         # mutation car la condition croise les DEUX saisies (altération
         # des sondages + profondeur des dégradations). Ces méthodes ne
@@ -1114,6 +1141,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             self.pane_s.refresh_fusion_warnings()
         if self.pane_de is not None:
             self.pane_de.refresh_fusion_warnings()
+
+    def _update_canvas_hint(self) -> None:
+        """Affiche/masque l'indice « → Cliquer pour ajouter un sondage »
+        selon qu'il existe ou non des sondages sur l'arbre courant."""
+        if not hasattr(self, "_lbl_canvas_hint"):
+            return
+        a = self._current_arbre()
+        has_sondages = a is not None and any(b.sondages for b in a.brins)
+        if has_sondages:
+            self._lbl_canvas_hint.pack_forget()
+        elif not self._lbl_canvas_hint.winfo_ismapped():
+            self._lbl_canvas_hint.pack(anchor="w", pady=(2, 0))
+
+    def _reset_all_filters(self) -> None:
+        """Réinitialise les trois filtres de la liste d'arbres en une action."""
+        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+        self.var_filter.set("")  # la trace sur var_filter déclenche le refresh
+
+    def essences_utilisees(self) -> list[str]:
+        """Essences déjà saisies dans la mission (ordre d'apparition, sans
+        doublons). Alimente la combobox Essence de l'onglet Identification."""
+        seen: list[str] = []
+        for a in self.chantier.arbres:
+            if a.essence and a.essence not in seen:
+                seen.append(a.essence)
+        return seen
 
     def _refresh_tab_progress(self) -> None:
         """Préfixe les onglets de l'étape par un glyphe d'avancement

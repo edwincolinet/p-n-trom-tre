@@ -49,6 +49,7 @@ class _IdentificationHost(Protocol):
     def add_brin(self) -> None: ...
     def remove_last_brin(self) -> None: ...
     def edit_cepee_layout(self) -> None: ...
+    def essences_utilisees(self) -> List[str]: ...
 
 
 class IdentificationPane(ttk.Frame):
@@ -159,6 +160,7 @@ class IdentificationPane(ttk.Frame):
                              str(self.var_meche), str(self.var_ep_ecorce),
                              str(self.var_h_s), str(self.var_h_arb)}
         self._tronc_box: Optional[ttk.LabelFrame] = None
+        self._essence_cmb: Optional[ttk.Combobox] = None
         vcmd = (self.register(validate_numeric), "%P")
         for gi, (group_label, rows) in enumerate(groupes):
             box = ttk.LabelFrame(content, text=" " + group_label + " ",
@@ -174,6 +176,15 @@ class IdentificationPane(ttk.Frame):
                     widget: tk.Widget = ttk.Combobox(
                         box, textvariable=var, values=choices,
                         state="readonly", width=28)
+                elif var is self.var_essence:
+                    # Combobox éditable : liste les essences déjà saisies
+                    # dans la mission pour la saisie rapide (tapez ou
+                    # sélectionnez). Les valeurs sont rechargées à chaque
+                    # changement d'arbre via load_from_arbre.
+                    widget = ttk.Combobox(
+                        box, textvariable=var, values=[],
+                        state="normal", width=28)
+                    self._essence_cmb = widget  # type: ignore[assignment]
                 else:
                     widget = ttk.Entry(box, textvariable=var, width=30)
                     if str(var) in numeric_var_names:
@@ -292,6 +303,11 @@ class IdentificationPane(ttk.Frame):
             self.var_ep_ecorce.set(f"{b.epaisseur_ecorce_cm:g}"
                                     if b.epaisseur_ecorce_cm else "0")
         self.refresh_brin_buttons()
+        # Propose les essences déjà saisies dans la mission comme suggestions
+        # (combobox éditable : l'opérateur peut aussi saisir librement).
+        if self._essence_cmb is not None:
+            self._essence_cmb.configure(
+                values=self._host.essences_utilisees())
 
     def refresh_brin_buttons(self) -> None:
         """Met à jour l'état des boutons de cépée et le compteur de brins :

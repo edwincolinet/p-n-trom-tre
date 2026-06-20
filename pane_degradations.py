@@ -118,10 +118,10 @@ class DegradationsPane(ttk.Frame):
 
         AideRepliable(
             self,
-            "« ＋ Ajouter » crée l'arc sur la première plage libre : "
-            "ajustez ensuite début/fin dans la ligne. Les arcs ne "
+            "« ＋ Ajouter » ouvre un dialogue pour saisir l'arc (début, "
+            "fin) et la profondeur avant d'ajouter la ligne. Les arcs ne "
             "peuvent pas se chevaucher (mitoyens bout-à-bout autorisés). "
-            "Double-cliquez le n° pour le détail (largeur en cm).",
+            "Double-cliquez le n° pour rédéfinir le détail (largeur en cm).",
             wraplength=420,
         ).pack(anchor="w", pady=(8, 0))
 
@@ -443,22 +443,17 @@ class DegradationsPane(ttk.Frame):
                 "dégradations : supprimez ou rétrécissez un arc "
                 "existant.", parent=self)
             return
-        self._host.push_undo()
         deg = DegradationExterne(
             numero=len(b.degradations_externes) + 1,
             grade_debut=arc[0], grade_fin=arc[1], profondeur_cm=2.0)
+        snap = self._host.capture_undo_snapshot()
+        if not edit_degradation(self.winfo_toplevel(), b, deg):
+            return  # Annulé — rien n'est ajouté au modèle
+        self._host.push_undo_snapshot(snap)
         b.degradations_externes.append(deg)
         b.renumeroter_degradations()
         self.refresh()
         self._host.on_section_changed()
-        # Focus sur la profondeur de la nouvelle ligne (la valeur à
-        # mesurer), prête à réécrire.
-        entries = [w for w in self._rows_frame.grid_slaves(
-            row=len(b.degradations_externes), column=4)
-            if isinstance(w, ttk.Entry)]
-        if entries:
-            entries[0].focus_set()
-            entries[0].select_range(0, "end")
 
     def _on_del(self, deg: DegradationExterne) -> None:
         b = self._host._current_brin()
@@ -482,7 +477,7 @@ class DegradationsPane(ttk.Frame):
         if not b or self._index_de(b, deg) is None:
             return
         snap = self._host.capture_undo_snapshot()
-        if edit_degradation(self, b, deg):
+        if edit_degradation(self.winfo_toplevel(), b, deg):
             self._host.push_undo_snapshot(snap)
             self.refresh()
             self._host.on_section_changed()
