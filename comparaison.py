@@ -46,6 +46,7 @@ from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
 
 _SEC = 440  # côté des dessins (px)
+_comparison_window: "Optional[tk.Toplevel]" = None  # singleton
 
 
 def _photo(img: Any) -> Any:
@@ -65,7 +66,12 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
     `export_cb(fmt, builder, parent)` est appelé par les boutons Export
     (builder() renvoie la liste de pages PIL ; `parent` ancre le filedialog
-    au premier plan). `show_sondages` reprend la case « Afficher sondages »."""
+    au premier plan). `show_sondages` reprend la case « Afficher sondages ».
+    Une seule fenêtre de comparaison à la fois (singleton) : ré-ouvrir
+    ferme la précédente et ouvre une nouvelle avec la sélection courante."""
+    global _comparison_window
+    if _comparison_window is not None and _comparison_window.winfo_exists():
+        _comparison_window.destroy()
     curs = current.arbres
     refs = reference.arbres
     annees = annees_entre(reference.date_releve, cur_date)
@@ -73,6 +79,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     cur_label = cur_date or "courant"
 
     dlg = tk.Toplevel(parent)
+    _comparison_window = dlg
     dlg.title("Comparaison d'inspections")
     dlg.configure(bg=COLOR_PANEL)
     dlg.minsize(1000, 720)

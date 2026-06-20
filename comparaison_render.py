@@ -133,12 +133,19 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         ref_alt = list(cur_alt)
         ref_degs = cur_b.degradations_externes
 
-    # Cadrage : rayon + écorce + saillie max des contreforts (la dégradation
-    # suit la cloche). Centre légèrement remonté pour la légende du bas.
+    # Cadrage identique à render_arbre_to_pil_image(show_title=False,
+    # show_legend=False) pour que la section d'évolution ait exactement
+    # le même grossissement que les sections réf/courant.
     expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
     r_ext_max = max(R_of(g) for g in GRADES) + expansion
-    cx, cy = size / 2.0, size * 0.45
-    scale = (size * 0.40) / (r_ext_max if r_ext_max > 0 else 1.0)
+    margin_top = 70
+    margin_bottom = max(80, int(size * 0.06))
+    margin_side = max(60, int(size * 0.055))
+    radius_px_max = min((size - 2 * margin_side) / 2,
+                        (size - margin_top - margin_bottom) / 2)
+    cx = size / 2.0
+    cy = margin_top + radius_px_max
+    scale = radius_px_max / (r_ext_max if r_ext_max > 0 else 1.0)
 
     R = cur_b.rayon_tronc_cm   # grand axe (= rayon si circulaire)
 
