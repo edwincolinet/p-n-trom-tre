@@ -328,4 +328,39 @@ TRANSLATIONS = {
     "Erreur d'import":                    "Import error",
     "Aucun arbre importé":                 "No trees imported",
     "Avertissements":                      "Warnings",
+
+    # ── Sprint 4 — dialogues d'édition ───────────────────────────────
+
+    # Boutons communs
+    "Valider":                             "Apply",
+
+    # Calendrier
+    "Aujourd'hui":                         "Today",
+    "Effacer":                             "Clear",
+
+    # Forme du tronc
+    "Petit axe — rayon (cm)":             "Minor axis — radius (cm)",
+    "Orientation grand axe (gr)":         "Major axis orientation (gr)",
+
+    # Édition sondage
+    "Direction (grade)":                   "Direction (grade)",
+    "Épaisseur bois sain (cm)":           "Sound wood thickness (cm)",
+    "Épaisseur bois altéré (cm)":         "Altered wood thickness (cm)",
+    "Compartimentation":                   "Compartmentalization",
+
+    # Édition dégradation
+    "Direction de début (grade)":         "Start direction (grade)",
+    "Direction de fin (grade, sens horaire)": "End direction (grade, clockwise)",
+    "— ou —":                             "— or —",
+    "Largeur en grades":                   "Width in grades",
+    "Largeur en cm (sur l'écorce)":      "Width in cm (on bark)",
+    "Profondeur radiale (cm)":            "Radial depth (cm)",
+
+    # Édition contrefort
+    "Orientation (grade central)":        "Orientation (central grade)",
+    "Largeur en grades (multiple de 25)": "Width in grades (multiple of 25)",
+
+    # Ré-inspection
+    "Ré-inspection :":                    "Re-inspection:",
+    "Diagnostic de la comparaison":       "Comparison diagnosis",
 }

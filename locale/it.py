@@ -312,4 +312,32 @@ TRANSLATIONS = {
     "Erreur d'import":                    "Errore di importazione",
     "Aucun arbre importé":                 "Nessun albero importato",
     "Avertissements":                      "Avvisi",
+
+    # ── Sprint 4 — dialoghi di modifica ──────────────────────────────
+
+    "Valider":                             "Applica",
+
+    "Aujourd'hui":                         "Oggi",
+    "Effacer":                             "Cancella",
+
+    "Petit axe — rayon (cm)":             "Semiasse minore — raggio (cm)",
+    "Orientation grand axe (gr)":         "Orientazione asse maggiore (gr)",
+
+    "Direction (grade)":                   "Direzione (grado)",
+    "Épaisseur bois sain (cm)":           "Spessore legno sano (cm)",
+    "Épaisseur bois altéré (cm)":         "Spessore legno alterato (cm)",
+    "Compartimentation":                   "Compartimentazione",
+
+    "Direction de début (grade)":         "Direzione di inizio (grado)",
+    "Direction de fin (grade, sens horaire)": "Direzione di fine (grado, senso orario)",
+    "— ou —":                             "— oppure —",
+    "Largeur en grades":                   "Larghezza in gradi",
+    "Largeur en cm (sur l'écorce)":      "Larghezza in cm (sulla corteccia)",
+    "Profondeur radiale (cm)":            "Profondità radiale (cm)",
+
+    "Orientation (grade central)":        "Orientazione (grado centrale)",
+    "Largeur en grades (multiple de 25)": "Larghezza in gradi (multiplo di 25)",
+
+    "Ré-inspection :":                    "Re-ispezione:",
+    "Diagnostic de la comparaison":       "Diagnosi del confronto",
 }

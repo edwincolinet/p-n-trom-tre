@@ -69,6 +69,7 @@ from dialogs_shared import (
     validate_numeric as validate_numeric,
 )
 from geometry import DIRECTION_LABELS, brins_layout, contour_polygon
+from i18n import _
 from model import (
     Arbre,
     Brin,
@@ -164,9 +165,9 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=3, column=0, sticky="e", padx=12, pady=(8, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     dlg.bind("<Return>", lambda e: ok())
@@ -278,11 +279,11 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
 
     footer = ttk.Frame(dlg, style="Panel.TFrame")
     footer.grid(row=2, column=0, padx=10, pady=(4, 10), sticky="we")
-    ttk.Button(footer, text="Aujourd'hui", style="Ghost.TButton",
+    ttk.Button(footer, text=_("Aujourd'hui"), style="Ghost.TButton",
                command=lambda: choose(today)).pack(side="left")
-    ttk.Button(footer, text="Effacer", style="Ghost.TButton",
+    ttk.Button(footer, text=_("Effacer"), style="Ghost.TButton",
                command=clear).pack(side="left", padx=6)
-    ttk.Button(footer, text="Annuler", style="Ghost.TButton",
+    ttk.Button(footer, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
 
     render()
@@ -331,13 +332,13 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
     form = ttk.Frame(dlg, style="Panel.TFrame")
     form.grid(row=1, column=0, sticky="we", padx=12)
     form.columnconfigure(1, weight=1)
-    ttk.Label(form, text="Petit axe — rayon (cm)",
+    ttk.Label(form, text=_("Petit axe — rayon (cm)"),
               style="Panel.TLabel").grid(row=0, column=0, sticky="w",
                                          pady=4, padx=(0, 10))
     e_petit = ttk.Entry(form, textvariable=v_petit, width=14,
                         validate="key", validatecommand=vcmd)
     e_petit.grid(row=0, column=1, sticky="we", pady=4)
-    ttk.Label(form, text="Orientation grand axe (gr)",
+    ttk.Label(form, text=_("Orientation grand axe (gr)"),
               style="Panel.TLabel").grid(row=1, column=0, sticky="w",
                                          pady=4, padx=(0, 10))
     ttk.Entry(form, textvariable=v_orient, width=14,
@@ -363,9 +364,9 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=3, column=0, sticky="e", padx=12, pady=(8, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     dlg.bind("<Return>", lambda e: ok())
@@ -524,9 +525,9 @@ def ask_cepee_layout(parent: tk.Misc,
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=2, column=0, sticky="e", padx=12, pady=(2, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     dlg.bind("<Return>", lambda e: ok())
@@ -582,20 +583,20 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
               ).grid(row=0, column=0, columnspan=2, sticky="we",
                      padx=10, pady=(10, 4))
 
-    ttk.Label(dlg, text="Direction (grade)", background=COLOR_PANEL
+    ttk.Label(dlg, text=_("Direction (grade)"), background=COLOR_PANEL
               ).grid(row=1, column=0, sticky="w", padx=10, pady=6)
     combo_grade = ttk.Combobox(dlg, textvariable=v_grade,
                                values=choices,
                                state="readonly", width=26)
     combo_grade.grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Épaisseur bois sain (cm)",
+    ttk.Label(dlg, text=_("Épaisseur bois sain (cm)"),
               background=COLOR_PANEL
               ).grid(row=2, column=0, sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_sain, width=12
                    ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Épaisseur bois altéré (cm)",
+    ttk.Label(dlg, text=_("Épaisseur bois altéré (cm)"),
               background=COLOR_PANEL
               ).grid(row=3, column=0, sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_alt, width=12
@@ -632,14 +633,14 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     # Migration silencieuse à l'ouverture du dialogue : ancien "-" → libellé lisible.
     if v_comp.get() == "-":
         v_comp.set("non renseignée")
-    ttk.Label(dlg, text="Compartimentation", background=COLOR_PANEL
+    ttk.Label(dlg, text=_("Compartimentation"), background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_comp,
                  values=["active", "absente", "non renseignée"],
                  state="readonly", width=18
                  ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
+    ttk.Label(dlg, text=_("Commentaire"), background=COLOR_PANEL
               ).grid(row=5, column=0, sticky="w", padx=10, pady=6)
     ttk.Entry(dlg, textvariable=v_com, width=28
               ).grid(row=5, column=1, sticky="we", padx=10, pady=6)
@@ -683,9 +684,9 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=6, column=0, columnspan=2, pady=(10, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     # Validation au clavier : Entrée valide, Échap annule — évite
@@ -734,7 +735,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     v_fin.set(find_grade_choice(choices, deg.grade_fin))
 
 
-    ttk.Label(dlg, text="Direction de début (grade)",
+    ttk.Label(dlg, text=_("Direction de début (grade)"),
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
     combo_debut = ttk.Combobox(dlg, textvariable=v_debut,
@@ -742,36 +743,36 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
                                state="readonly", width=24)
     combo_debut.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Direction de fin (grade, sens horaire)",
+    ttk.Label(dlg, text=_("Direction de fin (grade, sens horaire)"),
               background=COLOR_PANEL).grid(row=1, column=0,
                                            sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_fin, values=choices,
                  state="readonly", width=24
                  ).grid(row=1, column=1, sticky="we", padx=10, pady=6)
 
-    ttk.Label(dlg, text="— ou —", background=COLOR_PANEL,
+    ttk.Label(dlg, text=_("— ou —"), background=COLOR_PANEL,
               foreground=COLOR_MUTED, font=ui_font("Helvetica", 9, "italic")
               ).grid(row=2, column=0, columnspan=2, pady=(2, 2))
 
-    ttk.Label(dlg, text="Largeur en grades",
+    ttk.Label(dlg, text=_("Largeur en grades"),
               background=COLOR_PANEL).grid(row=3, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_gr, width=12
                    ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
+    ttk.Label(dlg, text=_("Largeur en cm (sur l'écorce)"),
               background=COLOR_PANEL).grid(row=4, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_cm, width=12
                    ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Profondeur radiale (cm)",
+    ttk.Label(dlg, text=_("Profondeur radiale (cm)"),
               background=COLOR_PANEL).grid(row=5, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_prof, width=12
                    ).grid(row=5, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Zone dégradée",
+    ttk.Label(dlg, text=_("Zone dégradée"),
               background=COLOR_PANEL).grid(row=6, column=0,
                                            sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_ecorce,
@@ -784,7 +785,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
               ).grid(row=7, column=0, columnspan=2,
                      sticky="w", padx=10, pady=(0, 6))
 
-    ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
+    ttk.Label(dlg, text=_("Commentaire"), background=COLOR_PANEL
               ).grid(row=8, column=0, sticky="w", padx=10, pady=6)
     ttk.Entry(dlg, textvariable=v_com, width=28
               ).grid(row=8, column=1, sticky="we", padx=10, pady=6)
@@ -876,9 +877,9 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=9, column=0, columnspan=2, pady=(10, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     # Entrée valide, Échap annule (cf. edit_sondage).
@@ -922,7 +923,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     v_centre.set(find_grade_choice(choices, cf.grade_centre))
 
 
-    ttk.Label(dlg, text="Orientation (grade central)",
+    ttk.Label(dlg, text=_("Orientation (grade central)"),
               background=COLOR_PANEL).grid(row=0, column=0,
                                            sticky="w", padx=10, pady=6)
     combo_centre = ttk.Combobox(dlg, textvariable=v_centre,
@@ -930,13 +931,13 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
                                 state="readonly", width=24)
     combo_centre.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Largeur en grades (multiple de 25)",
+    ttk.Label(dlg, text=_("Largeur en grades (multiple de 25)"),
               background=COLOR_PANEL).grid(row=1, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_gr, width=12
                    ).grid(row=1, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Largeur en cm (sur l'écorce)",
+    ttk.Label(dlg, text=_("Largeur en cm (sur l'écorce)"),
               background=COLOR_PANEL).grid(row=2, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_cm, width=12
@@ -948,7 +949,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     _numeric_entry(dlg, v_long, width=12
                    ).grid(row=3, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Commentaire", background=COLOR_PANEL
+    ttk.Label(dlg, text=_("Commentaire"), background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
     ttk.Entry(dlg, textvariable=v_com, width=28
               ).grid(row=4, column=1, sticky="we", padx=10, pady=6)
@@ -1012,9 +1013,9 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
     btns.grid(row=5, column=0, columnspan=2, pady=(10, 12))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text="Valider", style="Accent.TButton",
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
                command=ok).pack(side="right")
 
     # Entrée valide, Échap annule (cf. edit_sondage).
