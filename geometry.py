@@ -469,7 +469,8 @@ class RadialRulerData(NamedTuple):
 
 def radial_ruler_data(cx: float, cy: float, scale: float,
                       R: float, ep: float, grade: float, step_cm: int,
-                      tick_len_px: float, label_offset_px: float
+                      tick_len_px: float, label_offset_px: float,
+                      min_gap_px: float = 0.0,
                       ) -> Union[RadialRulerData, None]:
     """Géométrie de l'échelle radiale centre→écorce le long de `grade`.
 
@@ -507,14 +508,22 @@ def radial_ruler_data(cx: float, cy: float, scale: float,
         # Tirets intermédiaires ; on omet ceux à moins d'un pas entier du
         # terminal — son étiquette « N cm » est large, un tiret trop proche
         # la télescoperait (ex. R=16, pas 10 : « 10 » collerait « 16 cm »).
+        # Si min_gap_px est fourni, on vérifie aussi que l'espacement
+        # en pixels vers « 0 » ET vers le terminal est suffisant.
         inter = [(float(r), str(r))
                  for r in range(step_cm, int(r_ext), step_cm)
-                 if r_ext - r >= step_cm]
+                 if r_ext - r >= step_cm
+                 and (min_gap_px <= 0
+                      or (r * scale >= min_gap_px
+                          and (r_ext - r) * scale >= min_gap_px))]
     if not inter:
         # Au moins UN segment intermédiaire : graduation médiane arrondie
         # au cm (petit brin de cépée où le pas adaptatif ne tient pas).
         mid = round(r_ext / 2.0)
-        if 0 < mid < r_ext:
+        if (0 < mid < r_ext
+                and (min_gap_px <= 0
+                     or (mid * scale >= min_gap_px
+                         and (r_ext - mid) * scale >= min_gap_px))):
             inter = [(float(mid), f"{mid:g}")]
     radii.extend(inter)
     # Étiquette terminale arrondie au mm : le rayon d'une ellipse évalué à

@@ -457,10 +457,12 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
         gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
         R = brin.rayon_tronc_cm
     ep = max(0.0, brin.epaisseur_ecorce_cm)
-    step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
+    min_gap = int(80 * ds)
+    step = adaptive_ruler_step_cm(scale, min_gap_px=min_gap)
     data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
                              tick_len_px=int(16 * ds),
-                             label_offset_px=int(50 * ds))
+                             label_offset_px=int(50 * ds),
+                             min_gap_px=min_gap)
     if data is None:
         return
     lw = max(3, int(3 * ds))
