@@ -62,6 +62,14 @@ class SettingsStore:
         self._data["high_contrast"] = bool(value)
         self._save()
 
+    def check_updates(self) -> bool:
+        """Vérification automatique des mises à jour au démarrage (défaut : True)."""
+        return bool(self._data.get("check_updates", True))
+
+    def set_check_updates(self, value: bool) -> None:
+        self._data["check_updates"] = bool(value)
+        self._save()
+
     def get_sash_positions(self) -> list[int]:
         """Positions X (px) des poignées de la disposition 3 colonnes,
         ou `[]` si jamais réglées / valeur corrompue. Tolérant."""

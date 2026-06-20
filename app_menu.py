@@ -76,6 +76,9 @@ class AppLike(Protocol):
     def action_about(self) -> None: ...
     def action_shortcuts(self) -> None: ...
     def action_open_log(self) -> None: ...
+    def action_check_updates(self) -> None: ...
+    def action_toggle_check_updates(self) -> None: ...
+    def get_check_updates(self) -> bool: ...
 
     # Récents — l'App ouvre directement le chemin sans dialogue.
     def action_open_recent(self, path: str) -> None: ...
@@ -201,6 +204,14 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_shortcuts)
     h.add_command(label="Ouvrir le fichier de log",
                   command=app.action_open_log)
+    h.add_separator()
+    h.add_command(label="Vérifier les mises à jour",
+                  command=app.action_check_updates)
+    chk_var = tk.BooleanVar(value=app.get_check_updates())
+    h.add_checkbutton(
+        label="Vérification automatique au démarrage",
+        variable=chk_var,
+        command=app.action_toggle_check_updates)
     h.add_separator()
     h.add_command(label="À propos", command=app.action_about)
     m.add_cascade(label="Aide", menu=h)

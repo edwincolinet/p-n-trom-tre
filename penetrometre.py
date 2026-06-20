@@ -181,6 +181,84 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self._autosave_after_id: Optional[str] = None
         self._schedule_autosave()
         self.after(200, self._check_recovery_on_startup)
+        # Vérification des mises à jour en arrière-plan, 3 s après le
+        # démarrage (laisse le temps à l'UI de se stabiliser, et évite
+        # de bloquer le démarrage si le réseau est lent).
+        self.after(3000, self._check_for_update_async)
+
+    # --- Mise à jour -------------------------------------------------------
+
+    def _check_for_update_async(self) -> None:
+        """Lance la vérification de mise à jour dans un thread daemon.
+
+        Appelé via `after(3000, …)` au démarrage, seulement si le réglage
+        « vérification automatique » est activé. Le résultat arrive dans
+        `_on_update_result` via `after(0, …)` depuis le thread (thread-safe)."""
+        if not self._settings.check_updates():
+            return
+        import threading
+
+        from update_checker import check_for_update
+
+        def _worker() -> None:
+            result = check_for_update(__version__)
+            if result is not None:
+                tag, url = result
+                self.after(0, lambda: self._on_update_result(tag, url))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="update-check").start()
+
+    def _on_update_result(self, tag: str, url: str) -> None:
+        """Affiche la bannière de mise à jour (appelé depuis le thread de vérification)."""
+        if not hasattr(self, "_update_banner"):
+            return
+        self._update_banner_url = url
+        self._update_banner_lbl.configure(
+            text=f"🆕 Nouvelle version disponible : {tag}")
+        if not self._update_banner.winfo_ismapped():
+            self._update_banner.pack(side="bottom", fill="x")
+
+    def _open_update_url(self) -> None:
+        """Ouvre la page de téléchargement de la mise à jour dans le navigateur."""
+        import webbrowser
+        url = getattr(self, "_update_banner_url", "")
+        if url:
+            webbrowser.open(url)
+
+    def _dismiss_update_banner(self) -> None:
+        """Ferme la bannière pour la session courante (ne désactive pas le check)."""
+        if hasattr(self, "_update_banner"):
+            self._update_banner.pack_forget()
+
+    def action_check_updates(self) -> None:
+        """Vérifie manuellement les mises à jour (Aide → Vérifier les mises à jour)."""
+        from update_checker import check_for_update
+        self.set_status("Vérification des mises à jour…")
+        result = check_for_update(__version__, timeout=5.0)
+        if result is None:
+            from tkinter import messagebox as _mb
+            _mb.showinfo(
+                "Mises à jour",
+                f"Vous utilisez la version {__version__}.\n\n"
+                "Aucune mise à jour disponible ou aucune connexion réseau.",
+                parent=self)
+            self.set_status("Prêt.")
+        else:
+            tag, url = result
+            self._on_update_result(tag, url)
+            self.set_status(f"Mise à jour disponible : {tag}")
+
+    def action_toggle_check_updates(self) -> None:
+        """Active/désactive la vérification automatique des mises à jour."""
+        new_val = not self._settings.check_updates()
+        self._settings.set_check_updates(new_val)
+        état = "activée" if new_val else "désactivée"
+        self.set_status(f"Vérification automatique des mises à jour {état}.")
+
+    def get_check_updates(self) -> bool:
+        """État courant du réglage de vérification automatique."""
+        return self._settings.check_updates()
 
     def _apply_bareme(self) -> None:
         """Charge le barème personnalisé depuis ~/.penetrometre/bareme.json
@@ -740,6 +818,26 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         """Barre d'état en bas de fenêtre : message + boutons d'ouverture
         du dernier export. Remplace les `messagebox` de succès d'export
         (un « OK » à cliquer à chaque fois) par un retour non-modal."""
+        # Bannière de mise à jour : cachée par défaut, packée side="bottom"
+        # par _on_update_result (elle s'insère alors AU-DESSUS de la barre
+        # d'état grâce à l'ordre de packing Tk).
+        self._update_banner = ttk.Frame(self, style="Side.TFrame",
+                                        padding=(10, 3))
+        self._update_banner_lbl = ttk.Label(
+            self._update_banner, text="",
+            style="Side.TLabel", foreground=COLOR_ACCENT,
+            font=ui_font("Helvetica", 9, "bold"))
+        self._update_banner_lbl.pack(side="left")
+        self._update_banner_url: str = ""
+        ttk.Button(
+            self._update_banner, text="Télécharger", style="Accent.TButton",
+            command=self._open_update_url,
+        ).pack(side="left", padx=(10, 0))
+        ttk.Button(
+            self._update_banner, text="✕", style="Ghost.TButton",
+            command=self._dismiss_update_banner,
+        ).pack(side="right")
+
         bar = ttk.Frame(self, style="Side.TFrame")
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
