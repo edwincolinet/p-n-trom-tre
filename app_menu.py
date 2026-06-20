@@ -135,9 +135,6 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_reinspection)
     c.add_command(label="Diagnostic de la comparaison…",
                   command=app.action_compare_arbre)
-    c.add_separator()
-    c.add_command(label="Choisir la mission de référence…",
-                  command=app.action_load_reference)
     m.add_cascade(label="Comparaison", menu=c)
 
     # Arbres

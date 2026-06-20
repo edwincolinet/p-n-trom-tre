@@ -14,7 +14,6 @@ Module sans Tk (PIL pur). Les calculs viennent de `diagnostic`
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 from diagnostic import (
@@ -37,7 +36,14 @@ from palette import (
     COLOR_ROT,
     COLOR_WOOD,
 )
-from pil_render import _pil_load_fonts, render_arbre_to_pil_image
+from pil_render import (
+    _pil_draw_cardinales,
+    _pil_draw_cernes,
+    _pil_draw_echelle_radiale,
+    _pil_draw_ticks,
+    _pil_load_fonts,
+    render_arbre_to_pil_image,
+)
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
@@ -134,6 +140,11 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     cx, cy = size / 2.0, size * 0.45
     scale = (size * 0.40) / (r_ext_max if r_ext_max > 0 else 1.0)
 
+    R = cur_b.rayon_tronc_cm   # grand axe (= rayon si circulaire)
+
+    def r_ext_of(g: float) -> float:
+        return R_of(g) + ep
+
     # --- Couches, du fond vers le premier plan ---
     # Écorce + bois sain : cercle = ellipse native (nette), ovale = contour
     # lissé — exactement comme `_pil_draw_bois_sain` / `_pil_draw_ecorce`.
@@ -144,13 +155,15 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         d.polygon(contour_polygon(R_of, cx, cy, scale, rotation_grades=rot),
                   fill=COLOR_WOOD)
     else:
-        R = R_of(0.0)
         if ep > 0:
             rext = (R + ep) * scale
             d.ellipse([cx - rext, cy - rext, cx + rext, cy + rext],
                       fill=COLOR_BARK)
         rw = R * scale
         d.ellipse([cx - rw, cy - rw, cx + rw, cy + rw], fill=COLOR_WOOD)
+
+    # Cernes de graduation (même primitives que la section réelle).
+    _pil_draw_cernes(d, cur_b, cx, cy, R, scale)
 
     # Dégradation externe : profondeur COURANTE en orange, profondeur de
     # RÉFÉRENCE en ROT par-dessus → orange = bande approfondie depuis la réf.
@@ -178,12 +191,15 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
-    for g, lbl in ((0, "N"), (100, "E"), (200, "S"), (300, "O")):
-        ang = math.radians(g * _GR_TO_DEG - 90)
-        lx = cx + (r_ext_max * scale + 18) * math.cos(ang)
-        ly = cy + (r_ext_max * scale + 18) * math.sin(ang)
-        d.text((lx, ly), lbl, font=f(int(size * 0.046), "serif_bold"),
-               fill=COLOR_INK, anchor="mm")
+    # Ticks 16 directions + cardinales N/E/S/O avec halos (même rendu que
+    # la section réelle — remplace l'ancien texte nu sans halo).
+    _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
+    _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
+
+    # Échelle radiale (premier plan, comme la section réelle). Pas de
+    # sondages dans la section d'évolution → toujours plein Est.
+    _pil_draw_echelle_radiale(d, f, cur_b, cx, cy, scale, 1.0,
+                              show_sondages=False)
 
     sf = f(int(size * 0.030), "sans")
     cap_y = size * 0.95
