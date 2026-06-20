@@ -202,4 +202,55 @@ TRANSLATIONS = {
     # ── Lingua ───────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":
                                            "Lingua modificata. Riavviare l'applicazione per applicarla.",
+
+    # ── Sprint 2 — panes ──────────────────────────────────────────────
+
+    # Identificazione
+    "Arbre":                              "Albero",
+    "N° arbre":                           "N° albero",
+    "Hauteur de l'arbre (m)":             "Altezza albero (m)",
+    "Port de l'arbre":                    "Portamento",
+    "Tronc":                              "Tronco",
+    "Diamètre sous écorce (cm)":          "Diametro (sotto corteccia, cm)",
+    "Rayon du tronc (cm)":               "Raggio del tronco (cm)",
+    "Épaisseur de l'écorce (cm)":         "Spessore corteccia (cm)",
+    "Sondage":                            "Sondaggio",
+    "Longueur de la mèche (cm)":          "Lunghezza sonda (cm)",
+    "Hauteur du sondage (cm)":            "Altezza sondaggio (cm)",
+    "Notes":                              "Note",
+    "Commentaire":                        "Commento",
+    "Forme du tronc (ovale)…":            "Forma del tronco (ovale)…",
+    "Cépée : {n} brins":                 "Ceppaia: {n} fusti",
+    "1 brin (tige unique)":              "1 fusto (tronco singolo)",
+
+    # Sondaggi
+    "Compart.":                           "Comp.",
+    "▸ Saisie du brin {label}":          "▸ Inserimento fusto {label}",
+
+    # Degradi esterni
+    "Début":                              "Inizio",
+    "Fin":                                "Fine",
+    "Largeur":                            "Larghezza",
+    "Aucune dégradation externe relevée.": "Nessun degrado esterno rilevato.",
+
+    # Diagnosi
+    "Résumé de l'arbre courant":          "Riepilogo albero corrente",
+    "Paroi Résiduelle de Bois Sain par sondage":
+                                           "Parete Residua di Legno Sano per sondaggio",
+    "📄 Fiche PDF (arbre courant)":       "📄 Scheda PDF (albero corrente)",
+    "🖨 Imprimer":                        "🖨 Stampa",
+    "🖼 PNG du dessin":                   "🖼 PNG del disegno",
+    "📊 Exporter le tableau":             "📊 Esporta tabella",
+    "Tableau PRBS — Excel (XLSX)…":      "Tabella PRBS — Excel (XLSX)…",
+    "Tableau PRBS — page HTML…":         "Tabella PRBS — pagina HTML…",
+    "Sondages de la mission (CSV)…":     "Sondaggi del progetto (CSV)…",
+    "PRBS (cm)":                          "PRBS (cm)",
+    "t/R (%)":                            "t/R (%)",
+    "Classe":                             "Classe",
+    "── Intervention ──":                "── Intervento ──",
+    "Action recommandée (texte libre)":  "Azione raccomandata (testo libero)",
+    "(facultatif)":                       "(facoltativo)",
+    "── Suivi ──":                        "── Monitoraggio ──",
+    "Validité":                           "Validità",
+    "Contenu du suivi (texte libre)":    "Contenuto monitoraggio (testo libero)",
 }

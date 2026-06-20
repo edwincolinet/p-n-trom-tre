@@ -49,6 +49,7 @@ from dialogs_shared import (
     zone_degradee_to_bool,
 )
 from geometry import GRADES
+from i18n import _
 from model import Brin, DegradationExterne, degradations_chevauchements
 from palette import COLOR_ACCENT, COLOR_WARN
 from tooltip import Tooltip
@@ -112,7 +113,7 @@ class DegradationsPane(ttk.Frame):
 
         self._toolbar = ttk.Frame(self, style="Panel.TFrame")
         self._toolbar.pack(fill="x", pady=(10, 0))
-        ttk.Button(self._toolbar, text="＋ Ajouter dégradation",
+        ttk.Button(self._toolbar, text=_("＋ Ajouter dégradation"),
                    style="Accent.TButton",
                    command=self._on_add).pack(side="left")
 
@@ -137,7 +138,7 @@ class DegradationsPane(ttk.Frame):
         # anticipés : on est peut-être sur le brin b sans dégradation encore.
         label = b.label if b else ""
         if label:
-            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.configure(text=_("▸ Saisie du brin {label}").format(label=label))
             self._brin_title.pack(anchor="w", pady=(0, 6),
                                   before=self._intro)
         else:
@@ -147,14 +148,14 @@ class DegradationsPane(ttk.Frame):
             return
         if not b.degradations_externes:
             ttk.Label(self._rows_frame,
-                      text="Aucune dégradation externe relevée.",
+                      text=_("Aucune dégradation externe relevée."),
                       style="Muted.TLabel").grid(row=0, column=0,
                                                  sticky="w", padx=6)
             self._lbl_zone_aide.pack_forget()
             return
 
-        heads = ["N°", "Début", "Fin", "Largeur", "Profondeur (cm)",
-                 "Zone dégradée", "Commentaire", ""]
+        heads = [_("N°"), _("Début"), _("Fin"), _("Largeur"), _("Profondeur (cm)"),
+                 _("Zone dégradée"), _("Commentaire"), ""]
         for c, h in enumerate(heads):
             ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(

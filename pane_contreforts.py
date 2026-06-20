@@ -39,6 +39,7 @@ from aide_repliable import AideRepliable
 from dialogs import edit_contrefort
 from dialogs_shared import to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
+from i18n import _
 from model import Brin, Contrefort
 from palette import COLOR_ACCENT
 from ui_fonts import font as ui_font
@@ -182,7 +183,7 @@ class ContrefortsPane(ttk.Frame):
         # Écho du brin courant (cépée seulement → label non vide).
         label = b.label if b else ""
         if label:
-            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.configure(text=_("▸ Saisie du brin {label}").format(label=label))
             self._brin_title.pack(anchor="w", pady=(0, 6),
                                   before=self._intro)
         else:

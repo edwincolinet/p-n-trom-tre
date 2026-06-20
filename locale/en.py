@@ -210,4 +210,55 @@ TRANSLATIONS = {
     # ── Langue ────────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":
                                            "Language changed. Restart the application to apply.",
+
+    # ── Sprint 2 — panes ──────────────────────────────────────────────
+
+    # Identification
+    "Arbre":                              "Tree",
+    "N° arbre":                           "Tree ID",
+    "Hauteur de l'arbre (m)":             "Tree height (m)",
+    "Port de l'arbre":                    "Growth habit",
+    "Tronc":                              "Trunk",
+    "Diamètre sous écorce (cm)":          "Diameter (under bark, cm)",
+    "Rayon du tronc (cm)":               "Trunk radius (cm)",
+    "Épaisseur de l'écorce (cm)":         "Bark thickness (cm)",
+    "Sondage":                            "Sounding",
+    "Longueur de la mèche (cm)":          "Probe length (cm)",
+    "Hauteur du sondage (cm)":            "Sounding height (cm)",
+    "Notes":                              "Notes",
+    "Commentaire":                        "Comment",
+    "Forme du tronc (ovale)…":            "Trunk shape (oval)…",
+    "Cépée : {n} brins":                 "Multi-stem: {n} stems",
+    "1 brin (tige unique)":              "1 stem (single trunk)",
+
+    # Sondages
+    "Compart.":                           "Comp.",
+    "▸ Saisie du brin {label}":          "▸ Entry for stem {label}",
+
+    # Dégradations
+    "Début":                              "Start",
+    "Fin":                                "End",
+    "Largeur":                            "Width",
+    "Aucune dégradation externe relevée.": "No external damage recorded.",
+
+    # Diagnostic
+    "Résumé de l'arbre courant":          "Current tree summary",
+    "Paroi Résiduelle de Bois Sain par sondage":
+                                           "Residual Sound Wood by sounding",
+    "📄 Fiche PDF (arbre courant)":       "📄 PDF report (current tree)",
+    "🖨 Imprimer":                        "🖨 Print",
+    "🖼 PNG du dessin":                   "🖼 PNG drawing",
+    "📊 Exporter le tableau":             "📊 Export table",
+    "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
+    "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
+    "Sondages de la mission (CSV)…":     "Mission soundings (CSV)…",
+    "PRBS (cm)":                          "PRBS (cm)",
+    "t/R (%)":                            "t/R (%)",
+    "Classe":                             "Class",
+    "── Intervention ──":                "── Action ──",
+    "Action recommandée (texte libre)":  "Recommended action (free text)",
+    "(facultatif)":                       "(optional)",
+    "── Suivi ──":                        "── Follow-up ──",
+    "Validité":                           "Validity",
+    "Contenu du suivi (texte libre)":    "Follow-up content (free text)",
 }

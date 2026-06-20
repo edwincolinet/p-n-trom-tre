@@ -34,6 +34,7 @@ from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import ask_forme_tronc
 from dialogs_shared import to_float, validate_numeric
+from i18n import _
 from model import Arbre, Brin
 from palette import COLOR_PANEL
 from tooltip import Tooltip
@@ -137,23 +138,23 @@ class IdentificationPane(ttk.Frame):
         # Notes (commentaire libre).
         Row = Tuple[str, tk.StringVar, Optional[List[str]]]
         groupes: List[Tuple[str, List[Row]]] = [
-            ("Arbre", [
-                ("N° arbre",                  self.var_num, None),
-                ("Essence",                   self.var_essence, None),
-                ("Hauteur de l'arbre (m)",    self.var_h_arb, None),
-                ("Port de l'arbre",           self.var_port, list(PORTS_ARBRE)),
+            (_("Arbre"), [
+                (_("N° arbre"),                  self.var_num, None),
+                (_("Essence"),                   self.var_essence, None),
+                (_("Hauteur de l'arbre (m)"),    self.var_h_arb, None),
+                (_("Port de l'arbre"),           self.var_port, list(PORTS_ARBRE)),
             ]),
-            ("Tronc", [
-                ("Diamètre sous écorce (cm)", self.var_diam, None),
-                ("Rayon du tronc (cm)",       self.var_rayon, None),
-                ("Épaisseur de l'écorce (cm)", self.var_ep_ecorce, None),
+            (_("Tronc"), [
+                (_("Diamètre sous écorce (cm)"), self.var_diam, None),
+                (_("Rayon du tronc (cm)"),       self.var_rayon, None),
+                (_("Épaisseur de l'écorce (cm)"), self.var_ep_ecorce, None),
             ]),
-            ("Sondage", [
-                ("Longueur de la mèche (cm)", self.var_meche, None),
-                ("Hauteur du sondage (cm)",   self.var_h_s, None),
+            (_("Sondage"), [
+                (_("Longueur de la mèche (cm)"), self.var_meche, None),
+                (_("Hauteur du sondage (cm)"),   self.var_h_s, None),
             ]),
-            ("Notes", [
-                ("Commentaire",               self.var_comm, None),
+            (_("Notes"), [
+                (_("Commentaire"),               self.var_comm, None),
             ]),
         ]
         numeric_var_names = {str(self.var_diam), str(self.var_rayon),
@@ -204,7 +205,7 @@ class IdentificationPane(ttk.Frame):
         # défaut (tronc circulaire). Bouton sous les champs du « Tronc ».
         if self._tronc_box is not None:
             self.btn_forme = ttk.Button(
-                self._tronc_box, text="Forme du tronc (ovale)…",
+                self._tronc_box, text=_("Forme du tronc (ovale)…"),
                 style="Ghost.TButton", command=self._open_forme_editor)
             self.btn_forme.grid(row=99, column=0,
                                 columnspan=2, sticky="w", pady=(6, 0))
@@ -216,17 +217,17 @@ class IdentificationPane(ttk.Frame):
             brin_bar.grid(row=100, column=0, columnspan=2, sticky="w",
                           pady=(6, 0))
             self.btn_add_brin = ttk.Button(
-                brin_bar, text="＋ Brin", style="Ghost.TButton",
+                brin_bar, text=_("＋ Brin"), style="Ghost.TButton",
                 command=self._add_brin)
             self.btn_add_brin.pack(side="left")
             self.btn_del_brin = ttk.Button(
-                brin_bar, text="− Brin", style="Ghost.TButton",
+                brin_bar, text=_("− Brin"), style="Ghost.TButton",
                 command=self._remove_last_brin)
             self.btn_del_brin.pack(side="left", padx=(6, 0))
             # Disposition (placement des brins à la souris) — pertinente
             # seulement pour une cépée (≥ 2 brins) : désactivée sinon.
             self.btn_layout = ttk.Button(
-                brin_bar, text="Disposition…", style="Ghost.TButton",
+                brin_bar, text=_("Disposition…"), style="Ghost.TButton",
                 command=self._edit_cepee_layout)
             self.btn_layout.pack(side="left", padx=(6, 0))
             self.lbl_brins = ttk.Label(brin_bar, text="", style="Muted.TLabel")
@@ -321,7 +322,8 @@ class IdentificationPane(ttk.Frame):
         if hasattr(self, "btn_layout"):
             self.btn_layout.configure(state=cepee_state)
         self.lbl_brins.configure(
-            text=(f"Cépée : {n} brins" if n > 1 else "1 brin (tige unique)"))
+            text=(_("Cépée : {n} brins").format(n=n) if n > 1
+                  else _("1 brin (tige unique)")))
 
     def flush(self) -> None:
         """Finalise une édition de rayon en cours (focus encore dans le

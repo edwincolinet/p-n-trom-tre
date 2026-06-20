@@ -34,6 +34,7 @@ from dialogs import ask_date
 from dialogs_settings import ask_suivi_custom, ask_urgences_custom
 from dialogs_shared import SUIVI_VALIDITES, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
+from i18n import _
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
@@ -123,36 +124,36 @@ class DiagnosticPane(ttk.Frame):
         # déroulant pour alléger la barre (5 boutons → 2 boutons + 1 menu).
         btn_exp = ttk.Frame(parent, style="Panel.TFrame")
         btn_exp.pack(fill="x", pady=(0, 12))
-        btn_pdf = ttk.Button(btn_exp, text="📄 Fiche PDF (arbre courant)",
+        btn_pdf = ttk.Button(btn_exp, text=_("📄 Fiche PDF (arbre courant)"),
                              style="Accent.TButton",
                              command=self._host.action_export_pdf_arbre)
         btn_pdf.pack(side="left", padx=(0, 6))
         Tooltip(btn_pdf, "Exporter la fiche PDF de l'arbre courant "
                          "(dessin + tableau + diagnostic) — Ctrl+E")
-        btn_print = ttk.Button(btn_exp, text="🖨 Imprimer",
+        btn_print = ttk.Button(btn_exp, text=_("🖨 Imprimer"),
                                style="Ghost.TButton",
                                command=self._host.action_print_arbre)
         btn_print.pack(side="left", padx=(0, 6))
         Tooltip(btn_print, "Imprimer la fiche PDF directement "
                            "(sans dialogue de sauvegarde) — Ctrl+P")
-        btn_png = ttk.Button(btn_exp, text="🖼 PNG du dessin",
+        btn_png = ttk.Button(btn_exp, text=_("🖼 PNG du dessin"),
                              style="Ghost.TButton",
                              command=self._host.action_export_png)
         btn_png.pack(side="left", padx=(0, 6))
         Tooltip(btn_png, "Exporter le dessin de la section en image PNG")
 
-        mb_table = ttk.Menubutton(btn_exp, text="📊 Exporter le tableau",
+        mb_table = ttk.Menubutton(btn_exp, text=_("📊 Exporter le tableau"),
                                   style="Ghost.TMenubutton", direction="below")
         table_menu = tk.Menu(mb_table, tearoff=0)
         table_menu.add_command(
-            label="Tableau PRBS — Excel (XLSX)…",
+            label=_("Tableau PRBS — Excel (XLSX)…"),
             command=self._host.action_export_prbs_xlsx)
         table_menu.add_command(
-            label="Tableau PRBS — page HTML…",
+            label=_("Tableau PRBS — page HTML…"),
             command=self._host.action_export_prbs_html)
         table_menu.add_separator()
         table_menu.add_command(
-            label="Sondages de la mission (CSV)…",
+            label=_("Sondages de la mission (CSV)…"),
             command=self._host.action_export_csv)
         mb_table["menu"] = table_menu
         mb_table.pack(side="left")
@@ -161,7 +162,7 @@ class DiagnosticPane(ttk.Frame):
                 "tous les sondages de la mission (CSV)")
 
         # --- Bloc résumé haut ---
-        ttk.Label(parent, text="Résumé de l'arbre courant",
+        ttk.Label(parent, text=_("Résumé de l'arbre courant"),
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         self._txt_diag = tk.Text(
             parent, state="disabled", wrap="word", relief="flat", bd=0,
@@ -177,7 +178,7 @@ class DiagnosticPane(ttk.Frame):
         self._build_preconisation(parent)
 
         # --- Tableau PRBS par sondage ---
-        ttk.Label(parent, text="Paroi Résiduelle de Bois Sain par sondage",
+        ttk.Label(parent, text=_("Paroi Résiduelle de Bois Sain par sondage"),
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         ttk.Label(parent,
                   text="Classe colorée selon t/R et le port (barème expert).",
@@ -188,11 +189,11 @@ class DiagnosticPane(ttk.Frame):
         cols = ("n", "dir", "prbs", "tR", "classe")
         self.tbl_prbs = ttk.Treeview(prbs_frame, columns=cols,
                                       show="headings", height=8)
-        self.tbl_prbs.heading("n", text="N°")
-        self.tbl_prbs.heading("dir", text="Direction")
-        self.tbl_prbs.heading("prbs", text="PRBS (cm)")
-        self.tbl_prbs.heading("tR", text="t/R (%)")
-        self.tbl_prbs.heading("classe", text="Classe")
+        self.tbl_prbs.heading("n", text=_("N°"))
+        self.tbl_prbs.heading("dir", text=_("Direction"))
+        self.tbl_prbs.heading("prbs", text=_("PRBS (cm)"))
+        self.tbl_prbs.heading("tR", text=_("t/R (%)"))
+        self.tbl_prbs.heading("classe", text=_("Classe"))
         self.tbl_prbs.column("n", width=35, anchor="center")
         self.tbl_prbs.column("dir", width=80, anchor="center")
         self.tbl_prbs.column("prbs", width=85, anchor="center")
@@ -229,19 +230,19 @@ class DiagnosticPane(ttk.Frame):
         # en cours dans la zone de texte.
         self._preco_loaded_id: Optional[int] = None
 
-        ttk.Label(parent, text="Préconisation",
+        ttk.Label(parent, text=_("Préconisation"),
                   style="H.TLabel").pack(anchor="w", pady=(4, 2))
         ttk.Label(parent,
                   text="La décision d'expertise : quoi faire, et quand.",
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
 
         # ── Intervention ──────────────────────────────────────────────
-        ttk.Label(parent, text="── Intervention ──",
+        ttk.Label(parent, text=_("── Intervention ──"),
                   style="Sub.TLabel").pack(anchor="w", pady=(0, 6))
 
         line = ttk.Frame(parent, style="Panel.TFrame")
         line.pack(fill="x", pady=(0, 6))
-        ttk.Label(line, text="Urgence", style="Panel.TLabel").pack(
+        ttk.Label(line, text=_("Urgence"), style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_urgence = tk.StringVar(value=_URGENCE_VIDE)
         self._cmb_urgence = ttk.Combobox(
@@ -257,7 +258,7 @@ class DiagnosticPane(ttk.Frame):
         btn_edit_urg.pack(side="left", padx=(0, 12))
         Tooltip(btn_edit_urg, "Gérer les niveaux d'urgence personnalisés")
 
-        ttk.Label(line, text="Échéance", style="Panel.TLabel").pack(
+        ttk.Label(line, text=_("Échéance"), style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_echeance = tk.StringVar()
         ent_ech = ttk.Entry(line, textvariable=self.var_echeance, width=12)
@@ -268,10 +269,10 @@ class DiagnosticPane(ttk.Frame):
                              command=self._pick_echeance)
         btn_cal.pack(side="left")
         Tooltip(btn_cal, "Choisir l'échéance au calendrier")
-        ttk.Label(line, text="(facultatif)", style="Muted.TLabel",
+        ttk.Label(line, text=_("(facultatif)"), style="Muted.TLabel",
                   foreground=COLOR_MUTED).pack(side="left", padx=(6, 0))
 
-        ttk.Label(parent, text="Action recommandée (texte libre)",
+        ttk.Label(parent, text=_("Action recommandée (texte libre)"),
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
         self.txt_preco = tk.Text(parent, height=3, wrap="word",
                                  font=ui_font("Helvetica", 10),
@@ -281,12 +282,12 @@ class DiagnosticPane(ttk.Frame):
         self.txt_preco.bind("<FocusOut>", lambda e: self._on_preco_focus_out())
 
         # ── Suivi ─────────────────────────────────────────────────────
-        ttk.Label(parent, text="── Suivi ──",
+        ttk.Label(parent, text=_("── Suivi ──"),
                   style="Sub.TLabel").pack(anchor="w", pady=(0, 6))
 
         suivi_line = ttk.Frame(parent, style="Panel.TFrame")
         suivi_line.pack(fill="x", pady=(0, 6))
-        ttk.Label(suivi_line, text="Validité", style="Panel.TLabel").pack(
+        ttk.Label(suivi_line, text=_("Validité"), style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_suivi_validite = tk.StringVar(value=_SUIVI_VIDE)
         self._cmb_suivi = ttk.Combobox(
@@ -302,7 +303,7 @@ class DiagnosticPane(ttk.Frame):
         btn_edit_suivi.pack(side="left")
         Tooltip(btn_edit_suivi, "Gérer les durées de suivi personnalisées")
 
-        ttk.Label(parent, text="Contenu du suivi (texte libre)",
+        ttk.Label(parent, text=_("Contenu du suivi (texte libre)"),
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
         self.txt_suivi = tk.Text(parent, height=3, wrap="word",
                                  font=ui_font("Helvetica", 10),

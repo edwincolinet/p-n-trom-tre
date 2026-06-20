@@ -43,6 +43,7 @@ from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs import edit_sondage
 from dialogs_shared import to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
+from i18n import _
 from model import Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_WARN
 from ui_fonts import font as ui_font
@@ -108,8 +109,8 @@ class SondagesPane(ttk.Frame):
         grid.pack(fill="both", expand=True)
         self._grid = grid
 
-        heads = ["Direction", "Grade", "Bois sain (cm)", "Altéré (cm)",
-                 "Compart."]
+        heads = [_("Direction"), _("Grade"), _("Bois sain (cm)"),
+                 _("Altéré (cm)"), _("Compart.")]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(
@@ -203,7 +204,7 @@ class SondagesPane(ttk.Frame):
         # Écho du brin courant (cépée seulement → label non vide).
         label = b.label if b else ""
         if label:
-            self._brin_title.configure(text=f"▸ Saisie du brin {label}")
+            self._brin_title.configure(text=_("▸ Saisie du brin {label}").format(label=label))
             self._brin_title.pack(anchor="w", pady=(0, 6),
                                   before=self._intro)
         else:
