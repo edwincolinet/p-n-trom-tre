@@ -426,4 +426,12 @@ TRANSLATIONS = {
     "Classe globale":                      "Overall class",
     "Classe globale (pire brin)":          "Overall class (worst stem)",
     "Aucune altération saisie.":           "No alteration recorded.",
+
+    # ── Sprint 6 — dernières chaînes ──────────────────────────────────
+    "Fichier de log":                      "Log file",
+    "Sauvegardes":                         "Backups",
+    "Contrefort en double":                "Duplicate buttress",
+    "Glissez un brin pour le positionner": "Drag a stem to position it",
+    "Vert = paroi saine (t/R > seuil Vert) · ":
+        "Green = sound wall (t/R > Green threshold) · ",
 }

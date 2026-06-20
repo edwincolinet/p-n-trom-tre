@@ -510,9 +510,8 @@ def ask_cepee_layout(parent: tk.Misc,
 
     ttk.Label(
         dlg,
-        text="Glissez un brin pour le positionner ; molette au-dessus d'un "
-             "brin pour le faire pivoter (pas de 25 gr). Le brin « a » est "
-             "l'ancre du repère (position fixe ; il peut pivoter).",
+        text=_("Glissez un brin pour le positionner")
+             + " ; molette au-dessus d'un brin pour le faire pivoter (pas de 25 gr).",
         background=COLOR_PANEL, foreground=COLOR_MUTED,
         font=ui_font("Helvetica", 9, "italic"),
         wraplength=int(W), justify="left").grid(
@@ -994,7 +993,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
                         lbl = DIRECTION_LABELS.get(new_centre, "")
                         direction = f" ({lbl})" if lbl else ""
                         messagebox.showwarning(
-                            "Contrefort en double",
+                            _("Contrefort en double"),
                             f"Un contrefort existe déjà au grade "
                             f"{new_centre} gr{direction}.",
                             parent=dlg)

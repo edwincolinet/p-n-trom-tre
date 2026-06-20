@@ -293,8 +293,8 @@ def ask_bareme_settings(
               font=ui_font("Helvetica", 11, "bold")).pack(anchor="w",
                                                           pady=(0, 4))
     ttk.Label(content,
-              text="Vert = paroi saine (t/R > seuil Vert) · "
-                   "Orange = paroi fragilisée · Rouge = paroi critique (t/R < seuil Orange)",
+              text=_("Vert = paroi saine (t/R > seuil Vert) · ")
+                   + "Orange = paroi fragilisée · Rouge = paroi critique (t/R < seuil Orange)",
               wraplength=460, justify="left").pack(anchor="w", pady=(0, 12))
 
     GROUPES = [

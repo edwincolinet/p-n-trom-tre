@@ -340,7 +340,7 @@ class DegradationsPane(ttk.Frame):
             finally:
                 self._suspend = False
             other, shared = conflits[0]
-            messagebox.showwarning("Chevauchement de dégradations",
+            messagebox.showwarning(_("Chevauchement de dégradations"),
                                    message_chevauchement(other, shared),
                                    parent=self)
             return
@@ -438,7 +438,7 @@ class DegradationsPane(ttk.Frame):
         arc = self._arc_libre(b)
         if arc is None:
             messagebox.showwarning(
-                "Plus de place",
+                _("Plus de place"),
                 "Toutes les directions sont déjà couvertes par des "
                 "dégradations : supprimez ou rétrécissez un arc "
                 "existant.", parent=self)

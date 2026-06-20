@@ -399,4 +399,12 @@ TRANSLATIONS = {
     "Classe globale":                      "Classe globale",
     "Classe globale (pire brin)":          "Classe globale (fusto peggiore)",
     "Aucune altération saisie.":           "Nessuna alterazione registrata.",
+
+    # ── Sprint 6 — ultime stringhe ────────────────────────────────────
+    "Fichier de log":                      "File di log",
+    "Sauvegardes":                         "Backup",
+    "Contrefort en double":                "Contrafforte duplicato",
+    "Glissez un brin pour le positionner": "Trascinare un fusto per posizionarlo",
+    "Vert = paroi saine (t/R > seuil Vert) · ":
+        "Verde = parete sana (t/R > soglia Verde) · ",
 }

@@ -212,7 +212,7 @@ class FichierMixin(_MixinBase):
             self._reference_chantier = load_chantier(p)
         except Exception as e:
             log.exception("Échec chargement mission de référence")
-            messagebox.showerror("Erreur", str(e))
+            messagebox.showerror(_("Erreur"), str(e))
             return False
         n = len(self._reference_chantier.arbres)
         self.set_status(f"Mission de référence chargée — {Path(p).name} "
@@ -254,7 +254,7 @@ class FichierMixin(_MixinBase):
             loaded = load_chantier(p)
         except Exception as e:
             log.exception("Échec chargement pour ré-inspection")
-            messagebox.showerror("Erreur", str(e))
+            messagebox.showerror(_("Erreur"), str(e))
             return
         # Nouvelle date de relevé (aujourd'hui par défaut). Annulé → on
         # abandonne ; effacé → on retombe sur aujourd'hui (une date est
@@ -326,7 +326,7 @@ class FichierMixin(_MixinBase):
             self.notify_export(p, "Comparaison d'inspections")
         except Exception as e:
             log.exception("Échec export comparaison")
-            messagebox.showerror("Erreur", str(e))
+            messagebox.showerror(_("Erreur"), str(e))
 
     def _install_chantier_ui(self) -> None:
         """Recharge toute l'UI depuis `self.chantier` (méta, liste d'arbres,
@@ -361,7 +361,7 @@ class FichierMixin(_MixinBase):
             self._recent.push(p)
         except FileNotFoundError:
             messagebox.showerror(
-                "Fichier introuvable",
+                _("Fichier introuvable"),
                 f"Le fichier suivant n'existe plus :\n{p}\n\n"
                 "Il a été retiré de la liste des fichiers récents.")
             self._recent.remove(p)
@@ -413,7 +413,7 @@ class FichierMixin(_MixinBase):
             self.set_status(f"✓ Enregistré — {self.current_file.name}")
         except Exception as e:
             log.exception("Échec enregistrement mission")
-            messagebox.showerror("Erreur", str(e))
+            messagebox.showerror(_("Erreur"), str(e))
 
     def action_save_as(self) -> None:
         p = filedialog.asksaveasfilename(

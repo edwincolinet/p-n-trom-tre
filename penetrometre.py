@@ -1632,7 +1632,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         log_path = Path.home() / ".penetrometre" / "penetrometre.log"
         if not log_path.exists():
             messagebox.showinfo(
-                "Fichier de log",
+                _("Fichier de log"),
                 f"Aucun fichier de log trouvé à :\n{log_path}")
             return
         self._open_in_system(log_path)
@@ -1649,7 +1649,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 or not any(_BACKUP_PATH.iterdir()))
         if vide:
             messagebox.showinfo(
-                "Sauvegardes",
+                _("Sauvegardes"),
                 "Aucune sauvegarde pour l'instant.\n\nUne copie horodatée "
                 "de la mission est créée à chaque enregistrement, dans :\n"
                 f"{_BACKUP_PATH}")
