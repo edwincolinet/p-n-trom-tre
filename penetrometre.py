@@ -463,7 +463,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ).pack(side="left")
 
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
-        lst_frame.pack(fill="both", expand=True)
         self._lst_frame = lst_frame
         self.tree_arbres = ttk.Treeview(
             lst_frame, columns=("ess", "etat", "risque"),
@@ -527,28 +526,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             lambda e: self._tree_arbres_ctx_menu.unpost())
         self.tree_arbres.bind("<Button-3>", self._on_tree_arbres_right_click)
 
-        # Footer = vue de triage macro (répartition rouge/orange/vert/à
-        # finir) — cf. `_update_etat_footer`. Wrap pour tenir dans le
-        # panneau gauche étroit.
-        self.lbl_etat_footer = ttk.Label(
-            frame, text="", style="Side.TLabel", wraplength=250,
-            justify="left", font=ui_font("Helvetica", 9, "italic"))
-        self.lbl_etat_footer.pack(anchor="w", pady=(6, 0))
-
-        # Triage de fin de mission : saute au prochain arbre incomplet
-        # (pendant du compteur « N à finir » juste au-dessus).
-        btn_afinir = ttk.Button(
-            frame, text="⏭ Prochain arbre à finir", style="Ghost.TButton",
-            command=self.action_next_a_finir)
-        btn_afinir.pack(anchor="w", pady=(4, 0))
-        Tooltip(btn_afinir, "Sélectionne le prochain arbre au diagnostic "
-                            "non fiable (rayon manquant ou < 3 sondages), "
-                            "en bouclant. Vide les filtres si besoin.")
-
+        # Éléments du bas packés en side="bottom" AVANT lst_frame (sinon
+        # lst_frame avec expand=True les pousserait hors de l'écran quand le
+        # bandeau filtre actif agrandit la zone des filtres). Ordre inverse
+        # de l'ordre visuel : le premier packé en bottom est le plus bas.
         btns = ttk.Frame(frame, style="Side.TFrame")
-        btns.pack(fill="x", pady=(10, 0))
+        btns.pack(side="bottom", fill="x", pady=(10, 0))
         mb_add = ttk.Menubutton(btns, text="＋ Ajouter",
-                                style="Accent.TMenubutton", direction="below")
+                                style="Accent.TMenubutton", direction="above")
         add_menu = tk.Menu(mb_add, tearoff=0)
         add_menu.add_command(label="Arbre vierge",
                              accelerator="Ctrl+T",
@@ -567,6 +552,26 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Button(btns, text="Supprimer", style="Ghost.TButton",
                    command=self.action_del_arbre
                    ).pack(side="left", padx=(6, 0))
+
+        # Triage de fin de mission : saute au prochain arbre incomplet
+        # (pendant du compteur « N à finir » juste au-dessous).
+        btn_afinir = ttk.Button(
+            frame, text="⏭ Prochain arbre à finir", style="Ghost.TButton",
+            command=self.action_next_a_finir)
+        btn_afinir.pack(side="bottom", anchor="w", pady=(4, 0))
+        Tooltip(btn_afinir, "Sélectionne le prochain arbre au diagnostic "
+                            "non fiable (rayon manquant ou < 3 sondages), "
+                            "en bouclant. Vide les filtres si besoin.")
+
+        # Footer = vue de triage macro (répartition rouge/orange/vert/à
+        # finir) — cf. `_update_etat_footer`. Wrap pour tenir dans le
+        # panneau gauche étroit.
+        self.lbl_etat_footer = ttk.Label(
+            frame, text="", style="Side.TLabel", wraplength=250,
+            justify="left", font=ui_font("Helvetica", 9, "italic"))
+        self.lbl_etat_footer.pack(side="bottom", anchor="w", pady=(6, 0))
+
+        lst_frame.pack(fill="both", expand=True)
 
     def _build_center(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)

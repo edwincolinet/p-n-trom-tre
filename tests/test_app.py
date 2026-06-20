@@ -707,42 +707,28 @@ class TestAppMixins(unittest.TestCase):
 
     # --- Tableau Dégradations (édition en place) ---
 
-    def test_degradations_ajout_via_dialogue(self) -> None:
-        """_on_add ouvre un dialogue avant d'ajouter : ajout si OK, rien si Annuler."""
-        from unittest.mock import patch
+    def test_degradations_ajout_sans_dialogue_sur_arc_libre(self) -> None:
         a = self.app.chantier.arbres[0]
-        # Dialogue validé → la dégradation est ajoutée sur le premier arc libre.
-        with patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
         self.assertEqual(len(a.degradations_externes), 1)
         d1 = a.degradations_externes[0]
         self.assertEqual((d1.grade_debut, d1.grade_fin), (0, 50))
-        # 2e ajout (dialogue validé) : premier arc libre suivant.
-        with patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()
+        # 2e ajout : premier arc libre suivant (mitoyen autorisé).
+        self.app.pane_de._on_add()
         self.assertEqual(len(a.degradations_externes), 2)
         self.assertEqual(a.degradations_externes[1].grade_debut, 50)
-        # Dialogue annulé → aucun ajout supplémentaire.
-        with patch("pane_degradations.edit_degradation", return_value=False):
-            self.app.pane_de._on_add()
-        self.assertEqual(len(a.degradations_externes), 2)
 
     def test_degradations_profondeur_editee_en_place(self) -> None:
-        from unittest.mock import patch
         a = self.app.chantier.arbres[0]
-        with patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
         row = self.app.pane_de._row_refs[0]
         row["prof"].set("4,5")  # virgule décimale acceptée
         self.assertEqual(a.degradations_externes[0].profondeur_cm, 4.5)
 
     def test_degradations_arc_valide_applique(self) -> None:
-        from unittest.mock import patch
-
         from dialogs import find_grade_choice
         a = self.app.chantier.arbres[0]
-        with patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()  # 0 → 50
+        self.app.pane_de._on_add()  # 0 → 50
         deg = a.degradations_externes[0]
         row = self.app.pane_de._row_refs[0]
         row["fin"].set(find_grade_choice(
@@ -779,9 +765,7 @@ class TestAppMixins(unittest.TestCase):
         # Sondage au Nord : 5 cm de sain (25 d'altéré).
         self.app.pane_s._rows[0]["sain"].set("5")
         # Dégradation 0→50 (couvre le Nord), profondeur 7 : 25 + 7 > 30.
-        from unittest.mock import patch as _patch
-        with _patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
         self.app.pane_de._row_refs[0]["prof"].set("7")
         self.app._redraw_all()
         self.assertTrue(
@@ -806,11 +790,9 @@ class TestAppMixins(unittest.TestCase):
         self.assertEqual(self.app.pane_diag._lbl_fusion.winfo_manager(), "")
 
     def test_degradations_suppression_par_ligne(self) -> None:
-        from unittest.mock import patch
         a = self.app.chantier.arbres[0]
-        with patch("pane_degradations.edit_degradation", return_value=True):
-            self.app.pane_de._on_add()
-            self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
+        self.app.pane_de._on_add()
         deg1 = a.degradations_externes[0]
         self.app.pane_de._on_del(deg1)
         self.assertEqual(len(a.degradations_externes), 1)
