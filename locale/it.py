@@ -340,4 +340,63 @@ TRANSLATIONS = {
 
     "Ré-inspection :":                    "Re-ispezione:",
     "Diagnostic de la comparaison":       "Diagnosi del confronto",
+
+    # ── Sprint 5 — stringhe restanti ─────────────────────────────────
+
+    "Tapez la PRBS (bois sain) de chaque direction, puis "
+    "Entrée (ou ↓) pour descendre. Le dessin et le diagnostic "
+    "se recalculent en direct.":
+        "Inserire la PRBS (legno sano) per ogni direzione, poi "
+        "Invio (o ↓) per scendere. Il disegno e la diagnosi si aggiornano in tempo reale.",
+
+    "⚠ Renseignez le rayon du tronc dans l'onglet Identification :\n"
+    " sans lui, le bois altéré n'est pas calculé.":
+        "⚠ Inserire il raggio del tronco nell'onglet Identificazione:\n"
+        " senza di esso, il legno alterato non può essere calcolato.",
+
+    "Une dégradation externe = arc continu sur l'écorce "
+    "(début → fin) consommant du bois sain en profondeur. "
+    "Éditez directement dans le tableau.":
+        "Degrado esterno = arco continuo sulla corteccia "
+        "(inizio → fine) che consuma legno sano in profondità. "
+        "Modificare direttamente nella tabella.",
+
+    "Un contrefort = empattement saillant à la base du tronc. "
+    "Saisissez la longueur radiale de chaque contrefort.":
+        "Un contrafforte = espansione alla base del tronco. "
+        "Inserire la lunghezza radiale di ogni contrafforte.",
+
+    "Classe colorée selon t/R et le port (barème expert).":
+        "Classe colorata secondo t/R e portamento (scala expert).",
+    "La décision d'expertise : quoi faire, et quand.":
+        "La decisione peritale: cosa fare e quando.",
+
+    "Laissez le petit axe vide pour une section circulaire.":
+        "Lasciare vuoto il semiasse minore per una sezione circolare.",
+    "Longueur radiale (cm, vers l'extérieur)":
+        "Lunghezza radiale (cm, verso l'esterno)",
+
+    "Information":                         "Informazione",
+    "Numéro invalide":                     "Numero non valido",
+    "Numéro déjà utilisé":                 "Numero già utilizzato",
+    "Doublon":                             "Duplicato",
+    "Valeur invalide":                     "Valore non valido",
+    "Seuils incohérents":                  "Soglie incoerenti",
+    "Direction déjà sondée":               "Direzione già sondeggiata",
+    "Erreur de saisie":                    "Errore di inserimento",
+    "Chevauchement de dégradations":       "Sovrapposizione di degradi",
+    "Plus de place":                       "Nessuno spazio disponibile",
+    "Récupération":                        "Recupero",
+    "Faire une comparaison":               "Avvia confronto",
+    "Mission antérieure à ré-inspecter (servira de référence)":
+                                           "Progetto precedente da re-ispezionare (servirà come riferimento)",
+    "Raccourcis clavier":                  "Scorciatoie da tastiera",
+    "\nNote : « Résistographe » est une marque déposée.\nCe logiciel utilise le terme générique « pénétromètre ».":
+        "\nNota: 'Resistografo' è un marchio registrato.\nQuesto software utilizza il termine generico 'penetrometro'.",
+
+    "t/R moyen sur le pourtour":           "t/R medio sul perimetro",
+    "t/R minimal":                         "t/R minimo",
+    "Classe globale":                      "Classe globale",
+    "Classe globale (pire brin)":          "Classe globale (fusto peggiore)",
+    "Aucune altération saisie.":           "Nessuna alterazione registrata.",
 }

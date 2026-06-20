@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Optional
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import genet_diagnostic
 from dialogs import ask_string
+from i18n import _
 from model import URGENCE_NIVEAUX, Arbre
 
 # Cf. note dans `app_recovery` : base `tk.Tk` pour mypy (self = widget),
@@ -428,14 +429,14 @@ class ArbreListMixin(_MixinBase):
 
     def action_del_arbre(self) -> None:
         if len(self.chantier.arbres) <= 1:
-            messagebox.showinfo("Information",
+            messagebox.showinfo(_("Information"),
                                 "La mission doit contenir au moins un arbre.")
             return
         a = self._current_arbre()
         if a is None:
             return
         if not messagebox.askyesno(
-                "Supprimer",
+                _("Supprimer"),
                 f"Supprimer définitivement « {a.display_name} » ?"):
             return
         self.push_undo()
@@ -468,7 +469,7 @@ class ArbreListMixin(_MixinBase):
                 return
             if not any(c.isdigit() for c in new):
                 messagebox.showwarning(
-                    "Numéro invalide",
+                    _("Numéro invalide"),
                     "Le numéro d'arbre doit contenir au moins un "
                     "chiffre.\n\nExemples valides : « 1 », « 42 », "
                     "« 12 bis ».",
@@ -484,7 +485,7 @@ class ArbreListMixin(_MixinBase):
                            for x in self.chantier.arbres)
         if already_used:
             confirmer = messagebox.askyesno(
-                "Numéro déjà utilisé",
+                _("Numéro déjà utilisé"),
                 f"Un autre arbre porte déjà le n° « {new} ».\n\n"
                 "Continuer quand même ?")
             if not confirmer:

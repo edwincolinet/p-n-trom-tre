@@ -346,8 +346,8 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
         row=1, column=1, sticky="we", pady=4)
 
     ttk.Label(dlg,
-              text="Laissez le petit axe vide pour une section circulaire.\n"
-                   "Sinon : ellipse de demi-grand-axe = rayon du tronc,\n"
+              text=_("Laissez le petit axe vide pour une section circulaire.")
+                   + "\nSinon : ellipse de demi-grand-axe = rayon du tronc,\n"
                    "orientée selon l'orientation (0 gr = Nord-Sud).",
               background=COLOR_PANEL, foreground=COLOR_MUTED,
               font=ui_font("Helvetica", 9, "italic"),
@@ -654,7 +654,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
                         lbl = DIRECTION_LABELS.get(new_grade, "")
                         direction = f" ({lbl})" if lbl else ""
                         messagebox.showwarning(
-                            "Direction déjà sondée",
+                            _("Direction déjà sondée"),
                             f"Un sondage existe déjà au grade "
                             f"{new_grade} gr{direction}.\n\n"
                             "Chaque direction ne peut être sondée "
@@ -679,7 +679,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
             result["ok"] = True
             dlg.destroy()
         except ValueError as e:
-            messagebox.showerror("Erreur de saisie",
+            messagebox.showerror(_("Erreur de saisie"),
                                  f"Valeur invalide : {e}", parent=dlg)
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
@@ -860,7 +860,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
                 if conflits:
                     other, shared = conflits[0]
                     messagebox.showwarning(
-                        "Chevauchement de dégradations",
+                        _("Chevauchement de dégradations"),
                         message_chevauchement(other, shared),
                         parent=dlg)
                     return
@@ -872,7 +872,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             result["ok"] = True
             dlg.destroy()
         except (ValueError, IndexError) as e:
-            messagebox.showerror("Erreur de saisie",
+            messagebox.showerror(_("Erreur de saisie"),
                                  f"Valeur invalide : {e}", parent=dlg)
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
@@ -943,7 +943,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     _numeric_entry(dlg, v_largeur_cm, width=12
                    ).grid(row=2, column=1, sticky="w", padx=10, pady=6)
 
-    ttk.Label(dlg, text="Longueur radiale (cm, vers l'extérieur)",
+    ttk.Label(dlg, text=_("Longueur radiale (cm, vers l'extérieur)"),
               background=COLOR_PANEL).grid(row=3, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_long, width=12
@@ -1008,7 +1008,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
             result["ok"] = True
             dlg.destroy()
         except (ValueError, IndexError) as e:
-            messagebox.showerror("Erreur de saisie",
+            messagebox.showerror(_("Erreur de saisie"),
                                  f"Valeur invalide : {e}", parent=dlg)
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")

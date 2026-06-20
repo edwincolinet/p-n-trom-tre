@@ -212,7 +212,7 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
         if not txt:
             return
         if txt in items:
-            messagebox.showwarning("Doublon",
+            messagebox.showwarning(_("Doublon"),
                                    f"« {txt} » est déjà dans la liste.",
                                    parent=dlg)
             return
@@ -289,7 +289,7 @@ def ask_bareme_settings(
     content.pack(fill="both", expand=True)
 
     ttk.Label(content,
-              text="Seuils de classification t/R par groupe de port",
+              text=_("Seuils de classification t/R par groupe de port"),
               font=ui_font("Helvetica", 11, "bold")).pack(anchor="w",
                                                           pady=(0, 4))
     ttk.Label(content,
@@ -347,13 +347,13 @@ def ask_bareme_settings(
                 vert   = float(entries[grp_key]["vert"].get().replace(",", ".")) / 100
                 orange = float(entries[grp_key]["orange"].get().replace(",", ".")) / 100
             except ValueError:
-                messagebox.showerror("Valeur invalide",
+                messagebox.showerror(_("Valeur invalide"),
                                      "Saisissez des nombres (ex. 30, 15).",
                                      parent=dlg)
                 return None
             if not (0 < orange < vert <= 1):
                 messagebox.showerror(
-                    "Seuils incohérents",
+                    _("Seuils incohérents"),
                     f"Pour le groupe « {grp_key} » : le seuil Vert doit être "
                     f"strictement supérieur au seuil Orange, et les deux entre "
                     f"0 % et 100 %.\n\nEx. Vert = 30, Orange = 15.",

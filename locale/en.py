@@ -363,4 +363,67 @@ TRANSLATIONS = {
     # Ré-inspection
     "Ré-inspection :":                    "Re-inspection:",
     "Diagnostic de la comparaison":       "Comparison diagnosis",
+
+    # ── Sprint 5 — strings restantes ─────────────────────────────────
+
+    # Pane intros
+    "Tapez la PRBS (bois sain) de chaque direction, puis "
+    "Entrée (ou ↓) pour descendre. Le dessin et le diagnostic "
+    "se recalculent en direct.":
+        "Type the PRBS (sound wood) for each direction, then "
+        "Enter (or ↓) to go down. Drawing and diagnosis update live.",
+
+    "⚠ Renseignez le rayon du tronc dans l'onglet Identification :\n"
+    " sans lui, le bois altéré n'est pas calculé.":
+        "⚠ Enter the trunk radius in the Identification tab:\n"
+        " without it, altered wood cannot be calculated.",
+
+    "Une dégradation externe = arc continu sur l'écorce "
+    "(début → fin) consommant du bois sain en profondeur. "
+    "Éditez directement dans le tableau.":
+        "External damage = continuous arc on the bark "
+        "(start → end) consuming sound wood in depth. "
+        "Edit directly in the table.",
+
+    "Un contrefort = empattement saillant à la base du tronc. "
+    "Saisissez la longueur radiale de chaque contrefort.":
+        "A buttress root = protruding base at the trunk base. "
+        "Enter the radial length of each buttress.",
+
+    "Classe colorée selon t/R et le port (barème expert).":
+        "Class coloured by t/R and growth habit (expert scale).",
+    "La décision d'expertise : quoi faire, et quand.":
+        "The expert decision: what to do, and when.",
+
+    # Dialogs misc
+    "Laissez le petit axe vide pour une section circulaire.":
+        "Leave the minor axis empty for a circular cross-section.",
+    "Longueur radiale (cm, vers l'extérieur)":
+        "Radial length (cm, outward)",
+
+    # messagebox titles
+    "Information":                         "Information",
+    "Numéro invalide":                     "Invalid ID",
+    "Numéro déjà utilisé":                 "ID already used",
+    "Doublon":                             "Duplicate",
+    "Valeur invalide":                     "Invalid value",
+    "Seuils incohérents":                  "Inconsistent thresholds",
+    "Direction déjà sondée":               "Direction already sounded",
+    "Erreur de saisie":                    "Input error",
+    "Chevauchement de dégradations":       "Overlapping damage areas",
+    "Plus de place":                       "No space left",
+    "Récupération":                        "Recovery",
+    "Faire une comparaison":               "Start comparison",
+    "Mission antérieure à ré-inspecter (servira de référence)":
+                                           "Previous project to re-inspect (will serve as reference)",
+    "Raccourcis clavier":                  "Keyboard shortcuts",
+    "\nNote : « Résistographe » est une marque déposée.\nCe logiciel utilise le terme générique « pénétromètre ».":
+        "\nNote: 'Resistograph' is a registered trademark.\nThis software uses the generic term 'resistograph'.",
+
+    # PDF labels
+    "t/R moyen sur le pourtour":           "Average t/R around perimeter",
+    "t/R minimal":                         "Minimum t/R",
+    "Classe globale":                      "Overall class",
+    "Classe globale (pire brin)":          "Overall class (worst stem)",
+    "Aucune altération saisie.":           "No alteration recorded.",
 }

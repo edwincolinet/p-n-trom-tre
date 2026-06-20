@@ -40,6 +40,7 @@ from diagnostic import (
     repartition_classes_brin,
 )
 from geometry import DIRECTION_LABELS, GRADES
+from i18n import _
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,
@@ -200,12 +201,12 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     d.text((margin+20, y+22), title_txt,
            font=f(30, "serif_bold"), fill="white")
     mission_txt = _fit_text(
-        f"Mission : {chantier.nom}   •   {chantier.adresse}",
+        (_("Mission") + f" : {chantier.nom}   •   {chantier.adresse}"),
         f(19, "sans"), header_text_w, d)
     d.text((margin+20, y+64), mission_txt,
            font=f(19, "sans"), fill="white")
     d.text((margin+20, y+92),
-           f"{chantier.date_releve}   •   Opérateur : {chantier.operateur}",
+           f"{chantier.date_releve}   •   " + _("Opérateur") + f" : {chantier.operateur}",
            font=f(17, "sans"), fill="white")
     y += header_h + 18
 
@@ -347,8 +348,8 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         for w in col_widths:
             cols_x.append(cols_x[-1] + w)
         # cols_x = [60, 130, 350, 620, 750, 910, 1180]
-        headers = ["N°", "Direction", "PRBS (cm)", "t/R (%)",
-                   "Classe", "Compart."]
+        headers = [_("N°"), _("Direction"), _("PRBS (cm)"), _("t/R (%)"),
+                   _("Classe"), _("Compart.")]
         # Alignement : N° et nombres à droite ; texte à gauche.
         right_align = {0, 3}            # N°, t/R (%)
         right_align_data = {0, 3}       # idem pour les valeurs
@@ -419,7 +420,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     col_preco_right = W - margin
 
     y_section = y                 # y commun aux deux colonnes
-    d.text((col_diag_left, y_section), "Diagnostic",
+    d.text((col_diag_left, y_section), _("Diagnostic"),
            font=f(22, "serif_bold"), fill=COLOR_ACCENT)
     y_diag = y_section + 36
     if multi_brins:
@@ -436,7 +437,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         txt_w = col_preco_right - pad - txt_x
 
         # Titre aligné sur "Diagnostic" (même police, même baseline)
-        d.text((col_preco_left, y_preco), "Préconisation",
+        d.text((col_preco_left, y_preco), _("Préconisation"),
                font=f(22, "serif_bold"), fill=COLOR_ACCENT)
         y_preco = y_section + 36
 
@@ -546,12 +547,11 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
         if diag is not None:
             tR_moyen_diag, _ = diag
             d.text((x_left, y),
-                   f"t/R moyen sur le pourtour : "
-                   f"{100*tR_moyen_diag:.1f} %",
+                   _("t/R moyen sur le pourtour") + f" : {100*tR_moyen_diag:.1f} %",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
             y += 28
         d.text((x_left, y),
-               f"t/R minimal : {100*snap.tR_min:.1f} %  "
+               _("t/R minimal") + f" : {100*snap.tR_min:.1f} %  "
                f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
@@ -635,11 +635,11 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
             box_w, box_h = 460, 60
             d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
             d.text((x_left+box_w/2, y+box_h/2),
-                   f"Classe globale : {classe_g}",
+                   _("Classe globale") + f" : {classe_g}",
                    font=f(24, "sans_bold"), fill="white", anchor="mm")
             y += box_h + 8
     else:
-        d.text((x_left, y), "Aucune altération saisie.",
+        d.text((x_left, y), _("Aucune altération saisie."),
                font=f(18, "sans"), fill=COLOR_INK)
         y += 28
     return y
@@ -659,7 +659,7 @@ def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
         box_w, box_h = 560, 60
         d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
         d.text((x_left+box_w/2, y+box_h/2),
-               f"Classe globale (pire brin) : {gd.classe_globale}",
+               _("Classe globale (pire brin)") + f" : {gd.classe_globale}",
                font=f(22, "sans_bold"), fill="white", anchor="mm")
         y += box_h + 16
     else:

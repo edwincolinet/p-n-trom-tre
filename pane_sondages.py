@@ -86,9 +86,9 @@ class SondagesPane(ttk.Frame):
 
         self._intro = ttk.Label(
             self,
-            text="Tapez la PRBS (bois sain) de chaque direction, puis "
+            text=_("Tapez la PRBS (bois sain) de chaque direction, puis "
                  "Entrée (ou ↓) pour descendre. Le dessin et le diagnostic "
-                 "se recalculent en direct.",
+                 "se recalculent en direct."),
             style="Muted.TLabel", wraplength=420, justify="left")
         self._intro.pack(anchor="w", pady=(0, 8))
 
@@ -99,9 +99,8 @@ class SondagesPane(ttk.Frame):
         # « pourquoi des — partout ? » de qui attaque Sondages avant le rayon).
         self._lbl_no_radius = ttk.Label(
             self,
-            text="⚠ Renseignez le rayon du tronc dans l'onglet "
-                 "Identification : sans lui, le bois altéré n'est pas "
-                 "calculé et le bois sain n'est pas borné au rayon.",
+            text=_("⚠ Renseignez le rayon du tronc dans l'onglet Identification :"
+                 " sans lui, le bois altéré n'est pas calculé."),
             style="Panel.TLabel", foreground=COLOR_WARN,
             wraplength=420, justify="left")
 

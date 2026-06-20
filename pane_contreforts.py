@@ -82,10 +82,8 @@ class ContrefortsPane(ttk.Frame):
 
         self._intro = ttk.Label(
             self,
-            text="Un contrefort = empattement saillant à la base du "
-                 "tronc. Tapez sa longueur radiale (cm) sur la direction "
-                 "voulue, puis Entrée (ou ↓). Élément descriptif "
-                 "(n'impacte pas le diagnostic).",
+            text=_("Un contrefort = empattement saillant à la base du tronc. "
+                   "Saisissez la longueur radiale de chaque contrefort."),
             style="Muted.TLabel", wraplength=420, justify="left")
         self._intro.pack(anchor="w", pady=(0, 8))
 

@@ -26,6 +26,7 @@ from pathlib import Path
 from tkinter import messagebox
 from typing import TYPE_CHECKING, Optional
 
+from i18n import _
 from model import Arbre, Chantier
 from persistence import clear_recovery, load_recovery, save_recovery
 from undo import UndoStack
@@ -118,7 +119,7 @@ class RecoveryMixin(_MixinBase):
                    else "Mission jamais enregistrée.")
         when = f" du {saved_at}" if saved_at else ""
         if messagebox.askyesno(
-                "Récupération",
+                _("Récupération"),
                 "Une session non enregistrée a été retrouvée "
                 f"(sauvegarde automatique{when}).\n\n{details}\n\n"
                 "La récupérer ?"):

@@ -241,12 +241,12 @@ class FichierMixin(_MixinBase):
 
         if self._dirty:
             if not messagebox.askyesno(
-                    "Faire une comparaison",
+                    _("Faire une comparaison"),
                     "Des modifications n'ont pas été enregistrées.\n"
                     "Continuer quand même ?"):
                 return
         p = filedialog.askopenfilename(
-            title="Mission antérieure à ré-inspecter (servira de référence)",
+            title=_("Mission antérieure à ré-inspecter (servira de référence)"),
             filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
         if not p:
             return

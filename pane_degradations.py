@@ -86,10 +86,9 @@ class DegradationsPane(ttk.Frame):
 
         self._intro = ttk.Label(
             self,
-            text="Une dégradation externe = un arc continu sur l'écorce "
-                 "(début → fin, sens horaire) consommant du bois sain "
-                 "sur une profondeur radiale en cm. Éditez directement "
-                 "dans le tableau.",
+            text=_("Une dégradation externe = arc continu sur l'écorce "
+                 "(début → fin) consommant du bois sain en profondeur. "
+                 "Éditez directement dans le tableau."),
             style="Muted.TLabel", wraplength=420, justify="left")
         self._intro.pack(anchor="w", pady=(0, 8))
 

@@ -426,7 +426,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         left.pack(side="left")
         ttk.Label(left, text=_("Pénétromètre"),
                   style="Title.TLabel").pack(side="left")
-        ttk.Label(left, text="  Expertise arboricole",
+        ttk.Label(left, text=_("  Expertise arboricole"),
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
 
         # Boutons « Comparaison » mis en avant (la ré-inspection n'est plus
@@ -934,7 +934,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         except Exception as e:
             log.exception("Échec ouverture %s", path)
             messagebox.showerror(
-                "Erreur", f"Impossible d'ouvrir :\n{path}\n\n{e}")
+                _("Erreur"), f"Impossible d'ouvrir :\n{path}\n\n{e}")
 
     # --- Dirty flag + fermeture ----------------------------------------
 
@@ -984,7 +984,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def _on_close(self) -> None:
         if self._dirty:
             if not messagebox.askyesno(
-                    "Quitter",
+                    _("Quitter"),
                     "Des modifications n'ont pas été enregistrées.\n"
                     "Quitter quand même ?"):
                 return
@@ -1580,7 +1580,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                     subprocess.Popen(["xdg-open", str(doc)])
             else:
                 messagebox.showwarning(
-                    "Fichier introuvable",
+                    _("Fichier introuvable"),
                     f"{name} est absent de l'installation.",
                     parent=dlg)
 
@@ -1601,7 +1601,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def action_shortcuts(self) -> None:
         messagebox.showinfo(
-            "Raccourcis clavier",
+            _("Raccourcis clavier"),
             "Fichier\n"
             "  Ctrl+N   Nouvelle mission\n"
             "  Ctrl+O   Ouvrir une mission\n"
