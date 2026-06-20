@@ -454,7 +454,7 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
     data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
                              tick_len_px=int(16 * ds),
-                             label_offset_px=int(30 * ds))
+                             label_offset_px=int(50 * ds))
     if data is None:
         return
     lw = max(3, int(3 * ds))
