@@ -1512,15 +1512,77 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     # `app_export_actions.ExportActionsMixin`.
 
     def action_about(self) -> None:
-        messagebox.showinfo(
-            "À propos",
-            f"Pénétromètre — Expertise arboricole\n"
-            f"Version {__version__}\n\n"
-            "Application desktop Python autonome.\n"
-            "Tableau de sondages ↔ dessin synchronisés.\n"
-            "Section ronde par interpolation spline.\n\n"
-            "Note : « Résistographe » étant une marque déposée,\n"
-            "ce logiciel utilise le terme générique « pénétromètre ».")
+        dlg = tk.Toplevel(self)
+        dlg.title("À propos d'Pénétromètre")
+        dlg.resizable(False, False)
+        dlg.configure(bg=COLOR_BG)
+        frm = ttk.Frame(dlg, padding=24)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm,
+                  text="Pénétromètre",
+                  font=ui_font("Georgia", 16, "bold")).pack(anchor="w")
+        ttk.Label(frm,
+                  text="Expertise arboricole au pénétromètre",
+                  style="Sub.TLabel").pack(anchor="w")
+        ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
+
+        infos = [
+            ("Version",   __version__),
+            ("Auteur",    "Edwin Colinet"),
+            ("Contact",   "e.colinet@silvavenir.fr"),
+            ("Licence",   "Usage commercial soumis à licence"),
+        ]
+        for lbl, val in infos:
+            row = ttk.Frame(frm)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=f"{lbl} :",
+                      width=10, anchor="e",
+                      style="Muted.TLabel").pack(side="left", padx=(0, 8))
+            ttk.Label(row, text=val).pack(side="left")
+
+        ttk.Label(frm,
+                  text="\nNote : « Résistographe » est une marque déposée.\n"
+                       "Ce logiciel utilise le terme générique « pénétromètre ».",
+                  wraplength=360, style="Muted.TLabel",
+                  justify="left").pack(anchor="w", pady=(8, 0))
+
+        ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
+
+        btns = ttk.Frame(frm)
+        btns.pack(fill="x")
+
+        def _open_doc(name: str) -> None:
+            doc = Path(__file__).parent / name
+            if doc.exists():
+                import subprocess
+                import sys
+                if sys.platform == "win32":
+                    os.startfile(str(doc))
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", str(doc)])
+                else:
+                    subprocess.Popen(["xdg-open", str(doc)])
+            else:
+                messagebox.showwarning(
+                    "Fichier introuvable",
+                    f"{name} est absent de l'installation.",
+                    parent=dlg)
+
+        ttk.Button(btns, text="Licence (CLU)",
+                   style="Ghost.TButton",
+                   command=lambda: _open_doc("LICENSE")).pack(side="left")
+        ttk.Button(btns, text="Confidentialité",
+                   style="Ghost.TButton",
+                   command=lambda: _open_doc("PRIVACY.md")).pack(side="left",
+                                                                  padx=(6, 0))
+        ttk.Button(btns, text="Fermer",
+                   style="Accent.TButton",
+                   command=dlg.destroy).pack(side="right")
+
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        from dialogs import _make_modal
+        _make_modal(dlg, self)
 
     def action_shortcuts(self) -> None:
         messagebox.showinfo(

@@ -1,4 +1,4 @@
-; Inno Setup — Pénétromètre Silvavenir
+; Inno Setup — Pénétromètre (Edwin Colinet)
 ; Buildé par GitHub Actions (.github/workflows/build.yml).
 ; Usage local :
 ;   iscc /DMyAppVersion="3.6.0" build\installer.iss
@@ -11,8 +11,8 @@
 
 #define MyAppName      "Pénétromètre"
 #define MyAppExe       "Penetrometre.exe"
-#define MyAppPublisher "Silvavenir"
-#define MyAppURL       "https://www.silvavenir.fr"
+#define MyAppPublisher "Edwin Colinet"
+#define MyAppURL       "https://github.com/edwincolinet/p-n-trom-tre"
 
 [Setup]
 AppId={{F3A2C1D4-7E8B-4F5A-9C2D-1B3E6F7A8D9C}
@@ -33,6 +33,8 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExe}
+; Affiche le CLU et exige l'acceptation avant installation
+LicenseFile=..\LICENSE
 ; Empêche l'ouverture de plusieurs instances de l'installeur
 AppMutex=PenetrometerSetupMutex
 
