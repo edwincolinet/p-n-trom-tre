@@ -541,6 +541,9 @@ class SectionCanvas(tk.Canvas):
         # La forme du brin est pivotée de `rotation_grades` : le rayon à la
         # direction MONDE `gw` est le rayon local à `gw - rotation`.
         R = brin.rayon_a_grade(gw - brin.rotation_grades)
+        if brin.est_ovale and R < brin.rayon_tronc_cm * 0.5:
+            gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
+            R = brin.rayon_tronc_cm
         ep = max(0.0, brin.epaisseur_ecorce_cm)
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
         data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
