@@ -134,7 +134,8 @@ def build_menu(app: AppLike) -> None:
     c.add_command(label="Faire une comparaison (ré-inspection)…",
                   command=app.action_reinspection)
     c.add_command(label="Diagnostic de la comparaison…",
-                  command=app.action_compare_arbre)
+                  command=app.action_compare_arbre, state="disabled")
+    app._menu_comparaison = c  # type: ignore[attr-defined]
     m.add_cascade(label="Comparaison", menu=c)
 
     # Arbres

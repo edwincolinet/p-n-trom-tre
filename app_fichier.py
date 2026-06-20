@@ -145,6 +145,7 @@ class FichierMixin(_MixinBase):
         n = len(self._reference_chantier.arbres)
         self.set_status(f"Mission de référence chargée — {Path(p).name} "
                         f"({n} arbre(s)). « Comparer l'arbre courant… »")
+        self._update_compare_state()
         return True
 
     def action_reinspection(self) -> None:
@@ -205,6 +206,7 @@ class FichierMixin(_MixinBase):
         self.current_file = None          # détaché → Enregistrer sous… forcé
         self._dirty = True
         self._install_chantier_ui()
+        self._update_compare_state()
         n = len(self.chantier.arbres)
         self.set_status(
             f"Ré-inspection : « {Path(p).name} » chargée comme base "
@@ -215,15 +217,8 @@ class FichierMixin(_MixinBase):
     def action_compare_arbre(self) -> None:
         """Ouvre la fenêtre « Diagnostic de la comparaison » : l'arbre courant
         confronté à son homologue de la mission de référence (figée par
-        `action_reinspection`, ou choisie manuellement à la 1re utilisation)."""
-        if self._reference_chantier is None:
-            messagebox.showinfo(
-                "Diagnostic de la comparaison",
-                "Aucune mission de référence n'est chargée.\n\n"
-                "Utilisez « Faire une comparaison… » pour partir d'une mission "
-                "antérieure, ou choisissez ici la mission de référence.")
-            if not self.action_load_reference():
-                return
+        `action_reinspection`). Disponible seulement après un clic sur
+        « Faire une comparaison… » — bouton et menu désactivés sinon."""
         ref = self._reference_chantier
         a = self._current_arbre()
         if ref is None or a is None:

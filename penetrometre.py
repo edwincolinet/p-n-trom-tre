@@ -314,12 +314,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 "Repartir d'une mission antérieure comme base : on met à jour "
                 "diamètres et sondages au lieu de tout ressaisir, et elle sert "
                 "de référence.")
-        btn_diag = ttk.Button(
+        self._btn_compare = ttk.Button(
             comp, text="📊 Diagnostic de la comparaison…", style="Ghost.TButton",
-            command=self.action_compare_arbre)
-        btn_diag.pack(side="left", padx=(6, 0))
-        Tooltip(btn_diag, "Ouvrir la fenêtre de comparaison de l'arbre "
-                          "courant avec la mission de référence.")
+            command=self.action_compare_arbre, state="disabled")
+        self._btn_compare.pack(side="left", padx=(6, 0))
+        Tooltip(self._btn_compare, "Ouvrir la fenêtre de comparaison de l'arbre "
+                                   "courant avec la mission de référence.")
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
@@ -788,6 +788,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         dirty = " •" if self._dirty else ""
         self.title(f"Pénétromètre — {name}{dirty}")
         self._update_save_indicator()
+
+    def _update_compare_state(self) -> None:
+        """Active ou désactive le bouton et l'entrée menu « Diagnostic de la
+        comparaison » selon qu'une mission de référence est chargée ou non."""
+        state = "normal" if self._reference_chantier is not None else "disabled"
+        if hasattr(self, "_btn_compare"):
+            self._btn_compare.configure(state=state)
+        if hasattr(self, "_menu_comparaison"):
+            self._menu_comparaison.entryconfigure(1, state=state)
 
     def _update_save_indicator(self) -> None:
         """Reflète l'état d'enregistrement dans la barre d'état (texte +
