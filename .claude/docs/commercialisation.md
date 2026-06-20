@@ -176,20 +176,12 @@ P2-D (Import CSV)            → 2 semaines → confort terrain
 
 ---
 
-## Décisions ouvertes (à trancher avant de coder)
+## Décisions (tranchées le 20/06/2026)
 
-1. **Licence** : propriétaire (revente contrôlée) ou open-source ?
-   Impacte `LICENSE`, `EULA`, le modèle commercial.
-
-2. **Barème configurable** : dialog in-app ou fichier JSON éditable à la
-   main ? Le dialog est plus safe (validation), le JSON est plus rapide à
-   implémenter.
-
-3. **Update checker** : GitHub Releases (gratuit, pas de serveur) ou
-   serveur propre (contrôle total, statistiques) ?
-
-4. **Profil opérateur** : juste un nom dans les réglages ou un vrai système
-   de profils avec historique par opérateur ?
-
-5. **Mission d'exemple** : ouvrir en lecture seule (protège l'exemple) ou
-   copier dans Documents (plus naturel) ?
+| # | Question | Décision |
+|---|----------|----------|
+| 1 | Licence | **Propriétaire** — Silvavenir contrôle la distribution et la revente |
+| 2 | Barème configurable | **Dialog in-app** avec validation (pas de JSON brut) |
+| 3 | Update checker | **GitHub Releases** — gratuit, sans serveur propre |
+| 4 | Profil opérateur | **Historique par opérateur** — nom dans exports + traçabilité |
+| 5 | Mission d'exemple | **Lecture seule** — protège le fichier d'exemple, ouvre sans `current_file` |
