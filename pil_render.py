@@ -457,12 +457,10 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
         gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
         R = brin.rayon_tronc_cm
     ep = max(0.0, brin.epaisseur_ecorce_cm)
-    min_gap = int(80 * ds)
-    step = adaptive_ruler_step_cm(scale, min_gap_px=min_gap)
+    step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
     data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
                              tick_len_px=int(16 * ds),
-                             label_offset_px=int(50 * ds),
-                             min_gap_px=min_gap)
+                             label_offset_px=int(50 * ds))
     if data is None:
         return
     lw = max(3, int(3 * ds))
@@ -473,6 +471,15 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     if data.bark is not None:
         (bx0, by0), (bx1, by1) = data.bark
         segments.append((bx0, by0, bx1, by1, COLOR_BARK, lw))
+    # Décide quels ticks intermédiaires affichent leur étiquette : "0" et
+    # terminal toujours ; un intermédiaire seulement si son centre est à
+    # ≥ 80 ds px du centre du terminal (évite les collisions de texte sans
+    # supprimer les traits de graduation).
+    n = len(data.ticks)
+    term_lx = data.ticks[-1][4] if data.ticks else 0.0
+    min_lbl_gap = int(80 * ds)
+    def _show_label(i: int, lx: float) -> bool:
+        return i == 0 or i == n - 1 or abs(term_lx - lx) >= min_lbl_gap
     # Passe 1 : halo blanc sous tous les traits (axe + écorce + tirets).
     for x1, y1, x2, y2, _col, _w in segments:
         d.line([x1, y1, x2, y2], fill="white", width=halo_w)
@@ -481,8 +488,10 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     # Passe 2 : encre.
     for x1, y1, x2, y2, col, w in segments:
         d.line([x1, y1, x2, y2], fill=col, width=w)
-    for x1, y1, x2, y2, lx, ly, lbl in data.ticks:
+    for i, (x1, y1, x2, y2, lx, ly, lbl) in enumerate(data.ticks):
         d.line([x1, y1, x2, y2], fill=COLOR_INK, width=tick_w)
+        if not _show_label(i, lx):
+            continue  # trait dessiné, étiquette omise (trop proche du terminal)
         for ox in (-3, 0, 3):
             for oy in (-3, 0, 3):
                 if ox or oy:

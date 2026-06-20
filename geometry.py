@@ -512,18 +512,12 @@ def radial_ruler_data(cx: float, cy: float, scale: float,
         # en pixels vers « 0 » ET vers le terminal est suffisant.
         inter = [(float(r), str(r))
                  for r in range(step_cm, int(r_ext), step_cm)
-                 if r_ext - r >= step_cm
-                 and (min_gap_px <= 0
-                      or (r * scale >= min_gap_px
-                          and (r_ext - r) * scale >= min_gap_px))]
+                 if r_ext - r >= step_cm]
     if not inter:
         # Au moins UN segment intermédiaire : graduation médiane arrondie
         # au cm (petit brin de cépée où le pas adaptatif ne tient pas).
         mid = round(r_ext / 2.0)
-        if (0 < mid < r_ext
-                and (min_gap_px <= 0
-                     or (mid * scale >= min_gap_px
-                         and (r_ext - mid) * scale >= min_gap_px))):
+        if 0 < mid < r_ext:
             inter = [(float(mid), f"{mid:g}")]
     radii.extend(inter)
     # Étiquette terminale arrondie au mm : le rayon d'une ellipse évalué à
