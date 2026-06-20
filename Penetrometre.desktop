@@ -2,9 +2,9 @@
 Type=Application
 Name=Pénétromètre
 Comment=Expertise arboricole — diagnostic de cavités par sondage
-Exec=python3 /home/edwin/Documents/penetrometre_silvavenir/penetrometre.py
-Path=/home/edwin/Documents/penetrometre_silvavenir
-Icon=/home/edwin/Documents/penetrometre_silvavenir/assets/Icone.jpeg
+Exec=python3 /home/edwin/Documents/Penetrometre/penetrometre.py
+Path=/home/edwin/Documents/Penetrometre
+Icon=/home/edwin/Documents/Penetrometre/assets/Icone.jpeg
 Terminal=false
 Categories=Office;Science;
 StartupWMClass=Tk
