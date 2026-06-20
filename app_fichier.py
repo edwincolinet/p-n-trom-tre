@@ -71,6 +71,8 @@ class FichierMixin(_MixinBase):
         _reference_chantier: Optional[Chantier]
         _recent: RecentFilesStore
         _undo_stack: UndoStack
+        _settings: "Any"    # SettingsStore (import circulaire évité)
+        _ope_cmb: "Any"     # ttk.Combobox opérateur
         var_ch_nom: tk.StringVar
         var_ch_adr: tk.StringVar
         var_ch_ope: tk.StringVar
@@ -101,11 +103,15 @@ class FichierMixin(_MixinBase):
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
         self.current_file = None
+        # Pré-remplir l'opérateur avec le dernier nom utilisé (évite
+        # de le retaper à chaque nouvelle mission).
+        last_ope = (self._settings.get_operateurs_history() or [""])[0]
         with self._suspend_sync_block():
             self.var_ch_nom.set(self.chantier.nom)
             self.var_ch_adr.set("")
-            self.var_ch_ope.set("")
+            self.var_ch_ope.set(last_ope)
             self.var_ch_date.set(self.chantier.date_releve)
+        self.chantier.operateur = last_ope
         self.var_filter.set("")  # nouvelle mission → filtres remis à zéro
         self.var_risk_filter.set(_RISK_FILTER_ALL)
         self._refresh_tree_arbres()
@@ -363,6 +369,13 @@ class FichierMixin(_MixinBase):
             self._dirty = False
             self._update_title()
             self._recent.push(str(self.current_file))
+            # Mémoriser l'opérateur pour le pré-remplissage des prochaines
+            # missions (combobox Opérateur dans l'en-tête).
+            if self.chantier.operateur.strip():
+                self._settings.push_operateur(self.chantier.operateur)
+                if hasattr(self, "_ope_cmb"):
+                    self._ope_cmb.configure(
+                        values=self._settings.get_operateurs_history())
             # Le fichier réel est à jour → l'autosave n'a plus de raison
             # d'être ; on l'efface pour ne pas proposer une reprise inutile.
             clear_recovery(_RECOVERY_PATH)

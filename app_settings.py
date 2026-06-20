@@ -115,6 +115,25 @@ class SettingsStore:
             self._data["logo_path"] = str(value)
         self._save()
 
+    def get_operateurs_history(self) -> "list[str]":
+        """Noms d'opérateurs utilisés récemment (plus récent en premier, max 10)."""
+        raw = self._data.get("operateurs_history", [])
+        if not isinstance(raw, list):
+            return []
+        return [str(v) for v in raw if str(v).strip()]
+
+    def push_operateur(self, name: str) -> None:
+        """Ajoute un nom à l'historique opérateurs (dédupliqué, max 10)."""
+        name = name.strip()
+        if not name:
+            return
+        history = self.get_operateurs_history()
+        if name in history:
+            history.remove(name)
+        history.insert(0, name)
+        self._data["operateurs_history"] = history[:10]
+        self._save()
+
     def get_urgences_custom(self) -> "list[str]":
         """Niveaux d'urgence personnalisés ajoutés par l'utilisateur."""
         raw = self._data.get("urgences_custom", [])

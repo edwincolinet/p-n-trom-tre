@@ -464,9 +464,22 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                             ("Opérateur", self.var_ch_ope, 18),
                             ("Date", self.var_ch_date, 12)]:
             ttk.Label(meta, text=lbl).pack(side="left", padx=(0, 4))
-            e = ttk.Entry(meta, textvariable=var, width=w)
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
-            if lbl == "Date":
+            if lbl == "Opérateur":
+                # Combobox éditable : propose l'historique des opérateurs
+                # déjà utilisés (sauvegardé dans settings.json).
+                self._ope_cmb = ttk.Combobox(
+                    meta, textvariable=var, width=w, state="normal",
+                    values=self._settings.get_operateurs_history())
+                self._ope_cmb.pack(side="left", padx=(0, 14))
+                self._ope_cmb.bind("<FocusIn>",
+                                   lambda ev: self._meta_focus_in())
+                self._ope_cmb.bind("<FocusOut>",
+                                   lambda ev: self._meta_focus_out())
+                Tooltip(self._ope_cmb,
+                        "Nom de l'opérateur — mémorisé entre les sessions.")
+            elif lbl == "Date":
+                e = ttk.Entry(meta, textvariable=var, width=w)
                 # Saisie clavier libre normalisée en JJ/MM/AAAA au focus-out
                 # (`14-6-26`, `2026/06/14`, …) ; saisie non interprétable
                 # rétablie. Bouton « 📅 » : sélection au calendrier (Tk pur).
@@ -481,6 +494,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 btn_cal.pack(side="left", padx=(0, 14))
                 Tooltip(btn_cal, "Choisir la date au calendrier")
             else:
+                e = ttk.Entry(meta, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 14))
                 e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
