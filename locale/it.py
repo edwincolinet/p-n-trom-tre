@@ -253,4 +253,63 @@ TRANSLATIONS = {
     "── Suivi ──":                        "── Monitoraggio ──",
     "Validité":                           "Validità",
     "Contenu du suivi (texte libre)":    "Contenuto monitoraggio (testo libero)",
+
+    # ── Sprint 3 — UI restante ────────────────────────────────────────
+
+    "+ Logo cabinet":                       "+ Logo studio",
+    "Expertise arboricole au pénétromètre": "Perizia arboricola — resistografo",
+    "Expertise arboricole":                 "Perizia arboricola",
+
+    "État":                                "Stato",
+    "✕ Réinitialiser":                     "✕ Reimposta",
+    "Brin :":                              "Fusto:",
+    "Renommer…":                           "Rinomina…",
+
+    "Dégrad. externes":                    "Degradi ext.",
+
+    "Afficher l'emplacement des sondages sur le dessin":
+                                           "Mostra i sondaggi nel disegno",
+    "→ Cliquer sur une direction libre du dessin pour ajouter un sondage":
+                                           ("→ Fare clic su una direzione libera del disegno"
+     " per aggiungere un sondaggio"),
+
+    "Arbre courant :":                     "Albero corrente:",
+    "comparé à (référence) :":             "confrontato con (riferimento):",
+    "🖼 PNG…":                             "🖼 PNG…",
+    "📄 PDF…":                             "📄 PDF…",
+    "(pas de brin de référence)":          "(nessun fusto di riferimento)",
+    "La mission courante ou de référence ne contient aucun arbre.":
+                                           "Il progetto corrente o di riferimento non contiene alberi.",
+
+    "Ouvrir une mission":                  "Apri progetto",
+    "Choisir la mission de référence (campagne antérieure)":
+                                           "Scegli progetto di riferimento (campagna precedente)",
+    "Mission d'exemple introuvable":      "Progetto di esempio non trovato",
+
+    "Reprise après crash":                 "Ripristino dopo crash",
+    "Récupération de données":             "Recupero dati",
+
+    "Nom du cabinet :":                    "Nome dello studio:",
+    "Logo :":                              "Logo:",
+    "Formats acceptés : PNG, JPEG, GIF, BMP, TIFF":
+                                           "Formati accettati: PNG, JPEG, GIF, BMP, TIFF",
+    "Aucun logo configuré":                "Nessun logo configurato",
+    "(aperçu indisponible — Pillow requis)": "(anteprima non disponibile — Pillow richiesto)",
+    "(image illisible)":                   "(immagine illeggibile)",
+    "Choisir un logo":                     "Scegli un logo",
+    "Choisir un fichier…":                 "Scegli un file…",
+    "− Supprimer la sélection":            "− Rimuovi selezione",
+
+    " Aperçu ":                            " Anteprima ",
+    " Correspondance colonnes → champs ":  " Corrispondenza colonne → campi ",
+    "Colonne CSV":                         "Colonna CSV",
+    "Champ modèle":                        "Campo modello",
+    "Exemples (3 premières lignes)":       "Esempi (prime 3 righe)",
+    "Erreur d'analyse — vérifiez le mapping.": "Errore di analisi — verificare la corrispondenza.",
+    "Erreur de lecture CSV":               "Errore di lettura CSV",
+    "CSV vide":                            "CSV vuoto",
+    "N° arbre requis":                     "N° albero obbligatorio",
+    "Erreur d'import":                    "Errore di importazione",
+    "Aucun arbre importé":                 "Nessun albero importato",
+    "Avertissements":                      "Avvisi",
 }

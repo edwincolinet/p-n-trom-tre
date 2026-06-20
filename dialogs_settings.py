@@ -12,6 +12,7 @@ from tkinter import messagebox, ttk
 from typing import Any, Optional
 
 from dialogs import _make_modal
+from i18n import _
 from ui_fonts import font as ui_font
 
 
@@ -36,14 +37,14 @@ def ask_cabinet_settings(parent: tk.Misc,
     _preview_img: list[Any] = [None]
 
     # --- Nom du cabinet ---
-    ttk.Label(dlg, text="Nom du cabinet :").grid(
+    ttk.Label(dlg, text=_("Nom du cabinet :")).grid(
         row=0, column=0, sticky="w", padx=(16, 8), pady=(16, 6))
     var_name = tk.StringVar(value=getattr(settings, "cabinet_name", ""))
     ttk.Entry(dlg, textvariable=var_name, width=34).grid(
         row=0, column=1, columnspan=2, sticky="ew", padx=(0, 16), pady=(16, 6))
 
     # --- Logo ---
-    ttk.Label(dlg, text="Logo :").grid(
+    ttk.Label(dlg, text=_("Logo :")).grid(
         row=1, column=0, sticky="nw", padx=(16, 8), pady=(6, 0))
 
     btn_frame = ttk.Frame(dlg)
@@ -53,14 +54,14 @@ def ask_cabinet_settings(parent: tk.Misc,
     preview_lbl = ttk.Label(dlg, style="Muted.TLabel")
     preview_lbl.grid(row=2, column=0, columnspan=3, padx=16, pady=(6, 4))
 
-    ttk.Label(dlg, text="Formats acceptés : PNG, JPEG, GIF, BMP, TIFF",
+    ttk.Label(dlg, text=_("Formats acceptés : PNG, JPEG, GIF, BMP, TIFF"),
               style="Muted.TLabel").grid(
         row=3, column=0, columnspan=3, padx=16, pady=(0, 12))
 
     def _update_preview(path: "str | None") -> None:
         _pending_logo[0] = path
         if not path:
-            preview_lbl.configure(image="", text="Aucun logo configuré")
+            preview_lbl.configure(image="", text=_("Aucun logo configuré"))
             _preview_img[0] = None
             return
         try:
@@ -77,16 +78,16 @@ def ask_cabinet_settings(parent: tk.Misc,
             preview_lbl.configure(image=img, text="")
         except ImportError:
             preview_lbl.configure(image="",
-                                  text="(aperçu indisponible — Pillow requis)")
+                                  text=_("(aperçu indisponible — Pillow requis)"))
         except Exception:
-            preview_lbl.configure(image="", text="(image illisible)")
+            preview_lbl.configure(image="", text=_("(image illisible)"))
 
     _update_preview(_pending_logo[0])
 
     def _choose_logo() -> None:
         p = _filedialog.askopenfilename(
             parent=dlg,
-            title="Choisir un logo",
+            title=_("Choisir un logo"),
             filetypes=[
                 ("Images", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff *.tif"),
                 ("PNG", "*.png"),
@@ -100,9 +101,9 @@ def ask_cabinet_settings(parent: tk.Misc,
     def _remove_logo() -> None:
         _update_preview(None)
 
-    ttk.Button(btn_frame, text="Choisir un fichier…",
+    ttk.Button(btn_frame, text=_("Choisir un fichier…"),
                command=_choose_logo).pack(side="left", padx=(0, 8))
-    ttk.Button(btn_frame, text="Supprimer",
+    ttk.Button(btn_frame, text=_("Supprimer"),
                style="Ghost.TButton",
                command=_remove_logo).pack(side="left")
 
@@ -150,7 +151,7 @@ def ask_cabinet_settings(parent: tk.Misc,
     btns = ttk.Frame(dlg)
     btns.grid(row=5, column=0, columnspan=3, sticky="e",
               padx=16, pady=(8, 16))
-    ttk.Button(btns, text="Annuler", style="Ghost.TButton",
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=_cancel).pack(side="right", padx=(8, 0))
     ttk.Button(btns, text="OK", style="Accent.TButton",
                command=_ok).pack(side="right")
@@ -220,7 +221,7 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
         var_new.set("")
         ent_new.focus_set()
 
-    ttk.Button(add_frame, text="＋ Ajouter", style="Accent.TButton",
+    ttk.Button(add_frame, text=_("＋ Ajouter"), style="Accent.TButton",
                command=_add).pack(side="left")
 
     def _remove() -> None:
@@ -231,7 +232,7 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
         lb.delete(idx)
         del items[idx]
 
-    ttk.Button(dlg, text="− Supprimer la sélection", style="Ghost.TButton",
+    ttk.Button(dlg, text=_("− Supprimer la sélection"), style="Ghost.TButton",
                command=_remove).pack(anchor="w", padx=16, pady=(0, 8))
 
     ttk.Separator(dlg, orient="horizontal").pack(fill="x", padx=16, pady=4)
@@ -341,7 +342,7 @@ def ask_bareme_settings(
 
     def _parse() -> "Optional[dict[str, dict[str, float]]]":
         out: "dict[str, dict[str, float]]" = {}
-        for grp_key, _, __ in GROUPES:
+        for grp_key, _lbl, _sub in GROUPES:
             try:
                 vert   = float(entries[grp_key]["vert"].get().replace(",", ".")) / 100
                 orange = float(entries[grp_key]["orange"].get().replace(",", ".")) / 100
@@ -362,7 +363,7 @@ def ask_bareme_settings(
         return out
 
     def _restore_defaults() -> None:
-        for grp_key, _, __ in GROUPES:
+        for grp_key, _lbl, _sub in GROUPES:
             for field in ("vert", "orange"):
                 v = defaults[grp_key][field] * 100
                 entries[grp_key][field].delete(0, "end")
@@ -383,13 +384,13 @@ def ask_bareme_settings(
 
     btns = ttk.Frame(content)
     btns.pack(fill="x")
-    ttk.Button(btns, text="Restaurer les valeurs par défaut",
+    ttk.Button(btns, text=_("Restaurer les valeurs par défaut"),
                style="Ghost.TButton",
                command=_restore_defaults).pack(side="left")
     ttk.Button(btns, text="Annuler",
                style="Ghost.TButton",
                command=_cancel).pack(side="right")
-    ttk.Button(btns, text="Enregistrer",
+    ttk.Button(btns, text=_("Enregistrer"),
                style="Accent.TButton",
                command=_ok).pack(side="right", padx=(0, 6))
 

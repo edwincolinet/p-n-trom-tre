@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from csv_import import _CHAMP_IGNORE, CHAMPS_CIBLES, auto_map, build_arbres, read_csv
 from dialogs import _make_modal
+from i18n import _
 from ui_fonts import font as ui_font
 
 if TYPE_CHECKING:
@@ -31,13 +32,13 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
     try:
         _delim, headers, rows = read_csv(path)
     except Exception as e:
-        messagebox.showerror("Erreur de lecture CSV",
+        messagebox.showerror(_("Erreur de lecture CSV"),
                              f"Impossible de lire le fichier :\n{e}",
                              parent=parent)
         return None
 
     if not headers:
-        messagebox.showwarning("CSV vide",
+        messagebox.showwarning(_("CSV vide"),
                                "Le fichier ne contient aucune colonne.",
                                parent=parent)
         return None
@@ -63,7 +64,7 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
               wraplength=580).pack(anchor="w", pady=(2, 10))
 
     # --- Aperçu CSV (5 premières lignes) ---
-    preview_frame = ttk.LabelFrame(content, text=" Aperçu ", padding=6)
+    preview_frame = ttk.LabelFrame(content, text=_(" Aperçu "), padding=6)
     preview_frame.pack(fill="x", pady=(0, 10))
     cols = headers[:8]   # max 8 colonnes dans l'aperçu
     tv = ttk.Treeview(preview_frame, columns=cols, show="headings", height=4)
@@ -79,7 +80,7 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
     sb.pack(fill="x")
 
     # --- Mapping ---
-    map_frame = ttk.LabelFrame(content, text=" Correspondance colonnes → champs ",
+    map_frame = ttk.LabelFrame(content, text=_(" Correspondance colonnes → champs "),
                                 padding=8)
     map_frame.pack(fill="both", expand=True, pady=(0, 10))
 
@@ -101,13 +102,13 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
     scrollbar.pack(side="right", fill="y")
 
     # En-têtes de la grille
-    ttk.Label(inner, text="Colonne CSV",
+    ttk.Label(inner, text=_("Colonne CSV"),
               font=ui_font("Helvetica", 9, "bold")).grid(
         row=0, column=0, padx=(0, 12), pady=(0, 4), sticky="w")
-    ttk.Label(inner, text="Champ modèle",
+    ttk.Label(inner, text=_("Champ modèle"),
               font=ui_font("Helvetica", 9, "bold")).grid(
         row=0, column=1, padx=(0, 12), pady=(0, 4), sticky="w")
-    ttk.Label(inner, text="Exemples (3 premières lignes)",
+    ttk.Label(inner, text=_("Exemples (3 premières lignes)"),
               font=ui_font("Helvetica", 9, "bold")).grid(
         row=0, column=2, pady=(0, 4), sticky="w")
 
@@ -146,7 +147,7 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
             arbres, warns = build_arbres(rows, m)
         except Exception:
             lbl_resume.configure(
-                text="Erreur d'analyse — vérifiez le mapping.",
+                text=_("Erreur d'analyse — vérifiez le mapping."),
                 foreground="#CC0000")
             return
         n = len(arbres)
@@ -173,18 +174,18 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
         m = _get_mapping()
         if not any(v == "numero_arbre" for v in m.values()):
             messagebox.showwarning(
-                "N° arbre requis",
+                _("N° arbre requis"),
                 "Associez au moins une colonne au champ « N° arbre ».",
                 parent=dlg)
             return
         try:
             arbres, warns = build_arbres(rows, m)
         except Exception as e:
-            messagebox.showerror("Erreur d'import", str(e), parent=dlg)
+            messagebox.showerror(_("Erreur d'import"), str(e), parent=dlg)
             return
         if not arbres:
             messagebox.showwarning(
-                "Aucun arbre importé",
+                _("Aucun arbre importé"),
                 "Aucun arbre valide trouvé dans le fichier.\n"
                 "Vérifiez le mapping et le contenu du CSV.",
                 parent=dlg)
@@ -194,7 +195,7 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
             if len(warns) > 10:
                 detail += f"\n  … et {len(warns)-10} autre(s)"
             if not messagebox.askyesno(
-                    "Avertissements",
+                    _("Avertissements"),
                     f"{len(warns)} ligne(s) ignorée(s) :\n{detail}\n\n"
                     "Continuer quand même ?",
                     parent=dlg):
@@ -209,10 +210,10 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
     sep.pack(fill="x", pady=(0, 8))
     btns = ttk.Frame(content)
     btns.pack(fill="x")
-    ttk.Button(btns, text="Annuler",
+    ttk.Button(btns, text=_("Annuler"),
                style="Ghost.TButton",
                command=_cancel).pack(side="right")
-    ttk.Button(btns, text="Importer",
+    ttk.Button(btns, text=_("Importer"),
                style="Accent.TButton",
                command=_ok).pack(side="right", padx=(0, 6))
 

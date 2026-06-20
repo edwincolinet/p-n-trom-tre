@@ -364,7 +364,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         if not logo_path_str:
             # Placeholder cliquable quand aucun logo n'est configuré
             btn = ttk.Button(self._logo_frame,
-                             text="+ Logo cabinet",
+                             text=_("+ Logo cabinet"),
                              style="Ghost.TButton",
                              command=self.action_cabinet_settings)
             btn.pack()
@@ -424,7 +424,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # Bloc gauche : titre app
         left = ttk.Frame(header)
         left.pack(side="left")
-        ttk.Label(left, text="Pénétromètre",
+        ttk.Label(left, text=_("Pénétromètre"),
                   style="Title.TLabel").pack(side="left")
         ttk.Label(left, text="  Expertise arboricole",
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
@@ -434,7 +434,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         comp = ttk.Frame(header)
         comp.pack(side="left", padx=(28, 0))
         btn_reinsp = ttk.Button(
-            comp, text="🔍 Faire une comparaison…", style="Accent.TButton",
+            comp, text=_("🔍 Faire une comparaison…"), style="Accent.TButton",
             command=self.action_reinspection)
         btn_reinsp.pack(side="left")
         Tooltip(btn_reinsp,
@@ -442,7 +442,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 "diamètres et sondages au lieu de tout ressaisir, et elle sert "
                 "de référence.")
         self._btn_compare = ttk.Button(
-            comp, text="📊 Diagnostic de la comparaison…", style="Ghost.TButton",
+            comp, text=_("📊 Diagnostic de la comparaison…"), style="Ghost.TButton",
             command=self.action_compare_arbre, state="disabled")
         self._btn_compare.pack(side="left", padx=(6, 0))
         Tooltip(self._btn_compare, "Ouvrir la fenêtre de comparaison de l'arbre "
@@ -538,7 +538,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def _build_left(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
         parent.add(frame, minsize=280, width=340, stretch="never")
-        ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
+        ttk.Label(frame, text=_("Arbres de la mission"), style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
         # Filtre de la liste (par n°, essence ou commentaire) — utile dès que la
@@ -565,7 +565,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # et `_arbre_matches_filter`.
         rfilt = ttk.Frame(frame, style="Side.TFrame")
         rfilt.pack(fill="x", pady=(0, 4))
-        ttk.Label(rfilt, text="Risque", style="Side.TLabel").pack(
+        ttk.Label(rfilt, text=_("Risque"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_risk_filter = tk.StringVar(value=_RISK_FILTER_ALL)
         cmb_risk = ttk.Combobox(rfilt, textvariable=self.var_risk_filter,
@@ -577,7 +577,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
         ufilt = ttk.Frame(frame, style="Side.TFrame")
         ufilt.pack(fill="x", pady=(0, 6))
-        ttk.Label(ufilt, text="Urgence", style="Side.TLabel").pack(
+        ttk.Label(ufilt, text=_("Urgence"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_urgence_filter = tk.StringVar(value=_URGENCE_FILTER_ALL)
         self._cmb_urgence_filter = ttk.Combobox(
@@ -598,7 +598,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             font=ui_font("Helvetica", 9, "italic"))
         self._lbl_filtre_actif.pack(side="left", padx=(0, 6))
         ttk.Button(
-            self._filtre_actif_frame, text="✕ Réinitialiser",
+            self._filtre_actif_frame, text=_("✕ Réinitialiser"),
             style="Ghost.TButton",
             command=self._reset_all_filters,
         ).pack(side="left")
@@ -609,9 +609,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             lst_frame, columns=("ess", "etat", "risque"),
             show="tree headings", height=20, style="Side.Treeview")
         self.tree_arbres.heading("#0", text="Nom")
-        self.tree_arbres.heading("ess", text="Essence")
-        self.tree_arbres.heading("etat", text="État")
-        self.tree_arbres.heading("risque", text="Risque")
+        self.tree_arbres.heading("ess", text=_("Essence"))
+        self.tree_arbres.heading("etat", text=_("État"))
+        self.tree_arbres.heading("risque", text=_("Risque"))
         self.tree_arbres.column("#0", width=64, anchor="w")
         self.tree_arbres.column("ess", width=58, anchor="w")
         self.tree_arbres.column("etat", width=30, anchor="center",
@@ -651,12 +651,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # le curseur (pratique Windows/Linux), puis affiche le menu.
         self._tree_arbres_ctx_menu = tk.Menu(self, tearoff=0)
         self._tree_arbres_ctx_menu.add_command(
-            label="Renommer…", command=self.action_rename_arbre)
+            label=_("Renommer…"), command=self.action_rename_arbre)
         self._tree_arbres_ctx_menu.add_command(
-            label="Dupliquer", command=self.action_dup_arbre)
+            label=_("Dupliquer"), command=self.action_dup_arbre)
         self._tree_arbres_ctx_menu.add_separator()
         self._tree_arbres_ctx_menu.add_command(
-            label="Supprimer…", command=self.action_del_arbre)
+            label=_("Supprimer…"), command=self.action_del_arbre)
         # `<FocusOut>` ferme le menu si l'utilisateur clique en dehors
         # (sur Linux/X11, `tk_popup` ne pose pas de grab automatique →
         # sans ce binding, le menu reste affiché). Le menu doit pouvoir
@@ -673,31 +673,31 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # de l'ordre visuel : le premier packé en bottom est le plus bas.
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(side="bottom", fill="x", pady=(10, 0))
-        mb_add = ttk.Menubutton(btns, text="＋ Ajouter",
+        mb_add = ttk.Menubutton(btns, text=_("＋ Ajouter"),
                                 style="Accent.TMenubutton", direction="above")
         add_menu = tk.Menu(mb_add, tearoff=0)
-        add_menu.add_command(label="Arbre vierge",
+        add_menu.add_command(label=_("Arbre vierge"),
                              accelerator="Ctrl+T",
                              command=self.action_add_arbre)
         add_menu.add_command(
-            label="Hériter du précédent (essence, port, mèche…)",
+            label=_("Hériter du précédent (essence, port, mèche…)"),
             command=self.action_add_arbre_inherit)
         mb_add["menu"] = add_menu
         mb_add.pack(side="left")
         Tooltip(mb_add, "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
                         "« Hériter du précédent » pour reprendre essence, "
                         "port et mèche d'un alignement.")
-        ttk.Button(btns, text="Dupliquer", style="Ghost.TButton",
+        ttk.Button(btns, text=_("Dupliquer"), style="Ghost.TButton",
                    command=self.action_dup_arbre
                    ).pack(side="left", padx=(6, 0))
-        ttk.Button(btns, text="Supprimer", style="Ghost.TButton",
+        ttk.Button(btns, text=_("Supprimer"), style="Ghost.TButton",
                    command=self.action_del_arbre
                    ).pack(side="left", padx=(6, 0))
 
         # Triage de fin de mission : saute au prochain arbre incomplet
         # (pendant du compteur « N à finir » juste au-dessous).
         btn_afinir = ttk.Button(
-            frame, text="⏭ Prochain arbre à finir", style="Ghost.TButton",
+            frame, text=_("⏭ Prochain arbre à finir"), style="Ghost.TButton",
             command=self.action_next_a_finir)
         btn_afinir.pack(side="bottom", anchor="w", pady=(4, 0))
         Tooltip(btn_afinir, "Sélectionne le prochain arbre au diagnostic "
@@ -728,7 +728,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # Barre d'accent verticale gauche (identique à la fiche PDF préconisation)
         tk.Frame(self.brin_bar, bg=COLOR_ACCENT, width=3).pack(
             side="left", fill="y", padx=(0, 10))
-        ttk.Label(self.brin_bar, text="Brin :", style="BrinBar.TLabel").pack(
+        ttk.Label(self.brin_bar, text=_("Brin :"), style="BrinBar.TLabel").pack(
             side="left", padx=(0, 8), pady=7)
         self._brin_btns_holder = ttk.Frame(self.brin_bar, style="BrinBar.TFrame")
         self._brin_btns_holder.pack(side="left", fill="x", expand=True, pady=5)
@@ -752,30 +752,30 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # pane_identification.py). Le pane possède ses 10 StringVars,
         # la règle de cohérence Ø ↔ Rayon et la synchro UI ↔ modèle.
         self.pane_id = IdentificationPane(nb, host=self)
-        nb.add(self.pane_id, text="Identification")
+        nb.add(self.pane_id, text=_("Identification"))
 
         # Onglet Sondages — extrait dans son propre pane (cf.
         # pane_sondages.py).
         self.pane_s = SondagesPane(nb, host=self)
-        nb.add(self.pane_s, text="Sondages")
+        nb.add(self.pane_s, text=_("Sondages"))
 
         # Onglet Dégradations externes — extrait dans son propre pane
         # (cf. pane_degradations.py).
         self.pane_de = DegradationsPane(nb, host=self)
-        nb.add(self.pane_de, text="Dégrad. externes")
+        nb.add(self.pane_de, text=_("Dégrad. externes"))
 
         # Onglet Contreforts — extrait dans son propre pane (cf.
         # pane_contreforts.py) : le pane possède sa table, ses boutons,
         # son refresh et ses actions add/edit/del.
         self.pane_cf = ContrefortsPane(nb, host=self)
-        nb.add(self.pane_cf, text="Contreforts")
+        nb.add(self.pane_cf, text=_("Contreforts"))
 
         # Onglet Diagnostic — extrait dans son propre pane (cf.
         # pane_diagnostic.py). Le pane possède son sous-canvas
         # scrollable, ses 5 boutons d'export, son résumé, la checkbox
         # show_sondages et le tableau PRBS.
         self.pane_diag = DiagnosticPane(nb, host=self)
-        nb.add(self.pane_diag, text="Diagnostic")
+        nb.add(self.pane_diag, text=_("Diagnostic"))
 
     def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
@@ -789,7 +789,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self.var_show_sondages = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             frame,
-            text="Afficher l'emplacement des sondages sur le dessin",
+            text=_("Afficher l'emplacement des sondages sur le dessin"),
             variable=self.var_show_sondages,
             command=lambda: self.section.set_show_sondages(
                 self.var_show_sondages.get()),
@@ -809,8 +809,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # premier sondage est ajouté.
         self._lbl_canvas_hint = ttk.Label(
             frame,
-            text="→ Cliquer sur une direction libre du dessin pour ajouter "
-                 "un sondage",
+            text=_("→ Cliquer sur une direction libre du dessin pour ajouter un sondage"),
             style="Muted.TLabel", wraplength=440)
         self._lbl_canvas_hint.pack(anchor="w", pady=(2, 0))
 
@@ -860,7 +859,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self._update_banner_lbl.pack(side="left")
         self._update_banner_url: str = ""
         ttk.Button(
-            self._update_banner, text="Télécharger", style="Accent.TButton",
+            self._update_banner, text=_("Télécharger"), style="Accent.TButton",
             command=self._open_update_url,
         ).pack(side="left", padx=(10, 0))
         ttk.Button(
@@ -872,7 +871,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        self._btn_save = ttk.Button(bar, text="💾 Enregistrer",
+        self._btn_save = ttk.Button(bar, text=_("💾 Enregistrer"),
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)
@@ -883,15 +882,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             bar, text="", style="Side.TLabel",
             font=ui_font("Helvetica", 9, "bold"))
         self.lbl_save_state.pack(side="left", padx=(0, 14), pady=3)
-        self.lbl_status = ttk.Label(bar, text="Prêt.", style="Side.TLabel",
+        self.lbl_status = ttk.Label(bar, text=_("Prêt."), style="Side.TLabel",
                                     font=ui_font("Helvetica", 9))
         self.lbl_status.pack(side="left", padx=(0, 12), pady=3)
         self._btn_open_folder = ttk.Button(
-            bar, text="Ouvrir le dossier", style="Ghost.TButton",
+            bar, text=_("Ouvrir le dossier"), style="Ghost.TButton",
             command=self._open_last_export_folder, state="disabled")
         self._btn_open_folder.pack(side="right", padx=(0, 10), pady=2)
         self._btn_open_file = ttk.Button(
-            bar, text="Ouvrir le fichier", style="Ghost.TButton",
+            bar, text=_("Ouvrir le fichier"), style="Ghost.TButton",
             command=self._open_last_export_file, state="disabled")
         self._btn_open_file.pack(side="right", padx=(0, 4), pady=2)
         self._update_save_indicator()
@@ -968,18 +967,18 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             return
         if self._dirty:
             self.lbl_save_state.configure(
-                text="● Modifications non enregistrées",
+                text=_("● Modifications non enregistrées"),
                 foreground=COLOR_WARN)
             self._btn_save.configure(state="normal")
         elif self.current_file is not None:
             self.lbl_save_state.configure(
-                text="✓ Enregistré", foreground=COLOR_ACCENT)
+                text=_("✓ Enregistré"), foreground=COLOR_ACCENT)
             self._btn_save.configure(state="disabled")
         else:
             # Mission neuve jamais enregistrée : rien à perdre, mais le
             # bouton reste actif (premier « Enregistrer sous… »).
             self.lbl_save_state.configure(
-                text="Mission non enregistrée", foreground=COLOR_MUTED)
+                text=_("Mission non enregistrée"), foreground=COLOR_MUTED)
             self._btn_save.configure(state="normal")
 
     def _on_close(self) -> None:
@@ -1539,7 +1538,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                   text="Pénétromètre",
                   font=ui_font("Georgia", 16, "bold")).pack(anchor="w")
         ttk.Label(frm,
-                  text="Expertise arboricole au pénétromètre",
+                  text=_("Expertise arboricole au pénétromètre"),
                   style="Sub.TLabel").pack(anchor="w")
         ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
 
@@ -1585,14 +1584,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                     f"{name} est absent de l'installation.",
                     parent=dlg)
 
-        ttk.Button(btns, text="Licence (CLU)",
+        ttk.Button(btns, text=_("Licence (CLU)"),
                    style="Ghost.TButton",
                    command=lambda: _open_doc("LICENSE")).pack(side="left")
-        ttk.Button(btns, text="Confidentialité",
+        ttk.Button(btns, text=_("Confidentialité"),
                    style="Ghost.TButton",
                    command=lambda: _open_doc("PRIVACY.md")).pack(side="left",
                                                                   padx=(6, 0))
-        ttk.Button(btns, text="Fermer",
+        ttk.Button(btns, text=_("Fermer"),
                    style="Accent.TButton",
                    command=dlg.destroy).pack(side="right")
 

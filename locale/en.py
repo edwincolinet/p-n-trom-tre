@@ -261,4 +261,71 @@ TRANSLATIONS = {
     "── Suivi ──":                        "── Follow-up ──",
     "Validité":                           "Validity",
     "Contenu du suivi (texte libre)":    "Follow-up content (free text)",
+
+    # ── Sprint 3 — UI restante ────────────────────────────────────────
+
+    # En-tête principal — boutons comparaison
+    "+ Logo cabinet":                       "+ Office logo",
+    "Expertise arboricole au pénétromètre": "Tree expertise — resistograph",
+    "Expertise arboricole":                 "Tree expertise",
+
+    # Panneau gauche — colonnes treeview
+    "État":                                "Status",
+    "✕ Réinitialiser":                     "✕ Reset",
+    "Brin :":                              "Stem:",
+    "Renommer…":                           "Rename…",
+
+    # Onglets (version courte)
+    "Dégrad. externes":                    "Ext. damage",
+
+    # Canvas
+    "Afficher l'emplacement des sondages sur le dessin":
+                                           "Show soundings on the drawing",
+    "→ Cliquer sur une direction libre du dessin pour ajouter un sondage":
+                                           "→ Click a free direction on the drawing to add a sounding",
+
+    # Fenêtre de comparaison
+    "Arbre courant :":                     "Current tree:",
+    "comparé à (référence) :":             "compared to (reference):",
+    "🖼 PNG…":                             "🖼 PNG…",
+    "📄 PDF…":                             "📄 PDF…",
+    "(pas de brin de référence)":          "(no reference stem)",
+    "La mission courante ou de référence ne contient aucun arbre.":
+                                           "The current or reference project contains no trees.",
+
+    # Dialogues fichier
+    "Ouvrir une mission":                  "Open project",
+    "Choisir la mission de référence (campagne antérieure)":
+                                           "Choose reference project (previous survey)",
+    "Mission d'exemple introuvable":      "Example project not found",
+
+    # Récupération crash
+    "Reprise après crash":                 "Crash recovery",
+    "Récupération de données":             "Data recovery",
+
+    # Paramètres cabinet
+    "Nom du cabinet :":                    "Office name:",
+    "Logo :":                              "Logo:",
+    "Formats acceptés : PNG, JPEG, GIF, BMP, TIFF":
+                                           "Accepted formats: PNG, JPEG, GIF, BMP, TIFF",
+    "Aucun logo configuré":                "No logo configured",
+    "(aperçu indisponible — Pillow requis)": "(preview unavailable — Pillow required)",
+    "(image illisible)":                   "(unreadable image)",
+    "Choisir un logo":                     "Choose a logo",
+    "Choisir un fichier…":                 "Choose a file…",
+    "− Supprimer la sélection":            "− Remove selection",
+
+    # Import CSV
+    " Aperçu ":                            " Preview ",
+    " Correspondance colonnes → champs ":  " Column → field mapping ",
+    "Colonne CSV":                         "CSV column",
+    "Champ modèle":                        "Model field",
+    "Exemples (3 premières lignes)":       "Examples (first 3 rows)",
+    "Erreur d'analyse — vérifiez le mapping.": "Analysis error — check mapping.",
+    "Erreur de lecture CSV":               "CSV read error",
+    "CSV vide":                            "Empty CSV",
+    "N° arbre requis":                     "Tree ID required",
+    "Erreur d'import":                    "Import error",
+    "Aucun arbre importé":                 "No trees imported",
+    "Avertissements":                      "Warnings",
 }

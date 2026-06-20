@@ -42,6 +42,7 @@ from diagnostic import (
     verdict_evolution,
 )
 from dialogs_shared import annees_entre
+from i18n import _
 from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
 
@@ -111,13 +112,13 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
 
     top = ttk.Frame(dlg, style="Panel.TFrame", padding=(12, 10, 12, 4))
     top.pack(fill="x")
-    ttk.Label(top, text="Arbre courant :", style="Panel.TLabel").pack(
+    ttk.Label(top, text=_("Arbre courant :"), style="Panel.TLabel").pack(
         side="left", padx=(0, 4))
     var_cur = tk.StringVar()
     cmb_cur = ttk.Combobox(top, textvariable=var_cur, values=_labels(curs),
                            state="readonly", width=26)
     cmb_cur.pack(side="left", padx=(0, 16))
-    ttk.Label(top, text="comparé à (référence) :",
+    ttk.Label(top, text=_("comparé à (référence) :"),
               style="Panel.TLabel").pack(side="left", padx=(0, 4))
     var_ref = tk.StringVar()
     cmb_ref = ttk.Combobox(top, textvariable=var_ref, values=_labels(refs),
@@ -177,12 +178,12 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     lbl_msg = ttk.Label(foot, text="", style="Muted.TLabel",
                         wraplength=900, justify="left")
     lbl_msg.pack(side="left", fill="x", expand=True)
-    ttk.Button(foot, text="Fermer", style="Ghost.TButton",
+    ttk.Button(foot, text=_("Fermer"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
-    ttk.Button(foot, text="🖼 PNG…", style="Ghost.TButton",
+    ttk.Button(foot, text=_("🖼 PNG…"), style="Ghost.TButton",
                command=lambda: export_cb("png", _page_builder(state, "png"), dlg)
                ).pack(side="right", padx=6)
-    ttk.Button(foot, text="📄 PDF…", style="Accent.TButton",
+    ttk.Button(foot, text=_("📄 PDF…"), style="Accent.TButton",
                command=lambda: export_cb("pdf", _page_builder(state, "pdf"), dlg)
                ).pack(side="right")
 
@@ -210,8 +211,9 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     cmb_ref.bind("<<ComboboxSelected>>", _on_select)
 
     if not curs or not refs:
-        ttk.Label(inner, text="La mission courante ou de référence ne "
-                  "contient aucun arbre.", style="Panel.TLabel").pack(
+        ttk.Label(inner,
+                  text=_("La mission courante ou de référence ne contient aucun arbre."),
+                  style="Panel.TLabel").pack(
                       anchor="w", padx=12, pady=12)
     else:
         ci = next((i for i, a in enumerate(curs) if a is default_arbre), 0)
@@ -252,7 +254,7 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
         photos.append(p)
         img_ref.configure(image=p)
     else:
-        img_ref.configure(text="(pas de brin de référence)")
+        img_ref.configure(text=_("(pas de brin de référence)"))
     pc = _photo(render_brin_section(cur_arbre, cur_b, _SEC,
                                     show_sondages=show_sondages))
     photos.append(pc)

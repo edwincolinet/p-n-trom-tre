@@ -34,6 +34,7 @@ from app_arbres import _RISK_FILTER_ALL
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from comparaison import open_comparison
+from i18n import _
 from model import Arbre, Chantier
 from palette import COULEUR_CLASSE
 from persistence import clear_recovery, load_chantier, save_chantier, write_backup
@@ -93,9 +94,8 @@ class FichierMixin(_MixinBase):
     def action_new(self) -> None:
         if self._dirty:
             if not messagebox.askyesno(
-                    "Nouvelle mission",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
+                    _("Nouvelle mission"),
+                    _("Des modifications n'ont pas été enregistrées.\nContinuer quand même ?")):
                 return
         self._undo_stack.clear()
         self._dirty = False
@@ -122,12 +122,11 @@ class FichierMixin(_MixinBase):
     def action_open(self) -> None:
         if self._dirty:
             if not messagebox.askyesno(
-                    "Ouvrir",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
+                    _("Ouvrir"),
+                    _("Des modifications n'ont pas été enregistrées.\nContinuer quand même ?")):
                 return
         p = filedialog.askopenfilename(
-            title="Ouvrir une mission",
+            title=_("Ouvrir une mission"),
             filetypes=[("Mission Pénétromètre", "*.json"),
                        ("Tous", "*.*")])
         if not p:
@@ -141,7 +140,7 @@ class FichierMixin(_MixinBase):
         les arbres importés à la mission courante. La mission n'est pas
         enregistrée automatiquement (le flag _dirty est levé)."""
         p = filedialog.askopenfilename(
-            title="Importer depuis CSV",
+            title=_("Importer depuis CSV"),
             filetypes=[("Fichiers CSV", "*.csv *.txt"),
                        ("Tous", "*.*")])
         if not p:
@@ -176,15 +175,14 @@ class FichierMixin(_MixinBase):
         demo = Path(__file__).parent / "exemples" / "mission_demo.json"
         if not demo.exists():
             messagebox.showerror(
-                "Mission d'exemple introuvable",
+                _("Mission d'exemple introuvable"),
                 f"Le fichier d'exemple est absent :\n{demo}\n\n"
                 "Réinstallez l'application pour le restaurer.")
             return
         if self._dirty:
             if not messagebox.askyesno(
-                    "Ouvrir la mission d'exemple",
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
+                    _("Ouvrir"),
+                    _("Des modifications n'ont pas été enregistrées.\nContinuer quand même ?")):
                 return
         try:
             self._undo_stack.clear()
@@ -199,14 +197,14 @@ class FichierMixin(_MixinBase):
                 "Utilisez « Enregistrer sous… » pour créer votre propre mission.")
         except Exception as e:
             log.exception("Échec ouverture mission d'exemple")
-            messagebox.showerror("Erreur", str(e))
+            messagebox.showerror(_("Erreur"), str(e))
 
     def action_load_reference(self) -> bool:
         """Charge en mémoire une mission de référence (campagne antérieure)
         pour la comparaison inter-missions. Par session : rien n'est écrit
         dans la mission courante. Renvoie True si chargée."""
         p = filedialog.askopenfilename(
-            title="Choisir la mission de référence (campagne antérieure)",
+            title=_("Choisir la mission de référence (campagne antérieure)"),
             filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
         if not p:
             return False
@@ -369,7 +367,7 @@ class FichierMixin(_MixinBase):
             self._recent.remove(p)
         except Exception as e:
             log.exception("Échec ouverture mission")
-            messagebox.showerror("Erreur d'ouverture", str(e))
+            messagebox.showerror(_("Erreur d'ouverture"), str(e))
 
     def action_open_recent(self, path: str) -> None:
         """Ouvre un fichier récent (appelé par le sous-menu Récents)."""
