@@ -127,6 +127,44 @@ class FichierMixin(_MixinBase):
             return
         self._open_path(p)
 
+    def action_open_demo(self) -> None:
+        """Ouvre la mission d'exemple en lecture seule.
+
+        La mission illustre les 5 cas types : arbre sain (Vert), arbre
+        dégradé (Orange), arbre urgent (Rouge + dégradation externe),
+        arbre partiellement sondé (non fiable), et cépée 2 brins.
+
+        « Lecture seule » = current_file reste None → « Enregistrer »
+        force « Enregistrer sous… » (jamais d'écrasement du fichier
+        d'exemple)."""
+        demo = Path(__file__).parent / "exemples" / "mission_demo.json"
+        if not demo.exists():
+            messagebox.showerror(
+                "Mission d'exemple introuvable",
+                f"Le fichier d'exemple est absent :\n{demo}\n\n"
+                "Réinstallez l'application pour le restaurer.")
+            return
+        if self._dirty:
+            if not messagebox.askyesno(
+                    "Ouvrir la mission d'exemple",
+                    "Des modifications n'ont pas été enregistrées.\n"
+                    "Continuer quand même ?"):
+                return
+        try:
+            self._undo_stack.clear()
+            self._dirty = False
+            clear_recovery(_RECOVERY_PATH)
+            self.chantier = load_chantier(str(demo))
+            self.current_file = None   # lecture seule : Enregistrer → Enregistrer sous…
+            self._install_chantier_ui()
+            # Pas de push_recent : le fichier d'exemple n'est pas une vraie mission.
+            self.set_status(
+                "Mission d'exemple ouverte en lecture seule. "
+                "Utilisez « Enregistrer sous… » pour créer votre propre mission.")
+        except Exception as e:
+            log.exception("Échec ouverture mission d'exemple")
+            messagebox.showerror("Erreur", str(e))
+
     def action_load_reference(self) -> bool:
         """Charge en mémoire une mission de référence (campagne antérieure)
         pour la comparaison inter-missions. Par session : rien n'est écrit

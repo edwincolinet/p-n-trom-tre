@@ -48,6 +48,8 @@ missions/
 !exemple_*.json
 # Fixtures JSON des tests golden (versionnées)
 !tests/fixtures/*.json
+# Missions d'exemple versionnées
+!exemples/*.json
 
 # OS
 Thumbs.db

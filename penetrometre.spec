@@ -31,6 +31,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ("assets", "assets"),
+        ("exemples", "exemples"),
     ],
     hiddenimports=[
         "PIL._imaging",
