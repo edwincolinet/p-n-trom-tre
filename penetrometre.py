@@ -532,7 +532,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # de l'ordre visuel : le premier packé en bottom est le plus bas.
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(side="bottom", fill="x", pady=(10, 0))
-        mb_add = ttk.Menubutton(btns, text="＋ Ajouter",
+        # Rangée 1 : bouton principal Ajouter (pleine largeur)
+        row1 = ttk.Frame(btns, style="Side.TFrame")
+        row1.pack(fill="x", pady=(0, 4))
+        mb_add = ttk.Menubutton(row1, text="＋ Ajouter",
                                 style="Accent.TMenubutton", direction="above")
         add_menu = tk.Menu(mb_add, tearoff=0)
         add_menu.add_command(label="Arbre vierge",
@@ -546,12 +549,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         Tooltip(mb_add, "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
                         "« Hériter du précédent » pour reprendre essence, "
                         "port et mèche d'un alignement.")
-        ttk.Button(btns, text="Dupliquer", style="Ghost.TButton",
-                   command=self.action_dup_arbre
-                   ).pack(side="left", padx=(6, 0))
-        ttk.Button(btns, text="Supprimer", style="Ghost.TButton",
-                   command=self.action_del_arbre
-                   ).pack(side="left", padx=(6, 0))
+        # Rangée 2 : actions secondaires Dupliquer / Supprimer
+        row2 = ttk.Frame(btns, style="Side.TFrame")
+        row2.pack(fill="x")
+        ttk.Button(row2, text="Dupliquer", style="Ghost.TButton",
+                   command=self.action_dup_arbre).pack(side="left")
+        ttk.Button(row2, text="Supprimer", style="Ghost.TButton",
+                   command=self.action_del_arbre).pack(side="left", padx=(6, 0))
 
         # Triage de fin de mission : saute au prochain arbre incomplet
         # (pendant du compteur « N à finir » juste au-dessous).
