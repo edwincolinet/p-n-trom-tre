@@ -42,7 +42,8 @@ from app_recovery import (
 )
 from app_settings import SettingsStore
 from app_style import apply_ttk_styles
-from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, set_seuils
+from bareme_store import get_defaults, load_bareme, save_bareme
 from dialogs import (
     ask_cepee_layout,
     ask_date,
@@ -122,6 +123,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # les paddings ne sont pas affectés.
         self._settings = SettingsStore(_SETTINGS_PATH)
         self._apply_ui_scale(self._settings.ui_scale)
+        self._apply_bareme()
 
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
@@ -179,6 +181,37 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self._autosave_after_id: Optional[str] = None
         self._schedule_autosave()
         self.after(200, self._check_recovery_on_startup)
+
+    def _apply_bareme(self) -> None:
+        """Charge le barème personnalisé depuis ~/.penetrometre/bareme.json
+        et l'injecte dans `bareme.set_seuils`. No-op si le fichier est absent
+        (les défauts codés dans bareme.py s'appliquent déjà)."""
+        data = load_bareme()
+        set_seuils(
+            libre=(data["libre"]["vert"],  data["libre"]["orange"]),
+            strict=(data["strict"]["vert"], data["strict"]["orange"]),
+        )
+
+    def action_bareme_settings(self) -> None:
+        """Ouvre le dialog de paramétrage du barème t/R (Affichage → Barème…)."""
+        from bareme import get_seuils
+        from dialogs_settings import ask_bareme_settings
+        current = {
+            grp: {"vert": v, "orange": o}
+            for grp, (v, o) in get_seuils().items()
+        }
+        result = ask_bareme_settings(self, current, get_defaults())
+        if result is None:
+            return
+        save_bareme(result)
+        set_seuils(
+            libre=(result["libre"]["vert"],  result["libre"]["orange"]),
+            strict=(result["strict"]["vert"], result["strict"]["orange"]),
+        )
+        # Redessiner l'arbre courant (les pastilles et le diagnostic
+        # peuvent avoir changé de classe avec les nouveaux seuils).
+        self._redraw_all()
+        self.set_status("Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.")
 
     def _apply_ui_scale(self, scale: float) -> None:
         """Applique le facteur d'échelle du texte. `tk scaling` étant

@@ -16,11 +16,36 @@ from __future__ import annotations
 PORTS_ARBRE = ["libre", "semi-libre", "délaissé",
                "architecturé", "traumatique"]
 
-# Groupes de barèmes PRBS (Silvavenir) :
+# Groupes de barèmes PRBS :
 #   - libre + semi-libre + délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %
 #   - architecturé + traumatique :    Vert > 20 %, Orange 10-20 %, Rouge < 10 %
 PORTS_GROUPE_LIBRE = ("libre", "semi-libre", "délaissé")
 PORTS_GROUPE_STRICT = ("architecturé", "traumatique")
+
+# ----------------------------------------------------------------------
+# Seuils personnalisables (modifiés par set_seuils au démarrage)
+# ----------------------------------------------------------------------
+
+# Valeurs par défaut (ratios t/R, 0–1).
+SEUILS_DEFAUT: dict[str, tuple[float, float]] = {
+    "libre":  (0.30, 0.15),   # (seuil_vert, seuil_orange)
+    "strict": (0.20, 0.10),
+}
+
+# Seuils courants (initialisés aux défauts, remplacés par set_seuils).
+_seuils: dict[str, tuple[float, float]] = dict(SEUILS_DEFAUT)
+
+
+def get_seuils() -> dict[str, tuple[float, float]]:
+    """Seuils courants : {'libre': (seuil_vert, seuil_orange), 'strict': …}."""
+    return dict(_seuils)
+
+
+def set_seuils(libre: tuple[float, float],
+               strict: tuple[float, float]) -> None:
+    """Applique des seuils personnalisés (persistés par bareme_store)."""
+    _seuils["libre"] = libre
+    _seuils["strict"] = strict
 
 
 def normaliser_port(value: object) -> str:
@@ -74,10 +99,11 @@ def classer_prbs(ratio_tR: float, port_arbre: str) -> str:
     hexa associée est une convention de présentation et vit côté UI.
     """
     p = port_arbre.lower().strip()
-    seuils = (0.20, 0.10) if p in PORTS_GROUPE_STRICT else (0.30, 0.15)
-    if ratio_tR > seuils[0]:
+    seuil_vert, seuil_orange = (
+        _seuils["strict"] if p in PORTS_GROUPE_STRICT else _seuils["libre"])
+    if ratio_tR > seuil_vert:
         return CLASSE_VERT
-    elif ratio_tR >= seuils[1]:
+    elif ratio_tR >= seuil_orange:
         return CLASSE_ORANGE
     else:
         return CLASSE_ROUGE

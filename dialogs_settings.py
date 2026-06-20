@@ -258,6 +258,148 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
     return result["value"]
 
 
+def ask_bareme_settings(
+        parent: tk.Misc,
+        seuils: "dict[str, dict[str, float]]",
+        defaults: "dict[str, dict[str, float]]",
+) -> "Optional[dict[str, dict[str, float]]]":
+    """Dialogue de paramétrage du barème t/R (seuils Vert/Orange/Rouge).
+
+    `seuils`   — dict courant {'libre': {'vert': 0.30, 'orange': 0.15}, 'strict': …}
+    `defaults` — valeurs d'origine pour le bouton « Restaurer ».
+    Retourne le nouveau dict si validé, None si annulé.
+
+    Deux groupes de ports :
+      • Libre / semi-libre / délaissé (végétation non contrainte)
+      • Architecturé / traumatique    (végétation contrainte / taillée)
+
+    Pour chaque groupe : seuil t/R Vert (%) et seuil t/R Orange (%),
+    avec contrainte vert > orange > 0.
+    """
+    from dialogs_shared import validate_numeric
+
+    result: "Optional[dict[str, dict[str, float]]]" = None
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Paramétrage du barème")
+    dlg.resizable(False, False)
+
+    content = ttk.Frame(dlg, padding=18)
+    content.pack(fill="both", expand=True)
+
+    ttk.Label(content,
+              text="Seuils de classification t/R par groupe de port",
+              font=ui_font("Helvetica", 11, "bold")).pack(anchor="w",
+                                                          pady=(0, 4))
+    ttk.Label(content,
+              text="Vert = paroi saine (t/R > seuil Vert) · "
+                   "Orange = paroi fragilisée · Rouge = paroi critique (t/R < seuil Orange)",
+              wraplength=460, justify="left").pack(anchor="w", pady=(0, 12))
+
+    GROUPES = [
+        ("libre",  "Libre / Semi-libre / Délaissé",
+         "Végétation en développement libre ou naturel"),
+        ("strict", "Architecturé / Traumatique",
+         "Végétation taillée ou ayant subi un traumatisme"),
+    ]
+
+    vcmd = (dlg.register(validate_numeric), "%P")
+    entries: "dict[str, dict[str, ttk.Entry]]" = {}
+
+    for grp_key, grp_label, grp_sub in GROUPES:
+        box = ttk.LabelFrame(content, text=f" {grp_label} ", padding=10)
+        box.pack(fill="x", pady=(0, 10))
+        ttk.Label(box, text=grp_sub,
+                  foreground="#555").pack(anchor="w", pady=(0, 8))
+
+        row = ttk.Frame(box)
+        row.pack(fill="x")
+        entries[grp_key] = {}
+
+        for col, (field, label, color) in enumerate([
+            ("vert",   "Seuil Vert (%)",   "#1A6B2A"),
+            ("orange", "Seuil Orange (%)", "#B85C00"),
+        ]):
+            cell = ttk.Frame(row)
+            cell.grid(row=0, column=col, padx=(0, 20))
+            ttk.Label(cell, text=label,
+                      foreground=color,
+                      font=ui_font("Helvetica", 10, "bold")).pack(anchor="w")
+            val_pct = round(seuils[grp_key][field] * 100, 2)
+            var = tk.StringVar(value=f"{val_pct:g}")
+            e = ttk.Entry(cell, textvariable=var, width=8,
+                          validate="key", validatecommand=vcmd)
+            e.pack(anchor="w", pady=(2, 0))
+            entries[grp_key][field] = e
+
+            def _make_hint(k: str, f: str) -> str:
+                return f"  (défaut : {defaults[k][f]*100:g} %)"
+            ttk.Label(cell,
+                      text=_make_hint(grp_key, field),
+                      foreground="#888",
+                      font=ui_font("Helvetica", 8)).pack(anchor="w")
+
+    def _parse() -> "Optional[dict[str, dict[str, float]]]":
+        out: "dict[str, dict[str, float]]" = {}
+        for grp_key, _, __ in GROUPES:
+            try:
+                vert   = float(entries[grp_key]["vert"].get().replace(",", ".")) / 100
+                orange = float(entries[grp_key]["orange"].get().replace(",", ".")) / 100
+            except ValueError:
+                messagebox.showerror("Valeur invalide",
+                                     "Saisissez des nombres (ex. 30, 15).",
+                                     parent=dlg)
+                return None
+            if not (0 < orange < vert <= 1):
+                messagebox.showerror(
+                    "Seuils incohérents",
+                    f"Pour le groupe « {grp_key} » : le seuil Vert doit être "
+                    f"strictement supérieur au seuil Orange, et les deux entre "
+                    f"0 % et 100 %.\n\nEx. Vert = 30, Orange = 15.",
+                    parent=dlg)
+                return None
+            out[grp_key] = {"vert": round(vert, 4), "orange": round(orange, 4)}
+        return out
+
+    def _restore_defaults() -> None:
+        for grp_key, _, __ in GROUPES:
+            for field in ("vert", "orange"):
+                v = defaults[grp_key][field] * 100
+                entries[grp_key][field].delete(0, "end")
+                entries[grp_key][field].insert(0, f"{v:g}")
+
+    def _ok() -> None:
+        nonlocal result
+        parsed = _parse()
+        if parsed is not None:
+            result = parsed
+            dlg.destroy()
+
+    def _cancel() -> None:
+        dlg.destroy()
+
+    sep = ttk.Separator(content, orient="horizontal")
+    sep.pack(fill="x", pady=(8, 10))
+
+    btns = ttk.Frame(content)
+    btns.pack(fill="x")
+    ttk.Button(btns, text="Restaurer les valeurs par défaut",
+               style="Ghost.TButton",
+               command=_restore_defaults).pack(side="left")
+    ttk.Button(btns, text="Annuler",
+               style="Ghost.TButton",
+               command=_cancel).pack(side="right")
+    ttk.Button(btns, text="Enregistrer",
+               style="Accent.TButton",
+               command=_ok).pack(side="right", padx=(0, 6))
+
+    dlg.bind("<Return>", lambda e: _ok())
+    dlg.bind("<Escape>", lambda e: _cancel())
+    _make_modal(dlg, parent)
+    dlg.wait_window()
+    return result
+
+
 def ask_urgences_custom(parent: tk.Misc,
                         current: "list[str]") -> "Optional[list[str]]":
     """Dialogue de gestion des niveaux d'urgence personnalisés (wrapper)."""
