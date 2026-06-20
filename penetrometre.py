@@ -396,7 +396,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def _build_left(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
-        parent.add(frame, minsize=260, width=290, stretch="never")
+        parent.add(frame, minsize=280, width=340, stretch="never")
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
