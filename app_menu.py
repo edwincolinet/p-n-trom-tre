@@ -36,6 +36,7 @@ class AppLike(Protocol):
     def destroy(self) -> None: ...
 
     # Actions Fichier
+    def action_import_csv(self) -> None: ...
     def action_open_demo(self) -> None: ...
     def action_new(self) -> None: ...
     def action_open(self) -> None: ...
@@ -100,6 +101,8 @@ def build_menu(app: AppLike) -> None:
     f = tk.Menu(m, tearoff=0)
     f.add_command(label="Ouvrir la mission d'exemple…",
                   command=app.action_open_demo)
+    f.add_command(label="Importer depuis CSV…",
+                  command=app.action_import_csv)
     f.add_separator()
     f.add_command(label="Nouvelle mission", accelerator="Ctrl+N",
                   command=app.action_new)

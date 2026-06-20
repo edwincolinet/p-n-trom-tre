@@ -84,6 +84,7 @@ class FichierMixin(_MixinBase):
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
         def _load_arbre_to_ui(self) -> None: ...
+        def _clear_filter_if_set(self) -> None: ...
         def _update_title(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
@@ -132,6 +133,35 @@ class FichierMixin(_MixinBase):
         if not p:
             return
         self._open_path(p)
+
+    def action_import_csv(self) -> None:
+        """Importe des arbres/sondages depuis un fichier CSV.
+
+        Ouvre un dialog de mapping colonnes → champs modèle, puis ajoute
+        les arbres importés à la mission courante. La mission n'est pas
+        enregistrée automatiquement (le flag _dirty est levé)."""
+        p = filedialog.askopenfilename(
+            title="Importer depuis CSV",
+            filetypes=[("Fichiers CSV", "*.csv *.txt"),
+                       ("Tous", "*.*")])
+        if not p:
+            return
+        from dialogs_import import ask_csv_import
+        arbres = ask_csv_import(self, p)
+        if arbres is None:
+            return   # annulé
+        self.push_undo()
+        debut = len(self.chantier.arbres)
+        self.chantier.arbres.extend(arbres)
+        # Sélectionner le premier arbre importé
+        self.current_idx = debut
+        self._clear_filter_if_set()
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+        n_sond = sum(len(a.brins[0].sondages) for a in arbres)
+        self.set_status(
+            f"{len(arbres)} arbre(s) importé(s) "
+            f"({n_sond} sondage(s)) — pensez à enregistrer.")
 
     def action_open_demo(self) -> None:
         """Ouvre la mission d'exemple en lecture seule.
