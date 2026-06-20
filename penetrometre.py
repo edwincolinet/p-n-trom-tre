@@ -396,7 +396,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def _build_left(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
-        parent.add(frame, minsize=220, width=284, stretch="never")
+        parent.add(frame, minsize=220, width=260, stretch="never")
         ttk.Label(frame, text="Arbres de la mission", style="Side.TLabel",
                   font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
 
@@ -575,7 +575,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def _build_center(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)
-        parent.add(frame, minsize=400, width=470, stretch="never")
+        parent.add(frame, minsize=400, width=510, stretch="always")
         # Sélecteur de brin (cépée) : barre de boutons « Brin a / b / c »
         # au-dessus des onglets, qui repointe la saisie (Identification
         # géométrie / Sondages / Dégradations / Contreforts) sur le brin
@@ -638,7 +638,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
 
     def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
-        parent.add(frame, minsize=360, stretch="always")
+        parent.add(frame, minsize=360, width=460, stretch="always")
         self.section = SectionCanvas(frame, host=self,
                                       width=550, height=550)
         self.section.pack(fill="both", expand=True)
@@ -1155,7 +1155,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         a = self._current_arbre()
         has_sondages = a is not None and any(b.sondages for b in a.brins)
         if has_sondages:
-            self._lbl_canvas_hint.pack_forget()
+            if self._lbl_canvas_hint.winfo_ismapped():
+                self._lbl_canvas_hint.pack_forget()
         elif not self._lbl_canvas_hint.winfo_ismapped():
             self._lbl_canvas_hint.pack(anchor="w", pady=(2, 0))
 
