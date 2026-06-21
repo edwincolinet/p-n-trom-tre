@@ -166,6 +166,205 @@ class FichierMixin(_MixinBase):
             (_("{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.")
             .format(n=len(arbres), ns=n_sond)))
 
+    def action_save_as_template(self) -> None:
+        """Enregistre la mission courante comme modèle réutilisable."""
+        from dialogs import ask_string
+        from template_store import save_template, template_from_chantier
+        nom = ask_string(
+            self,
+            _("Enregistrer comme modèle"),
+            _("Nom du modèle :"),
+            initial=self.chantier.nom,
+            info=_("Le modèle mémorise : client, adresse, opérateur, "
+                   "essence, port, mèche, H sondage et écorce du 1er arbre."))
+        if nom is None:
+            return
+        nom = nom.strip()
+        if not nom:
+            return
+        data = template_from_chantier(self.chantier)
+        p = save_template(nom, data)
+        self.set_status(_("Modèle « {nom} » enregistré.").format(nom=nom))
+        log.info("Modèle enregistré : %s", p)
+
+    def action_new_from_template(self) -> None:
+        """Crée une nouvelle mission en choisissant un modèle existant."""
+        import tkinter as tk
+        from tkinter import ttk
+
+        from template_store import delete_template, list_templates
+
+        templates = list_templates()
+        if not templates:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                _("Aucun modèle"),
+                _("Aucun modèle enregistré.")
+                + "\n\n" + _("Créez via Fichier → Enregistrer comme modèle…"),
+                parent=self)
+            return
+
+        # Dialog de sélection
+        result: dict[str, object] = {"chosen": None}
+
+        dlg = tk.Toplevel(self)
+        dlg.title(_("Nouvelle mission depuis un modèle"))
+        dlg.resizable(False, False)
+        dlg.configure(bg="#F5F7F5")
+
+        from ui_fonts import font as _font
+        frm = ttk.Frame(dlg, padding=16)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text=_("Choisissez un modèle :"),
+                  font=_font("Helvetica", 11, "bold")).pack(anchor="w",
+                                                             pady=(0, 8))
+
+        lb_frame = ttk.Frame(frm)
+        lb_frame.pack(fill="both", expand=True)
+        lb = tk.Listbox(lb_frame, height=8, width=40,
+                        font=_font("Helvetica", 10), selectmode="single")
+        sb = ttk.Scrollbar(lb_frame, orient="vertical", command=lb.yview)
+        lb.configure(yscrollcommand=sb.set)
+        lb.pack(side="left", fill="both", expand=True)
+        sb.pack(side="left", fill="y")
+
+        for t in templates:
+            lb.insert("end", t.get("nom_modele", "?"))
+        if templates:
+            lb.selection_set(0)
+
+        def _detail() -> str:
+            sel = lb.curselection()
+            if not sel:
+                return ""
+            t = templates[sel[0]]
+            ad = t.get("arbre_defaut", {})
+            lines = []
+            if t.get("client"):
+                lines.append(f"Client : {t['client']}")
+            if t.get("adresse"):
+                lines.append(f"Adresse : {t['adresse']}")
+            if t.get("operateur"):
+                lines.append(f"Opérateur : {t['operateur']}")
+            if ad.get("essence"):
+                lines.append(f"Essence : {ad['essence']}")
+            if ad.get("port_arbre"):
+                lines.append(f"Port : {ad['port_arbre']}")
+            if ad.get("meche_cm"):
+                lines.append(f"Mèche : {ad['meche_cm']:g} cm")
+            return "\n".join(lines) or "—"
+
+        lbl_detail = ttk.Label(frm, text="", style="Muted.TLabel",
+                               justify="left")
+        lbl_detail.pack(anchor="w", pady=(8, 0))
+
+        def _on_select(*_: object) -> None:
+            lbl_detail.configure(text=_detail())
+
+        lb.bind("<<ListboxSelect>>", _on_select)
+        _on_select()
+
+        def _ok() -> None:
+            sel = lb.curselection()
+            if sel:
+                result["chosen"] = templates[sel[0]]
+            dlg.destroy()
+
+        def _delete() -> None:
+            sel = lb.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            t = templates[idx]
+            from tkinter import messagebox as _mb
+            if _mb.askyesno(
+                    _("Supprimer le modèle"),
+                    _("Supprimer « {nom} » ?").format(
+                        nom=t.get("nom_modele", "?")),
+                    parent=dlg):
+                delete_template(t["_path"])
+                templates.pop(idx)
+                lb.delete(idx)
+                if templates:
+                    lb.selection_set(max(0, idx - 1))
+                    _on_select()
+                else:
+                    dlg.destroy()
+
+        btns = ttk.Frame(frm)
+        btns.pack(fill="x", pady=(12, 0))
+        ttk.Button(btns, text=_("Supprimer"), style="Ghost.TButton",
+                   command=_delete).pack(side="left")
+        ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
+                   command=dlg.destroy).pack(side="right")
+        ttk.Button(btns, text=_("Créer la mission"), style="Accent.TButton",
+                   command=_ok).pack(side="right", padx=(0, 6))
+
+        dlg.bind("<Return>", lambda e: _ok())
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        dlg.bind("<Double-Button-1>", lambda e: _ok())
+        from dialogs import _make_modal
+        _make_modal(dlg, self)
+        dlg.wait_window()
+
+        t = result.get("chosen")
+        if not t:
+            return
+
+        # Créer la nouvelle mission depuis le modèle
+        if self._dirty:
+            from tkinter import messagebox
+            if not messagebox.askyesno(
+                    _("Nouvelle mission"),
+                    _("Des modifications non enregistrées seront perdues.\n"
+                      "Continuer quand même ?"),
+                    parent=self):
+                return
+
+        from app_arbres import _RISK_FILTER_ALL
+        self._undo_stack.clear()
+        self._dirty = False
+        clear_recovery(_RECOVERY_PATH)
+        self.chantier = Chantier()
+
+        # Appliquer les champs du modèle
+        self.chantier.client    = t.get("client", "")
+        self.chantier.adresse   = t.get("adresse", "")
+        self.chantier.operateur = t.get("operateur", "")
+
+        # Premier arbre avec les valeurs par défaut du modèle
+        ad = t.get("arbre_defaut", {})
+        a0 = Arbre(
+            numero_arbre="1",
+            essence=ad.get("essence", ""),
+            port_arbre=ad.get("port_arbre", "libre"),
+            meche_cm=float(ad.get("meche_cm", 40.0)),
+            hauteur_sondage_cm=float(ad.get("hauteur_sondage_cm", 0.0)),
+            hauteur_arbre_m=float(ad.get("hauteur_arbre_m", 0.0)),
+        )
+        a0.epaisseur_ecorce_cm = float(ad.get("epaisseur_ecorce_cm", 0.0))
+        self.chantier.arbres = [a0]
+        self.current_idx = 0
+        self.current_file = None
+
+        with self._suspend_sync_block():
+            self.var_ch_nom.set(self.chantier.nom)
+            self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_client.set(self.chantier.client)
+            self.var_ch_ref.set("")
+            self.var_ch_ope.set(self.chantier.operateur)
+            self.var_ch_date.set(self.chantier.date_releve)
+        self.chantier.operateur = self.chantier.operateur
+
+        self.var_filter.set("")
+        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+        self._update_title()
+        self.set_status(
+            _("Nouvelle mission depuis le modèle « {nom} ».").format(
+                nom=t.get("nom_modele", "?")))
+
     def action_open_demo(self) -> None:
         """Ouvre la mission d'exemple en lecture seule.
 

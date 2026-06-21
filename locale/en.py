@@ -602,4 +602,19 @@ TRANSLATIONS = {
 
     "~":                                  "~",
     "Sondage incertain (mesure douteuse)": "Uncertain sounding (doubtful reading)",
+
+    "Enregistrer comme modèle…":          "Save as template…",
+    "Nouvelle mission depuis un modèle…": "New project from template…",
+    "Enregistrer comme modèle":           "Save as template",
+    "Nom du modèle :": "Template name:",
+    "Modèle « {nom} » enregistré.": "Template « {nom} » saved.",
+    "Aucun modèle":                       "No templates",
+    "Choisissez un modèle :": "Choose a template:",
+    "Nouvelle mission depuis un modèle":  "New project from template",
+    "Supprimer le modèle":                "Delete template",
+    "Supprimer « {nom} » ?": "Delete « {nom} »?",
+    "Créer la mission":                   "Create project",
+    "Nouvelle mission depuis le modèle « {nom} ».": "New project from template « {nom} ».",
+    "Aucun modèle enregistré.": "No templates saved.",
+    "Créez via Fichier → Enregistrer comme modèle…": "Use File → Save as template…",
 }

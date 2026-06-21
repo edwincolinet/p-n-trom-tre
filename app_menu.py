@@ -38,6 +38,8 @@ class AppLike(Protocol):
     def destroy(self) -> None: ...
 
     # Actions Fichier
+    def action_save_as_template(self) -> None: ...
+    def action_new_from_template(self) -> None: ...
     def action_import_csv(self) -> None: ...
     def action_open_demo(self) -> None: ...
     def action_new(self) -> None: ...
@@ -108,6 +110,11 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_open_demo)
     f.add_command(label=_("Importer depuis CSV…"),
                   command=app.action_import_csv)
+    f.add_separator()
+    f.add_command(label=_("Nouvelle mission depuis un modèle…"),
+                  command=app.action_new_from_template)
+    f.add_command(label=_("Enregistrer comme modèle…"),
+                  command=app.action_save_as_template)
     f.add_separator()
     f.add_command(label=_("Nouvelle mission"), accelerator="Ctrl+N",
                   command=app.action_new)

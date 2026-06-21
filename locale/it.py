@@ -570,4 +570,19 @@ TRANSLATIONS = {
 
     "~":                                  "~",
     "Sondage incertain (mesure douteuse)": "Sondaggio incerto (misura dubbia)",
+
+    "Enregistrer comme modèle…":          "Salva come modello…",
+    "Nouvelle mission depuis un modèle…": "Nuovo progetto da modello…",
+    "Enregistrer comme modèle":           "Salva come modello",
+    "Nom du modèle :": "Nome del modello:",
+    "Modèle « {nom} » enregistré.": "Modello « {nom} » salvato.",
+    "Aucun modèle":                       "Nessun modello",
+    "Choisissez un modèle :": "Scegliere un modello:",
+    "Nouvelle mission depuis un modèle":  "Nuovo progetto da modello",
+    "Supprimer le modèle":                "Elimina modello",
+    "Supprimer « {nom} » ?": "Eliminare « {nom} »?",
+    "Créer la mission":                   "Crea progetto",
+    "Nouvelle mission depuis le modèle « {nom} ».": "Nuovo progetto dal modello « {nom} ».",
+    "Aucun modèle enregistré.": "Nessun modello salvato.",
+    "Créez via Fichier → Enregistrer comme modèle…": "Usa File → Salva come modello…",
 }
