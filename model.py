@@ -60,6 +60,7 @@ class Sondage:
     bois_altere_cm: float = 0.0
     compartimentation: str = "non renseignée"
     commentaire: str = ""
+    incertain: bool = False   # sondage douteux (angle, pression, accès)
 
     def __post_init__(self) -> None:
         if self.grade not in GRADES:

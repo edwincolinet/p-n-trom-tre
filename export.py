@@ -207,6 +207,7 @@ def _brin_table_rows(section: Any, R: float, port: str, label: str,
             "ratio_tR": ratio,
             "classe": classer_prbs(ratio, port),
             "commentaire": s.commentaire,
+            "incertain": getattr(s, "incertain", False),
         })
     return rows
 
@@ -401,8 +402,12 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     classe_col = _NCOLS  # colonne t/R = fond coloré par classe
     compart_col = 6      # colonne Compartimentation = glyphe coloré
     for row_idx, r in enumerate(rows_data):
+        # Préfixe "~" si sondage incertain
+        _id = r["sondage_id"]
+        if r.get("incertain"):
+            _id = f"~{_id}"
         values = [
-            r["sondage_id"],
+            _id,
             r["grade"],
             round(r["rayon_cm"], 2),
             round(r["prbs_cm"], 2),

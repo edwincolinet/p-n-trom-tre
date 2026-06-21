@@ -395,8 +395,9 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                 fill=COLOR_BG)
                 k += 1
                 prbs_txt = f"{prbs_adj:g}"
-                num_txt = (f"{b.label}{s.numero}" if multi_brins and b.label
-                           else str(s.numero))
+                _pfx = "~" if getattr(s, "incertain", False) else ""
+                num_txt = (_pfx + (f"{b.label}{s.numero}" if multi_brins and b.label
+                           else str(s.numero)))
                 vals = [num_txt, direction, prbs_txt,
                         f"{100*ratio:.1f}", classe, s.compartimentation]
                 for i, v in enumerate(vals):

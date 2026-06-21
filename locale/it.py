@@ -567,4 +567,7 @@ TRANSLATIONS = {
     "Aucune photo":                       "Nessuna foto",
     "Ajouter des photos":                 "Aggiungi foto",
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
+
+    "~":                                  "~",
+    "Sondage incertain (mesure douteuse)": "Sondaggio incerto (misura dubbia)",
 }

@@ -110,7 +110,7 @@ class SondagesPane(ttk.Frame):
         self._grid = grid
 
         heads = [_("Direction"), _("Grade"), _("Bois sain (cm)"),
-                 _("Altéré (cm)"), _("Compart.")]
+                 _("Altéré (cm)"), _("Compart."), _("~")]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(
@@ -145,9 +145,18 @@ class SondagesPane(ttk.Frame):
                                width=14)
             cmb.grid(row=r, column=4, sticky="w", padx=6, pady=1)
 
+            var_inc = tk.BooleanVar(value=False)
+            chk_inc = ttk.Checkbutton(grid, textvariable=var_inc,
+                                      variable=var_inc,
+                                      style="Panel.TCheckbutton")
+            chk_inc.grid(row=r, column=5, sticky="w", padx=2, pady=1)
+            chk_inc.configure(state="disabled")
+            var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
+
             self._rows[g] = {"sain": var_sain, "alt": var_alt,
                              "comp": var_comp, "entry": ent, "combo": cmb,
-                             "alt_lbl": lbl_alt}
+                             "alt_lbl": lbl_alt, "inc": var_inc,
+                             "chk_inc": chk_inc}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -229,6 +238,8 @@ class SondagesPane(ttk.Frame):
                     row["alt"].set("—")
                     row["comp"].set(_("non renseignée"))
                     row["combo"].configure(state="disabled")
+                    row["inc"].set(False)
+                    row["chk_inc"].configure(state="disabled")
                 else:
                     row["sain"].set(f"{s.bois_sain_cm:g}")
                     row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
@@ -237,6 +248,8 @@ class SondagesPane(ttk.Frame):
                             else _("non renseignée"))
                     row["comp"].set(comp)
                     row["combo"].configure(state="readonly")
+                    row["inc"].set(s.incertain)
+                    row["chk_inc"].configure(state="normal")
         finally:
             self._suspend = False
 
@@ -324,6 +337,8 @@ class SondagesPane(ttk.Frame):
             row["alt"].set("—")
             row["comp"].set(_("non renseignée"))
             row["combo"].configure(state="disabled")
+            row["inc"].set(False)
+            row["chk_inc"].configure(state="disabled")
             self._host.on_sondages_changed()
             if had_meta:
                 if self._undo_snap is not None:
@@ -386,6 +401,23 @@ class SondagesPane(ttk.Frame):
         if capped_to is not None:
             self._host.set_status(
                 _("Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.").format(r=capped_to))
+
+    def _on_incertain_changed(self, g: int) -> None:
+        """Toggle du flag 'sondage incertain' sur la checkbox de la ligne."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b:
+            return
+        s = self._find_sondage(b, g)
+        if s is None:
+            return
+        new_val = bool(self._rows[g]["inc"].get())
+        if new_val == s.incertain:
+            return
+        self._host.push_undo()
+        s.incertain = new_val
+        self._host.on_sondages_changed()
 
     def _on_comp_changed(self, g: int) -> None:
         b = self._host._current_brin()
