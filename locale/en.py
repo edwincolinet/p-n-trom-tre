@@ -561,4 +561,12 @@ TRANSLATIONS = {
     "— Durée —":                         "— Duration —",
 
     # Aide repliable header
+
+    "Redémarrer l'application":          "Restart application",
+    "Langue modifiée":                    "Language changed",
+    "Redémarrer":                         "Restart",
+
+    "L'application doit redémarrer pour appliquer la nouvelle langue.": "Must restart to apply new language.",
+    "Redémarrer maintenant ?":           "Restart now?",
+    "Redémarrer quand même ?":           "Restart anyway?",
 }

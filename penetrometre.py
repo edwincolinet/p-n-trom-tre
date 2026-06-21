@@ -265,12 +265,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         return self._settings.check_updates()
 
     def action_set_language(self, lang: str) -> None:
-        """Change la langue de l'interface (redémarrage requis)."""
+        """Change la langue de l'interface et propose un redémarrage immédiat."""
         if lang == self._settings.language():
             return
         self._settings.set_language(lang)
-        self.set_status(
-            _("Langue modifiée. Relancez l'application pour appliquer."))
+        if messagebox.askyesno(
+                _("Langue modifiée"),
+                _("L'application doit redémarrer pour appliquer la nouvelle langue.")
+                + "\n" + _("Redémarrer maintenant ?"),
+                parent=self):
+            self.action_restart()
+        else:
+            self.set_status(
+                _("Langue modifiée. Relancez l'application pour appliquer."))
+
+    def action_restart(self) -> None:
+        """Relance l'application (remplace le processus courant)."""
+        import os
+        import sys
+        if self._dirty:
+            if not messagebox.askyesno(
+                    _("Redémarrer"),
+                    _("Des modifications non enregistrées seront perdues.")
+                    + "\n" + _("Redémarrer quand même ?"),
+                    parent=self):
+                return
+        clear_recovery(_RECOVERY_PATH)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     def get_language_code(self) -> str:
         """Code de langue courante (fr/en/it)."""

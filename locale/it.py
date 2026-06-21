@@ -529,4 +529,12 @@ TRANSLATIONS = {
     "— Durée —":                         "— Durata —",
 
     # Intestazione aiuto pieghevole
+
+    "Redémarrer l'application":          "Riavvia applicazione",
+    "Langue modifiée":                    "Lingua modificata",
+    "Redémarrer":                         "Riavvia",
+
+    "L'application doit redémarrer pour appliquer la nouvelle langue.": "Riavvio necessario per applicare la lingua.",
+    "Redémarrer maintenant ?":           "Riavviare adesso?",
+    "Redémarrer quand même ?":           "Riavviare comunque?",
 }

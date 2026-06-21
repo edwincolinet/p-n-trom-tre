@@ -78,6 +78,7 @@ class AppLike(Protocol):
     def get_language_code(self) -> str: ...
 
     # Aide
+    def action_restart(self) -> None: ...
     def action_about(self) -> None: ...
     def action_shortcuts(self) -> None: ...
     def action_open_log(self) -> None: ...
@@ -205,6 +206,9 @@ def build_menu(app: AppLike) -> None:
 
     # Aide
     h = tk.Menu(m, tearoff=0)
+    h.add_command(label=_("Redémarrer l'application"),
+                  command=app.action_restart)
+    h.add_separator()
     h.add_command(label=_("Raccourcis clavier…"),
                   command=app.action_shortcuts)
     h.add_command(label=_("Ouvrir le fichier de log"),
