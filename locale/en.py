@@ -518,4 +518,20 @@ TRANSLATIONS = {
     "Arbre précédent":                     "Previous tree",
     "Dégradation externe n° {n}":         "External damage no. {n}",
     "Aucun fichier de log trouvé à :\n{p}": "No log file found at:\n{p}",
+
+    # ── Dernières chaînes ────────────────────────────────────────────
+    "Une session non enregistrée a été retrouvée ":
+        "An unsaved session was found ",
+    "Session récupérée — pensez à l'enregistrer.":
+        "Session recovered — remember to save.",
+    "Image PNG enregistrée":             "PNG image saved",
+    "Fiche PDF enregistrée":             "PDF report saved",
+    "Synthèse mission CSV enregistrée":  "Mission summary CSV saved",
+    "Synthèse mission XLSX enregistrée": "Mission summary XLSX saved",
+    "Synthèse":                          "Summary",
+    "Pénétromètre — Synthèse mission « {nom} »":
+        "Pénétromètre — Mission summary « {nom} »",
+    "pas de brin de référence — état courant seul":
+        "no reference stem — current state only",
+    "pas de brin de référence":          "no reference stem",
 }

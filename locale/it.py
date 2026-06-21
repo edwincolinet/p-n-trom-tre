@@ -486,4 +486,20 @@ TRANSLATIONS = {
     "Arbre précédent":                     "Albero precedente",
     "Dégradation externe n° {n}":         "Degrado esterno n° {n}",
     "Aucun fichier de log trouvé à :\n{p}": "Nessun file di log trovato in:\n{p}",
+
+    # ── Stringhe finali ──────────────────────────────────────────────
+    "Une session non enregistrée a été retrouvée ":
+        "Una sessione non salvata è stata trovata ",
+    "Session récupérée — pensez à l'enregistrer.":
+        "Sessione recuperata — ricordarsi di salvare.",
+    "Image PNG enregistrée":             "Immagine PNG salvata",
+    "Fiche PDF enregistrée":             "Scheda PDF salvata",
+    "Synthèse mission CSV enregistrée":  "Sintesi missione CSV salvata",
+    "Synthèse mission XLSX enregistrée": "Sintesi missione XLSX salvata",
+    "Synthèse":                          "Sintesi",
+    "Pénétromètre — Synthèse mission « {nom} »":
+        "Pénétromètre — Sintesi missione « {nom} »",
+    "pas de brin de référence — état courant seul":
+        "nessun fusto di riferimento — solo stato corrente",
+    "pas de brin de référence":          "nessun fusto di riferimento",
 }

@@ -791,7 +791,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Synthèse"
+    ws.title = _("Synthèse")
 
     BORDER = Border(
         left=Side(style="thin", color="999999"),
@@ -815,7 +815,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
 
     # --- Titre + sous-titre mission ---
     ws.cell(row=1, column=1,
-            value=f"Pénétromètre — Synthèse mission « {chantier.nom or 'Mission'} »"
+            value=_("Pénétromètre — Synthèse mission « {nom} »").format(nom=chantier.nom or _("Mission"))
             ).font = TITLE_FONT
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last)
     subtitle_parts = []

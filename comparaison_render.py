@@ -213,7 +213,7 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     cap_y = size * 0.95
     if ref_b is None:
         d.text((size * 0.5, cap_y + 8),
-               "pas de brin de référence — état courant seul",
+               _("pas de brin de référence — état courant seul"),
                font=sf, fill=COLOR_MUTED, anchor="mm")
     else:
         d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
@@ -424,7 +424,7 @@ def render_comparison_pages(mission_nom: str, ref_arbre: "Arbre",
         ref_img = (render_brin_section(ref_arbre, ref_b, _PAGE_SEC,
                                        show_sondages=show_sondages)
                    if ref_b is not None
-                   else _blank_section(_PAGE_SEC, "pas de brin de référence"))
+                   else _blank_section(_PAGE_SEC, _("pas de brin de référence")))
         cur_img = render_brin_section(cur_arbre, cur_b, _PAGE_SEC,
                                       show_sondages=show_sondages)
         evo_img = render_evolution_section_brin(ref_b, cur_b, _PAGE_SEC)
@@ -574,7 +574,7 @@ def render_comparison_cards(mission_nom: str, ref_arbre: "Arbre",
         ref_img = (render_brin_section(ref_arbre, ref_b, _CARD_SEC,
                                        show_sondages=show_sondages)
                    if ref_b is not None
-                   else _blank_section(_CARD_SEC, "pas de brin de référence"))
+                   else _blank_section(_CARD_SEC, _("pas de brin de référence")))
         cur_img = render_brin_section(cur_arbre, cur_b, _CARD_SEC,
                                       show_sondages=show_sondages)
         evo_img = render_evolution_section_brin(ref_b, cur_b, _CARD_SEC)

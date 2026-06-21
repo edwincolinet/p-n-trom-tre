@@ -95,7 +95,7 @@ def export_png(parent: tk.Misc, arbre: Optional[Arbre],
             show_sondages=show_sondages,
             show_legend=True)
         img.save(p, "PNG")
-        _notify_export(parent, p, "Image PNG enregistrée")
+        _notify_export(parent, p, _("Image PNG enregistrée"))
     except Exception as e:
         log.exception("Échec export PNG")
         messagebox.showerror("Erreur d'export", str(e))
@@ -129,7 +129,7 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
                                               cabinet_name=cabinet_name)
         # Pillow : sauvegarder une image en PDF donne un PDF 1 page
         page.save(p, "PDF", resolution=150.0)
-        _notify_export(parent, p, "Fiche PDF enregistrée")
+        _notify_export(parent, p, _("Fiche PDF enregistrée"))
     except Exception as e:
         log.exception("Échec export PDF")
         messagebox.showerror("Erreur d'export PDF", str(e))
@@ -283,7 +283,7 @@ def export_synthesis_csv_mission(parent: tk.Misc,
     try:
         export_synthesis_csv(
             mission_synthesis_rows(chantier, trier_par_urgence=True), p)
-        _notify_export(parent, p, "Synthèse mission CSV enregistrée")
+        _notify_export(parent, p, _("Synthèse mission CSV enregistrée"))
     except Exception as e:
         log.exception("Échec export synthèse CSV")
         messagebox.showerror("Erreur", str(e))
@@ -311,7 +311,7 @@ def export_synthesis_xlsx_mission(parent: tk.Misc,
         export_synthesis_xlsx(
             mission_synthesis_rows(chantier, trier_par_urgence=True), chantier, p,
                               couleur_classe=COULEUR_CLASSE)
-        _notify_export(parent, p, "Synthèse mission XLSX enregistrée")
+        _notify_export(parent, p, _("Synthèse mission XLSX enregistrée"))
     except Exception as e:
         log.exception("Échec export synthèse XLSX")
         messagebox.showerror("Erreur", str(e))

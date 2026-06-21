@@ -238,7 +238,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def action_check_updates(self) -> None:
         """Vérifie manuellement les mises à jour (Aide → Vérifier les mises à jour)."""
         from update_checker import check_for_update
-        self.set_status("Vérification des mises à jour…")
+        self.set_status(_("Vérification des mises à jour…"))
         result = check_for_update(__version__, timeout=5.0)
         if result is None:
             from tkinter import messagebox as _mb

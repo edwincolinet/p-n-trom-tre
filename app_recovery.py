@@ -120,9 +120,9 @@ class RecoveryMixin(_MixinBase):
         when = f" du {saved_at}" if saved_at else ""
         if messagebox.askyesno(
                 _("Récupération"),
-                "Une session non enregistrée a été retrouvée "
-                f"(sauvegarde automatique{when}).\n\n{details}\n\n"
-                "La récupérer ?"):
+                _("Une session non enregistrée a été retrouvée ")
+                + f"(sauvegarde automatique{when}).\n\n{details}\n\n"
+                + "La récupérer ?"):
             self._restore_recovery(chantier, original)
             # On laisse l'autosave en place : il reflète l'état restauré
             # (toujours non enregistré). Il sera rafraîchi au prochain tick
@@ -155,4 +155,4 @@ class RecoveryMixin(_MixinBase):
         self._load_arbre_to_ui()
         self._dirty = True
         self._update_title()
-        self.set_status("Session récupérée — pensez à l'enregistrer.")
+        self.set_status(_("Session récupérée — pensez à l'enregistrer."))
