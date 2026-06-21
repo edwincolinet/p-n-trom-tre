@@ -128,7 +128,7 @@ def _make_modal(dlg: tk.Toplevel, parent: tk.Misc) -> None:
 
 def ask_string(parent: tk.Misc, title: str, prompt: str,
                initial: str = "", *, info: str = "") -> Optional[str]:
-    """Dialogue de saisie texte thémé (look ttk Silvavenir).
+    """Dialogue de saisie texte thémé (look ttk Pénétromètre).
 
     Remplace `tkinter.simpledialog.askstring`, dont l'apparence système
     détonne avec le reste de l'app. Renvoie la chaîne saisie (sans

@@ -81,7 +81,7 @@ class DiagnosticSnapshot:
       `extrapolation_text`).
 
     `diagnostic_fiable` est True à partir de **3 directions sondées**
-    (seuil métier Silvavenir, aligné sur la pastille d'état verte de la
+    (seuil, aligné sur la pastille d'état verte de la
     liste d'arbres et le footer « X/N arbres fiables »). En-dessous,
     `classe_globale` et `tR_moyen` reposent sur trop peu de mesures
     (les directions non sondées sont extrapolées ou supposées saines) et
@@ -269,7 +269,7 @@ def fusion_ecretee_par_grade(arbre: "Section") -> List[bool]:
     `prbs_par_grade` ramène la PRBS à 0. Le surplus saisi est
     physiquement impossible (plus de bois dégradé que de rayon).
 
-    Convention confirmée (protocole Silvavenir) : le sondage mesure la
+    Convention confirmée (protocole terrain) : le sondage mesure la
     paroi totale en ignorant la dégradation externe (mèche posée à côté
     de la zone dégradée) ; l'app déduit ensuite la profondeur. L'écrêtage
     est donc légitime — mais il doit être SIGNALÉ, pas silencieux : sert
@@ -352,7 +352,7 @@ def extrapolation_summary(arbre: "Section") -> Dict[str, int]:
 
     L'interprétation (« est-ce fiable ? ») est laissée au lecteur :
     l'app expose les chiffres bruts dans le diagnostic et la fiche
-    PDF/XLSX/HTML, libre à l'opérateur Silvavenir d'en tirer la
+    PDF/XLSX/HTML, libre à l'opérateur Pénétromètre d'en tirer la
     conclusion adaptée à son cas.
     """
     grades_sondes = sorted({s.grade for s in arbre.sondages
@@ -443,7 +443,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
                 dir_crit = f"~{lbl}"
                 break
 
-    # Classe globale = barème Silvavenir appliqué au t/R MOYEN sur les
+    # Classe globale = barème appliqué au t/R MOYEN sur les
     # 16 directions du pourtour.
     #
     # Cette approche reflète l'état général de la section :
@@ -453,7 +453,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
     # On conserve aussi t/R minimal et la pire classe ponctuelle comme
     # indicateurs complémentaires d'alerte locale.
     #
-    # Convention métier confirmée par Silvavenir (2026-05) : la classe
+    # Convention métier confirmée par Pénétromètre (2026-05) : la classe
     # publiée est bien celle du t/R moyen, pas la pire classe
     # ponctuelle. Toute modification de cette règle doit revalider avec
     # l'utilisateur métier — la fiche PDF, XLSX et HTML s'alignent
@@ -468,7 +468,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
     else:
         classe_pire = "Vert"
 
-    # Fiabilité : seuil métier Silvavenir fixé à 3 directions sondées
+    # Fiabilité : seuil fixé à 3 directions sondées
     # minimum (aligné sur la pastille verte et le footer de la liste
     # d'arbres). En-dessous, trop peu de mesures réelles sur le pourtour :
     # les directions non sondées sont extrapolées (≥2) ou supposées
@@ -497,7 +497,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
 # ---------------------------------------------------------------------
 
 # Ordre de gravité des classes : le « pire brin » d'une cépée est celui de
-# classe maximale selon cet ordre (approche sécuritaire validée Silvavenir —
+# classe maximale selon cet ordre (approche sécuritaire validée —
 # l'agrégat porte sur les CLASSES des brins, jamais sur un t/R moyen
 # inter-brins, dont les repères polaires distincts n'ont pas de sens commun).
 _GRAVITE_CLASSE = {"Vert": 0, "Orange": 1, "Rouge": 2}

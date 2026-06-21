@@ -1,4 +1,4 @@
-"""Tests du barème Silvavenir (`classer_prbs`).
+"""Tests du barème de classification (`classer_prbs`).
 
 Seuils documentés (CLAUDE.md) :
 - libre / semi-libre / délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %

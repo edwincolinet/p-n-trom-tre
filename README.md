@@ -1,6 +1,6 @@
 # Pénétromètre — Application d'expertise arboricole
 
-Application desktop Python pour le cabinet **Silvavenir**, dédiée au dessin
+Application desktop Python dédiée au dessin
 et à l'analyse de section transversale des troncs d'arbres sondés au
 pénétromètre (Résistographe™ ou tout autre appareil équivalent).
 
@@ -57,7 +57,7 @@ git config core.hooksPath .githooks
 
 La suite de tests unitaires couvre :
 
-- le barème Silvavenir et la classification Vert/Orange/Rouge ;
+- le barème de classification Vert/Orange/Rouge ;
 - la géométrie des contreforts (cloche cos², fusion de zones, wrap au
   grade 0) et les primitives polaires partagées Tk ↔ PIL ;
 - le calcul PRBS, l'extrapolation pondérée, la répartition par classe
@@ -106,14 +106,14 @@ mon-dossier/
 ├── diagnostic.py               ← calculs purs (extrapolation, PRBS, t/R,
 │                                  DiagnosticSnapshot, résumé textuel)
 ├── persistence.py              ← I/O JSON des missions (save/load + migration)
-├── bareme.py                   ← barème Silvavenir (classer_prbs)
+├── bareme.py                   ← barème de classification (classer_prbs)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG de la section
 ├── fiche_pdf.py                ← layout de la fiche d'expertise PDF A4
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── assets/
-│   ├── silvavenir_logo.jpg     ← logo (header app + fiche PDF)
+│   ├── default_logo.jpg      ← logo par défaut (header app + fiche PDF)
 │   ├── Icone.jpeg              ← icône bureau (.desktop)
 │   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
@@ -214,9 +214,9 @@ purement descriptif : n'impacte pas le diagnostic.
 - **PRBS ajustée** par sondage (= bois sain mesuré – dégradation externe
   qui couvre la direction)
 - **Ratio t/R** = PRBS / Rayon, et classification Vert / Orange / Rouge
-  selon le port (barème Silvavenir)
+  selon le port
 - **Répartition** sur les 16 directions du pourtour (extrapolées)
-- **Classe globale** = barème Silvavenir appliqué au **t/R moyen**
+- **Classe globale** = barème appliqué au **t/R moyen**
   sur les 16 directions
 - **Préconisation** (la décision d'expertise) : par arbre, un niveau
   d'**urgence** (Immédiate / Court terme / Moyen terme / Surveillance /
@@ -277,7 +277,7 @@ purement descriptif : n'impacte pas le diagnostic.
 ### Exports
 
 - **PDF arbre** : fiche complète A4 avec en-tête mission, logo
-  Silvavenir, identité de l'arbre, dessin annoté, tableau PRBS coloré,
+  Pénétromètre, identité de l'arbre, dessin annoté, tableau PRBS coloré,
   diagnostic avec barre de répartition Vert / Orange / Rouge.
   La colonne PRBS affiche la valeur pure (sans mention des dégradations
   externes).
@@ -288,7 +288,7 @@ purement descriptif : n'impacte pas le diagnostic.
   un rapport Word.
 - **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**
   (calqué cellule pour cellule sur la fiche Excel d'origine du cabinet),
-  en-têtes et méta sur fond vert Silvavenir, alternance de lignes,
+  en-têtes et méta sur fond vert Pénétromètre, alternance de lignes,
   largeurs de colonnes auto-ajustées, compartimentation ✓ / ✗ / —
   colorée, colonne t/R color-codée par classe. Sous le tableau, une
   légende des trois glyphes puis une légende des classes
@@ -310,7 +310,7 @@ fichier »** / **« Ouvrir le dossier »** pour accéder directement au
 résultat. Le raccourci **Ctrl+E** exporte la fiche PDF de l'arbre
 courant.
 
-## Barème PRBS (Silvavenir)
+## Barème PRBS
 
 Application du barème selon le port de l'arbre :
 
@@ -356,7 +356,7 @@ double-clic et clic droit sur un arbre).
 
 - Algorithme d'interpolation : Catmull-Rom spline fermée (Catmull & Rom, 1974)
 - Convention PRBS : méthode VTA de Mattheck & Breloer (1994)
-- Barème de classification : convention Silvavenir
-- Logo : Silvavenir, Foresterie urbaine
+- Barème de classification : convention Pénétromètre
+- Logo : personnalisable (Affichage → Logo et nom du cabinet)
 - Polices embarquées : DejaVu (`assets/fonts/`) sous licence Bitstream
   Vera. Voir `assets/fonts/LICENSE`.

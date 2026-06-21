@@ -18,7 +18,7 @@ Centraliser les couleurs ici a deux objectifs :
 Convention : les `COLOR_*` sont des composants visuels neutres
 (panneaux, encre, écorce, bois, cernes, dégradation, sondage).
 `COULEUR_CLASSE` est un dict label → hex pour les trois classes du
-barème Silvavenir (Vert/Orange/Rouge), keyé par les constantes
+barème (Vert/Orange/Rouge), keyé par les constantes
 `CLASSE_*` de `geometry.py`.
 """
 
@@ -44,7 +44,7 @@ COLOR_MUTED      = "#55605A"
 
 # `COLOR_ACCENT` est la couleur de marque utilisée pour les boutons,
 # titres et chrome UI. Elle vaut actuellement le même hex que
-# `COULEUR_CLASSE[CLASSE_VERT]` ci-dessous : si Silvavenir décide un
+# `COULEUR_CLASSE[CLASSE_VERT]` ci-dessous : si on décide un
 # jour de différencier le vert chrome du vert classe, c'est ici qu'il
 # faudra dissocier.
 COLOR_ACCENT     = "#2D7A3E"
@@ -77,7 +77,7 @@ COLOR_SOND       = "#1F3A8A"
 
 
 # ----------------------------------------------------------------------
-# Mapping classe Silvavenir → couleur hexa
+# Mapping classe → couleur hexa
 # ----------------------------------------------------------------------
 #
 # Le barème (cf. `classer_prbs` dans bareme.py) renvoie un label

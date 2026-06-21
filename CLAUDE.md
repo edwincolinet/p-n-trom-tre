@@ -1,7 +1,7 @@
-# Pénétromètre — Projet Silvavenir
+# Pénétromètre — Pénétromètre
 
 Application desktop d'expertise arboricole (mesure de cavités dans les
-troncs au pénétromètre). Utilisé en interne par le cabinet Silvavenir.
+troncs au pénétromètre). Logiciel d'Edwin Colinet.
 
 ## Stack
 

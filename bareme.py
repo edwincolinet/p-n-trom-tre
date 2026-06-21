@@ -1,5 +1,5 @@
 """
-Barème métier Silvavenir : classification d'un sondage en
+Barème de classification : classification d'un sondage en
 Vert / Orange / Rouge selon le ratio t/R et le port de l'arbre.
 
 Module isolé de Tkinter, de PIL et de la géométrie pure. Ne contient
@@ -87,7 +87,7 @@ CLASSE_ROUGE = "Rouge"
 def classer_prbs(ratio_tR: float, port_arbre: str) -> str:
     """Classe un sondage selon son ratio t/R et le port de l'arbre.
 
-    Seuils Silvavenir :
+    Seuils :
     - libre / semi-libre / délaissé : Vert > 30 %, Orange 15-30 %, Rouge < 15 %
     - architecturé / traumatique :    Vert > 20 %, Orange 10-20 %, Rouge < 10 %
 

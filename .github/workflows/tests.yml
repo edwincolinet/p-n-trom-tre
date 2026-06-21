@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         # 3.9 = plancher déclaré dans le README ; 3.12 = version
-        # recommandée et utilisée localement par l'équipe Silvavenir.
+        # recommandée et utilisée localement par l'équipe de développement.
         python-version: ["3.9", "3.12"]
 
     steps:

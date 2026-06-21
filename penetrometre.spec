@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec — Pénétromètre Silvavenir
+# PyInstaller spec — Pénétromètre
 #
 # Build :
 #   pip install pyinstaller
@@ -77,7 +77,7 @@ if sys.platform == "darwin":
         coll,
         name="Penetrometre.app",
         icon="build/icons/Icone.icns",
-        bundle_identifier="fr.silvavenir.penetrometre",
+        bundle_identifier="fr.edwincolinet.penetrometre",
         info_plist={
             "CFBundleDisplayName": "Pénétromètre",
             "CFBundleShortVersionString": _version,

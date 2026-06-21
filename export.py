@@ -10,7 +10,7 @@ Deux formats au choix :
   PDF via le navigateur.
 
 Le tableau exporté est calqué sur la fiche Excel d'origine du cabinet
-Silvavenir (`docs/tableau souhaité.png`) :
+Pénétromètre (`docs/tableau souhaité.png`) :
 - Une ligne d'en-tête « méta arbre » (N° arbre, Hauteur sondage,
   Diamètre sous écorce, Hauteur de l'arbre).
 - L'en-tête des colonnes.
@@ -64,7 +64,7 @@ except ImportError:
 # ----------------------------------------------------------------------
 # Protocols : surface attendue des objets métier passés en paramètre.
 # Évite un import direct vers `model.py` (qui marcherait, mais qui
-# rendrait `export.py` dépendant du modèle Silvavenir ; les protocols
+# rendrait `export.py` dépendant du modèle Pénétromètre ; les protocols
 # le rendent réutilisable avec n'importe quel objet qui exposerait la
 # même surface, et donnent à mypy le contrat à vérifier côté caller).
 # ----------------------------------------------------------------------
@@ -258,7 +258,7 @@ def _meta_fields(arbre: ArbreLike) -> List[Tuple[str, str]]:
 # ----------------------------------------------------------------------
 
 # En-têtes du tableau (ordre des colonnes), calqués sur la fiche Excel
-# d'origine du cabinet Silvavenir.
+# d'origine Pénétromètre.
 _HEADERS = [
     "Sondage",
     "Zone sondée\n(Grades)",
@@ -780,7 +780,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
 def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                           chantier: ChantierLike, path: str,
                           couleur_classe: Mapping[str, str]) -> None:
-    """Synthèse mission en .xlsx thémé Silvavenir : une ligne par arbre,
+    """Synthèse mission en .xlsx thémé Pénétromètre : une ligne par arbre,
     cellule « Classe globale » colorée, autofiltre (tri par n'importe
     quelle colonne — p.ex. trier par classe = priorités d'intervention),
     en-tête gelé, ligne de bilan en pied."""

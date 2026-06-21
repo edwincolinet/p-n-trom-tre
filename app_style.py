@@ -8,7 +8,7 @@ Module séparé pour deux raisons :
    et n'a rien à faire dans le corps de la classe `App`.
 
 2. **Réutilisabilité** : si demain un second outil (par exemple un
-   visualiseur de logs) partage le look Silvavenir, il appellera
+   visualiseur de logs) partage le look Pénétromètre, il appellera
    `apply_ttk_styles(root)` sur sa propre fenêtre.
 
 La fonction utilise les couleurs centralisées dans `palette.py`.

@@ -40,7 +40,7 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   ne fait que renforcer.
 - **Classe de risque dans la liste d'arbres** : dès qu'un arbre est
   fiable (≥3 sondages), la couleur de son `●` encode la **classe globale
-  Silvavenir** (vert/orange/rouge) — on repère les arbres à risque d'un
+  Pénétromètre** (vert/orange/rouge) — on repère les arbres à risque d'un
   coup d'œil sans ouvrir l'onglet Diagnostic.
 - **Contraste du texte secondaire** : `COLOR_MUTED` assombri
   (`#6E7B73` → `#55605A`) pour repasser au-dessus du seuil WCAG AA

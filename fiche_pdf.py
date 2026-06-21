@@ -2,7 +2,7 @@
 Fiche d'expertise PDF — layout d'une page A4 pour un arbre.
 
 Pendant « page A4 » de `pil_render.render_arbre_to_pil_image` : assemble
-sur une page portrait 150 DPI l'en-tête mission + logo Silvavenir,
+sur une page portrait 150 DPI l'en-tête mission + logo cabinet,
 l'identité de l'arbre, le dessin de section, la légende horizontale,
 le tableau PRBS ajustée et le diagnostic enrichi (t/R moyen + min,
 barre de répartition, classe globale).
