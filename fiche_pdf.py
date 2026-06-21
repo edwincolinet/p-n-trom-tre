@@ -585,7 +585,7 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
     diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         if diag is not None:
-            tR_moyen_diag, _ = diag
+            tR_moyen_diag, _cls_tmp = diag
             d.text((x_left, y),
                    _("t/R moyen sur le pourtour") + f" : {100*tR_moyen_diag:.1f} %",
                    font=f(18, "sans_bold"), fill=COLOR_INK)
@@ -670,7 +670,7 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                     x_chunk += bbox[2] - bbox[0]
                 y += 28
             y += 10
-            _, classe_g = diag
+            _tR_tmp, classe_g = diag
             col_g = COULEUR_CLASSE[classe_g]
             box_w, box_h = 460, 60
             d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
