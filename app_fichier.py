@@ -409,7 +409,7 @@ class FichierMixin(_MixinBase):
             # Sauvegarde glissante (best-effort) : copie horodatée pour
             # survivre à un écrasement ou une corruption ultérieurs.
             write_backup(self.current_file, _BACKUP_PATH)
-            self.set_status(f"✓ Enregistré — {self.current_file.name}")
+            self.set_status(_("✓ Enregistré — {nom}").format(nom=self.current_file.name))
         except Exception as e:
             log.exception("Échec enregistrement mission")
             messagebox.showerror(_("Erreur"), str(e))

@@ -475,4 +475,15 @@ TRANSLATIONS = {
     "Ø sous écorce":                     "Ø sotto corteccia",
     "non fiable ({n}/16 directions sondées).":
         "non affidabile ({n}/16 direzioni sondeggiate).",
+
+    # ── Sprint 8 — ultime 9 stringhe ─────────────────────────────────
+    "Supprimer définitivement « {n} » ?":
+        "Eliminare definitivamente « {n} »?",
+    "Exporté":                             "Esportato",
+    "Rien à exporter":                     "Nulla da esportare",
+    "Impression envoyée — arbre n°{num}":  "Stampa inviata — albero n°{num}",
+    "✓ Enregistré — {nom}":               "✓ Salvato — {nom}",
+    "Arbre précédent":                     "Albero precedente",
+    "Dégradation externe n° {n}":         "Degrado esterno n° {n}",
+    "Aucun fichier de log trouvé à :\n{p}": "Nessun file di log trovato in:\n{p}",
 }

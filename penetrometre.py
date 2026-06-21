@@ -1633,7 +1633,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         if not log_path.exists():
             messagebox.showinfo(
                 _("Fichier de log"),
-                f"Aucun fichier de log trouvé à :\n{log_path}")
+                _("Aucun fichier de log trouvé à :\n{p}").format(p=log_path))
             return
         self._open_in_system(log_path)
 

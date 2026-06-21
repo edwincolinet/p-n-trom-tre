@@ -712,7 +712,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     liées automatiquement. Profondeur radiale en cm, commentaire.
     """
     dlg = tk.Toplevel(parent)
-    dlg.title(f"Dégradation externe n° {deg.numero}")
+    dlg.title(_("Dégradation externe n° {n}").format(n=deg.numero))
     dlg.configure(bg=COLOR_PANEL)
     dlg.resizable(False, False)
     # transient + grab_set : cf. note dans edit_sondage.

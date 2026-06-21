@@ -157,7 +157,7 @@ def build_menu(app: AppLike) -> None:
     a.add_separator()
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
                   command=app.action_next_arbre)
-    a.add_command(label="Arbre précédent", accelerator="Ctrl+PgUp",
+    a.add_command(label=_("Arbre précédent"), accelerator="Ctrl+PgUp",
                   command=app.action_prev_arbre)
     a.add_command(label=_("Prochain arbre à finir"),
                   command=app.action_next_a_finir)

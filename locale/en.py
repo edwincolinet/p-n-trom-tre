@@ -507,4 +507,15 @@ TRANSLATIONS = {
     "Ø sous écorce":                     "Ø under bark",
     "non fiable ({n}/16 directions sondées).":
         "unreliable ({n}/16 directions sounded).",
+
+    # ── Sprint 8 — dernières 9 chaînes ───────────────────────────────
+    "Supprimer définitivement « {n} » ?":
+        "Permanently delete « {n} »?",
+    "Exporté":                             "Exported",
+    "Rien à exporter":                     "Nothing to export",
+    "Impression envoyée — arbre n°{num}":  "Print sent — tree no. {num}",
+    "✓ Enregistré — {nom}":               "✓ Saved — {nom}",
+    "Arbre précédent":                     "Previous tree",
+    "Dégradation externe n° {n}":         "External damage no. {n}",
+    "Aucun fichier de log trouvé à :\n{p}": "No log file found at:\n{p}",
 }

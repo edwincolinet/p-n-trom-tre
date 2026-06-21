@@ -38,6 +38,7 @@ from export import (
 )
 from fiche_pdf import render_fiche_arbre_to_pdf_page
 from geometry import DIRECTION_LABELS, GRADES
+from i18n import _
 from model import Arbre, Chantier
 from palette import COULEUR_CLASSE
 from pil_render import HAS_PIL, render_arbre_to_pil_image
@@ -62,7 +63,7 @@ def _notify_export(parent: tk.Misc, path: str, label: str) -> None:
     if callable(notify):
         notify(path, label)
     else:
-        messagebox.showinfo("Exporté", f"{label} :\n{path}")
+        messagebox.showinfo(_("Exporté"), f"{label} :\n{path}")
 
 
 def _need_pil(format_label: str) -> bool:
@@ -176,7 +177,7 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
 
         set_status = getattr(parent, "set_status", None)
         if set_status:
-            set_status(f"Impression envoyée — arbre n°{num}")
+            set_status(_("Impression envoyée — arbre n°{num}").format(num=num))
     except Exception as e:
         log.exception("Échec impression directe")
         messagebox.showerror("Erreur d'impression", str(e))
@@ -191,7 +192,7 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
     arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
     if not arbres:
         messagebox.showinfo(
-            "Rien à exporter",
+            _("Rien à exporter"),
             "Aucun arbre avec un rayon renseigné dans cette mission.")
         return
     suggest = f"fiches_mission_{chantier.nom or 'sans_nom'}.pdf".replace(" ", "_")
