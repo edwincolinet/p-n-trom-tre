@@ -529,6 +529,40 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     y = max(y_diag, y_preco) + 10
 
+    # --- Photos ---
+    photos_valides = [p for p in (arbre.photos or []) if Path(p).exists()]
+    if photos_valides and y + 60 < H - 80:
+        try:
+            from PIL import Image as _PILImage
+            d.text((margin, y), _("Photos"), font=f(18, "sans_bold"),
+                   fill=COLOR_INK)
+            y += 30
+            thumb_h = 180
+            thumb_gap = 12
+            per_row = max(1, (W - 2*margin + thumb_gap) // (thumb_h + thumb_gap))
+            for idx, photo_path in enumerate(photos_valides):
+                col = idx % per_row
+                row = idx // per_row
+                xp = margin + col * (thumb_h + thumb_gap)
+                yp = y + row * (thumb_h + thumb_gap + 20)
+                if yp + thumb_h > H - 80:
+                    break
+                try:
+                    img = _PILImage.open(photo_path).convert("RGB")
+                    iw, ih = img.size
+                    scale = min(thumb_h / ih, thumb_h / iw)
+                    img = img.resize((int(iw*scale), int(ih*scale)),
+                                     _PILImage.LANCZOS)
+                    page.paste(img, (int(xp), int(yp)))
+                    # Nom de fichier sous la vignette
+                    fname_lbl = Path(photo_path).name[:28]
+                    d.text((xp, yp + img.height + 2), fname_lbl,
+                           font=f(11, "sans"), fill=COLOR_MUTED)
+                except Exception:
+                    pass
+        except ImportError:
+            pass
+
     # --- Pied de page ---
     d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""

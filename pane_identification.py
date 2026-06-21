@@ -37,6 +37,7 @@ from dialogs_shared import to_float, validate_numeric
 from i18n import _, translate_values, untranslate_value
 from model import Arbre, Brin
 from palette import COLOR_PANEL
+from photo_gallery import PhotoGallery
 from tooltip import Tooltip
 
 _log = logging.getLogger("penetrometre")
@@ -261,6 +262,15 @@ class IdentificationPane(ttk.Frame):
               " pour saisir le petit axe et l'orientation. Par défaut "
               "la section est circulaire."),
         ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
+
+        # Galerie photos — récupère les photos de l'arbre courant
+        a0 = self._host._current_arbre()
+        self._photo_gallery = PhotoGallery(
+            content,
+            photos=a0.photos if a0 else [],
+            on_change=self._on_photos_changed)
+        self._photo_gallery.grid(row=len(groupes) + 1, column=0,
+                                 sticky="we", pady=(10, 0))
         content.columnconfigure(0, weight=1)
 
     @contextmanager
@@ -298,11 +308,17 @@ class IdentificationPane(ttk.Frame):
             self.var_ep_ecorce.set(f"{b.epaisseur_ecorce_cm:g}"
                                     if b.epaisseur_ecorce_cm else "0")
         self.refresh_brin_buttons()
-        # Propose les essences déjà saisies dans la mission comme suggestions
-        # (combobox éditable : l'opérateur peut aussi saisir librement).
+        # Propose les essences déjà saisies dans la mission comme suggestions.
         if self._essence_cmb is not None:
             self._essence_cmb.configure(
                 values=self._host.essences_utilisees())
+        # Recharge la galerie photos pour l'arbre courant.
+        if hasattr(self, "_photo_gallery"):
+            self._photo_gallery.reload(a.photos if a else [])
+
+    def _on_photos_changed(self) -> None:
+        """Appelé par PhotoGallery après ajout/suppression — marque dirty."""
+        self._host.on_identification_changed(rayon_adjusted=False)
 
     def refresh_brin_buttons(self) -> None:
         """Met à jour l'état des boutons de cépée et le compteur de brins :

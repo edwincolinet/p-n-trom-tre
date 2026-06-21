@@ -593,4 +593,10 @@ TRANSLATIONS = {
     "Sans échéance":                      "No deadline",
     "Complets (≥3 sondages)":             "Complete (≥3 soundings)",
     "Incomplets":                         "Incomplete",
+
+    "Photos":                             "Photos",
+    "＋ Photo":                           "＋ Photo",
+    "Aucune photo":                       "No photos",
+    "Ajouter des photos":                 "Add photos",
+    "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 }

@@ -561,4 +561,10 @@ TRANSLATIONS = {
     "Sans échéance":                      "Senza scadenza",
     "Complets (≥3 sondages)":             "Completi (≥3 sondaggi)",
     "Incomplets":                         "Incompleti",
+
+    "Photos":                             "Foto",
+    "＋ Photo":                           "＋ Foto",
+    "Aucune photo":                       "Nessuna foto",
+    "Ajouter des photos":                 "Aggiungi foto",
+    "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 }

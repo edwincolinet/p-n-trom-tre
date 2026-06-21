@@ -458,6 +458,7 @@ class Arbre:
     preconisation: str = ""  # action recommandée, texte libre
     suivi_validite: str = "" # durée de validité du suivi ("1 an" … "5 ans"), "" = non renseignée
     suivi_texte: str = ""    # description du suivi, texte libre
+    photos: List[str] = field(default_factory=list)  # chemins absolus des photos
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
 
     def __init__(
@@ -500,6 +501,7 @@ class Arbre:
         self.preconisation = preconisation
         self.suivi_validite = suivi_validite
         self.suivi_texte = suivi_texte
+        self.photos: List[str] = []
         self.brins = list(brins) if brins is not None else [Brin()]
         b = self.brins[0]
         if rayon_tronc_cm is not None:
