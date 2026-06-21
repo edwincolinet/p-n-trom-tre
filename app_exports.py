@@ -28,7 +28,11 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from bareme import classer_prbs
-from diagnostic import degradation_externe_par_grade, mission_synthesis_rows
+from diagnostic import (
+    degradation_externe_par_grade,
+    mission_completeness_warnings,
+    mission_synthesis_rows,
+)
 from export import (
     HAS_OPENPYXL,
     export_prbs_html,
@@ -52,6 +56,23 @@ def _get_cabinet_info(parent: tk.Misc) -> "tuple[str, str | None]":
     if settings is None:
         return "", None
     return getattr(settings, "cabinet_name", ""), getattr(settings, "logo_path", None)
+
+
+def _check_completeness(parent: tk.Misc, chantier: "Chantier") -> bool:
+    """Vérifie la complétude de la mission avant export.
+
+    Si des avertissements existent, affiche un dialog non bloquant avec
+    les problèmes détectés. L'utilisateur peut exporter quand même ou
+    annuler pour corriger. Renvoie True si l'export peut continuer."""
+    warnings = mission_completeness_warnings(chantier)
+    if not warnings:
+        return True
+    detail = "\n".join(f"  • {w}" for w in warnings)
+    msg = (f"{_('La mission présente des points incomplets :')}\n\n"
+           f"{detail}\n\n"
+           f"{_('Exporter quand même ?')}")
+    return messagebox.askyesno(
+        _("Vérification avant export"), msg, parent=parent)
 
 
 def _notify_export(parent: tk.Misc, path: str, label: str) -> None:
@@ -189,6 +210,8 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
     les arbres de la mission. `show_sondages` : cf. `export_pdf_arbre`."""
     if not _need_pil("PDF"):
         return
+    if not _check_completeness(parent, chantier):
+        return
     arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
     if not arbres:
         messagebox.showinfo(
@@ -274,6 +297,8 @@ def export_synthesis_csv_mission(parent: tk.Misc,
                                  chantier: Chantier) -> None:
     """Synthèse mission (1 ligne/arbre : classe globale, t/R moyen,
     direction critique) en CSV."""
+    if not _check_completeness(parent, chantier):
+        return
     p = filedialog.asksaveasfilename(
         defaultextension=".csv",
         initialfile=_suggest_synthesis_name(chantier, "csv"),
@@ -293,6 +318,8 @@ def export_synthesis_xlsx_mission(parent: tk.Misc,
                                   chantier: Chantier) -> None:
     """Synthèse mission en .xlsx thémé (cellule classe colorée,
     autofiltre pour trier par risque)."""
+    if not _check_completeness(parent, chantier):
+        return
     if not HAS_OPENPYXL:
         messagebox.showerror(
             "Export XLSX indisponible",

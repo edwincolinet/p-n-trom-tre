@@ -580,4 +580,8 @@ TRANSLATIONS = {
     "Référence":                          "Reference",
     "Référence du chantier, n° de commande…": "Project reference, order no.…",
     "Réf.":                               "Ref.",
+
+    "La mission présente des points incomplets :": "The project has incomplete items:",
+    "Exporter quand même ?": "Export anyway?",
+    "Vérification avant export": "Pre-export check",
 }

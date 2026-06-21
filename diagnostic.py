@@ -1141,3 +1141,56 @@ def sondage_render_data(
             classe_color=col,
         ))
     return items
+
+
+# --- Checkliste de complétude de mission --------------------------------
+
+def mission_completeness_warnings(chantier: "Chantier") -> list[str]:
+    """Renvoie une liste de messages d'avertissement sur la complétude
+    de la mission avant export. Liste vide = mission exportable sans réserve.
+
+    Catégories vérifiées :
+    - Arbres sans rayon (Ø non saisi → diagnostic impossible)
+    - Arbres sans aucun sondage
+    - Arbres avec 1-2 sondages (diagnostic non fiable, < 3)
+    - Arbres sans urgence renseignée (préconisation incomplète)
+    """
+    arbres = chantier.arbres
+    if not arbres:
+        return []
+
+    def _nums(lst: list, max_shown: int = 5) -> str:
+        nums = [a.numero_arbre or "?" for a in lst[:max_shown]]
+        suffix = f"… (+{len(lst)-max_shown})" if len(lst) > max_shown else ""
+        return ", ".join(nums) + suffix
+
+    warnings: list[str] = []
+
+    sans_rayon = [a for a in arbres if a.rayon_tronc_cm <= 0]
+    if sans_rayon:
+        warnings.append(
+            f"{len(sans_rayon)} arbre(s) sans rayon saisi "
+            f"(diagnostic impossible) : {_nums(sans_rayon)}")
+
+    sans_sondage = [a for a in arbres
+                    if not any(b.sondages for b in a.brins)]
+    if sans_sondage:
+        warnings.append(
+            f"{len(sans_sondage)} arbre(s) sans aucun sondage "
+            f": {_nums(sans_sondage)}")
+
+    non_fiable = [a for a in arbres
+                  if 0 < sum(len(b.sondages) for b in a.brins) < 3
+                  and a.rayon_tronc_cm > 0]
+    if non_fiable:
+        warnings.append(
+            f"{len(non_fiable)} arbre(s) avec moins de 3 sondages "
+            f"(diagnostic non fiable) : {_nums(non_fiable)}")
+
+    sans_urgence = [a for a in arbres if not a.urgence]
+    if sans_urgence:
+        warnings.append(
+            f"{len(sans_urgence)} arbre(s) sans préconisation d'urgence"
+            f" : {_nums(sans_urgence)}")
+
+    return warnings

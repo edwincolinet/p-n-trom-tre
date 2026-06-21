@@ -548,4 +548,8 @@ TRANSLATIONS = {
     "Référence":                          "Riferimento",
     "Référence du chantier, n° de commande…": "Riferimento cantiere, n° ordine…",
     "Réf.":                               "Rif.",
+
+    "La mission présente des points incomplets :": "Il progetto presenta elementi incompleti:",
+    "Exporter quand même ?": "Esportare comunque?",
+    "Vérification avant export": "Verifica pre-esportazione",
 }
