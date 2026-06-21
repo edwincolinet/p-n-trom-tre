@@ -76,6 +76,8 @@ class FichierMixin(_MixinBase):
         _ope_cmb: "Any"     # ttk.Combobox opérateur
         var_ch_nom: tk.StringVar
         var_ch_adr: tk.StringVar
+        var_ch_client: tk.StringVar
+        var_ch_ref: tk.StringVar
         var_ch_ope: tk.StringVar
         var_ch_date: tk.StringVar
         var_filter: tk.StringVar
@@ -110,6 +112,8 @@ class FichierMixin(_MixinBase):
         with self._suspend_sync_block():
             self.var_ch_nom.set(self.chantier.nom)
             self.var_ch_adr.set("")
+            self.var_ch_client.set("")
+            self.var_ch_ref.set("")
             self.var_ch_ope.set(last_ope)
             self.var_ch_date.set(self.chantier.date_releve)
         self.chantier.operateur = last_ope
@@ -338,6 +342,8 @@ class FichierMixin(_MixinBase):
         with self._suspend_sync_block():
             self.var_ch_nom.set(self.chantier.nom)
             self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_client.set(self.chantier.client)
+            self.var_ch_ref.set(self.chantier.reference)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
         self.var_filter.set("")  # mission rechargée → filtres remis à zéro

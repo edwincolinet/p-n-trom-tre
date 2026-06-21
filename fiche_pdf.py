@@ -200,8 +200,13 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     title_txt = "Fiche d'expertise — Pénétromètre"
     d.text((margin+20, y+22), title_txt,
            font=f(30, "serif_bold"), fill="white")
+    _lbl_client = _("Client")
+    _lbl_ref = _("Réf.")
     mission_txt = _fit_text(
-        (_("Mission") + f" : {chantier.nom}   •   {chantier.adresse}"),
+        (_("Mission") + f" : {chantier.nom}"
+         + (f"   •   {chantier.adresse}" if chantier.adresse else "")
+         + (f"   •   {_lbl_client} : {chantier.client}" if chantier.client else "")
+         + (f"   •   {_lbl_ref} : {chantier.reference}" if chantier.reference else "")),
         f(19, "sans"), header_text_w, d)
     d.text((margin+20, y+64), mission_txt,
            font=f(19, "sans"), fill="white")

@@ -685,6 +685,8 @@ class Chantier:
     """
     nom: str = "Nouvelle mission"
     adresse: str = ""
+    client: str = ""          # Nom du client / maître d'ouvrage
+    reference: str = ""       # Référence du chantier / n° de contrat
     operateur: str = ""
     date_releve: str = field(
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))

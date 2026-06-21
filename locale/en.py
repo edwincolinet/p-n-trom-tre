@@ -575,4 +575,9 @@ TRANSLATIONS = {
     "Ajouter un arbre vierge":            "Add blank tree",
     "Hériter du précédent":               "Inherit from previous",
     "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copies species, habit, Ø, heights, probe, bark.",
+
+    "Client":                             "Client",
+    "Référence":                          "Reference",
+    "Référence du chantier, n° de commande…": "Project reference, order no.…",
+    "Réf.":                               "Ref.",
 }

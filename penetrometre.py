@@ -492,21 +492,47 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         meta.pack(fill="x", padx=18, pady=(0, 10))
         self.var_ch_nom = tk.StringVar(value=self.chantier.nom)
         self.var_ch_adr = tk.StringVar(value=self.chantier.adresse)
+        self.var_ch_client = tk.StringVar(value=self.chantier.client)
+        self.var_ch_ref = tk.StringVar(value=self.chantier.reference)
         self.var_ch_ope = tk.StringVar(value=self.chantier.operateur)
         self.var_ch_date = tk.StringVar(value=self.chantier.date_releve)
         self._meta_snapshot: Optional[str] = None
         self._date_focus_in_value = ""
-        for lbl, var, w in [("Mission", self.var_ch_nom, 22),
-                            ("Adresse", self.var_ch_adr, 30),
-                            ("Opérateur", self.var_ch_ope, 18),
-                            ("Date", self.var_ch_date, 12)]:
-            ttk.Label(meta, text=lbl).pack(side="left", padx=(0, 4))
+        # Rangée 1 : identification mission
+        row1 = ttk.Frame(meta, style="Panel.TFrame")
+        row1.pack(fill="x", pady=(0, 2))
+        for lbl, var, w in [(_("Mission"), self.var_ch_nom, 22),
+                             (_("Adresse"), self.var_ch_adr, 28)]:
+            ttk.Label(row1, text=lbl).pack(side="left", padx=(0, 4))
+            e = ttk.Entry(row1, textvariable=var, width=w)
+            e.pack(side="left", padx=(0, 14))
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
-            if lbl == "Opérateur":
-                # Combobox éditable : propose l'historique des opérateurs
-                # déjà utilisés (sauvegardé dans settings.json).
+            e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
+            e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
+        # Rangée 2 : client, référence, opérateur, date
+        row2 = ttk.Frame(meta, style="Panel.TFrame")
+        row2.pack(fill="x")
+        for lbl, var, w in [(_("Client"), self.var_ch_client, 20),
+                             (_("Référence"), self.var_ch_ref, 14),
+                             (_("Opérateur"), self.var_ch_ope, 18),
+                             (_("Date"), self.var_ch_date, 12)]:
+            ttk.Label(row2, text=lbl).pack(side="left", padx=(0, 4))
+            var.trace_add("write", lambda *a: self._sync_chantier_meta())
+            if lbl == _("Client"):
+                e = ttk.Entry(row2, textvariable=var, width=w)
+                e.pack(side="left", padx=(0, 14))
+                e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
+                e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
+            elif lbl == _("Référence"):
+                e = ttk.Entry(row2, textvariable=var, width=w)
+                e.pack(side="left", padx=(0, 14))
+                e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
+                e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
+                Tooltip(e, _("Référence du chantier, n° de commande…"))
+            elif lbl == _("Opérateur"):
+                # Combobox éditable : propose l'historique des opérateurs.
                 self._ope_cmb = ttk.Combobox(
-                    meta, textvariable=var, width=w, state="normal",
+                    row2, textvariable=var, width=w, state="normal",
                     values=self._settings.get_operateurs_history())
                 self._ope_cmb.pack(side="left", padx=(0, 14))
                 self._ope_cmb.bind("<FocusIn>",
@@ -514,24 +540,21 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                 self._ope_cmb.bind("<FocusOut>",
                                    lambda ev: self._meta_focus_out())
                 Tooltip(self._ope_cmb,
-                        "Nom de l'opérateur — mémorisé entre les sessions.")
-            elif lbl == "Date":
-                e = ttk.Entry(meta, textvariable=var, width=w)
-                # Saisie clavier libre normalisée en JJ/MM/AAAA au focus-out
-                # (`14-6-26`, `2026/06/14`, …) ; saisie non interprétable
-                # rétablie. Bouton « 📅 » : sélection au calendrier (Tk pur).
+                        _("Nom de l'opérateur — mémorisé entre les sessions."))
+            elif lbl == _("Date"):
+                e = ttk.Entry(row2, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 2))
                 e.bind("<FocusIn>", lambda ev: self._date_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, "Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement).")
-                btn_cal = ttk.Button(meta, text="📅", width=3,
+                btn_cal = ttk.Button(row2, text="📅", width=3,
                                      style="Ghost.TButton",
                                      command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
                 Tooltip(btn_cal, "Choisir la date au calendrier")
             else:
-                e = ttk.Entry(meta, textvariable=var, width=w)
+                e = ttk.Entry(row2, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 14))
                 e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
@@ -1049,6 +1072,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         with self._suspend_sync_block():
             self.var_ch_nom.set(self.chantier.nom)
             self.var_ch_adr.set(self.chantier.adresse)
+            self.var_ch_client.set(self.chantier.client)
+            self.var_ch_ref.set(self.chantier.reference)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
         self._refresh_tree_arbres()
@@ -1106,11 +1131,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
     def _meta_focus_in(self) -> None:
         self._meta_snapshot = (
             f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
+            f"{self.var_ch_client.get()}|{self.var_ch_ref.get()}|"
             f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
 
     def _meta_focus_out(self) -> None:
         current = (
             f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
+            f"{self.var_ch_client.get()}|{self.var_ch_ref.get()}|"
             f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
         if self._meta_snapshot is not None and current != self._meta_snapshot:
             self.push_undo()
@@ -1151,6 +1178,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             return
         self.chantier.nom = self.var_ch_nom.get()
         self.chantier.adresse = self.var_ch_adr.get()
+        self.chantier.client = self.var_ch_client.get()
+        self.chantier.reference = self.var_ch_ref.get()
         self.chantier.operateur = self.var_ch_ope.get()
         self.chantier.date_releve = self.var_ch_date.get()
         self._mark_dirty()

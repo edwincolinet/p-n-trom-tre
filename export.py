@@ -334,6 +334,10 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                    end_row=row, end_column=last)
     row += 1
     subtitle_parts = []
+    if chantier.client:
+        subtitle_parts.append(_("Client") + f" : {chantier.client}")
+    if chantier.reference:
+        subtitle_parts.append(_("Référence") + f" : {chantier.reference}")
     if chantier.adresse:
         subtitle_parts.append(chantier.adresse)
     if chantier.operateur:
@@ -585,6 +589,10 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 
     # En-tête mission
     meta_chunks = []
+    if chantier.client:
+        meta_chunks.append(_("Client") + f" : {_h(chantier.client)}")
+    if chantier.reference:
+        meta_chunks.append(_("Référence") + f" : {_h(chantier.reference)}")
     if chantier.adresse:
         meta_chunks.append(_h(chantier.adresse))
     if chantier.operateur:
@@ -819,6 +827,10 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
             ).font = TITLE_FONT
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last)
     subtitle_parts = []
+    if chantier.client:
+        subtitle_parts.append(_("Client") + f" : {chantier.client}")
+    if chantier.reference:
+        subtitle_parts.append(_("Référence") + f" : {chantier.reference}")
     if chantier.adresse:
         subtitle_parts.append(chantier.adresse)
     if chantier.operateur:

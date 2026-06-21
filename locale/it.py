@@ -543,4 +543,9 @@ TRANSLATIONS = {
     "Ajouter un arbre vierge":            "Aggiungi albero vuoto",
     "Hériter du précédent":               "Eredita dal precedente",
     "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copia specie, port., Ø, altezze, sonda, cort.",
+
+    "Client":                             "Cliente",
+    "Référence":                          "Riferimento",
+    "Référence du chantier, n° de commande…": "Riferimento cantiere, n° ordine…",
+    "Réf.":                               "Rif.",
 }
