@@ -584,4 +584,13 @@ TRANSLATIONS = {
     "La mission présente des points incomplets :": "The project has incomplete items:",
     "Exporter quand même ?": "Export anyway?",
     "Vérification avant export": "Pre-export check",
+
+    "Échéance":                           "Deadline",
+    "Toutes échéances":                   "All deadlines",
+    "Échéance dépassée":                  "Overdue",
+    "Dans 30 jours":                      "Within 30 days",
+    "Dans 90 jours":                      "Within 90 days",
+    "Sans échéance":                      "No deadline",
+    "Complets (≥3 sondages)":             "Complete (≥3 soundings)",
+    "Incomplets":                         "Incomplete",
 }

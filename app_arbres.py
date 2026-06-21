@@ -58,6 +58,25 @@ _URGENCE_FILTER_CHOICES = (
     (_URGENCE_FILTER_ALL,) + tuple(URGENCE_NIVEAUX) + (_URGENCE_FILTER_NONE,)
 )
 
+# Filtre par échéance de préconisation.
+_ECHEANCE_FILTER_ALL      = "Toutes échéances"
+_ECHEANCE_FILTER_OVERDUE  = "Échéance dépassée"
+_ECHEANCE_FILTER_30       = "Dans 30 jours"
+_ECHEANCE_FILTER_90       = "Dans 90 jours"
+_ECHEANCE_FILTER_NONE     = "Sans échéance"
+_ECHEANCE_FILTER_CHOICES  = (
+    _ECHEANCE_FILTER_ALL, _ECHEANCE_FILTER_OVERDUE,
+    _ECHEANCE_FILTER_30, _ECHEANCE_FILTER_90, _ECHEANCE_FILTER_NONE,
+)
+
+# Filtre par complétude des sondages.
+_COMPLET_FILTER_ALL        = "Tous"
+_COMPLET_FILTER_COMPLETS   = "Complets (≥3 sondages)"
+_COMPLET_FILTER_INCOMPLETS = "Incomplets"
+_COMPLET_FILTER_CHOICES    = (
+    _COMPLET_FILTER_ALL, _COMPLET_FILTER_COMPLETS, _COMPLET_FILTER_INCOMPLETS,
+)
+
 
 class ArbreListMixin(_MixinBase):
     """Méthodes du panneau « Arbres de la mission ». Mixin de `App`."""
@@ -119,6 +138,52 @@ class ArbreListMixin(_MixinBase):
                     if a.urgence != "":
                         return False
                 elif a.urgence != choice:
+                    return False
+        # Filtre par échéance
+        ef = getattr(self, "var_echeance_filter", None)
+        if ef is not None:
+            choice = ef.get()
+            if choice and choice != _ECHEANCE_FILTER_ALL:
+                if choice == _ECHEANCE_FILTER_NONE:
+                    if a.echeance:
+                        return False
+                else:
+                    if not a.echeance:
+                        return False
+                    try:
+                        from datetime import date as _date
+
+                        from dialogs_shared import normaliser_date
+                        norm = normaliser_date(a.echeance)
+                        if norm:
+                            j, m, y = norm.split("/")
+                            d_ech = _date(int(y), int(m), int(j))
+                            today = _date.today()
+                            if choice == _ECHEANCE_FILTER_OVERDUE:
+                                if d_ech >= today:
+                                    return False
+                            elif choice == _ECHEANCE_FILTER_30:
+                                from datetime import timedelta
+                                if not (today <= d_ech <= today + timedelta(days=30)):
+                                    return False
+                            elif choice == _ECHEANCE_FILTER_90:
+                                from datetime import timedelta
+                                if not (today <= d_ech <= today + timedelta(days=90)):
+                                    return False
+                        else:
+                            return False
+                    except Exception:
+                        return False
+        # Filtre par complétude
+        cf = getattr(self, "var_complet_filter", None)
+        if cf is not None:
+            choice = cf.get()
+            if choice and choice != _COMPLET_FILTER_ALL:
+                n_sond = sum(len(b.sondages) for b in a.brins)
+                complet = (a.rayon_tronc_cm > 0 and n_sond >= 3)
+                if choice == _COMPLET_FILTER_COMPLETS and not complet:
+                    return False
+                if choice == _COMPLET_FILTER_INCOMPLETS and complet:
                     return False
         return True
 
@@ -318,6 +383,10 @@ class ArbreListMixin(_MixinBase):
         if (getattr(self, "var_urgence_filter", None) is not None
                 and self.var_urgence_filter.get() != _URGENCE_FILTER_ALL):
             self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+        if getattr(self, "var_echeance_filter", None) is not None:
+            self.var_echeance_filter.set(_ECHEANCE_FILTER_ALL)
+        if getattr(self, "var_complet_filter", None) is not None:
+            self.var_complet_filter.set(_COMPLET_FILTER_ALL)
 
     def action_add_arbre_inherit(self) -> None:
         """Ajoute un arbre héritant des champs d'« identité » de l'arbre

@@ -26,6 +26,10 @@ from typing import Any, Iterator, Optional
 
 from aide_repliable import AideRepliable
 from app_arbres import (
+    _COMPLET_FILTER_ALL,
+    _COMPLET_FILTER_CHOICES,
+    _ECHEANCE_FILTER_ALL,
+    _ECHEANCE_FILTER_CHOICES,
     _RISK_FILTER_ALL,
     _RISK_FILTER_CHOICES,
     _URGENCE_FILTER_ALL,
@@ -620,7 +624,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
                       lambda e: self._refresh_tree_arbres())
 
         ufilt = ttk.Frame(frame, style="Side.TFrame")
-        ufilt.pack(fill="x", pady=(0, 6))
+        ufilt.pack(fill="x", pady=(0, 4))
         ttk.Label(ufilt, text=_("Urgence"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
         self.var_urgence_filter = tk.StringVar(value=_URGENCE_FILTER_ALL)
@@ -631,6 +635,32 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         self._cmb_urgence_filter.pack(side="left", fill="x", expand=True)
         self._cmb_urgence_filter.bind("<<ComboboxSelected>>",
                                       lambda e: self._refresh_tree_arbres())
+
+        efilt = ttk.Frame(frame, style="Side.TFrame")
+        efilt.pack(fill="x", pady=(0, 4))
+        ttk.Label(efilt, text=_("Échéance"), style="Side.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_echeance_filter = tk.StringVar(value=_ECHEANCE_FILTER_ALL)
+        cmb_ech = ttk.Combobox(
+            efilt, textvariable=self.var_echeance_filter,
+            values=list(_ECHEANCE_FILTER_CHOICES),
+            state="readonly", width=12)
+        cmb_ech.pack(side="left", fill="x", expand=True)
+        cmb_ech.bind("<<ComboboxSelected>>",
+                     lambda e: self._refresh_tree_arbres())
+
+        cfilt = ttk.Frame(frame, style="Side.TFrame")
+        cfilt.pack(fill="x", pady=(0, 6))
+        ttk.Label(cfilt, text=_("Sondages"), style="Side.TLabel").pack(
+            side="left", padx=(0, 4))
+        self.var_complet_filter = tk.StringVar(value=_COMPLET_FILTER_ALL)
+        cmb_complet = ttk.Combobox(
+            cfilt, textvariable=self.var_complet_filter,
+            values=list(_COMPLET_FILTER_CHOICES),
+            state="readonly", width=12)
+        cmb_complet.pack(side="left", fill="x", expand=True)
+        cmb_complet.bind("<<ComboboxSelected>>",
+                         lambda e: self._refresh_tree_arbres())
 
         # Bandeau "filtre actif" : apparaît sous les filtres quand au moins
         # un arbre est masqué. Propose un bouton de réinitialisation rapide
@@ -1383,9 +1413,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             self._lbl_canvas_hint.pack(anchor="w", pady=(2, 0))
 
     def _reset_all_filters(self) -> None:
-        """Réinitialise les trois filtres de la liste d'arbres en une action."""
+        """Réinitialise tous les filtres de la liste d'arbres en une action."""
         self.var_risk_filter.set(_RISK_FILTER_ALL)
         self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+        if hasattr(self, "var_echeance_filter"):
+            self.var_echeance_filter.set(_ECHEANCE_FILTER_ALL)
+        if hasattr(self, "var_complet_filter"):
+            self.var_complet_filter.set(_COMPLET_FILTER_ALL)
         self.var_filter.set("")  # la trace sur var_filter déclenche le refresh
 
     def essences_utilisees(self) -> list[str]:
