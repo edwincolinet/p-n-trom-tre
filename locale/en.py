@@ -569,4 +569,10 @@ TRANSLATIONS = {
     "L'application doit redémarrer pour appliquer la nouvelle langue.": "Must restart to apply new language.",
     "Redémarrer maintenant ?":           "Restart now?",
     "Redémarrer quand même ?":           "Restart anyway?",
+
+    "＋ Vierge":                         "＋ Blank",
+    "＋ Hériter":                         "＋ Inherit",
+    "Ajouter un arbre vierge":            "Add blank tree",
+    "Hériter du précédent":               "Inherit from previous",
+    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copies species, habit, Ø, heights, probe, bark.",
 }

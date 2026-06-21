@@ -694,26 +694,29 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # de l'ordre visuel : le premier packé en bottom est le plus bas.
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(side="bottom", fill="x", pady=(10, 0))
-        mb_add = ttk.Menubutton(btns, text=_("＋ Ajouter"),
-                                style="Accent.TMenubutton", direction="above")
-        add_menu = tk.Menu(mb_add, tearoff=0)
-        add_menu.add_command(label=_("Arbre vierge"),
-                             accelerator="Ctrl+T",
-                             command=self.action_add_arbre)
-        add_menu.add_command(
-            label=_("Hériter du précédent (essence, port, mèche…)"),
-            command=self.action_add_arbre_inherit)
-        mb_add["menu"] = add_menu
-        mb_add.pack(side="left")
-        Tooltip(mb_add, "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
-                        "« Hériter du précédent » pour reprendre essence, "
-                        "port et mèche d'un alignement.")
-        ttk.Button(btns, text=_("Dupliquer"), style="Ghost.TButton",
-                   command=self.action_dup_arbre
-                   ).pack(side="left", padx=(6, 0))
-        ttk.Button(btns, text=_("Supprimer"), style="Ghost.TButton",
-                   command=self.action_del_arbre
-                   ).pack(side="left", padx=(6, 0))
+        # Rangée 1 : deux boutons d'ajout toujours visibles (1 clic chacun)
+        row_add = ttk.Frame(btns, style="Side.TFrame")
+        row_add.pack(fill="x", pady=(0, 4))
+        btn_vierge = ttk.Button(row_add, text=_("＋ Vierge"),
+                                style="Accent.TButton",
+                                command=self.action_add_arbre)
+        btn_vierge.pack(side="left")
+        Tooltip(btn_vierge, _("Ajouter un arbre vierge") + " (Ctrl+T)")
+        btn_inherit = ttk.Button(row_add, text=_("＋ Hériter"),
+                                 style="Accent.TButton",
+                                 command=self.action_add_arbre_inherit)
+        btn_inherit.pack(side="left", padx=(6, 0))
+        Tooltip(btn_inherit,
+                _("Hériter du précédent") + " (Ctrl+Shift+T) — "
+                + _("Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce."))
+        # Rangée 2 : actions secondaires
+        row_sec = ttk.Frame(btns, style="Side.TFrame")
+        row_sec.pack(fill="x")
+        ttk.Button(row_sec, text=_("Dupliquer"), style="Ghost.TButton",
+                   command=self.action_dup_arbre).pack(side="left")
+        ttk.Button(row_sec, text=_("Supprimer"), style="Ghost.TButton",
+                   command=self.action_del_arbre).pack(side="left",
+                                                       padx=(6, 0))
 
         # Triage de fin de mission : saute au prochain arbre incomplet
         # (pendant du compteur « N à finir » juste au-dessous).
@@ -1631,7 +1634,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             "  Ctrl+P   Imprimer la fiche PDF de l'arbre courant\n"
             "\n"
             "Arbres\n"
-            "  Ctrl+T        Ajouter un arbre\n"
+            "  Ctrl+T        Ajouter un arbre vierge\n"
+            "  Ctrl+Shift+T  Hériter du précédent (Ø, essence, port…)\n"
             "  Ctrl+PgDown   Arbre suivant\n"
             "  Ctrl+PgUp     Arbre précédent\n"
             "  Double-clic sur un arbre : le renommer\n"

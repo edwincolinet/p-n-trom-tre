@@ -537,4 +537,10 @@ TRANSLATIONS = {
     "L'application doit redémarrer pour appliquer la nouvelle langue.": "Riavvio necessario per applicare la lingua.",
     "Redémarrer maintenant ?":           "Riavviare adesso?",
     "Redémarrer quand même ?":           "Riavviare comunque?",
+
+    "＋ Vierge":                         "＋ Vuoto",
+    "＋ Hériter":                         "＋ Eredita",
+    "Ajouter un arbre vierge":            "Aggiungi albero vuoto",
+    "Hériter du précédent":               "Eredita dal precedente",
+    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copia specie, port., Ø, altezze, sonda, cort.",
 }

@@ -337,9 +337,12 @@ class ArbreListMixin(_MixinBase):
             port_arbre=cur.port_arbre,
             meche_cm=cur.meche_cm,
             hauteur_sondage_cm=cur.hauteur_sondage_cm,
+            hauteur_arbre_m=cur.hauteur_arbre_m,
         )
-        # Épaisseur d'écorce = géométrie du brin (relais de compat vers
-        # brins[0]). On ne reprend PAS le rayon/diamètre mesurés.
+        # Géométrie du brin : reprend Ø, écorce (mesures protocole
+        # communes à un alignement). Sondages/dégradations/contreforts
+        # restent vierges — propres à chaque individu.
+        new.brins[0].rayon_tronc_cm = cur.brins[0].rayon_tronc_cm
         new.epaisseur_ecorce_cm = cur.epaisseur_ecorce_cm
         self.chantier.arbres.append(new)
         self.current_idx = len(self.chantier.arbres) - 1

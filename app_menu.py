@@ -154,6 +154,7 @@ def build_menu(app: AppLike) -> None:
     a.add_command(label=_("Ajouter un arbre"), accelerator="Ctrl+T",
                   command=app.action_add_arbre)
     a.add_command(label=_("Ajouter (hériter du précédent)"),
+                  accelerator="Ctrl+Shift+T",
                   command=app.action_add_arbre_inherit)
     a.add_separator()
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
@@ -230,6 +231,7 @@ def build_menu(app: AppLike) -> None:
     app.bind_all("<Control-o>", lambda e: app.action_open())
     app.bind_all("<Control-s>", lambda e: app.action_save())
     app.bind_all("<Control-t>", lambda e: app.action_add_arbre())
+    app.bind_all("<Control-T>", lambda e: app.action_add_arbre_inherit())
 
 
 def refresh_recent_menu(app: AppLike) -> None:
