@@ -216,9 +216,9 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     y += 50
     R = arbre.rayon_tronc_cm
     ligne = (f"Rayon : {R:g} cm   •   "
-             f"Ø sous écorce : {arbre.diametre_sous_ecorce_cm:g} cm   •   "
-             f"Hauteur : {arbre.hauteur_arbre_m:g} m   •   "
-             f"Port : {arbre.port_arbre}")
+             + _("Ø sous écorce") + f" : {arbre.diametre_sous_ecorce_cm:g} cm   •   "
+             + f"Hauteur : {arbre.hauteur_arbre_m:g} m   •   "
+             + f"Port : {arbre.port_arbre}")
     ligne = _fit_text(ligne, f(18, "sans"), W - 2*margin, d)
     d.text((margin, y), ligne, font=f(18, "sans"), fill=COLOR_MUTED)
     y += 32
@@ -529,7 +529,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
     d.text((W/2, H-24),
            f"Pénétromètre{cab_suffix}   •   "
-           f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
            font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
     return page
 
@@ -691,7 +691,7 @@ def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                    fill=COULEUR_CLASSE[classe_b])
         else:
             d.text((px, y),
-                   f"non fiable ({snap.n_sondees}/16 directions sondées).",
+                   _("non fiable ({n}/16 directions sondées).").format(n=snap.n_sondees),
                    font=f(17, "sans"), fill=COLOR_MUTED)
         y += 28
     return y

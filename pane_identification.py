@@ -254,18 +254,12 @@ class IdentificationPane(ttk.Frame):
 
         AideRepliable(
             content,
-            "Saisir le diamètre sous écorce calcule le rayon "
-            "automatiquement (÷ 2). Le rayon reste modifiable "
-            "indépendamment si besoin.",
-            "Si vous corrigez le rayon après avoir saisi des sondages, la "
-            "PRBS (bois sain) reste inchangée car elle correspond à la "
-            "mesure physique du pénétromètre. Le bois altéré est recalculé "
-            "automatiquement (= rayon − bois sain).",
-            "Tronc ovale : le bouton « Forme du tronc (ovale)… » ouvre un "
-            "éditeur dédié (petit axe + orientation du grand axe). Par "
-            "défaut la section est circulaire ; en ellipse, « Rayon du "
-            "tronc » est le demi-grand axe et le t/R de chaque direction "
-            "est rapporté à son rayon local.",
+            _("Saisir le diamètre calcule le rayon (÷ 2). "
+              "PRBS inchangée si rayon corrigé après sondages : "
+              "le bois altéré seul est recalculé."),
+            _("Tronc ovale : bouton « Forme du tronc (ovale)… »"
+              " pour saisir le petit axe et l'orientation. Par défaut "
+              "la section est circulaire."),
         ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
         content.columnconfigure(0, weight=1)
 

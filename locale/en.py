@@ -434,4 +434,77 @@ TRANSLATIONS = {
     "Glissez un brin pour le positionner": "Drag a stem to position it",
     "Vert = paroi saine (t/R > seuil Vert) · ":
         "Green = sound wall (t/R > Green threshold) · ",
+
+    # ── Sprint 7 — aide repliable, statuts, exports ───────────────────
+
+    # AideRepliable
+    "Saisir le diamètre calcule le rayon (÷ 2). "
+    "PRBS inchangée si rayon corrigé après sondages : "
+    "le bois altéré seul est recalculé.":
+        "Entering the diameter calculates the radius (÷ 2). "
+        "PRBS unchanged if radius corrected after soundings: "
+        "only the altered wood is recalculated.",
+
+    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
+    " pour saisir le petit axe et l'orientation. Par défaut "
+    "la section est circulaire.":
+        "Oval trunk: use the « Trunk shape (oval)… » button "
+        "to set the minor axis and orientation. Circular by default.",
+
+    "Laissez vide une direction non sondée. Effacer supprime le sondage "
+    "(commentaire et compartimentation compris). "
+    "Double-cliquez pour le détail.":
+        "Leave empty for an unsounded direction. Erasing removes the sounding "
+        "(including comment and compartmentalization). "
+        "Double-click for details.",
+
+    "« ＋ Ajouter » crée l'arc sur la première plage libre. "
+    "Ajustez début/fin dans la ligne. Pas de chevauchement. "
+    "Double-cliquez le n° pour le détail (largeur cm).":
+        "« ＋ Add » creates the arc on the first free slot. "
+        "Adjust start/end in the row. No overlapping. "
+        "Double-click the ID for details (width cm).",
+
+    "Laissez vide une direction sans contrefort. "
+    "Effacer supprime le contrefort. Double-cliquez "
+    "pour le détail (largeur cm sur l'écorce).":
+        "Leave empty for a direction without buttress. "
+        "Erasing removes it. Double-click "
+        "for details (width cm on bark).",
+
+    "Cliquez un élément du dessin pour le modifier, "
+    "ou une direction libre pour ajouter un sondage.":
+        "Click a drawing element to edit it, "
+        "or a free direction to add a sounding.",
+
+    # Status messages
+    "{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.":
+        "{n} tree(s) imported ({ns} sounding(s)) — remember to save.",
+    "Mission de référence chargée — {nom} ({n} arbre(s)).":
+        "Reference project loaded — {nom} ({n} tree(s)).",
+    "· {n} à finir   ({t})":            "· {n} to finish   ({t})",
+    "Arbre n° {num} — {n} arbre(s) encore à finir.":
+        "Tree no. {num} — {n} tree(s) still to finish.",
+    "{n} arbre(s) masqué(s) par le filtre":
+        "{n} tree(s) hidden by filter",
+    "Mise à jour disponible : {tag}":    "Update available: {tag}",
+    "Vérification automatique des mises à jour {état}.":
+        "Automatic update check {état}.",
+    "Sondage {dir} supprimé. Ctrl+Z pour annuler.":
+        "Sounding {dir} removed. Ctrl+Z to undo.",
+    "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
+        "Sound wood capped to radius ({r:g} cm): PRBS cannot exceed the radius.",
+
+    # Comparaison window
+    "(réf. {r}  →  courant {c})":       "(ref. {r}  →  current {c})",
+    "Référence — {r}":                   "Reference — {r}",
+
+    # Exports
+    "Relevé du":                         "Survey date",
+    "Édité le":                          "Generated on",
+
+    # PDF fiche
+    "Ø sous écorce":                     "Ø under bark",
+    "non fiable ({n}/16 directions sondées).":
+        "unreliable ({n}/16 directions sounded).",
 }

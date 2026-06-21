@@ -407,4 +407,72 @@ TRANSLATIONS = {
     "Glissez un brin pour le positionner": "Trascinare un fusto per posizionarlo",
     "Vert = paroi saine (t/R > seuil Vert) · ":
         "Verde = parete sana (t/R > soglia Verde) · ",
+
+    # ── Sprint 7 — aiuto, stati, esportazioni ────────────────────────
+
+    "Saisir le diamètre calcule le rayon (÷ 2). "
+    "PRBS inchangée si rayon corrigé après sondages : "
+    "le bois altéré seul est recalculé.":
+        "Inserire il diametro calcola il raggio (÷ 2). "
+        "PRBS invariata se il raggio viene corretto dopo i sondaggi: "
+        "solo il legno alterato viene ricalcolato.",
+
+    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
+    " pour saisir le petit axe et l'orientation. Par défaut "
+    "la section est circulaire.":
+        "Tronco ovale: pulsante « Forma del tronco (ovale)… » "
+        "per il semiasse minore e l'orientazione. Sezione circolare per default.",
+
+    "Laissez vide une direction non sondée. Effacer supprime le sondage "
+    "(commentaire et compartimentation compris). "
+    "Double-cliquez pour le détail.":
+        "Lasciare vuoto per una direzione non sondeggiata. Cancellare rimuove il sondaggio "
+        "(inclusi commento e compartimentazione). "
+        "Doppio clic per i dettagli.",
+
+    "« ＋ Ajouter » crée l'arc sur la première plage libre. "
+    "Ajustez début/fin dans la ligne. Pas de chevauchement. "
+    "Double-cliquez le n° pour le détail (largeur cm).":
+        "« ＋ Aggiungi » crea l'arco nel primo slot libero. "
+        "Regolate inizio/fine nella riga. Nessuna sovrapposizione. "
+        "Doppio clic sul n° per i dettagli (larghezza cm).",
+
+    "Laissez vide une direction sans contrefort. "
+    "Effacer supprime le contrefort. Double-cliquez "
+    "pour le détail (largeur cm sur l'écorce).":
+        "Lasciare vuoto per una direzione senza contrafforte. "
+        "Cancellare lo rimuove. Doppio clic "
+        "per i dettagli (larghezza cm sulla corteccia).",
+
+    "Cliquez un élément du dessin pour le modifier, "
+    "ou une direction libre pour ajouter un sondage.":
+        "Cliccare un elemento del disegno per modificarlo, "
+        "o una direzione libera per aggiungere un sondaggio.",
+
+    "{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.":
+        "{n} albero/i importato/i ({ns} sondaggio/i) — ricordarsi di salvare.",
+    "Mission de référence chargée — {nom} ({n} arbre(s)).":
+        "Progetto di riferimento caricato — {nom} ({n} albero/i).",
+    "· {n} à finir   ({t})":            "· {n} da completare   ({t})",
+    "Arbre n° {num} — {n} arbre(s) encore à finir.":
+        "Albero n° {num} — {n} albero/i ancora da completare.",
+    "{n} arbre(s) masqué(s) par le filtre":
+        "{n} albero/i nascosto/i dal filtro",
+    "Mise à jour disponible : {tag}":   "Aggiornamento disponibile: {tag}",
+    "Vérification automatique des mises à jour {état}.":
+        "Verifica automatica aggiornamenti {état}.",
+    "Sondage {dir} supprimé. Ctrl+Z pour annuler.":
+        "Sondaggio {dir} eliminato. Ctrl+Z per annullare.",
+    "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
+        "Legno sano limitato al raggio ({r:g} cm): la PRBS non può superare il raggio.",
+
+    "(réf. {r}  →  courant {c})":       "(rif. {r}  →  corrente {c})",
+    "Référence — {r}":                   "Riferimento — {r}",
+
+    "Relevé du":                         "Rilevato il",
+    "Édité le":                          "Generato il",
+
+    "Ø sous écorce":                     "Ø sotto corteccia",
+    "non fiable ({n}/16 directions sondées).":
+        "non affidabile ({n}/16 direzioni sondeggiate).",
 }

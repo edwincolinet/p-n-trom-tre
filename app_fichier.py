@@ -159,8 +159,8 @@ class FichierMixin(_MixinBase):
         self._load_arbre_to_ui()
         n_sond = sum(len(a.brins[0].sondages) for a in arbres)
         self.set_status(
-            f"{len(arbres)} arbre(s) importé(s) "
-            f"({n_sond} sondage(s)) — pensez à enregistrer.")
+            (_("{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.")
+            .format(n=len(arbres), ns=n_sond)))
 
     def action_open_demo(self) -> None:
         """Ouvre la mission d'exemple en lecture seule.
@@ -215,8 +215,7 @@ class FichierMixin(_MixinBase):
             messagebox.showerror(_("Erreur"), str(e))
             return False
         n = len(self._reference_chantier.arbres)
-        self.set_status(f"Mission de référence chargée — {Path(p).name} "
-                        f"({n} arbre(s)). « Comparer l'arbre courant… »")
+        self.set_status(_("Mission de référence chargée — {nom} ({n} arbre(s)).").format(nom=Path(p).name, n=n))
         self._update_compare_state()
         return True
 

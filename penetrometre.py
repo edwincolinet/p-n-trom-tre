@@ -251,14 +251,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         else:
             tag, url = result
             self._on_update_result(tag, url)
-            self.set_status(f"Mise à jour disponible : {tag}")
+            self.set_status(_("Mise à jour disponible : {tag}").format(tag=tag))
 
     def action_toggle_check_updates(self) -> None:
         """Active/désactive la vérification automatique des mises à jour."""
         new_val = not self._settings.check_updates()
         self._settings.set_check_updates(new_val)
         état = "activée" if new_val else "désactivée"
-        self.set_status(f"Vérification automatique des mises à jour {état}.")
+        self.set_status(_("Vérification automatique des mises à jour {état}.").format(état=état))
 
     def get_check_updates(self) -> bool:
         """État courant du réglage de vérification automatique."""
@@ -800,8 +800,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         # Rien ne le signalait a priori — d'où ce rappel, repliable.
         AideRepliable(
             frame,
-            "Cliquez un élément du dessin pour le modifier, ou une "
-            "direction libre pour ajouter un sondage.",
+            _("Cliquez un élément du dessin pour le modifier, "
+              "ou une direction libre pour ajouter un sondage."),
             wraplength=440,
         ).pack(anchor="w", pady=(2, 0))
         # Indice visible quand l'arbre n'a aucun sondage : guide le premier

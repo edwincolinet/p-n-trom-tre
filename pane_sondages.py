@@ -174,10 +174,9 @@ class SondagesPane(ttk.Frame):
 
         self._aide = AideRepliable(
             self,
-            "Laissez vide une direction non sondée. Effacer une valeur "
-            "supprime le sondage (commentaire et compartimentation "
-            "compris). Double-cliquez la direction pour le détail "
-            "(commentaire, redirection).",
+            _("Laissez vide une direction non sondée. Effacer supprime le sondage "
+              "(commentaire et compartimentation compris). "
+              "Double-cliquez pour le détail."),
             wraplength=420,
         )
         self._aide.pack(anchor="w", pady=(8, 0))
@@ -385,8 +384,7 @@ class SondagesPane(ttk.Frame):
         self._undo_snap = None
         if capped_to is not None:
             self._host.set_status(
-                f"Bois sain limité au rayon ({capped_to:g} cm) : la PRBS "
-                "ne peut pas dépasser le rayon du tronc.")
+                _("Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.").format(r=capped_to))
 
     def _on_comp_changed(self, g: int) -> None:
         b = self._host._current_brin()

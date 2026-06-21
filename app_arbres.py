@@ -146,7 +146,7 @@ class ArbreListMixin(_MixinBase):
                 self.tree_arbres.get_children())
             if n_masques > 0:
                 self._lbl_filtre_actif.configure(
-                    text=f"{n_masques} arbre(s) masqué(s) par le filtre")
+                    text=_("{n} arbre(s) masqué(s) par le filtre").format(n=n_masques))
                 if not self._filtre_actif_frame.winfo_ismapped():
                     self._filtre_actif_frame.pack(fill="x", pady=(0, 4),
                                                   before=self._lst_frame)
@@ -183,7 +183,7 @@ class ArbreListMixin(_MixinBase):
         n_total = len(self.chantier.arbres)
         self.lbl_etat_footer.configure(
             text=(f"{n_rouge} rouge · {n_orange} orange · {n_vert} vert "
-                  f"· {n_afinir} à finir   ({n_total})"))
+                  + _("· {n} à finir   ({t})").format(n=n_afinir, t=n_total)))
 
     @staticmethod
     def _arbre_diag_fiable(a: Arbre) -> bool:
@@ -412,7 +412,7 @@ class ArbreListMixin(_MixinBase):
         reste = sum(1 for a in self.chantier.arbres
                     if not self._arbre_diag_fiable(a))
         num = self.chantier.arbres[cible].numero_arbre or "(sans n°)"
-        self.set_status(f"Arbre n° {num} — {reste} arbre(s) encore à finir.")
+        self.set_status(_("Arbre n° {num} — {n} arbre(s) encore à finir.").format(num=num, n=reste))
 
     def action_dup_arbre(self) -> None:
         a = self._current_arbre()

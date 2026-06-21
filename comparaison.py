@@ -128,7 +128,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     # la fonction, et leur __del__ désaffecte la variable Tcl → combobox vide.
     # `state` survit (capturé par les closures des boutons/sélecteurs).
     state["_vars"] = (var_cur, var_ref)
-    ttk.Label(top, text=f"(réf. {ref_label}  →  courant {cur_label})",
+    ttk.Label(top, text=_("(réf. {r}  →  courant {c})").format(r=ref_label, c=cur_label),
               style="Muted.TLabel").pack(side="left", padx=(12, 0))
 
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
@@ -245,7 +245,7 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
 
     row = ttk.Frame(block, style="Panel.TFrame", padding=(12, 4))
     row.pack(fill="x")
-    img_ref = _build_image_col(row, f"Référence — {ref_label}")
+    img_ref = _build_image_col(row, _("Référence — {r}").format(r=ref_label))
     img_cur = _build_image_col(row, f"Courant — {cur_label}")
     img_evo = _build_image_col(row, "Évolution de l'altération")
     if ref_b is not None:

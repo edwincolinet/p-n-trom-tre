@@ -46,6 +46,7 @@ from typing import (
 
 from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from geometry import GRADES
+from i18n import _
 
 if TYPE_CHECKING:
     from diagnostic import MissionSynthesisRow  # noqa: F401
@@ -336,8 +337,8 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     if chantier.adresse:
         subtitle_parts.append(chantier.adresse)
     if chantier.operateur:
-        subtitle_parts.append(f"Opérateur : {chantier.operateur}")
-    subtitle_parts.append(f"Relevé du {chantier.date_releve or '—'}")
+        subtitle_parts.append(_("Opérateur") + f" : {chantier.operateur}")
+    subtitle_parts.append(_("Relevé du") + f" {chantier.date_releve or '—'}")
     if arbre.essence:
         subtitle_parts.append(f"Essence : {arbre.essence}")
     if arbre.port_arbre:
@@ -461,7 +462,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # --- Pied : édition + signature ---
     suffix = f" · {cabinet_name}" if cabinet_name else ""
     ws.cell(row=row, column=1,
-            value=f"Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
+            value=_("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
                   f"— Pénétromètre{suffix}").font = \
         Font(name="Calibri", size=9, italic=True, color="6E7B73")
     ws.merge_cells(start_row=row, start_column=1,
@@ -587,8 +588,8 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     if chantier.adresse:
         meta_chunks.append(_h(chantier.adresse))
     if chantier.operateur:
-        meta_chunks.append(f"Opérateur : {_h(chantier.operateur)}")
-    meta_chunks.append(f"Relevé du {_h(chantier.date_releve or '—')}")
+        meta_chunks.append(_("Opérateur") + f" : {_h(chantier.operateur)}")
+    meta_chunks.append(_("Relevé du") + f" {_h(chantier.date_releve or '—')}")
     if arbre.essence:
         meta_chunks.append(f"Essence : {_h(arbre.essence)}")
     if arbre.port_arbre:
@@ -821,8 +822,8 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     if chantier.adresse:
         subtitle_parts.append(chantier.adresse)
     if chantier.operateur:
-        subtitle_parts.append(f"Opérateur : {chantier.operateur}")
-    subtitle_parts.append(f"Relevé du {chantier.date_releve or '—'}")
+        subtitle_parts.append(_("Opérateur") + f" : {chantier.operateur}")
+    subtitle_parts.append(_("Relevé du") + f" {chantier.date_releve or '—'}")
     ws.cell(row=2, column=1,
             value=" • ".join(subtitle_parts)).font = SUBTITLE_FONT
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last)

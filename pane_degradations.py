@@ -118,10 +118,9 @@ class DegradationsPane(ttk.Frame):
 
         AideRepliable(
             self,
-            "« ＋ Ajouter » crée l'arc sur la première plage libre : "
-            "ajustez ensuite début/fin dans la ligne. Les arcs ne "
-            "peuvent pas se chevaucher (mitoyens bout-à-bout autorisés). "
-            "Double-cliquez le n° pour le détail (largeur en cm).",
+            _("« ＋ Ajouter » crée l'arc sur la première plage libre. "
+              "Ajustez début/fin dans la ligne. Pas de chevauchement. "
+              "Double-cliquez le n° pour le détail (largeur cm)."),
             wraplength=420,
         ).pack(anchor="w", pady=(8, 0))
 

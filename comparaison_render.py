@@ -28,6 +28,7 @@ from geometry import (
     contour_polygon,
     degradation_externe_outline,
 )
+from i18n import _
 from palette import (
     COLOR_ACCENT,
     COLOR_BARK,
@@ -342,7 +343,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
     # Trois sections côte à côte (images déjà rendues).
     y_lbl = 116
     y_img = y_lbl + 34
-    cols = ((f"Référence — {ref_label}", ref_img),
+    cols = ((_("Référence — {r}").format(r=ref_label), ref_img),
             (f"Courant — {cur_label}", cur_img),
             ("Évolution de l'altération", evo_img))
     for i, (titre_col, img) in enumerate(cols):
@@ -524,7 +525,7 @@ def _compose_comparison_card(titre: str, sous_titre: str, ref_label: str,
         y += sub_h
     y += gap_after_title
 
-    cols = ((f"Référence — {ref_label}", ref_img),
+    cols = ((_("Référence — {r}").format(r=ref_label), ref_img),
             (f"Courant — {cur_label}", cur_img),
             ("Évolution de l'altération", evo_img))
     y_img = y + col_h

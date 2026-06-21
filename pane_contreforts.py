@@ -155,9 +155,9 @@ class ContrefortsPane(ttk.Frame):
 
         AideRepliable(
             self,
-            "Laissez vide une direction sans contrefort. Effacer la "
-            "longueur supprime le contrefort. Double-cliquez la "
-            "direction pour le détail (largeur en cm sur l'écorce).",
+            _("Laissez vide une direction sans contrefort. "
+              "Effacer supprime le contrefort. Double-cliquez "
+              "pour le détail (largeur cm sur l'écorce)."),
             wraplength=420,
         ).pack(anchor="w", pady=(8, 0))
 
