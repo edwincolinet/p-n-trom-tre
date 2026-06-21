@@ -502,4 +502,31 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "nessun fusto di riferimento — solo stato corrente",
     "pas de brin de référence":          "nessun fusto di riferimento",
+
+    # ── Valori di enum ───────────────────────────────────────────────
+
+    # Portamento
+    "libre":                              "libero",
+    "semi-libre":                         "semi-libero",
+    "délaissé":                           "abbandonato",
+    "architecturé":                       "architetturato",
+    "traumatique":                        "traumatico",
+
+    # Compartimentazione
+    "non renseignée":                     "non inserita",
+    "active":                             "attiva",
+    "absente":                            "assente",
+
+    # Urgenza
+    "Immédiate":                          "Immediata",
+    "Court terme":                        "Breve termine",
+    "Moyen terme":                        "Medio termine",
+    "Surveillance":                       "Monitoraggio",
+    "Sans objet":                         "Non applicabile",
+
+    # Placeholder combobox
+    "— Non renseignée —":                "— Non specificata —",
+    "— Durée —":                         "— Durata —",
+
+    # Intestazione aiuto pieghevole
 }

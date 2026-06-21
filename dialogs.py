@@ -69,7 +69,7 @@ from dialogs_shared import (
     validate_numeric as validate_numeric,
 )
 from geometry import DIRECTION_LABELS, brins_layout, contour_polygon
-from i18n import _
+from i18n import _, translate_values
 from model import (
     Arbre,
     Brin,
@@ -631,11 +631,11 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
 
     # Migration silencieuse à l'ouverture du dialogue : ancien "-" → libellé lisible.
     if v_comp.get() == "-":
-        v_comp.set("non renseignée")
+        v_comp.set(_("non renseignée"))
     ttk.Label(dlg, text=_("Compartimentation"), background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_comp,
-                 values=["active", "absente", "non renseignée"],
+                 values=translate_values(["active", "absente", "non renseignée"]),
                  state="readonly", width=18
                  ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 

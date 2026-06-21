@@ -43,12 +43,13 @@ from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs import edit_sondage
 from dialogs_shared import to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
-from i18n import _
+from i18n import _, translate_values, untranslate_value
 from model import Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_WARN
 from ui_fonts import font as ui_font
 
-_COMPART_VALUES = ["non renseignée", "active", "absente"]
+_COMPART_FR = ["non renseignée", "active", "absente"]
+_COMPART_VALUES = translate_values(_COMPART_FR)
 
 
 class _SondagesHost(Protocol):
@@ -119,7 +120,7 @@ class SondagesPane(ttk.Frame):
         for r, g in enumerate(GRADES, start=1):
             var_sain = tk.StringVar()
             var_alt = tk.StringVar(value="—")
-            var_comp = tk.StringVar(value="non renseignée")
+            var_comp = tk.StringVar(value=_("non renseignée"))
 
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
@@ -226,14 +227,14 @@ class SondagesPane(ttk.Frame):
                 if s is None:
                     row["sain"].set("")
                     row["alt"].set("—")
-                    row["comp"].set("non renseignée")
+                    row["comp"].set(_("non renseignée"))
                     row["combo"].configure(state="disabled")
                 else:
                     row["sain"].set(f"{s.bois_sain_cm:g}")
                     row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
-                    comp = (s.compartimentation
-                            if s.compartimentation in _COMPART_VALUES
-                            else "non renseignée")
+                    comp = (_(s.compartimentation)
+                            if s.compartimentation in _COMPART_FR
+                            else _("non renseignée"))
                     row["comp"].set(comp)
                     row["combo"].configure(state="readonly")
         finally:
@@ -321,7 +322,7 @@ class SondagesPane(ttk.Frame):
                 or removed.compartimentation != "non renseignée")
             self._remove_sondage(b, g)
             row["alt"].set("—")
-            row["comp"].set("non renseignée")
+            row["comp"].set(_("non renseignée"))
             row["combo"].configure(state="disabled")
             self._host.on_sondages_changed()
             if had_meta:
@@ -396,7 +397,7 @@ class SondagesPane(ttk.Frame):
             # pas de sens, on revient à la valeur neutre.
             self._suspend = True
             try:
-                self._rows[g]["comp"].set("non renseignée")
+                self._rows[g]["comp"].set(_("non renseignée"))
             finally:
                 self._suspend = False
             return
@@ -404,7 +405,7 @@ class SondagesPane(ttk.Frame):
         if new == s.compartimentation:
             return
         self._host.push_undo()
-        s.compartimentation = new
+        s.compartimentation = untranslate_value(new, _COMPART_FR)
         self._host.on_sondages_changed()
 
     # --- Détail (dialogue) --------------------------------------------

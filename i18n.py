@@ -65,3 +65,21 @@ def _(text: str) -> str:
     if not _catalog:
         return text
     return _catalog.get(text, text)
+
+
+def translate_values(options: "list[str]") -> "list[str]":
+    """Traduit une liste de valeurs de modèle (français) pour l'affichage UI."""
+    return [_(v) for v in options]
+
+
+def untranslate_value(display: str, options: "list[str]") -> str:
+    """Retrouve la valeur française d'une valeur affichée traduite.
+
+    Parcourt `options` (valeurs françaises du modèle) et renvoie celle
+    dont la traduction correspond à `display`. Fallback : renvoie `display`
+    tel quel (langue française ou valeur inconnue).
+    """
+    for fr in options:
+        if _(fr) == display:
+            return fr
+    return display

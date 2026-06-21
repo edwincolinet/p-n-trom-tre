@@ -34,7 +34,7 @@ from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
 from dialogs import ask_forme_tronc
 from dialogs_shared import to_float, validate_numeric
-from i18n import _
+from i18n import _, translate_values, untranslate_value
 from model import Arbre, Brin
 from palette import COLOR_PANEL
 from tooltip import Tooltip
@@ -142,7 +142,7 @@ class IdentificationPane(ttk.Frame):
                 (_("N° arbre"),                  self.var_num, None),
                 (_("Essence"),                   self.var_essence, None),
                 (_("Hauteur de l'arbre (m)"),    self.var_h_arb, None),
-                (_("Port de l'arbre"),           self.var_port, list(PORTS_ARBRE)),
+                (_("Port de l'arbre"),           self.var_port, translate_values(PORTS_ARBRE)),
             ]),
             (_("Tronc"), [
                 (_("Diamètre sous écorce (cm)"), self.var_diam, None),
@@ -289,7 +289,7 @@ class IdentificationPane(ttk.Frame):
             self.var_h_arb.set(f"{a.hauteur_arbre_m:g}"
                                 if a.hauteur_arbre_m else "")
             self.var_meche.set(f"{a.meche_cm:g}" if a.meche_cm else "40")
-            self.var_port.set(a.port_arbre)
+            self.var_port.set(_(a.port_arbre))
             self.var_comm.set(a.commentaire)
             # Géométrie → brin courant (`Brin`).
             self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
@@ -470,7 +470,7 @@ class IdentificationPane(ttk.Frame):
             # Identité partagée → genet.
             a.numero_arbre = self.var_num.get()
             a.essence = self.var_essence.get()
-            a.port_arbre = self.var_port.get()
+            a.port_arbre = untranslate_value(self.var_port.get(), list(PORTS_ARBRE))
             a.commentaire = self.var_comm.get()
 
             h_s = self._parse_float(self.var_h_s)

@@ -534,4 +534,31 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "no reference stem — current state only",
     "pas de brin de référence":          "no reference stem",
+
+    # ── Valeurs d'enum (ports, compartimentation, urgence, suivi) ────
+
+    # Ports arbre
+    "libre":                              "free",
+    "semi-libre":                         "semi-free",
+    "délaissé":                           "neglected",
+    "architecturé":                       "trained",
+    "traumatique":                        "post-trauma",
+
+    # Compartimentation sondage
+    "non renseignée":                     "not recorded",
+    "active":                             "active",
+    "absente":                            "absent",
+
+    # Urgence
+    "Immédiate":                          "Immediate",
+    "Court terme":                        "Short term",
+    "Moyen terme":                        "Medium term",
+    "Surveillance":                       "Monitoring",
+    "Sans objet":                         "N/A",
+
+    # Vide (placeholder combobox)
+    "— Non renseignée —":                "— Not specified —",
+    "— Durée —":                         "— Duration —",
+
+    # Aide repliable header
 }

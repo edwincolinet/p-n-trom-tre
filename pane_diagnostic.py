@@ -34,7 +34,7 @@ from dialogs import ask_date
 from dialogs_settings import ask_suivi_custom, ask_urgences_custom
 from dialogs_shared import SUIVI_VALIDITES, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
-from i18n import _
+from i18n import _, translate_values, untranslate_value
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
@@ -314,7 +314,7 @@ class DiagnosticPane(ttk.Frame):
 
     def _urgence_choices(self) -> "list[str]":
         """Niveaux standards + personnalisés pour le combobox urgence."""
-        return [_URGENCE_VIDE, *URGENCE_NIVEAUX,
+        return [_(_URGENCE_VIDE), *translate_values(list(URGENCE_NIVEAUX)),
                 *self._host.get_urgences_custom()]
 
     def _refresh_urgence_choices(self) -> None:
@@ -329,7 +329,7 @@ class DiagnosticPane(ttk.Frame):
 
     def _suivi_choices(self) -> "list[str]":
         """Durées standards + personnalisées pour le combobox validité."""
-        return [_SUIVI_VIDE, *SUIVI_VALIDITES, *self._host.get_suivi_custom()]
+        return [_(_SUIVI_VIDE), *translate_values(list(SUIVI_VALIDITES)), *self._host.get_suivi_custom()]
 
     def _refresh_suivi_choices(self) -> None:
         """Met à jour les valeurs du combobox après modification des durées."""
@@ -437,7 +437,7 @@ class DiagnosticPane(ttk.Frame):
         if new == a.suivi_validite:
             return
         self._host.push_undo()
-        a.suivi_validite = new
+        a.suivi_validite = untranslate_value(new, list(SUIVI_VALIDITES))
         self._host.on_preconisation_changed()
 
     def _on_suivi_texte_focus_out(self) -> None:

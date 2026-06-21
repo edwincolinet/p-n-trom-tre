@@ -33,10 +33,11 @@ class AideRepliable(ttk.Frame):
     """Bloc d'aide repliable : en-tête cliquable + corps masquable."""
 
     def __init__(self, master: tk.Misc, *paragraphes: str,
-                 titre: str = "Aide", wraplength: int = 380,
+                 titre: "str | None" = None, wraplength: int = 380,
                  expanded: bool = False) -> None:
         super().__init__(master, style="Panel.TFrame")
-        self._titre = titre
+        from i18n import _
+        self._titre = titre if titre is not None else _("Aide")
         self._expanded = expanded
 
         # En-tête cliquable. Le curseur main + la flèche ▸/▾ signalent
