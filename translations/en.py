@@ -569,6 +569,13 @@ TRANSLATIONS = {
     "L'application doit redémarrer pour appliquer la nouvelle langue.": "Must restart to apply new language.",
     "Redémarrer maintenant ?":           "Restart now?",
     "Redémarrer quand même ?":           "Restart anyway?",
+    "Redémarrer maintenant":             "Restart now",
+    "⟳ Redémarrez pour appliquer entièrement les changements.":
+                                          "⟳ Restart to fully apply the changes.",
+    "Langue modifiée.":                   "Language changed.",
+    "Taille du texte modifiée.":          "Text size changed.",
+    "Contraste élevé activé.":            "High contrast on.",
+    "Contraste élevé désactivé.":         "High contrast off.",
 
     "＋ Vierge":                         "＋ Blank",
     "＋ Hériter":                         "＋ Inherit",

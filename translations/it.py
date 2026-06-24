@@ -537,6 +537,13 @@ TRANSLATIONS = {
     "L'application doit redémarrer pour appliquer la nouvelle langue.": "Riavvio necessario per applicare la lingua.",
     "Redémarrer maintenant ?":           "Riavviare adesso?",
     "Redémarrer quand même ?":           "Riavviare comunque?",
+    "Redémarrer maintenant":             "Riavvia adesso",
+    "⟳ Redémarrez pour appliquer entièrement les changements.":
+                                          "⟳ Riavvia per applicare completamente le modifiche.",
+    "Langue modifiée.":                   "Lingua modificata.",
+    "Taille du texte modifiée.":          "Dimensione testo modificata.",
+    "Contraste élevé activé.":            "Alto contrasto attivato.",
+    "Contraste élevé désactivé.":         "Alto contrasto disattivato.",
 
     "＋ Vierge":                         "＋ Vuoto",
     "＋ Hériter":                         "＋ Eredita",

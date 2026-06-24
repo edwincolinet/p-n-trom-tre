@@ -239,6 +239,21 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         if hasattr(self, "_update_banner"):
             self._update_banner.pack_forget()
 
+    def _show_restart_banner(self) -> None:
+        """Affiche la bande « redémarrage requis » (réglages langue / taille
+        du texte / contraste). Non-modale : laisse comparer plusieurs valeurs
+        sans interruption, le bouton « Redémarrer maintenant » relance d'un
+        clic. No-op si la barre d'état n'est pas construite (tests sans UI)."""
+        if not hasattr(self, "_restart_banner"):
+            return
+        if not self._restart_banner.winfo_ismapped():
+            self._restart_banner.pack(side="bottom", fill="x")
+
+    def _dismiss_restart_banner(self) -> None:
+        """Ferme la bande de redémarrage pour la session courante."""
+        if hasattr(self, "_restart_banner"):
+            self._restart_banner.pack_forget()
+
     def action_check_updates(self) -> None:
         """Vérifie manuellement les mises à jour (Aide → Vérifier les mises à jour)."""
         from update_checker import check_for_update
@@ -269,19 +284,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         return self._settings.check_updates()
 
     def action_set_language(self, lang: str) -> None:
-        """Change la langue de l'interface et propose un redémarrage immédiat."""
+        """Change la langue de l'interface. La langue n'est lue qu'à la
+        création des widgets → un redémarrage est nécessaire ; on l'offre
+        via la bande non-modale (bouton « Redémarrer maintenant »)."""
         if lang == self._settings.language():
             return
         self._settings.set_language(lang)
-        if messagebox.askyesno(
-                _("Langue modifiée"),
-                _("L'application doit redémarrer pour appliquer la nouvelle langue.")
-                + "\n" + _("Redémarrer maintenant ?"),
-                parent=self):
-            self.action_restart()
-        else:
-            self.set_status(
-                _("Langue modifiée. Relancez l'application pour appliquer."))
+        self.set_status(_("Langue modifiée."))
+        self._show_restart_banner()
 
     def action_restart(self) -> None:
         """Relance l'application (remplace le processus courant)."""
@@ -352,24 +362,24 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         jour le facteur, puis ré-applique les styles ttk pour un effet
         immédiat sur la majorité de l'UI. Les quelques widgets à police
         en tuple (déjà réalisés) ne se redimensionnent qu'au redémarrage
-        — d'où le rappel en barre d'état."""
+        — d'où la bande de redémarrage non-modale."""
         self._settings.set_ui_scale(scale)
         self._apply_ui_scale(self._settings.ui_scale)
         self._apply_styles()
-        self.set_status(
-            "Taille du texte modifiée. Relancez l'application pour "
-            "l'appliquer entièrement.")
+        self.set_status(_("Taille du texte modifiée."))
+        self._show_restart_banner()
 
     def action_set_high_contrast(self, on: bool) -> None:
         """Active/désactive le contraste élevé (menu Affichage) : persiste
         et ré-applique les styles ttk à chaud. Les widgets à couleur déjà
         peinte hors styles (tags de la liste, dessin) ne changent pas —
-        d'où le rappel d'un redémarrage pour un effet complet."""
+        d'où la bande de redémarrage non-modale pour un effet complet."""
         self._settings.set_high_contrast(on)
         self._apply_styles()
         self.set_status(
-            "Contraste élevé " + ("activé." if on else "désactivé.")
-            + " Relancez l'application pour l'appliquer entièrement.")
+            _("Contraste élevé activé.") if on
+            else _("Contraste élevé désactivé."))
+        self._show_restart_banner()
 
     def get_high_contrast(self) -> bool:
         """État courant du contraste élevé (pour cocher l'item de menu)."""
@@ -942,6 +952,29 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
         ttk.Button(
             self._update_banner, text="✕", style="Ghost.TButton",
             command=self._dismiss_update_banner,
+        ).pack(side="right")
+
+        # Bannière « redémarrage requis » : certains réglages (langue,
+        # taille du texte, contraste) ne s'appliquent pleinement qu'au
+        # prochain lancement. Plutôt qu'un message passif en barre d'état
+        # (manqué) ou un modal à chaque changement (intrusif quand on
+        # compare des tailles), on affiche une bande non-modale avec un
+        # bouton de redémarrage direct. Cachée par défaut, packée
+        # side="bottom" par _show_restart_banner.
+        self._restart_banner = ttk.Frame(self, style="Side.TFrame",
+                                         padding=(10, 3))
+        ttk.Label(
+            self._restart_banner,
+            text=_("⟳ Redémarrez pour appliquer entièrement les changements."),
+            style="Side.TLabel", foreground=COLOR_WARN,
+            font=ui_font("Helvetica", 9, "bold")).pack(side="left")
+        ttk.Button(
+            self._restart_banner, text=_("Redémarrer maintenant"),
+            style="Accent.TButton", command=self.action_restart,
+        ).pack(side="left", padx=(10, 0))
+        ttk.Button(
+            self._restart_banner, text="✕", style="Ghost.TButton",
+            command=self._dismiss_restart_banner,
         ).pack(side="right")
 
         bar = ttk.Frame(self, style="Side.TFrame")
