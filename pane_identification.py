@@ -186,7 +186,7 @@ class IdentificationPane(ttk.Frame):
                     widget = ttk.Combobox(
                         box, textvariable=var, values=[],
                         state="normal", width=28)
-                    self._essence_cmb = widget  # type: ignore[assignment]
+                    self._essence_cmb = widget
                 else:
                     widget = ttk.Entry(box, textvariable=var, width=30)
                     if str(var) in numeric_var_names:

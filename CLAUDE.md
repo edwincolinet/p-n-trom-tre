@@ -297,7 +297,9 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
-  penetrometre.py
+  penetrometre.py photo_gallery.py csv_import.py dialogs_import.py \
+  dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
+  template_store.py update_checker.py
 ```
 
 > NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy

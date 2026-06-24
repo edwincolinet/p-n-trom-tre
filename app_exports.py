@@ -370,7 +370,7 @@ def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
-        cabinet_name, _ = _get_cabinet_info(parent)
+        cabinet_name, _logo = _get_cabinet_info(parent)
         export_prbs_xlsx(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs,
@@ -399,7 +399,7 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     if not p:
         return
     try:
-        cabinet_name, _ = _get_cabinet_info(parent)
+        cabinet_name, _logo = _get_cabinet_info(parent)
         export_prbs_html(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs,

@@ -16,7 +16,7 @@ import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import Callable, List
+from typing import Any, Callable, List
 
 from i18n import _
 from ui_fonts import font as ui_font
@@ -37,7 +37,7 @@ class PhotoGallery(ttk.Frame):
     def __init__(self, master: tk.Misc,
                  photos: List[str],
                  on_change: Callable[[], None],
-                 **kw: object) -> None:
+                 **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", **kw)
         self._photos = photos        # référence directe à Arbre.photos
         self._on_change = on_change
@@ -85,10 +85,10 @@ class PhotoGallery(ttk.Frame):
             if not p.exists():
                 raise FileNotFoundError(path)
             img = PILImage.open(path)
-            img.thumbnail((_THUMB_W, _THUMB_H), PILImage.LANCZOS)
+            img.thumbnail((_THUMB_W, _THUMB_H), PILImage.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             self._thumbs.append(photo)
-            lbl = tk.Label(cell, image=photo, cursor="hand2",  # type: ignore[arg-type]
+            lbl = tk.Label(cell, image=photo, cursor="hand2",
                            relief="flat", bd=1)
             lbl.pack()
             lbl.bind("<Button-1>", lambda e, pp=path: self._view_photo(pp))
@@ -156,17 +156,17 @@ class PhotoGallery(ttk.Frame):
         try:
             from PIL import Image as PILImage
             from PIL import ImageTk
-            img = PILImage.open(path)
+            img: PILImage.Image = PILImage.open(path)
             w, h = img.size
             max_dim = 900
             if max(w, h) > max_dim:
                 scale = max_dim / max(w, h)
                 img = img.resize((int(w*scale), int(h*scale)),
-                                 PILImage.LANCZOS)
+                                 PILImage.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             dlg = tk.Toplevel(self)
             dlg.title(Path(path).name)
-            tk.Label(dlg, image=photo).pack()  # type: ignore[arg-type]
+            tk.Label(dlg, image=photo).pack()
             dlg._photo = photo  # type: ignore[attr-defined]  # avoid GC
         except Exception as e:
             log.exception("Impossible d'afficher la photo")

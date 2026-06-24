@@ -542,10 +542,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             thumb_gap = 12
             per_row = max(1, (W - 2*margin + thumb_gap) // (thumb_h + thumb_gap))
             for idx, photo_path in enumerate(photos_valides):
-                col = idx % per_row
-                row = idx // per_row
-                xp = margin + col * (thumb_h + thumb_gap)
-                yp = y + row * (thumb_h + thumb_gap + 20)
+                pcol = idx % per_row
+                prow = idx // per_row
+                xp = margin + pcol * (thumb_h + thumb_gap)
+                yp = y + prow * (thumb_h + thumb_gap + 20)
                 if yp + thumb_h > H - 80:
                     break
                 try:
@@ -553,7 +553,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                     iw, ih = img.size
                     scale = min(thumb_h / ih, thumb_h / iw)
                     img = img.resize((int(iw*scale), int(ih*scale)),
-                                     _PILImage.LANCZOS)
+                                     _PILImage.Resampling.LANCZOS)
                     page.paste(img, (int(xp), int(yp)))
                     # Nom de fichier sous la vignette
                     fname_lbl = Path(photo_path).name[:28]

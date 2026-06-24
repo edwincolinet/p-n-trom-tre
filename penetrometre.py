@@ -934,7 +934,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk
             style="Side.TLabel", foreground=COLOR_ACCENT,
             font=ui_font("Helvetica", 9, "bold"))
         self._update_banner_lbl.pack(side="left")
-        self._update_banner_url: str = ""
+        self._update_banner_url = ""
         ttk.Button(
             self._update_banner, text=_("Télécharger"), style="Accent.TButton",
             command=self._open_update_url,

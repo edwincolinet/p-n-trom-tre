@@ -123,6 +123,8 @@ class ChantierLike(Protocol):
     adresse: str
     operateur: str
     date_releve: str
+    client: str
+    reference: str
 
 
 # Signature attendue de `classer_prbs` (cf. bareme.py). Injectée par

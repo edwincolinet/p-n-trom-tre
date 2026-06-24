@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app_arbres import _RISK_FILTER_ALL
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
+from app_settings import SettingsStore
 from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
@@ -72,7 +73,7 @@ class FichierMixin(_MixinBase):
         _reference_chantier: Optional[Chantier]
         _recent: RecentFilesStore
         _undo_stack: UndoStack
-        _settings: "Any"    # SettingsStore (import circulaire évité)
+        _settings: SettingsStore
         _ope_cmb: "Any"     # ttk.Combobox opérateur
         var_ch_nom: tk.StringVar
         var_ch_adr: tk.StringVar
@@ -92,6 +93,8 @@ class FichierMixin(_MixinBase):
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
         def notify_export(self, path: str, label: str) -> None: ...
+        def push_undo(self) -> None: ...
+        def _update_compare_state(self) -> None: ...
 
     def action_new(self) -> None:
         if self._dirty:
@@ -205,7 +208,7 @@ class FichierMixin(_MixinBase):
             return
 
         # Dialog de sélection
-        result: dict[str, object] = {"chosen": None}
+        result: dict[str, Optional[dict[str, Any]]] = {"chosen": None}
 
         dlg = tk.Toplevel(self)
         dlg.title(_("Nouvelle mission depuis un modèle"))
@@ -307,8 +310,8 @@ class FichierMixin(_MixinBase):
         _make_modal(dlg, self)
         dlg.wait_window()
 
-        t = result.get("chosen")
-        if not t:
+        chosen = result.get("chosen")
+        if not chosen:
             return
 
         # Créer la nouvelle mission depuis le modèle
@@ -328,12 +331,12 @@ class FichierMixin(_MixinBase):
         self.chantier = Chantier()
 
         # Appliquer les champs du modèle
-        self.chantier.client    = t.get("client", "")
-        self.chantier.adresse   = t.get("adresse", "")
-        self.chantier.operateur = t.get("operateur", "")
+        self.chantier.client    = chosen.get("client", "")
+        self.chantier.adresse   = chosen.get("adresse", "")
+        self.chantier.operateur = chosen.get("operateur", "")
 
         # Premier arbre avec les valeurs par défaut du modèle
-        ad = t.get("arbre_defaut", {})
+        ad = chosen.get("arbre_defaut", {})
         a0 = Arbre(
             numero_arbre="1",
             essence=ad.get("essence", ""),
