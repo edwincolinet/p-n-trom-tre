@@ -6,12 +6,15 @@ La langue est choisie dans les réglages (SettingsStore.language) et
 appliquée au démarrage — un changement nécessite un redémarrage.
 
 Langues : fr (source, défaut), en (English), it (Italiano).
-Les traductions vivent dans locale/en.py et locale/it.py sous forme
-de dicts Python {fr: traduction}. Cette approche évite de compiler des
-fichiers .mo et reste lisible/éditable sans outillage particulier.
+Les traductions vivent dans translations/en.py et translations/it.py
+sous forme de dicts Python {fr: traduction}. Cette approche évite de
+compiler des fichiers .mo et reste lisible/éditable sans outillage
+particulier. (Le package s'appelle `translations/` et non `locale/`
+pour ne pas masquer le module `locale` de la stdlib — un package
+`locale/` à la racine casse gettext/argparse, donc unittest et mypy.)
 
 Pour ajouter une langue :
-  1. Copier locale/en.py → locale/<code>.py.
+  1. Copier translations/en.py → translations/<code>.py.
   2. Remplir les valeurs manquantes.
   3. Ajouter le code dans LANGUAGES ci-dessous.
   4. Incrémenter settings.language.
@@ -45,9 +48,9 @@ def setup_language(lang: str) -> None:
         return
     try:
         if _current_lang == "en":
-            from locale.en import TRANSLATIONS
+            from translations.en import TRANSLATIONS
         elif _current_lang == "it":
-            from locale.it import TRANSLATIONS
+            from translations.it import TRANSLATIONS
         else:
             TRANSLATIONS = {}
         _catalog = TRANSLATIONS
