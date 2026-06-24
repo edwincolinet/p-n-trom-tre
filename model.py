@@ -478,6 +478,7 @@ class Arbre:
         preconisation: str = "",
         suivi_validite: str = "",
         suivi_texte: str = "",
+        photos: "Optional[List[str]]" = None,
         # --- Compat : kwargs de géométrie/mesures hérités de l'API pré-brins.
         # Routés vers le premier brin (brins[0]) pour la compatibilité fichiers.
         rayon_tronc_cm: "Optional[float]" = None,
@@ -502,7 +503,7 @@ class Arbre:
         self.preconisation = preconisation
         self.suivi_validite = suivi_validite
         self.suivi_texte = suivi_texte
-        self.photos: List[str] = []
+        self.photos: List[str] = list(photos) if photos is not None else []
         self.brins = list(brins) if brins is not None else [Brin()]
         b = self.brins[0]
         if rayon_tronc_cm is not None:

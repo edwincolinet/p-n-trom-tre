@@ -92,6 +92,8 @@ class ArbreListMixin(_MixinBase):
         var_filter: tk.StringVar
         var_risk_filter: tk.StringVar
         var_urgence_filter: tk.StringVar
+        var_echeance_filter: tk.StringVar
+        var_complet_filter: tk.StringVar
         lbl_etat_footer: ttk.Label
         _tree_arbres_ctx_menu: tk.Menu
         _filtre_actif_frame: ttk.Frame
@@ -406,12 +408,11 @@ class ArbreListMixin(_MixinBase):
             port_arbre=cur.port_arbre,
             meche_cm=cur.meche_cm,
             hauteur_sondage_cm=cur.hauteur_sondage_cm,
-            hauteur_arbre_m=cur.hauteur_arbre_m,
         )
-        # Géométrie du brin : reprend Ø, écorce (mesures protocole
-        # communes à un alignement). Sondages/dégradations/contreforts
-        # restent vierges — propres à chaque individu.
-        new.brins[0].rayon_tronc_cm = cur.brins[0].rayon_tronc_cm
+        # Protocole commun à un alignement : on reprend l'épaisseur
+        # d'écorce. La géométrie mesurée (rayon, diamètre, hauteur de
+        # l'arbre) reste à défaut — à re-mesurer pour chaque individu —,
+        # tout comme les sondages/dégradations/contreforts.
         new.epaisseur_ecorce_cm = cur.epaisseur_ecorce_cm
         self.chantier.arbres.append(new)
         self.current_idx = len(self.chantier.arbres) - 1

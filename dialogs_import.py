@@ -141,7 +141,7 @@ def ask_csv_import(parent: tk.Misc, path: str) -> Optional[List["Arbre"]]:
     def _couleur_resume(n: int) -> str:
         return "#1A5A2A" if n > 0 else "#B85C00"
 
-    def _update_resume(*_: Any) -> None:
+    def _update_resume(*_args: Any) -> None:
         m = _get_mapping()
         try:
             arbres, warns = build_arbres(rows, m)
