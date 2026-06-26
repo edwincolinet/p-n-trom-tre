@@ -140,35 +140,6 @@ class FichierMixin(_MixinBase):
             return
         self._open_path(p)
 
-    def action_import_csv(self) -> None:
-        """Importe des arbres/sondages depuis un fichier CSV.
-
-        Ouvre un dialog de mapping colonnes → champs modèle, puis ajoute
-        les arbres importés à la mission courante. La mission n'est pas
-        enregistrée automatiquement (le flag _dirty est levé)."""
-        p = filedialog.askopenfilename(
-            title=_("Importer depuis CSV"),
-            filetypes=[("Fichiers CSV", "*.csv *.txt"),
-                       ("Tous", "*.*")])
-        if not p:
-            return
-        from dialogs_import import ask_csv_import
-        arbres = ask_csv_import(self, p)
-        if arbres is None:
-            return   # annulé
-        self.push_undo()
-        debut = len(self.chantier.arbres)
-        self.chantier.arbres.extend(arbres)
-        # Sélectionner le premier arbre importé
-        self.current_idx = debut
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-        n_sond = sum(len(a.brins[0].sondages) for a in arbres)
-        self.set_status(
-            (_("{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.")
-            .format(n=len(arbres), ns=n_sond)))
-
     def action_save_as_template(self) -> None:
         """Enregistre la mission courante comme modèle réutilisable."""
         from dialogs import ask_string
