@@ -18,6 +18,7 @@ app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
 app_export_actions.py  ← ExportActionsMixin (les action_export_*)
 app_fichier.py         ← FichierMixin (cycle de vie fichier mission : new/open/save/save_as + récents + ré-inspection)
 app_layout.py          ← LayoutMixin (construction de l'UI : header, méta mission, barre d'état + bannières, 3 colonnes, sash)
+app_reglages.py        ← ReglagesMixin (préférences : langue, barème, taille texte, contraste, logo/cabinet + mises à jour/bannières)
 app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
 app_settings.py        ← SettingsStore (réglages UI persistés : ui_scale, pur)
 ui_fonts.py            ← échelle des polices (facteur global + helper font(), pur)
@@ -48,13 +49,13 @@ aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilis
 tests/                 ← suite de tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
-**`App` = orchestration + 5 mixins + 1 helper.** C'est un
+**`App` = orchestration + 6 mixins + 1 helper.** C'est un
 **partitionnement par responsabilité** (navigabilité, localité git-blame),
 **pas une décomposition** : sauf `ExportActionsMixin`, les mixins lisent et
 **mutent** l'état d'`App` (`chantier`, `current_idx`, `current_file`,
 `_dirty`, …) et s'appellent même entre eux (`RecoveryMixin` invoque
 `_refresh_tree_arbres` d'`ArbreListMixin`). Ça reste **un seul objet réparti
-sur 5 fichiers**, avec un couplage total **assumé** — intrinsèque à une UI
+sur 6 fichiers**, avec un couplage total **assumé** — intrinsèque à une UI
 maître-détail où sélectionner un arbre recharge tout le panneau de droite
 (le « découpler » ne ferait que déplacer ce couplage dans une interface de
 callbacks, pour un gain net faible). Découpage :
@@ -76,6 +77,13 @@ callbacks, pour un gain net faible). Découpage :
   l'orchestrateur lit/mute ensuite. Les panes/`SectionCanvas` attendent un
   `host` satisfaisant leur Protocol (toute la surface d'`App`) → `host=self`
   passe par un `cast("App", self)` (no-op runtime, l'objet EST l'App).
+- `ReglagesMixin` (préférences + mises à jour : `action_set_language`/
+  `_set_ui_scale`/`_set_high_contrast`/`_bareme_settings`/`_cabinet_settings`,
+  `_apply_ui_scale`/`_apply_styles`/`_apply_bareme` appelés au démarrage, le
+  cycle de vérification de version + bannière, `action_restart`). Lit/mute
+  `_settings`, le `_logo_frame` et les bannières construites par
+  `LayoutMixin`. `__version__` reste dans `penetrometre` (import local lazy
+  pour éviter le cycle).
 - `RecentFilesStore` (composition, pur).
 
 `App` garde le câblage des évènements (binds clavier, menu, undo/redo), la
@@ -103,7 +111,7 @@ fiche_pdf.py + comparaison_render.py
    ↑
 section_canvas.py + pane_*.py + comparaison.py + app_exports.py + app_menu.py + app_style.py
    ↑
-app_arbres.py + app_recovery.py + app_export_actions.py + app_fichier.py + app_layout.py  (mixins de App)
+app_arbres.py + app_recovery.py + app_export_actions.py + app_fichier.py + app_layout.py + app_reglages.py  (mixins de App)
    ↑
 penetrometre.py  (Tk + main) ← undo.py
 ```
@@ -303,7 +311,7 @@ python -m unittest discover tests           # suite de tests
 ruff check .                                # Lint
 python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
-  app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py \
+  app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
@@ -340,8 +348,9 @@ Golden-tests :
    - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`
    - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Construction de l'UI (`_build_*`, barre d'état, sash) → `app_layout.py`
+   - Préférences/réglages + mises à jour (langue, barème, taille, contraste, logo) → `app_reglages.py`
    - Fichiers récents → `app_recent.py`
-   - Orchestration App (câblage évènements, synchro, undo, réglages) → `penetrometre.py`
+   - Orchestration App (câblage évènements, synchro, undo) → `penetrometre.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.
