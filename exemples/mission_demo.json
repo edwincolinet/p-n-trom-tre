@@ -1,23 +1,24 @@
 {
   "format_version": 3,
-  "nom": "Parc municipal — allée des Cèdres",
-  "adresse": "12 allée des Cèdres, 69001 Lyon",
-  "operateur": "",
+  "nom": "Square des Tilleuls — exemple",
+  "adresse": "Place de la Mairie, 35000 Rennes",
+  "operateur": "Edwin Colinet",
   "date_releve": "15/05/2026",
   "arbres": [
     {
       "numero_arbre": "1",
       "essence": "Chêne pédonculé",
-      "hauteur_sondage_cm": 0.0,
+      "hauteur_sondage_cm": 100.0,
       "hauteur_arbre_m": 18.0,
       "port_arbre": "libre",
       "meche_cm": 40.0,
-      "commentaire": "",
-      "urgence": "Surveillance",
+      "commentaire": "Sujet vigoureux, houppier équilibré.",
+      "urgence": "",
       "echeance": "",
-      "preconisation": "Arbre en bon état général. Réévaluation dans 5 ans recommandée.",
+      "preconisation": "",
       "suivi_validite": "",
       "suivi_texte": "",
+      "photos": [],
       "brins": [
         {
           "label": "",
@@ -27,136 +28,152 @@
           "rayon_tronc_cm": 35.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 1.5,
+          "diametre_sous_ecorce_cm": 70.0,
+          "epaisseur_ecorce_cm": 2.0,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 32.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 31.0,
+              "bois_altere_cm": 4.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
               "grade": 25,
-              "bois_sain_cm": 31.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 30.2,
+              "bois_altere_cm": 4.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 3,
               "grade": 50,
-              "bois_sain_cm": 30.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 29.6,
+              "bois_altere_cm": 5.4,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 4,
               "grade": 75,
-              "bois_sain_cm": 33.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 29.2,
+              "bois_altere_cm": 5.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 5,
               "grade": 100,
-              "bois_sain_cm": 34.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 29.0,
+              "bois_altere_cm": 6.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 6,
               "grade": 125,
-              "bois_sain_cm": 32.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 29.2,
+              "bois_altere_cm": 5.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 7,
               "grade": 150,
-              "bois_sain_cm": 31.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 29.6,
+              "bois_altere_cm": 5.4,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 8,
               "grade": 175,
-              "bois_sain_cm": 30.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 30.2,
+              "bois_altere_cm": 4.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 9,
               "grade": 200,
-              "bois_sain_cm": 33.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 31.0,
+              "bois_altere_cm": 4.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 10,
               "grade": 225,
-              "bois_sain_cm": 34.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 31.8,
+              "bois_altere_cm": 3.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 11,
               "grade": 250,
-              "bois_sain_cm": 32.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 32.4,
+              "bois_altere_cm": 2.6,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 12,
               "grade": 275,
-              "bois_sain_cm": 31.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 32.8,
+              "bois_altere_cm": 2.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 13,
               "grade": 300,
-              "bois_sain_cm": 30.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 33.0,
+              "bois_altere_cm": 2.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 14,
               "grade": 325,
-              "bois_sain_cm": 33.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 32.8,
+              "bois_altere_cm": 2.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 15,
               "grade": 350,
-              "bois_sain_cm": 34.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 32.4,
+              "bois_altere_cm": 2.6,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 16,
               "grade": 375,
-              "bois_sain_cm": 32.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 31.8,
+              "bois_altere_cm": 3.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [],
@@ -167,16 +184,17 @@
     {
       "numero_arbre": "2",
       "essence": "Platane commun",
-      "hauteur_sondage_cm": 130.0,
+      "hauteur_sondage_cm": 110.0,
       "hauteur_arbre_m": 22.0,
-      "port_arbre": "semi-libre",
-      "meche_cm": 40.0,
-      "commentaire": "",
-      "urgence": "Court terme",
-      "echeance": "31/12/2026",
-      "preconisation": "Cavité centrale significative côtés Nord et Sud. Surveiller évolution. Envisager un haubanage préventif si aggravation.",
+      "port_arbre": "libre",
+      "meche_cm": 50.0,
+      "commentaire": "Cavité basale excentrée côté sud-ouest.",
+      "urgence": "",
+      "echeance": "",
+      "preconisation": "",
       "suivi_validite": "",
       "suivi_texte": "",
+      "photos": [],
       "brins": [
         {
           "label": "",
@@ -186,136 +204,152 @@
           "rayon_tronc_cm": 40.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 2.0,
+          "diametre_sous_ecorce_cm": 80.0,
+          "epaisseur_ecorce_cm": 2.5,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 15.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 14.2,
+              "bois_altere_cm": 25.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
               "grade": 25,
-              "bois_sain_cm": 14.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 15.5,
+              "bois_altere_cm": 24.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 3,
               "grade": 50,
-              "bois_sain_cm": 28.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 16.0,
+              "bois_altere_cm": 24.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 4,
               "grade": 75,
-              "bois_sain_cm": 32.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 15.5,
+              "bois_altere_cm": 24.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 5,
               "grade": 100,
-              "bois_sain_cm": 35.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 14.2,
+              "bois_altere_cm": 25.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 6,
               "grade": 125,
-              "bois_sain_cm": 34.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 12.3,
+              "bois_altere_cm": 27.7,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 7,
               "grade": 150,
-              "bois_sain_cm": 33.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 10.0,
+              "bois_altere_cm": 30.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 8,
               "grade": 175,
-              "bois_sain_cm": 30.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 7.7,
+              "bois_altere_cm": 32.3,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 9,
               "grade": 200,
-              "bois_sain_cm": 16.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 5.8,
+              "bois_altere_cm": 34.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 10,
               "grade": 225,
-              "bois_sain_cm": 15.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.5,
+              "bois_altere_cm": 35.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 11,
               "grade": 250,
-              "bois_sain_cm": 29.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.0,
+              "bois_altere_cm": 36.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 12,
               "grade": 275,
-              "bois_sain_cm": 33.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.5,
+              "bois_altere_cm": 35.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 13,
               "grade": 300,
-              "bois_sain_cm": 36.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 5.8,
+              "bois_altere_cm": 34.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 14,
               "grade": 325,
-              "bois_sain_cm": 35.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 7.7,
+              "bois_altere_cm": 32.3,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 15,
               "grade": 350,
-              "bois_sain_cm": 34.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 10.0,
+              "bois_altere_cm": 30.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 16,
               "grade": 375,
-              "bois_sain_cm": 31.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 12.3,
+              "bois_altere_cm": 27.7,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [],
@@ -326,16 +360,17 @@
     {
       "numero_arbre": "3",
       "essence": "Tilleul à grandes feuilles",
-      "hauteur_sondage_cm": 100.0,
-      "hauteur_arbre_m": 12.0,
-      "port_arbre": "architecturé",
+      "hauteur_sondage_cm": 90.0,
+      "hauteur_arbre_m": 16.0,
+      "port_arbre": "libre",
       "meche_cm": 40.0,
-      "commentaire": "",
-      "urgence": "Immédiate",
-      "echeance": "30/06/2026",
-      "preconisation": "Cavité volumineuse avec plaie ouverte côté Nord. Risque de rupture. Abattage urgent.",
+      "commentaire": "Tronc creux, paroi résiduelle très faible. Plaie ouverte en partie nord.",
+      "urgence": "Court terme",
+      "echeance": "30/09/2026",
+      "preconisation": "Réduction du houppier pour diminuer la prise au vent ; réévaluation à un an. Périmètre de sécurité si fréquentation.",
       "suivi_validite": "",
       "suivi_texte": "",
+      "photos": [],
       "brins": [
         {
           "label": "",
@@ -345,145 +380,161 @@
           "rayon_tronc_cm": 28.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 1.0,
+          "diametre_sous_ecorce_cm": 56.0,
+          "epaisseur_ecorce_cm": 1.5,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 6.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.0,
+              "bois_altere_cm": 26.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
               "grade": 25,
-              "bois_sain_cm": 5.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.1,
+              "bois_altere_cm": 25.9,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 3,
               "grade": 50,
-              "bois_sain_cm": 7.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.4,
+              "bois_altere_cm": 25.6,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 4,
               "grade": 75,
-              "bois_sain_cm": 20.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.8,
+              "bois_altere_cm": 25.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 5,
               "grade": 100,
-              "bois_sain_cm": 24.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 3.3,
+              "bois_altere_cm": 24.7,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 6,
               "grade": 125,
-              "bois_sain_cm": 22.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 3.8,
+              "bois_altere_cm": 24.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 7,
               "grade": 150,
-              "bois_sain_cm": 20.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.2,
+              "bois_altere_cm": 23.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 8,
               "grade": 175,
-              "bois_sain_cm": 18.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.5,
+              "bois_altere_cm": 23.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 9,
               "grade": 200,
-              "bois_sain_cm": 7.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.6,
+              "bois_altere_cm": 23.4,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 10,
               "grade": 225,
-              "bois_sain_cm": 6.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.5,
+              "bois_altere_cm": 23.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 11,
               "grade": 250,
-              "bois_sain_cm": 8.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.2,
+              "bois_altere_cm": 23.8,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 12,
               "grade": 275,
-              "bois_sain_cm": 21.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 3.8,
+              "bois_altere_cm": 24.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 13,
               "grade": 300,
-              "bois_sain_cm": 25.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 3.3,
+              "bois_altere_cm": 24.7,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 14,
               "grade": 325,
-              "bois_sain_cm": 23.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.8,
+              "bois_altere_cm": 25.2,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 15,
               "grade": 350,
-              "bois_sain_cm": 21.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.4,
+              "bois_altere_cm": 25.6,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 16,
               "grade": 375,
-              "bois_sain_cm": 19.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 2.1,
+              "bois_altere_cm": 25.9,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [
             {
               "numero": 1,
-              "grade_debut": 350,
-              "grade_fin": 50,
-              "profondeur_cm": 4.0,
-              "commentaire": "",
+              "grade_debut": 325,
+              "grade_fin": 25,
+              "profondeur_cm": 5.0,
+              "commentaire": "Plaie d'élagage mal cicatrisée.",
               "comprend_ecorce": true
             }
           ],
@@ -494,16 +545,17 @@
     {
       "numero_arbre": "4",
       "essence": "Orme champêtre",
-      "hauteur_sondage_cm": 0.0,
+      "hauteur_sondage_cm": 100.0,
       "hauteur_arbre_m": 14.0,
       "port_arbre": "libre",
       "meche_cm": 40.0,
-      "commentaire": "",
+      "commentaire": "Sondage interrompu — à compléter (2 directions).",
       "urgence": "",
       "echeance": "",
       "preconisation": "",
       "suivi_validite": "",
       "suivi_texte": "",
+      "photos": [],
       "brins": [
         {
           "label": "",
@@ -513,32 +565,26 @@
           "rayon_tronc_cm": 22.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 1.0,
+          "diametre_sous_ecorce_cm": 44.0,
+          "epaisseur_ecorce_cm": 1.5,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 18.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 17.0,
+              "bois_altere_cm": 5.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
-              "grade": 100,
-              "bois_sain_cm": 20.0,
-              "bois_altere_cm": 0.0,
-              "compartimentation": "non renseignée",
-              "commentaire": ""
-            },
-            {
-              "numero": 3,
               "grade": 200,
-              "bois_sain_cm": 19.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 15.0,
+              "bois_altere_cm": 7.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [],
@@ -549,106 +595,331 @@
     {
       "numero_arbre": "5",
       "essence": "Hêtre commun",
-      "hauteur_sondage_cm": 0.0,
-      "hauteur_arbre_m": 10.0,
+      "hauteur_sondage_cm": 80.0,
+      "hauteur_arbre_m": 15.0,
       "port_arbre": "libre",
-      "meche_cm": 20.0,
-      "commentaire": "",
-      "urgence": "Surveillance",
+      "meche_cm": 40.0,
+      "commentaire": "Cépée à 2 brins ; brin b altéré.",
+      "urgence": "",
       "echeance": "",
-      "preconisation": "Cépée saine. Surveiller la colonnette de jonction des deux brins.",
+      "preconisation": "",
       "suivi_validite": "",
       "suivi_texte": "",
+      "photos": [],
       "brins": [
         {
-          "label": "",
+          "label": "a",
           "pos_x_cm": 0.0,
           "pos_y_cm": 0.0,
           "rotation_grades": 0,
-          "rayon_tronc_cm": 12.0,
+          "rayon_tronc_cm": 14.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 0.5,
+          "diametre_sous_ecorce_cm": 28.0,
+          "epaisseur_ecorce_cm": 1.5,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 11.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 12.0,
+              "bois_altere_cm": 2.0,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
-              "grade": 100,
-              "bois_sain_cm": 11.0,
-              "bois_altere_cm": 0.0,
+              "grade": 25,
+              "bois_sain_cm": 11.6,
+              "bois_altere_cm": 2.4,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 3,
-              "grade": 200,
-              "bois_sain_cm": 10.0,
-              "bois_altere_cm": 0.0,
+              "grade": 50,
+              "bois_sain_cm": 11.3,
+              "bois_altere_cm": 2.7,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 4,
-              "grade": 300,
-              "bois_sain_cm": 11.0,
-              "bois_altere_cm": 0.0,
+              "grade": 75,
+              "bois_sain_cm": 11.1,
+              "bois_altere_cm": 2.9,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 5,
+              "grade": 100,
+              "bois_sain_cm": 11.0,
+              "bois_altere_cm": 3.0,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 6,
+              "grade": 125,
+              "bois_sain_cm": 11.1,
+              "bois_altere_cm": 2.9,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 7,
+              "grade": 150,
+              "bois_sain_cm": 11.3,
+              "bois_altere_cm": 2.7,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 8,
+              "grade": 175,
+              "bois_sain_cm": 11.6,
+              "bois_altere_cm": 2.4,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 9,
+              "grade": 200,
+              "bois_sain_cm": 12.0,
+              "bois_altere_cm": 2.0,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 10,
+              "grade": 225,
+              "bois_sain_cm": 12.4,
+              "bois_altere_cm": 1.6,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 11,
+              "grade": 250,
+              "bois_sain_cm": 12.7,
+              "bois_altere_cm": 1.3,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 12,
+              "grade": 275,
+              "bois_sain_cm": 12.9,
+              "bois_altere_cm": 1.1,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 13,
+              "grade": 300,
+              "bois_sain_cm": 13.0,
+              "bois_altere_cm": 1.0,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 14,
+              "grade": 325,
+              "bois_sain_cm": 12.9,
+              "bois_altere_cm": 1.1,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 15,
+              "grade": 350,
+              "bois_sain_cm": 12.7,
+              "bois_altere_cm": 1.3,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 16,
+              "grade": 375,
+              "bois_sain_cm": 12.4,
+              "bois_altere_cm": 1.6,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [],
           "contreforts": []
         },
         {
-          "label": "",
-          "pos_x_cm": 26.0,
+          "label": "b",
+          "pos_x_cm": 35.0,
           "pos_y_cm": 0.0,
           "rotation_grades": 0,
-          "rayon_tronc_cm": 10.0,
+          "rayon_tronc_cm": 11.0,
           "rayon_petit_axe_cm": 0.0,
           "orientation_grade": 0,
-          "diametre_sous_ecorce_cm": 0.0,
-          "epaisseur_ecorce_cm": 0.5,
+          "diametre_sous_ecorce_cm": 22.0,
+          "epaisseur_ecorce_cm": 1.2,
           "sondages": [
             {
               "numero": 1,
               "grade": 0,
-              "bois_sain_cm": 9.0,
-              "bois_altere_cm": 0.0,
+              "bois_sain_cm": 4.5,
+              "bois_altere_cm": 6.5,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 2,
-              "grade": 100,
-              "bois_sain_cm": 9.0,
-              "bois_altere_cm": 0.0,
+              "grade": 25,
+              "bois_sain_cm": 4.4,
+              "bois_altere_cm": 6.6,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 3,
-              "grade": 200,
-              "bois_sain_cm": 10.0,
-              "bois_altere_cm": 0.0,
+              "grade": 50,
+              "bois_sain_cm": 4.1,
+              "bois_altere_cm": 6.9,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
             },
             {
               "numero": 4,
-              "grade": 300,
-              "bois_sain_cm": 9.0,
-              "bois_altere_cm": 0.0,
+              "grade": 75,
+              "bois_sain_cm": 3.6,
+              "bois_altere_cm": 7.4,
               "compartimentation": "non renseignée",
-              "commentaire": ""
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 5,
+              "grade": 100,
+              "bois_sain_cm": 3.0,
+              "bois_altere_cm": 8.0,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 6,
+              "grade": 125,
+              "bois_sain_cm": 2.4,
+              "bois_altere_cm": 8.6,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 7,
+              "grade": 150,
+              "bois_sain_cm": 1.9,
+              "bois_altere_cm": 9.1,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 8,
+              "grade": 175,
+              "bois_sain_cm": 1.6,
+              "bois_altere_cm": 9.4,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 9,
+              "grade": 200,
+              "bois_sain_cm": 1.5,
+              "bois_altere_cm": 9.5,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 10,
+              "grade": 225,
+              "bois_sain_cm": 1.6,
+              "bois_altere_cm": 9.4,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 11,
+              "grade": 250,
+              "bois_sain_cm": 1.9,
+              "bois_altere_cm": 9.1,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 12,
+              "grade": 275,
+              "bois_sain_cm": 2.4,
+              "bois_altere_cm": 8.6,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 13,
+              "grade": 300,
+              "bois_sain_cm": 3.0,
+              "bois_altere_cm": 8.0,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 14,
+              "grade": 325,
+              "bois_sain_cm": 3.6,
+              "bois_altere_cm": 7.4,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 15,
+              "grade": 350,
+              "bois_sain_cm": 4.1,
+              "bois_altere_cm": 6.9,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
+            },
+            {
+              "numero": 16,
+              "grade": 375,
+              "bois_sain_cm": 4.4,
+              "bois_altere_cm": 6.6,
+              "compartimentation": "non renseignée",
+              "commentaire": "",
+              "incertain": false
             }
           ],
           "degradations_externes": [],
