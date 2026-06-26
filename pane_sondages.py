@@ -79,7 +79,12 @@ class SondagesPane(ttk.Frame):
         self._suspend = False
         self._undo_snap: Optional[dict] = None
         self._focus_in_value = ""
-        # Par grade : {"sain", "alt", "comp": StringVar ; "entry", "combo"}.
+        # État undo dédié au champ Commentaire (séparé de celui de la case
+        # « bois sain » pour ne pas brouiller son aller-retour de focus).
+        self._com_undo_snap: Optional[dict] = None
+        self._com_focus_in_value = ""
+        # Par grade : {"sain","alt","comp","com": StringVar ; "entry",
+        # "combo","com_entry","alt_lbl","inc","chk_inc"}.
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._entries_order: list[ttk.Entry] = []
         self._build()
@@ -119,7 +124,7 @@ class SondagesPane(ttk.Frame):
         self._grid = grid
 
         heads = [_("Direction"), _("Grade"), _("Bois sain (cm)"),
-                 _("Altéré (cm)"), _("Compart."), _("~")]
+                 _("Altéré (cm)"), _("Compart."), _("Commentaire"), _("~")]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(
@@ -130,6 +135,7 @@ class SondagesPane(ttk.Frame):
             var_sain = tk.StringVar()
             var_alt = tk.StringVar(value="—")
             var_comp = tk.StringVar(value=compart_label(COMPART_NR))
+            var_com = tk.StringVar()
 
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
@@ -154,18 +160,23 @@ class SondagesPane(ttk.Frame):
                                width=14)
             cmb.grid(row=r, column=4, sticky="w", padx=6, pady=1)
 
+            com = ttk.Entry(grid, textvariable=var_com, width=18,
+                            state="disabled")
+            com.grid(row=r, column=5, sticky="we", padx=6, pady=1)
+
             var_inc = tk.BooleanVar(value=False)
             chk_inc = ttk.Checkbutton(grid, textvariable=var_inc,
                                       variable=var_inc,
                                       style="Panel.TCheckbutton")
-            chk_inc.grid(row=r, column=5, sticky="w", padx=2, pady=1)
+            chk_inc.grid(row=r, column=6, sticky="w", padx=2, pady=1)
             chk_inc.configure(state="disabled")
             var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
 
             self._rows[g] = {"sain": var_sain, "alt": var_alt,
                              "comp": var_comp, "entry": ent, "combo": cmb,
                              "alt_lbl": lbl_alt, "inc": var_inc,
-                             "chk_inc": chk_inc}
+                             "chk_inc": chk_inc, "com": var_com,
+                             "com_entry": com}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -179,11 +190,17 @@ class SondagesPane(ttk.Frame):
             ent.bind("<Up>", lambda e, i=row_idx: self._focus_entry(i - 1))
             cmb.bind("<<ComboboxSelected>>",
                      lambda e, gr=g: self._on_comp_changed(gr))
-            # Détail (commentaire, redirection) via double-clic sur les
+            var_com.trace_add(
+                "write", lambda *a, gr=g: self._on_com_write(gr))
+            com.bind("<FocusIn>", lambda e, gr=g: self._on_com_focus_in(gr))
+            com.bind("<FocusOut>", lambda e, gr=g: self._on_com_focus_out(gr))
+            # Détail (redirection de grade) via double-clic sur les
             # libellés non éditables — l'Entry garde le double-clic natif
             # (sélection de mot).
             for w in (lbl_dir, lbl_gr):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
+
+        grid.columnconfigure(5, weight=1)  # la colonne Commentaire s'étire
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une direction est écrêtée.
@@ -247,6 +264,8 @@ class SondagesPane(ttk.Frame):
                     row["alt"].set("—")
                     row["comp"].set(compart_label(COMPART_NR))
                     row["combo"].configure(state="disabled")
+                    row["com"].set("")
+                    row["com_entry"].configure(state="disabled")
                     row["inc"].set(False)
                     row["chk_inc"].configure(state="disabled")
                 else:
@@ -257,6 +276,8 @@ class SondagesPane(ttk.Frame):
                         if s.compartimentation in _COMPART_FR else COMPART_NR)
                     row["comp"].set(comp)
                     row["combo"].configure(state="readonly")
+                    row["com"].set(s.commentaire)
+                    row["com_entry"].configure(state="normal")
                     row["inc"].set(s.incertain)
                     row["chk_inc"].configure(state="normal")
         finally:
@@ -346,6 +367,8 @@ class SondagesPane(ttk.Frame):
             row["alt"].set("—")
             row["comp"].set(compart_label(COMPART_NR))
             row["combo"].configure(state="disabled")
+            row["com"].set("")
+            row["com_entry"].configure(state="disabled")
             row["inc"].set(False)
             row["chk_inc"].configure(state="disabled")
             self._host.on_sondages_changed()
@@ -371,6 +394,8 @@ class SondagesPane(ttk.Frame):
         row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
         if str(row["combo"].cget("state")) == "disabled":
             row["combo"].configure(state="readonly")
+        if str(row["com_entry"].cget("state")) == "disabled":
+            row["com_entry"].configure(state="normal")
         self._host.on_sondages_changed()
 
     def _on_focus_in(self, g: int) -> None:
@@ -448,6 +473,34 @@ class SondagesPane(ttk.Frame):
         self._host.push_undo()
         s.compartimentation = new
         self._host.on_sondages_changed()
+
+    def _on_com_write(self, g: int) -> None:
+        """Frappe dans le champ Commentaire : reporte sur le sondage. Pas
+        de sondage sur la ligne → no-op (le champ est de toute façon
+        désactivé). L'undo est géré au focus-in/out (texte libre)."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b:
+            return
+        s = self._find_sondage(b, g)
+        if s is None:
+            return
+        s.commentaire = self._rows[g]["com"].get()
+        self._host.on_sondages_changed()
+
+    def _on_com_focus_in(self, g: int) -> None:
+        # Snapshot pré-édition, empilé au focus-out seulement si le texte a
+        # changé (même mécanique que la case « bois sain », mais sur un
+        # snapshot dédié pour ne pas brouiller celui de la saisie numérique).
+        self._com_undo_snap = self._host.capture_undo_snapshot()
+        self._com_focus_in_value = self._rows[g]["com"].get()
+
+    def _on_com_focus_out(self, g: int) -> None:
+        cur = self._rows[g]["com"].get()
+        if self._com_undo_snap is not None and cur != self._com_focus_in_value:
+            self._host.push_undo_snapshot(self._com_undo_snap)
+        self._com_undo_snap = None
 
     # --- Détail (dialogue) --------------------------------------------
 
