@@ -109,17 +109,21 @@ class SectionCanvas(tk.Canvas):
         # un pixel cliqué en grade. `None` tant qu'aucune section
         # valide n'est dessinée (placeholder).
         self._geom: Optional[Tuple[float, float, float, float, float]] = None
+        # Infobulle de commentaire (survol d'un élément interactif) :
+        # fenêtre flottante + tick `after` différé, cf. `_show_comment_tip`.
+        self._tip: Optional[tk.Toplevel] = None
+        self._tip_after: Optional[str] = None
         self.bind("<Configure>", lambda e: self.redraw())
         # Bindings sur tags : valent pour tous les items recréés à
         # chaque redraw qui portent le tag correspondant. Le curseur
-        # passe en « main » au survol pour signaler la zone cliquable.
+        # passe en « main » au survol pour signaler la zone cliquable, et
+        # une infobulle montre le commentaire de l'objet survolé (le seul
+        # endroit où ces notes par mesure sont relues).
         if host is not None:
             for tag in ("sondage_item", "degradation_item",
                          "contrefort_item"):
-                self.tag_bind(tag, "<Enter>",
-                              lambda e: self.configure(cursor="hand2"))
-                self.tag_bind(tag, "<Leave>",
-                              lambda e: self.configure(cursor=""))
+                self.tag_bind(tag, "<Enter>", self._on_item_enter)
+                self.tag_bind(tag, "<Leave>", self._on_item_leave)
             self.tag_bind("sondage_item", "<Button-1>",
                           self._on_click_sondage)
             self.tag_bind("degradation_item", "<Button-1>",
@@ -147,6 +151,62 @@ class SectionCanvas(tk.Canvas):
                     return None
         return None
 
+    # --- Infobulle de commentaire au survol ----------------------------
+
+    _TIP_BG = "#FFFFE0"  # jaune pâle d'infobulle (cf. tooltip.Tooltip)
+
+    def _hovered_comment(self) -> str:
+        """Commentaire (non vide, rogné) de l'objet métier sous le curseur,
+        d'après les tags `<type>_idx_<i>` de l'item « current ». Reprend
+        exactement la résolution d'index des handlers de clic → cohérent
+        avec le clic-pour-éditer (mono-brin)."""
+        if self.arbre is None:
+            return ""
+        for prefix, objs in (
+                ("sondage_idx_", self.arbre.sondages),
+                ("degradation_idx_", self.arbre.degradations_externes),
+                ("contrefort_idx_", self.arbre.contreforts)):
+            idx = self._picked_index(prefix)
+            if idx is not None and idx < len(objs):
+                return (objs[idx].commentaire or "").strip()
+        return ""
+
+    def _on_item_enter(self, _event: "tk.Event[tk.Misc]") -> None:
+        self.configure(cursor="hand2")
+        text = self._hovered_comment()
+        if text:
+            self._hide_comment_tip()
+            self._tip_after = self.after(
+                450, lambda: self._show_comment_tip(text))
+
+    def _on_item_leave(self, _event: "tk.Event[tk.Misc]") -> None:
+        self.configure(cursor="")
+        self._hide_comment_tip()
+
+    def _show_comment_tip(self, text: str) -> None:
+        """Affiche l'infobulle près du pointeur. Fenêtre sans bordure,
+        jaune pâle, texte enveloppé (un commentaire long ne déborde pas)."""
+        if self._tip is not None or not text:
+            return
+        x = self.winfo_pointerx() + 14
+        y = self.winfo_pointery() + 16
+        tip = tk.Toplevel(self)
+        tip.wm_overrideredirect(True)
+        tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(tip, text=text, justify="left", background=self._TIP_BG,
+                 foreground=COLOR_INK, relief="solid", borderwidth=1,
+                 font=("Helvetica", 9), padx=6, pady=3,
+                 wraplength=280).pack()
+        self._tip = tip
+
+    def _hide_comment_tip(self) -> None:
+        if self._tip_after is not None:
+            self.after_cancel(self._tip_after)
+            self._tip_after = None
+        if self._tip is not None:
+            self._tip.destroy()
+            self._tip = None
+
     # NB sur l'usage d'`after_idle` : on diffère l'ouverture du
     # dialogue à la fin du traitement du clic. Sans cela, le `tk.Toplevel`
     # + `grab_set()` créé en plein dispatch d'événement entrait en
@@ -157,6 +217,7 @@ class SectionCanvas(tk.Canvas):
     # à blanc.
 
     def _on_click_sondage(self, _event: "tk.Event[tk.Misc]") -> None:
+        self._hide_comment_tip()
         if self._host is None or self.arbre is None:
             return
         idx = self._picked_index("sondage_idx_")
@@ -167,6 +228,7 @@ class SectionCanvas(tk.Canvas):
         self.after_idle(lambda: host.open_edit_sondage(s))
 
     def _on_click_degradation(self, _event: "tk.Event[tk.Misc]") -> None:
+        self._hide_comment_tip()
         if self._host is None or self.arbre is None:
             return
         idx = self._picked_index("degradation_idx_")
@@ -177,6 +239,7 @@ class SectionCanvas(tk.Canvas):
         self.after_idle(lambda: host.open_edit_degradation(d))
 
     def _on_click_contrefort(self, _event: "tk.Event[tk.Misc]") -> None:
+        self._hide_comment_tip()
         if self._host is None or self.arbre is None:
             return
         idx = self._picked_index("contrefort_idx_")
@@ -357,6 +420,7 @@ class SectionCanvas(tk.Canvas):
         superposition (du fond vers le dessus). Voir CLAUDE.md → « Ordre
         global des couches » pour la convention métier.
         """
+        self._hide_comment_tip()
         self.delete("all")
         self._geom = None
         if not self.arbre:
