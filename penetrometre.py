@@ -53,7 +53,14 @@ from dialogs import (
 )
 from i18n import _, setup_language
 from model import URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
-from palette import COLOR_ACCENT, COLOR_BG, COLOR_MUTED, COLOR_WARN
+from palette import (
+    COLOR_ACCENT,
+    COLOR_BG,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_PANEL,
+    COLOR_WARN,
+)
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
@@ -919,31 +926,107 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         _make_modal(dlg, self)
 
     def action_shortcuts(self) -> None:
-        messagebox.showinfo(
-            _("Raccourcis clavier"),
-            "Fichier\n"
-            "  Ctrl+N   Nouvelle mission\n"
-            "  Ctrl+O   Ouvrir une mission\n"
-            "  Ctrl+S   Enregistrer\n"
-            "  Ctrl+E   Exporter la fiche PDF de l'arbre courant\n"
-            "  Ctrl+P   Imprimer la fiche PDF de l'arbre courant\n"
-            "\n"
-            "Arbres\n"
-            "  Ctrl+T        Ajouter un arbre vierge\n"
-            "  Ctrl+Shift+T  Hériter du précédent (Ø, essence, port…)\n"
-            "  Ctrl+PgDown   Arbre suivant\n"
-            "  Ctrl+PgUp     Arbre précédent\n"
-            "  Double-clic sur un arbre : le renommer\n"
-            "  Clic droit sur un arbre : menu d'actions\n"
-            "\n"
-            "Onglets\n"
-            "  Ctrl+Tab      Onglet suivant\n"
-            "  Ctrl+Maj+Tab  Onglet précédent\n"
-            "\n"
-            "Édition\n"
-            "  Ctrl+Z   Annuler\n"
-            "  Ctrl+Y   Rétablir\n"
-            "  (Ctrl+Maj+Z fonctionne aussi pour Rétablir)")
+        # Aide-mémoire des raccourcis. Mise en forme « pro » : dialogue
+        # thématisé avec touches dessinées en keycaps plutôt qu'un
+        # messagebox monospace. Les libellés restent en français brut
+        # (comme l'ancien corps non traduit) ; seuls le titre et le
+        # bouton passent par _() (clés déjà au catalogue).
+        # Données : liste de (titre de section, [(touches, description)]).
+        # `touches` = liste de jetons rendus en keycaps joints par « + ».
+        colonne_gauche = [
+            ("Fichier", [
+                (["Ctrl", "N"], "Nouvelle mission"),
+                (["Ctrl", "O"], "Ouvrir une mission"),
+                (["Ctrl", "S"], "Enregistrer"),
+                (["Ctrl", "E"], "Exporter la fiche PDF (arbre courant)"),
+                (["Ctrl", "P"], "Imprimer la fiche PDF (arbre courant)"),
+            ]),
+            ("Arbres", [
+                (["Ctrl", "T"], "Ajouter un arbre vierge"),
+                (["Ctrl", "Maj", "T"], "Hériter du précédent (Ø, essence…)"),
+                (["Ctrl", "Pg.Suiv"], "Arbre suivant"),
+                (["Ctrl", "Pg.Préc"], "Arbre précédent"),
+                (["Échap"], "Vider le filtre de recherche"),
+            ]),
+        ]
+        colonne_droite = [
+            ("Onglets", [
+                (["Ctrl", "Tab"], "Onglet suivant"),
+                (["Ctrl", "Maj", "Tab"], "Onglet précédent"),
+            ]),
+            ("Édition", [
+                (["Ctrl", "Z"], "Annuler"),
+                (["Ctrl", "Y"], "Rétablir"),
+                (["Ctrl", "Maj", "Z"], "Rétablir (variante)"),
+            ]),
+            ("Souris", [
+                (["Double-clic"], "Sur un arbre : le renommer"),
+                (["Clic droit"], "Sur un arbre : menu (dupliquer…)"),
+                (["Clic"], "Sur le dessin : ajouter / éditer un sondage"),
+            ]),
+        ]
+
+        dlg = tk.Toplevel(self)
+        dlg.title(_("Raccourcis clavier"))
+        dlg.resizable(False, False)
+        dlg.configure(bg=COLOR_BG)
+        frm = ttk.Frame(dlg, padding=24)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text=_("Raccourcis clavier"),
+                  font=ui_font("Georgia", 16, "bold")).pack(anchor="w")
+        ttk.Label(frm,
+                  text="Aide-mémoire des commandes clavier et souris",
+                  style="Sub.TLabel").pack(anchor="w")
+        ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=(10, 12))
+
+        def _keycap(parent: tk.Misc, texte: str) -> tk.Label:
+            """Une touche dessinée façon « capuchon de clavier »."""
+            return tk.Label(parent, text=texte,
+                            font=ui_font("DejaVu Sans Mono", 9, "bold"),
+                            bg=COLOR_PANEL, fg=COLOR_INK,
+                            relief="solid", borderwidth=1,
+                            padx=6, pady=1)
+
+        def _render_section(parent: tk.Misc, titre: str,
+                            lignes: list) -> None:
+            ttk.Label(parent, text=titre.upper(),
+                      font=ui_font("Helvetica", 9, "bold"),
+                      foreground=COLOR_ACCENT).grid(
+                          sticky="w", pady=(10, 4), columnspan=2)
+            grille = ttk.Frame(parent)
+            grille.grid(sticky="w", columnspan=2)
+            grille.columnconfigure(0, minsize=132)
+            for r, (touches, desc) in enumerate(lignes):
+                cell = ttk.Frame(grille)
+                cell.grid(row=r, column=0, sticky="w", pady=2)
+                for i, tok in enumerate(touches):
+                    if i:
+                        ttk.Label(cell, text="+",
+                                  foreground=COLOR_MUTED).pack(
+                                      side="left", padx=2)
+                    _keycap(cell, tok).pack(side="left")
+                ttk.Label(grille, text=desc).grid(
+                    row=r, column=1, sticky="w", padx=(10, 0))
+
+        cols = ttk.Frame(frm)
+        cols.pack(fill="both", expand=True)
+        gauche = ttk.Frame(cols)
+        gauche.pack(side="left", anchor="n", padx=(0, 28))
+        droite = ttk.Frame(cols)
+        droite.pack(side="left", anchor="n")
+        for titre, lignes in colonne_gauche:
+            _render_section(gauche, titre, lignes)
+        for titre, lignes in colonne_droite:
+            _render_section(droite, titre, lignes)
+
+        ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=(14, 10))
+        ttk.Button(frm, text=_("Fermer"), style="Accent.TButton",
+                   command=dlg.destroy).pack(side="right")
+
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        from dialogs import _make_modal
+        _make_modal(dlg, self)
 
     def action_open_log(self) -> None:
         """Ouvre le fichier de log de l'application avec l'éditeur par
