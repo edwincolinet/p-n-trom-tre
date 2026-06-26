@@ -12,7 +12,39 @@ from datetime import date
 from typing import List, Optional
 
 from geometry import DIRECTION_LABELS, GRADES
+from i18n import _, untranslate_value
 from model import DegradationExterne
+
+# --- Compartimentation (sondages) ----------------------------------------
+# Valeurs modèle canoniques (français, stockées telles quelles dans le
+# fichier). L'ordre n'est pas imposé : chaque combobox passe le sien.
+COMPART_FR = ["non renseignée", "active", "absente"]
+# Valeur « non renseignée » et son libellé d'affichage : un tiret long
+# (cadratin U+2014), neutre quelle que soit la langue — aligné sur le
+# glyphe « — » déjà utilisé par les exports (cf. export._COMPART_NEUTRE).
+COMPART_NR = "non renseignée"
+COMPART_NR_LABEL = "—"
+
+
+def compart_label(value_fr: str) -> str:
+    """Libellé affiché d'une compartimentation : tiret long pour
+    « non renseignée », traduction i18n sinon."""
+    return COMPART_NR_LABEL if value_fr == COMPART_NR else _(value_fr)
+
+
+def compart_choices(order: Optional[List[str]] = None) -> List[str]:
+    """Valeurs affichables d'un combobox de compartimentation, dans
+    l'ordre demandé (défaut : `COMPART_FR`)."""
+    return [compart_label(v) for v in (order or COMPART_FR)]
+
+
+def compart_from_label(display: str) -> str:
+    """Valeur modèle depuis le libellé affiché (inverse de
+    `compart_label`). Tolère l'ancien libellé traduit de « non
+    renseignée » et les valeurs inconnues (renvoyées telles quelles)."""
+    if display in (COMPART_NR_LABEL, _(COMPART_NR)):
+        return COMPART_NR
+    return untranslate_value(display, COMPART_FR)
 
 
 def grade_choices() -> list[str]:

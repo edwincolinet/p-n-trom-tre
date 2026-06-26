@@ -33,6 +33,19 @@ from tkinter import messagebox, ttk
 from typing import Any, List, Optional, Tuple, Union
 
 from dialogs_shared import (
+    COMPART_NR_LABEL,
+    _round_to_25,
+    compart_choices,
+    compart_from_label,
+    compart_label,
+    find_grade_choice,
+    grade_choices,
+    message_chevauchement,
+    parse_grade,
+    zone_degradee_label,
+    zone_degradee_to_bool,
+)
+from dialogs_shared import (
     SUIVI_VALIDITES as SUIVI_VALIDITES,  # noqa: PLC0414 — re-exported
 )
 from dialogs_shared import (
@@ -48,15 +61,6 @@ from dialogs_shared import (
     ZONE_ECORCE_BOIS as ZONE_ECORCE_BOIS,
 )
 from dialogs_shared import (
-    _round_to_25,
-    find_grade_choice,
-    grade_choices,
-    message_chevauchement,
-    parse_grade,
-    zone_degradee_label,
-    zone_degradee_to_bool,
-)
-from dialogs_shared import (
     annees_entre as annees_entre,
 )
 from dialogs_shared import (
@@ -69,7 +73,7 @@ from dialogs_shared import (
     validate_numeric as validate_numeric,
 )
 from geometry import DIRECTION_LABELS, brins_layout, contour_polygon
-from i18n import _, translate_values
+from i18n import _
 from model import (
     Arbre,
     Brin,
@@ -559,7 +563,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     v_grade = tk.StringVar()
     v_sain = tk.StringVar(value=f"{sondage.bois_sain_cm:g}")
     v_alt = tk.StringVar(value=f"{sondage.bois_altere_cm:g}")
-    v_comp = tk.StringVar(value=sondage.compartimentation)
+    v_comp = tk.StringVar(value=compart_label(sondage.compartimentation))
     v_com = tk.StringVar(value=sondage.commentaire)
     v_inc = tk.BooleanVar(value=sondage.incertain)
     result = {"ok": False}
@@ -630,13 +634,13 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     v_sain.trace_add("write", _on_sain_changed)
     v_alt.trace_add("write", _on_alt_changed)
 
-    # Migration silencieuse à l'ouverture du dialogue : ancien "-" → libellé lisible.
+    # Migration silencieuse à l'ouverture du dialogue : ancien "-" → tiret long.
     if v_comp.get() == "-":
-        v_comp.set(_("non renseignée"))
+        v_comp.set(COMPART_NR_LABEL)
     ttk.Label(dlg, text=_("Compartimentation"), background=COLOR_PANEL
               ).grid(row=4, column=0, sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_comp,
-                 values=translate_values(["active", "absente", "non renseignée"]),
+                 values=compart_choices(["active", "absente", "non renseignée"]),
                  state="readonly", width=18
                  ).grid(row=4, column=1, sticky="w", padx=10, pady=6)
 
@@ -678,7 +682,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
                     sain = R - alt
             sondage.bois_sain_cm = sain
             sondage.bois_altere_cm = alt
-            sondage.compartimentation = v_comp.get()
+            sondage.compartimentation = compart_from_label(v_comp.get())
             sondage.commentaire = v_com.get()
             sondage.incertain = v_inc.get()
             result["ok"] = True
