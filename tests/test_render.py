@@ -214,7 +214,8 @@ class ComparaisonExportPagesTests(unittest.TestCase):
             ref_label="2024", cur_label="2026")
         path = os.path.join(tempfile.mkdtemp(), "c.png")
         save_comparison_png(pages, path)
-        self.assertEqual(Image.open(path).height, 2 * _PAGE_H)
+        with Image.open(path) as img:
+            self.assertEqual(img.height, 2 * _PAGE_H)
 
     def test_carte_une_pour_mono_caule(self):
         from comparaison_render import render_comparison_cards
