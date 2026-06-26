@@ -4,7 +4,6 @@ TRANSLATIONS = {
     # ── Menu File ─────────────────────────────────────────────────────
     "Fichier":                              "File",
     "Ouvrir la mission d'exemple…":        "Apri progetto di esempio…",
-    "Importer depuis CSV…":                "Importa da CSV…",
     "Nouvelle mission":                    "Nuovo progetto",
     "Ouvrir mission…":                     "Apri progetto…",
     "Ouvrir récent":                       "Progetti recenti",
@@ -166,17 +165,6 @@ TRANSLATIONS = {
     "Vérification automatique des mises à jour désactivée.":
                                            "Verifica automatica degli aggiornamenti disattivata.",
 
-    # ── Import CSV ────────────────────────────────────────────────────
-    "Importer depuis CSV":                 "Importa da CSV",
-    "Import CSV — Correspondance des colonnes":
-                                           "Importazione CSV — Corrispondenza colonne",
-    "Importer":                            "Importa",
-    "Annuler":                             "Annulla",
-    "N° arbre (requis)":                   "N° albero (obbligatorio)",
-    "Hauteur de sondage (cm)":             "Altezza sondaggio (cm)",
-    "Grade sondage (gr)":                  "Grado sondaggio (gr)",
-    "PRBS sondage (cm)":                   "PRBS sondaggio (cm)",
-
     # ── Progetto di esempio ───────────────────────────────────────────
     "Mission d'exemple ouverte en lecture seule. "
     "Utilisez « Enregistrer sous… » pour créer votre propre mission.":
@@ -299,19 +287,6 @@ TRANSLATIONS = {
     "Choisir un logo":                     "Scegli un logo",
     "Choisir un fichier…":                 "Scegli un file…",
     "− Supprimer la sélection":            "− Rimuovi selezione",
-
-    " Aperçu ":                            " Anteprima ",
-    " Correspondance colonnes → champs ":  " Corrispondenza colonne → campi ",
-    "Colonne CSV":                         "Colonna CSV",
-    "Champ modèle":                        "Campo modello",
-    "Exemples (3 premières lignes)":       "Esempi (prime 3 righe)",
-    "Erreur d'analyse — vérifiez le mapping.": "Errore di analisi — verificare la corrispondenza.",
-    "Erreur de lecture CSV":               "Errore di lettura CSV",
-    "CSV vide":                            "CSV vuoto",
-    "N° arbre requis":                     "N° albero obbligatorio",
-    "Erreur d'import":                    "Errore di importazione",
-    "Aucun arbre importé":                 "Nessun albero importato",
-    "Avertissements":                      "Avvisi",
 
     # ── Sprint 4 — dialoghi di modifica ──────────────────────────────
 
@@ -449,8 +424,6 @@ TRANSLATIONS = {
         "Cliccare un elemento del disegno per modificarlo, "
         "o una direzione libera per aggiungere un sondaggio.",
 
-    "{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.":
-        "{n} albero/i importato/i ({ns} sondaggio/i) — ricordarsi di salvare.",
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Progetto di riferimento caricato — {nom} ({n} albero/i).",
     "· {n} à finir   ({t})":            "· {n} da completare   ({t})",
@@ -592,4 +565,35 @@ TRANSLATIONS = {
     "Nouvelle mission depuis le modèle « {nom} ».": "Nuovo progetto dal modello « {nom} ».",
     "Aucun modèle enregistré.": "Nessun modello salvato.",
     "Créez via Fichier → Enregistrer comme modèle…": "Usa File → Salva come modello…",
+
+    # ── Messages isolés (présents en EN, complétés ici) ──────────────
+    "Le fichier suivant n'existe plus :\n{p}\n\n"
+    "Il a été retiré de la liste des fichiers récents.":
+        "Il seguente file non esiste più:\n{p}\n\n"
+        "È stato rimosso dall'elenco dei file recenti.",
+    "Vous utilisez la version {version}.\n\n"
+    "Aucune mise à jour disponible ou aucune connexion réseau.":
+        "Si sta utilizzando la versione {version}.\n\n"
+        "Nessun aggiornamento disponibile o nessuna connessione di rete.",
+
+    # ── Divers (clés isolées du source) ──────────────────────────────
+    "Pénétromètre":                            "Pénétromètre",
+    "  Expertise arboricole":              "  Perizia arboricola",
+    "Annuler":                             "Annulla",
+    "Préconisation":                       "Raccomandazione",
+    "Supprimer…":                          "Elimina…",
+    "Des modifications non enregistrées seront perdues.":
+                                           "Le modifiche non salvate andranno perse.",
+    "Des modifications non enregistrées seront perdues.\nContinuer quand même ?":
+                                           "Le modifiche non salvate andranno perse.\nContinuare comunque?",
+    "Le modèle mémorise : client, adresse, opérateur, essence, port, mèche, "
+    "H sondage et écorce du 1er arbre.":
+        "Il modello memorizza: cliente, indirizzo, operatore, specie, "
+        "portamento, punta, altezza sondaggio e corteccia del 1° albero.",
+    "Nom de l'opérateur — mémorisé entre les sessions.":
+        "Nome dell'operatore — memorizzato tra le sessioni.",
+    "⚠ Renseignez le rayon du tronc dans l'onglet Identification : "
+    "sans lui, le bois altéré n'est pas calculé.":
+        "⚠ Inserire il raggio del tronco nella scheda Identificazione: "
+        "senza di esso, il legno alterato non viene calcolato.",
 }

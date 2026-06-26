@@ -4,7 +4,6 @@ TRANSLATIONS = {
     # ── Menu Fichier ──────────────────────────────────────────────────
     "Fichier":                              "File",
     "Ouvrir la mission d'exemple…":        "Open example project…",
-    "Importer depuis CSV…":                "Import from CSV…",
     "Nouvelle mission":                    "New project",
     "Ouvrir mission…":                     "Open project…",
     "Ouvrir récent":                       "Recent projects",
@@ -174,17 +173,6 @@ TRANSLATIONS = {
     "Vérification automatique des mises à jour désactivée.":
                                            "Automatic update check disabled.",
 
-    # ── Import CSV ────────────────────────────────────────────────────
-    "Importer depuis CSV":                 "Import from CSV",
-    "Import CSV — Correspondance des colonnes":
-                                           "CSV Import — Column mapping",
-    "Importer":                            "Import",
-    "Annuler":                             "Cancel",
-    "N° arbre (requis)":                   "Tree ID (required)",
-    "Hauteur de sondage (cm)":             "Sounding height (cm)",
-    "Grade sondage (gr)":                  "Sounding grade (gr)",
-    "PRBS sondage (cm)":                   "PRBS sounding (cm)",
-
     # ── Mission d'exemple ─────────────────────────────────────────────
     "Mission d'exemple ouverte en lecture seule. "
     "Utilisez « Enregistrer sous… » pour créer votre propre mission.":
@@ -314,20 +302,6 @@ TRANSLATIONS = {
     "Choisir un logo":                     "Choose a logo",
     "Choisir un fichier…":                 "Choose a file…",
     "− Supprimer la sélection":            "− Remove selection",
-
-    # Import CSV
-    " Aperçu ":                            " Preview ",
-    " Correspondance colonnes → champs ":  " Column → field mapping ",
-    "Colonne CSV":                         "CSV column",
-    "Champ modèle":                        "Model field",
-    "Exemples (3 premières lignes)":       "Examples (first 3 rows)",
-    "Erreur d'analyse — vérifiez le mapping.": "Analysis error — check mapping.",
-    "Erreur de lecture CSV":               "CSV read error",
-    "CSV vide":                            "Empty CSV",
-    "N° arbre requis":                     "Tree ID required",
-    "Erreur d'import":                    "Import error",
-    "Aucun arbre importé":                 "No trees imported",
-    "Avertissements":                      "Warnings",
 
     # ── Sprint 4 — dialogues d'édition ───────────────────────────────
 
@@ -478,8 +452,6 @@ TRANSLATIONS = {
         "or a free direction to add a sounding.",
 
     # Status messages
-    "{n} arbre(s) importé(s) ({ns} sondage(s)) — pensez à enregistrer.":
-        "{n} tree(s) imported ({ns} sounding(s)) — remember to save.",
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Reference project loaded — {nom} ({n} tree(s)).",
     "· {n} à finir   ({t})":            "· {n} to finish   ({t})",
@@ -624,4 +596,25 @@ TRANSLATIONS = {
     "Nouvelle mission depuis le modèle « {nom} ».": "New project from template « {nom} ».",
     "Aucun modèle enregistré.": "No templates saved.",
     "Créez via Fichier → Enregistrer comme modèle…": "Use File → Save as template…",
+
+    # ── Divers (clés isolées du source) ──────────────────────────────
+    "Pénétromètre":                            "Pénétromètre",
+    "  Expertise arboricole":              "  Tree assessment",
+    "Annuler":                             "Cancel",
+    "Préconisation":                       "Recommendation",
+    "Supprimer…":                          "Delete…",
+    "Des modifications non enregistrées seront perdues.":
+                                           "Unsaved changes will be lost.",
+    "Des modifications non enregistrées seront perdues.\nContinuer quand même ?":
+                                           "Unsaved changes will be lost.\nContinue anyway?",
+    "Le modèle mémorise : client, adresse, opérateur, essence, port, mèche, "
+    "H sondage et écorce du 1er arbre.":
+        "The template remembers: client, address, operator, species, habit, "
+        "bit, sounding height and bark of the 1st tree.",
+    "Nom de l'opérateur — mémorisé entre les sessions.":
+        "Operator name — remembered between sessions.",
+    "⚠ Renseignez le rayon du tronc dans l'onglet Identification : "
+    "sans lui, le bois altéré n'est pas calculé.":
+        "⚠ Enter the trunk radius in the Identification tab: "
+        "without it, altered wood cannot be calculated.",
 }
