@@ -60,3 +60,6 @@ mimeinfo.cache
 
 # Dossier de travail (captures/échanges, non versionné)
 Communication/
+
+# Clé privée de licence — NE JAMAIS COMMITTER
+private.key

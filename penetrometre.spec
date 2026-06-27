@@ -37,6 +37,10 @@ a = Analysis(
         "PIL._imaging",
         "openpyxl",
         "openpyxl.styles.stylesheet",
+        # Vérification de licence offline (Ed25519)
+        "cryptography",
+        "cryptography.hazmat.primitives.asymmetric.ed25519",
+        "cryptography.hazmat.backends",
     ],
     hookspath=[],
     runtime_hooks=[],

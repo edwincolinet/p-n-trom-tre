@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import tkinter as tk
 from contextlib import contextmanager
 from functools import partial
@@ -51,7 +52,9 @@ from dialogs import (
     edit_sondage,
     normaliser_date,
 )
+from dialogs_license import show_activation_dialog
 from i18n import _, setup_language
+from license import LicenseData, load_license, is_bundled
 from model import URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
 from palette import (
     COLOR_ACCENT,
@@ -131,6 +134,20 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # à la création — un changement de langue nécessite un redémarrage).
         setup_language(self._settings.language())
         self._apply_bareme()
+        self._apply_styles()
+
+        # Vérification de licence — seulement dans le bundle de distribution.
+        # En développement (python penetrometre.py), le check est sauté.
+        if is_bundled():
+            self.withdraw()
+            _lic: Optional[LicenseData] = load_license()
+            if _lic is None:
+                _lic = show_activation_dialog(self)
+            if _lic is None:
+                self.destroy()
+                sys.exit(0)
+            self.deiconify()
+            log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
 
         self.chantier = Chantier()
         self.chantier.arbres.append(Arbre(numero_arbre="1"))
@@ -163,7 +180,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._logo_image: Optional[Any] = None
         self._logo_frame: tk.Frame = tk.Frame(self)  # réassigné dans _build_layout
 
-        self._apply_styles()
         build_menu(self)  # type: ignore[arg-type]
         self._build_layout()
         self._refresh_tree_arbres()
