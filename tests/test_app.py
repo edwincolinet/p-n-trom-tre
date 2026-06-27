@@ -351,6 +351,9 @@ class TestAppMixins(unittest.TestCase):
     def setUp(self) -> None:
         import penetrometre
         self.app = penetrometre.App()
+        # L'app démarre sans arbre (écran de bienvenue) : on crée une
+        # mission initiale pour que les tests aient un arbre à manipuler.
+        self.app.action_new()
         self.app.update_idletasks()
 
     def tearDown(self) -> None:
@@ -361,7 +364,7 @@ class TestAppMixins(unittest.TestCase):
 
     # --- ArbreListMixin ---
 
-    def test_app_demarre_avec_un_arbre(self) -> None:
+    def test_action_new_cree_un_arbre(self) -> None:
         self.assertEqual(len(self.app.chantier.arbres), 1)
 
     def test_next_numero_incremente_le_max(self) -> None:
@@ -863,6 +866,7 @@ class TestSaisieGardeFous(unittest.TestCase):
     def setUp(self) -> None:
         import penetrometre
         self.app = penetrometre.App()
+        self.app.action_new()
         self.app.update_idletasks()
 
     def tearDown(self) -> None:

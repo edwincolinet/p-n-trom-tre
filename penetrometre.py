@@ -152,7 +152,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
 
         self.chantier = Chantier()
-        self.chantier.arbres.append(Arbre(numero_arbre="1"))
         self.current_idx = 0
         # Brin (ramet) actuellement piloté par les onglets de saisie
         # (Identification géométrie / Sondages / Dégradations / Contreforts).
