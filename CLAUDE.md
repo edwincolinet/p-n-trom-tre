@@ -8,6 +8,7 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
 - **Python 3.9+** (3.12 recommandé), **Tkinter** (UI stdlib), **Pillow** (PNG/PDF)
 - Aucun framework, aucun build system — lancement par double-clic.
 - Dépendance optionnelle : openpyxl (export XLSX).
+- Dépendance runtime : cryptography (vérification de licence Ed25519 offline).
 
 ## Structure
 
@@ -46,6 +47,9 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
+license.py             ← vérification/chargement/sauvegarde de licence offline (Ed25519, pur)
+dialogs_license.py     ← fenêtre d'activation bloquante (premier lancement sans licence valide)
+gen_license.py         ← outil interne d'émission de clés (NON distribué aux clients)
 tests/                 ← suite de tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
@@ -333,6 +337,20 @@ Golden-tests :
 - PIL : `python -m tests.test_render --update`
 - Tk : `xvfb-run -a python -m tests.test_section_canvas --update`
 
+Gestion des licences (usage interne — `private.key` requis, jamais commité) :
+
+```bash
+python gen_license.py issue "Nom du cabinet" "email@client.fr"   # licence 1 an (défaut)
+python gen_license.py issue "Nom" "email" --expires 2028-01-01   # date personnalisée
+python gen_license.py issue "Nom" "email" --no-expires           # illimitée
+python gen_license.py verify "<clé>"                             # vérifier une clé
+```
+
+Le check de licence ne s'active que dans le **bundle PyInstaller** (`is_bundled()`).
+En développement (`python penetrometre.py`), il est sauté automatiquement.
+La clé publique est dans `license.py` (`_PUBLIC_KEY_B64`) ; la clé privée (`private.key`)
+doit rester hors du repo git (déjà dans `.gitignore`).
+
 ## Quand tu modifies l'app
 
 1. **Repérer le bon module** :
@@ -351,6 +369,8 @@ Golden-tests :
    - Préférences/réglages + mises à jour (langue, barème, taille, contraste, logo) → `app_reglages.py`
    - Fichiers récents → `app_recent.py`
    - Orchestration App (câblage évènements, synchro, undo) → `penetrometre.py`
+   - Vérification/chargement de licence → `license.py` ; dialogue d'activation → `dialogs_license.py`
+   - Émission de clés clients (usage interne) → `gen_license.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.
