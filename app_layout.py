@@ -416,6 +416,9 @@ class LayoutMixin(_MixinBase):
             "<FocusOut>",
             lambda e: self._tree_arbres_ctx_menu.unpost())
         self.tree_arbres.bind("<Button-3>", self._on_tree_arbres_right_click)
+        Tooltip(self.tree_arbres,
+                "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+                "Double-clic → renommer · Clic droit → menu contextuel")
 
         # Éléments du bas packés en side="bottom" AVANT lst_frame (sinon
         # lst_frame avec expand=True les pousserait hors de l'écran quand le
@@ -522,14 +525,18 @@ class LayoutMixin(_MixinBase):
         ).pack(pady=(0, 18))
         _btns = ttk.Frame(_inner, style="Panel.TFrame")
         _btns.pack()
-        ttk.Button(
+        _btn_new = ttk.Button(
             _btns, text=_("Nouvelle mission"), style="Accent.TButton",
             command=cast("App", self).action_new,
-        ).pack(side="left", padx=8)
-        ttk.Button(
+        )
+        _btn_new.pack(side="left", padx=8)
+        Tooltip(_btn_new, "Ctrl+N")
+        _btn_open = ttk.Button(
             _btns, text=_("Ouvrir mission…"),
             command=cast("App", self).action_open,
-        ).pack(side="left", padx=8)
+        )
+        _btn_open.pack(side="left", padx=8)
+        Tooltip(_btn_open, "Ctrl+O")
         self._welcome_frame.pack(fill="both", expand=True)
 
         # Les panes attendent un `host` satisfaisant leur Protocol (toute
