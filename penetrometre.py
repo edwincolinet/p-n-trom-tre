@@ -138,6 +138,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
         # Vérification de licence — seulement dans le bundle de distribution.
         # En développement (python penetrometre.py), le check est sauté.
+        self._license: Optional[LicenseData] = None
         if is_bundled():
             self.withdraw()
             _lic: Optional[LicenseData] = load_license()
@@ -147,6 +148,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                 self.destroy()
                 sys.exit(0)
             self.deiconify()
+            self._license = _lic
             log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
 
         self.chantier = Chantier()
@@ -884,11 +886,22 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                   style="Sub.TLabel").pack(anchor="w")
         ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
 
+        if self._license:
+            lic_titulaire = self._license.name
+            if self._license.expires:
+                lic_expiration = self._license.expires.strftime("%d/%m/%Y")
+            else:
+                lic_expiration = "Illimitée"
+        else:
+            lic_titulaire = "Mode développement"
+            lic_expiration = "—"
+
         infos = [
-            ("Version",   __version__),
-            ("Auteur",    "Edwin Colinet"),
-            ("Contact",   "e.colinet@silvavenir.fr"),
-            ("Licence",   "Usage commercial soumis à licence"),
+            ("Version",     __version__),
+            ("Auteur",      "Edwin Colinet"),
+            ("Contact",     "e.colinet@silvavenir.fr"),
+            ("Titulaire",   lic_titulaire),
+            ("Expiration",  lic_expiration),
         ]
         for lbl, val in infos:
             row = ttk.Frame(frm)
