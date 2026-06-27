@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from bareme import classer_prbs
 from diagnostic import (
@@ -151,9 +151,11 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                    show_sondages: bool = True,
                                    logo_path: "str | None" = None,
                                    cabinet_name: str = "",
-                                   mission_file: "Path | None" = None) -> "PILImage":
+                                   mission_file: "Path | None" = None) -> "List[PILImage]":
     """Construit une page A4 portrait 150 DPI (1240 × 1754 px environ)
     avec : en-tête chantier, dessin, tableau PRBS, diagnostic.
+    Retourne une liste d'images (1 page sans photos, 2 pages si des photos
+    sont associées — la 2ᵉ page est une grille de photos pleine page).
 
     Les tailles de police, largeurs de colonnes et marges sont calibrées
     pour rester lisibles à l'impression (≈ 12 pt minimum au tirage A4).
@@ -531,7 +533,17 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     y = max(y_diag, y_preco) + 10
 
-    # --- Photos ---
+    # --- Pied de page ---
+    d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
+    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
+    d.text((W/2, H-24),
+           f"Pénétromètre{cab_suffix}   •   "
+           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
+
+    pages: List[PILImage] = [page]
+
+    # --- Page photos (si photos associées) ---
     def _resolve_photo(stored: str) -> Optional[Path]:
         p = Path(stored)
         if p.is_absolute():
@@ -543,45 +555,11 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
     photos_valides = [r for p in (arbre.photos or [])
                       if (r := _resolve_photo(p)) is not None]
-    if photos_valides and y + 60 < H - 80:
-        try:
-            from PIL import Image as _PILImage
-            d.text((margin, y), _("Photos"), font=f(18, "sans_bold"),
-                   fill=COLOR_INK)
-            y += 30
-            thumb_h = 180
-            thumb_gap = 12
-            per_row = max(1, (W - 2*margin + thumb_gap) // (thumb_h + thumb_gap))
-            for idx, photo_path in enumerate(photos_valides):
-                pcol = idx % per_row
-                prow = idx // per_row
-                xp = margin + pcol * (thumb_h + thumb_gap)
-                yp = y + prow * (thumb_h + thumb_gap + 20)
-                if yp + thumb_h > H - 80:
-                    break
-                try:
-                    img = _PILImage.open(photo_path).convert("RGB")
-                    iw, ih = img.size
-                    scale = min(thumb_h / ih, thumb_h / iw)
-                    img = img.resize((int(iw*scale), int(ih*scale)),
-                                     _PILImage.Resampling.LANCZOS)
-                    page.paste(img, (int(xp), int(yp)))
-                    fname_lbl = photo_path.name[:28]
-                    d.text((xp, yp + img.height + 2), fname_lbl,
-                           font=f(11, "sans"), fill=COLOR_MUTED)
-                except Exception:
-                    pass
-        except ImportError:
-            pass
+    if photos_valides:
+        pages.append(_render_photos_page(
+            photos_valides, arbre, chantier, f, margin, W, H))
 
-    # --- Pied de page ---
-    d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
-    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
-    d.text((W/2, H-24),
-           f"Pénétromètre{cab_suffix}   •   "
-           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
-    return page
+    return pages
 
 
 def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
@@ -745,3 +723,94 @@ def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                    font=f(17, "sans"), fill=COLOR_MUTED)
         y += 28
     return y
+
+
+def _render_photos_page(
+    photos: "List[Path]",
+    arbre: "Arbre",
+    chantier: "Chantier",
+    f: Any,
+    margin: int,
+    W: int,
+    H: int,
+) -> "PILImage":
+    """Page de grille de photos (jusqu'à 6 photos en 2 × 3).
+
+    Renvoie une image A4 (W × H) avec :
+    - En-tête vert « Photos — Arbre N°X »
+    - Grille 2 colonnes de photos avec légende (nom de fichier)
+    - Pied de page identique à la fiche principale
+    """
+    from PIL import Image, ImageDraw
+
+    page = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(page)
+
+    y = margin
+
+    # --- En-tête ---
+    header_h = 80
+    d.rectangle([margin, y, W - margin, y + header_h], fill=COLOR_ACCENT)
+    titre = _("Photos") + f"   —   {arbre.display_name}"
+    d.text((margin + 20, y + header_h // 2), titre,
+           font=f(28, "serif_bold"), fill="white", anchor="lm")
+    sous_titre = _("Mission") + f" : {chantier.nom}"
+    d.text((W - margin - 20, y + header_h // 2), sous_titre,
+           font=f(17, "sans"), fill="white", anchor="rm")
+    y += header_h + 24
+
+    # --- Grille de photos (2 colonnes, 3 lignes max) ---
+    n_cols = 2
+    gap = 20
+    col_w = (W - 2 * margin - (n_cols - 1) * gap) // n_cols
+    caption_h = 28
+    footer_reserve = 46 + 32   # filet + texte pied de page
+
+    n_photos = min(len(photos), 6)   # cap à 6 par page
+    n_rows = max(1, (n_photos + n_cols - 1) // n_cols)
+    available_h = H - y - footer_reserve
+    row_total_h = (available_h - (n_rows - 1) * gap) // n_rows
+    photo_h = row_total_h - caption_h - 8
+
+    for idx in range(n_photos):
+        photo_path = photos[idx]
+        col = idx % n_cols
+        row = idx // n_cols
+        x0 = margin + col * (col_w + gap)
+        y0 = y + row * (row_total_h + gap)
+
+        # Fond gris clair pour la zone photo
+        d.rectangle([x0, y0, x0 + col_w, y0 + photo_h], fill="#F0F0F0")
+
+        try:
+            img = Image.open(photo_path).convert("RGB")
+            img_ratio = img.width / img.height
+            cell_ratio = col_w / photo_h
+            if img_ratio > cell_ratio:
+                new_w = col_w
+                new_h = int(col_w / img_ratio)
+            else:
+                new_h = photo_h
+                new_w = int(photo_h * img_ratio)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            px = x0 + (col_w - new_w) // 2
+            py = y0 + (photo_h - new_h) // 2
+            page.paste(img, (px, py))
+        except Exception:
+            d.text((x0 + col_w // 2, y0 + photo_h // 2),
+                   "⚠ Photo illisible",
+                   font=f(16, "sans"), fill=COLOR_MUTED, anchor="mm")
+
+        # Légende = nom du fichier, tronqué si nécessaire
+        caption = _fit_text(photo_path.name, f(15, "sans"), col_w, d)
+        d.text((x0 + col_w // 2, y0 + photo_h + 6), caption,
+               font=f(15, "sans"), fill=COLOR_MUTED, anchor="mt")
+
+    # --- Pied de page ---
+    d.line([margin, H - 46, W - margin, H - 46], fill=COLOR_MUTED, width=1)
+    d.text((W / 2, H - 24),
+           f"Pénétromètre   •   "
+           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
+
+    return page

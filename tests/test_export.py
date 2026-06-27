@@ -311,8 +311,8 @@ class FichePdfSondagesTests(unittest.TestCase):
             a.sondages.append(Sondage(numero=n, grade=g,
                                       bois_sain_cm=8.0, bois_altere_cm=12.0))
         c = Chantier(nom="t", arbres=[a])
-        on = render_fiche_arbre_to_pdf_page(a, c, show_sondages=True)
-        off = render_fiche_arbre_to_pdf_page(a, c, show_sondages=False)
+        on = render_fiche_arbre_to_pdf_page(a, c, show_sondages=True)[0]
+        off = render_fiche_arbre_to_pdf_page(a, c, show_sondages=False)[0]
         # Le dessin diffère (pastilles présentes vs absentes)…
         # `tobytes()` plutôt que `getdata()` (déprécié Pillow 12, retiré 14)
         # et stable sur toute la plage supportée (Pillow 10→12).
@@ -338,7 +338,7 @@ class FichePdfCepeeLayoutTests(unittest.TestCase):
 
         a = build_arbre("cepee")
         c = Chantier(nom="t", arbres=[a])
-        page = render_fiche_arbre_to_pdf_page(a, c)
+        page = render_fiche_arbre_to_pdf_page(a, c)[0]
         W = page.size[0]
         px = page.load()
         # Bande de la zone dessin (sous l'identité, au-dessus du tableau) :

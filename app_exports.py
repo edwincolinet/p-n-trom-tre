@@ -146,13 +146,13 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         return
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        page = render_fiche_arbre_to_pdf_page(arbre, chantier,
-                                              show_sondages=show_sondages,
-                                              logo_path=logo_path,
-                                              cabinet_name=cabinet_name,
-                                              mission_file=mission_file)
-        # Pillow : sauvegarder une image en PDF donne un PDF 1 page
-        page.save(p, "PDF", resolution=150.0)
+        pages = render_fiche_arbre_to_pdf_page(arbre, chantier,
+                                               show_sondages=show_sondages,
+                                               logo_path=logo_path,
+                                               cabinet_name=cabinet_name,
+                                               mission_file=mission_file)
+        pages[0].save(p, "PDF", resolution=150.0,
+                      save_all=True, append_images=pages[1:])
         _notify_export(parent, p, _("Fiche PDF enregistrée"))
     except Exception as e:
         log.exception("Échec export PDF")
@@ -177,18 +177,19 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     import tempfile
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        page = render_fiche_arbre_to_pdf_page(arbre, chantier,
-                                              show_sondages=show_sondages,
-                                              logo_path=logo_path,
-                                              cabinet_name=cabinet_name,
-                                              mission_file=mission_file)
+        pages = render_fiche_arbre_to_pdf_page(arbre, chantier,
+                                               show_sondages=show_sondages,
+                                               logo_path=logo_path,
+                                               cabinet_name=cabinet_name,
+                                               mission_file=mission_file)
         num = arbre.numero_arbre or "arbre"
         with tempfile.NamedTemporaryFile(
                 suffix=".pdf",
                 prefix=f"penetrometre_{num}_",
                 delete=False) as tmp:
             tmp_path = tmp.name
-        page.save(tmp_path, "PDF", resolution=150.0)
+        pages[0].save(tmp_path, "PDF", resolution=150.0,
+                      save_all=True, append_images=pages[1:])
 
         if sys.platform.startswith("win"):
             import os as _os
@@ -233,17 +234,19 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         return
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        pages = [render_fiche_arbre_to_pdf_page(a, chantier,
-                                                show_sondages=show_sondages,
-                                                logo_path=logo_path,
-                                                cabinet_name=cabinet_name,
-                                                mission_file=mission_file)
-                 for a in arbres]
-        pages[0].save(p, "PDF", resolution=150.0, save_all=True,
-                      append_images=pages[1:])
+        all_pages = []
+        for a in arbres:
+            all_pages.extend(render_fiche_arbre_to_pdf_page(
+                a, chantier,
+                show_sondages=show_sondages,
+                logo_path=logo_path,
+                cabinet_name=cabinet_name,
+                mission_file=mission_file))
+        all_pages[0].save(p, "PDF", resolution=150.0, save_all=True,
+                          append_images=all_pages[1:])
         _notify_export(
             parent, p,
-            f"PDF mission enregistré ({len(pages)} fiche(s))")
+            f"PDF mission enregistré ({len(arbres)} fiche(s))")
     except Exception as e:
         log.exception("Échec export PDF mission")
         messagebox.showerror("Erreur d'export PDF", str(e))
