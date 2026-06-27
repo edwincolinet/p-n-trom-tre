@@ -432,6 +432,12 @@ TRANSLATIONS = {
         "(including comment and compartmentalization). "
         "Double-click for details.",
 
+    "Double-cliquez pour le détail (commentaire, grade)":
+        "Double-click for details (comment, grade)",
+
+    "Double-cliquez pour saisir la largeur en cm":
+        "Double-click to enter the width in cm",
+
     "« ＋ Ajouter » crée l'arc sur la première plage libre. "
     "Ajustez début/fin dans la ligne. Pas de chevauchement. "
     "Double-cliquez le n° pour le détail (largeur cm).":

@@ -56,6 +56,7 @@ from geometry import GRADES, WIND_LABELS
 from i18n import _
 from model import Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_WARN
+from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
 _COMPART_VALUES = compart_choices(_COMPART_FR)
@@ -139,10 +140,11 @@ class SondagesPane(ttk.Frame):
 
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
+                                cursor="hand2",
                                 font=ui_font("Helvetica", 10, "bold"))
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
-                               width=7)
+                               width=7, cursor="hand2")
             lbl_gr.grid(row=r, column=1, sticky="w", padx=6, pady=1)
 
             ent = ttk.Entry(grid, textvariable=var_sain, width=10,
@@ -197,8 +199,10 @@ class SondagesPane(ttk.Frame):
             # Détail (redirection de grade) via double-clic sur les
             # libellés non éditables — l'Entry garde le double-clic natif
             # (sélection de mot).
+            _tip = _("Double-cliquez pour le détail (commentaire, grade)")
             for w in (lbl_dir, lbl_gr):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
+                Tooltip(w, _tip)
 
         grid.columnconfigure(5, weight=1)  # la colonne Commentaire s'étire
 

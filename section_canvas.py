@@ -424,7 +424,7 @@ class SectionCanvas(tk.Canvas):
         self.delete("all")
         self._geom = None
         if not self.arbre:
-            self._draw_placeholder()
+            self._draw_welcome()
             return
 
         A = self.arbre
@@ -661,6 +661,22 @@ class SectionCanvas(tk.Canvas):
     #   _draw_echelle_radiale          ↔ _pil_draw_echelle_radiale
     #   _draw_titre                    ↔ _pil_draw_titre
     # ------------------------------------------------------------------
+
+    def _draw_welcome(self) -> None:
+        """Affiché quand aucun arbre n'est sélectionné (liste vide ou aucune
+        sélection). Guide l'opérateur vers la prochaine action."""
+        w = max(self.winfo_width(), 1)
+        h = max(self.winfo_height(), 1)
+        self.create_text(
+            w / 2, h / 2 - 22,
+            text="Sélectionnez un arbre dans la liste\nou créez-en un avec ＋ Ajouter",
+            font=("Georgia", 13, "italic"),
+            fill=COLOR_MUTED, justify="center")
+        self.create_text(
+            w / 2, h / 2 + 18,
+            text="Ctrl+T  ·  nouvelle arbre vierge     Ctrl+O  ·  ouvrir une mission",
+            font=("Helvetica", 9),
+            fill=COLOR_MUTED, justify="center")
 
     def _draw_placeholder(self) -> None:
         w = max(self.winfo_width(), 1)

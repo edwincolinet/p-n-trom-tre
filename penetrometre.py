@@ -573,6 +573,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                 value=i, variable=self.var_current_brin, style="Brin.Toolbutton",
                 command=partial(self.set_current_brin, i))
             self._brin_btns.append(rb)
+        # Accent visuel quand le brin sélectionné n'est pas le premier :
+        # le libellé « Brin : » passe en vert pour signaler qu'on n'est
+        # pas sur le brin par défaut, évitant de saisir sur le mauvais brin.
+        lbl = getattr(self, "_brin_bar_lbl", None)
+        if lbl is not None:
+            non_default = self._current_brin_idx > 0
+            lbl.configure(foreground=COLOR_ACCENT if non_default else "")
         bar.pack(fill="x", pady=(0, 8), before=self.nb)
         self._reflow_brin_btns()
 

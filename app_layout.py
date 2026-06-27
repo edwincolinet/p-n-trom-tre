@@ -479,8 +479,9 @@ class LayoutMixin(_MixinBase):
         # Barre d'accent verticale gauche (identique à la fiche PDF préconisation)
         tk.Frame(self.brin_bar, bg=COLOR_ACCENT, width=3).pack(
             side="left", fill="y", padx=(0, 10))
-        ttk.Label(self.brin_bar, text=_("Brin :"), style="BrinBar.TLabel").pack(
-            side="left", padx=(0, 8), pady=7)
+        self._brin_bar_lbl = ttk.Label(
+            self.brin_bar, text=_("Brin :"), style="BrinBar.TLabel")
+        self._brin_bar_lbl.pack(side="left", padx=(0, 8), pady=7)
         self._brin_btns_holder = ttk.Frame(self.brin_bar, style="BrinBar.TFrame")
         self._brin_btns_holder.pack(side="left", fill="x", expand=True, pady=5)
         # Flow layout : re-répartir les boutons de brin quand la largeur

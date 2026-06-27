@@ -219,9 +219,11 @@ class DegradationsPane(ttk.Frame):
         self._set_largeur_label(row, deg)
 
         lbl_num = ttk.Label(f, text=str(deg.numero), style="Panel.TLabel",
-                            width=3, font=ui_font("Helvetica", 10, "bold"))
+                            width=3, cursor="hand2",
+                            font=ui_font("Helvetica", 10, "bold"))
         lbl_num.grid(row=r, column=0, sticky="w", padx=6, pady=1)
         lbl_num.bind("<Double-1>", lambda e: self._open_detail(deg))
+        Tooltip(lbl_num, _("Double-cliquez pour saisir la largeur en cm"))
 
         cmb_deb = ttk.Combobox(f, textvariable=var_deb,
                                values=self._grade_choices,

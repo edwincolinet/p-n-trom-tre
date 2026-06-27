@@ -174,10 +174,9 @@ class DiagnosticPane(ttk.Frame):
         self._txt_diag.tag_configure("warn",   foreground=COLOR_WARN)
         self._txt_diag.pack(anchor="w", fill="x", pady=(0, 10))
 
-        # --- Bloc Préconisation (la décision = le livrable) ---
-        self._build_preconisation(parent)
-
         # --- Tableau PRBS par sondage ---
+        # Placé AVANT la préconisation : on consulte le tableau pour décider
+        # quoi écrire dans la préconisation — l'ordre suit le flux métier.
         ttk.Label(parent, text=_("Paroi Résiduelle de Bois Sain par sondage"),
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         ttk.Label(parent,
@@ -208,11 +207,17 @@ class DiagnosticPane(ttk.Frame):
             "rouge",  background="#EF9A9A", foreground="#6B1010")
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
-        # `refresh()` quand une ligne du tableau est écrêtée (⚠) — même
-        # message que les onglets Sondages / Dégradations.
+        # `refresh()` quand une ligne du tableau est écrêtée (⚠). Positionné
+        # avant `_preco_container` (via `before=`) pour rester collé au tableau.
         self._lbl_fusion = ttk.Label(
             parent, text=FUSION_WARN_TEXT, style="Panel.TLabel",
             foreground=COLOR_WARN, wraplength=400, justify="left")
+
+        # --- Bloc Préconisation (la décision = le livrable) ---
+        # Après le tableau : on lit les données, puis on décide quoi faire.
+        self._preco_container = ttk.Frame(parent, style="Panel.TFrame")
+        self._preco_container.pack(fill="x")
+        self._build_preconisation(self._preco_container)
 
     # --- Préconisation ------------------------------------------------
 
@@ -517,9 +522,10 @@ class DiagnosticPane(ttk.Frame):
                                 classe),
                         tags=(tag,))
 
-        # Bandeau fusion sous le tableau (dernier élément du contenu).
+        # Bandeau fusion entre tableau et préconisation.
         if any_ecrete:
-            self._lbl_fusion.pack(anchor="w", fill="x", pady=(0, 10))
+            self._lbl_fusion.pack(anchor="w", fill="x", pady=(0, 10),
+                                  before=self._preco_container)
         else:
             self._lbl_fusion.pack_forget()
 

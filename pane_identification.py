@@ -255,6 +255,18 @@ class IdentificationPane(ttk.Frame):
         num_w.bind("<FocusIn>", lambda e: self._numeric_snapshots.__setitem__(num_key, self.var_num.get()))
         num_w.bind("<FocusOut>", lambda e: self._revert_num_if_invalid())
 
+        # Galerie photos — placée avant l'aide technique pour rester
+        # accessible sans scroller sur un écran de taille normale.
+        a0 = self._host._current_arbre()
+        self._photo_gallery = PhotoGallery(
+            content,
+            photos=a0.photos if a0 else [],
+            on_change=self._on_photos_changed,
+            get_mission_file=lambda: self._host.current_file,
+            on_before_change=self._host.push_undo)
+        self._photo_gallery.grid(row=len(groupes), column=0,
+                                 sticky="we", pady=(10, 0))
+
         AideRepliable(
             content,
             _("Saisir le diamètre calcule le rayon (÷ 2). "
@@ -263,18 +275,7 @@ class IdentificationPane(ttk.Frame):
             _("Tronc ovale : bouton « Forme du tronc (ovale)… »"
               " pour saisir le petit axe et l'orientation. Par défaut "
               "la section est circulaire."),
-        ).grid(row=len(groupes), column=0, sticky="we", pady=(6, 0))
-
-        # Galerie photos — récupère les photos de l'arbre courant
-        a0 = self._host._current_arbre()
-        self._photo_gallery = PhotoGallery(
-            content,
-            photos=a0.photos if a0 else [],
-            on_change=self._on_photos_changed,
-            get_mission_file=lambda: self._host.current_file,
-            on_before_change=self._host.push_undo)
-        self._photo_gallery.grid(row=len(groupes) + 1, column=0,
-                                 sticky="we", pady=(10, 0))
+        ).grid(row=len(groupes) + 1, column=0, sticky="we", pady=(6, 0))
         content.columnconfigure(0, weight=1)
 
     @contextmanager
