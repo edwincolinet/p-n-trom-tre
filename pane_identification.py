@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from contextlib import contextmanager
+from pathlib import Path
 from tkinter import ttk
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
@@ -44,6 +45,7 @@ _log = logging.getLogger("penetrometre")
 
 
 class _IdentificationHost(Protocol):
+    current_file: Optional[Path]
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _current_brin(self) -> Optional[Brin]: ...
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None: ...
@@ -268,7 +270,9 @@ class IdentificationPane(ttk.Frame):
         self._photo_gallery = PhotoGallery(
             content,
             photos=a0.photos if a0 else [],
-            on_change=self._on_photos_changed)
+            on_change=self._on_photos_changed,
+            get_mission_file=lambda: self._host.current_file,
+            on_before_change=self._host.push_undo)
         self._photo_gallery.grid(row=len(groupes) + 1, column=0,
                                  sticky="we", pady=(10, 0))
         content.columnconfigure(0, weight=1)

@@ -24,6 +24,7 @@ from __future__ import annotations
 import csv
 import logging
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Optional
 
@@ -124,7 +125,8 @@ def export_png(parent: tk.Misc, arbre: Optional[Arbre],
 
 def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
                      chantier: Chantier,
-                     show_sondages: bool = True) -> None:
+                     show_sondages: bool = True,
+                     mission_file: Optional[Path] = None) -> None:
     """Exporte une fiche PDF (dessin + tableau + diagnostic) pour
     l'arbre courant. Utilise uniquement Pillow (multi-pages via save).
 
@@ -147,7 +149,8 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         page = render_fiche_arbre_to_pdf_page(arbre, chantier,
                                               show_sondages=show_sondages,
                                               logo_path=logo_path,
-                                              cabinet_name=cabinet_name)
+                                              cabinet_name=cabinet_name,
+                                              mission_file=mission_file)
         # Pillow : sauvegarder une image en PDF donne un PDF 1 page
         page.save(p, "PDF", resolution=150.0)
         _notify_export(parent, p, _("Fiche PDF enregistrée"))
@@ -158,7 +161,8 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
 
 def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
                     chantier: Chantier,
-                    show_sondages: bool = True) -> None:
+                    show_sondages: bool = True,
+                    mission_file: Optional[Path] = None) -> None:
     """Impression directe de la fiche PDF de l'arbre courant.
 
     Génère la fiche dans un fichier temporaire, puis l'envoie à
@@ -176,7 +180,8 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         page = render_fiche_arbre_to_pdf_page(arbre, chantier,
                                               show_sondages=show_sondages,
                                               logo_path=logo_path,
-                                              cabinet_name=cabinet_name)
+                                              cabinet_name=cabinet_name,
+                                              mission_file=mission_file)
         num = arbre.numero_arbre or "arbre"
         with tempfile.NamedTemporaryFile(
                 suffix=".pdf",
@@ -205,7 +210,8 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
 
 
 def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
-                       show_sondages: bool = True) -> None:
+                       show_sondages: bool = True,
+                       mission_file: Optional[Path] = None) -> None:
     """Exporte un PDF unique multi-pages regroupant les fiches de tous
     les arbres de la mission. `show_sondages` : cf. `export_pdf_arbre`."""
     if not _need_pil("PDF"):
@@ -230,7 +236,8 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         pages = [render_fiche_arbre_to_pdf_page(a, chantier,
                                                 show_sondages=show_sondages,
                                                 logo_path=logo_path,
-                                                cabinet_name=cabinet_name)
+                                                cabinet_name=cabinet_name,
+                                                mission_file=mission_file)
                  for a in arbres]
         pages[0].save(p, "PDF", resolution=150.0, save_all=True,
                       append_images=pages[1:])

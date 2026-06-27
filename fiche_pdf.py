@@ -150,7 +150,8 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                                    chantier: "Chantier",
                                    show_sondages: bool = True,
                                    logo_path: "str | None" = None,
-                                   cabinet_name: str = "") -> "PILImage":
+                                   cabinet_name: str = "",
+                                   mission_file: "Path | None" = None) -> "PILImage":
     """Construit une page A4 portrait 150 DPI (1240 × 1754 px environ)
     avec : en-tête chantier, dessin, tableau PRBS, diagnostic.
 
@@ -531,7 +532,17 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     y = max(y_diag, y_preco) + 10
 
     # --- Photos ---
-    photos_valides = [p for p in (arbre.photos or []) if Path(p).exists()]
+    def _resolve_photo(stored: str) -> Optional[Path]:
+        p = Path(stored)
+        if p.is_absolute():
+            return p if p.exists() else None
+        if mission_file is None:
+            return None
+        resolved = mission_file.parent / p
+        return resolved if resolved.exists() else None
+
+    photos_valides = [r for p in (arbre.photos or [])
+                      if (r := _resolve_photo(p)) is not None]
     if photos_valides and y + 60 < H - 80:
         try:
             from PIL import Image as _PILImage
@@ -555,8 +566,7 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                     img = img.resize((int(iw*scale), int(ih*scale)),
                                      _PILImage.Resampling.LANCZOS)
                     page.paste(img, (int(xp), int(yp)))
-                    # Nom de fichier sous la vignette
-                    fname_lbl = Path(photo_path).name[:28]
+                    fname_lbl = photo_path.name[:28]
                     d.text((xp, yp + img.height + 2), fname_lbl,
                            font=f(11, "sans"), fill=COLOR_MUTED)
                 except Exception:

@@ -32,7 +32,9 @@ class ExportActionsMixin(_MixinBase):
     """Méthodes `action_export_*`. Mixin de `App`."""
 
     if TYPE_CHECKING:
+        from pathlib import Path as _Path
         chantier: Chantier
+        current_file: "Optional[_Path]"
         var_show_sondages: tk.BooleanVar
 
         def _current_arbre(self) -> Optional[Arbre]: ...
@@ -44,16 +46,19 @@ class ExportActionsMixin(_MixinBase):
     def action_export_pdf_arbre(self) -> None:
         app_exports.export_pdf_arbre(self, self._current_arbre(),
                                      self.chantier,
-                                     self.var_show_sondages.get())
+                                     self.var_show_sondages.get(),
+                                     mission_file=self.current_file)
 
     def action_print_arbre(self) -> None:
         app_exports.print_pdf_arbre(self, self._current_arbre(),
                                     self.chantier,
-                                    self.var_show_sondages.get())
+                                    self.var_show_sondages.get(),
+                                    mission_file=self.current_file)
 
     def action_export_pdf_mission(self) -> None:
         app_exports.export_pdf_mission(self, self.chantier,
-                                       self.var_show_sondages.get())
+                                       self.var_show_sondages.get(),
+                                       mission_file=self.current_file)
 
     def action_export_csv(self) -> None:
         app_exports.export_csv_mission(self, self.chantier)
