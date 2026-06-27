@@ -605,4 +605,6 @@ TRANSLATIONS = {
     "sans lui, le bois altéré n'est pas calculé.":
         "⚠ Inserire il raggio del tronco nella scheda Identificazione: "
         "senza di esso, il legno alterato non viene calcolato.",
+    "Créez ou ouvrez une mission pour commencer.":
+        "Crea o apri una missione per iniziare.",
 }

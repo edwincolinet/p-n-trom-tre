@@ -547,6 +547,24 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._mark_dirty()
         self._debounced_redraw()
 
+    def _refresh_welcome_visibility(self) -> None:
+        """Bascule entre l'écran de bienvenue et le notebook selon qu'il
+        existe ou non des arbres dans la mission courante."""
+        wf = getattr(self, "_welcome_frame", None)
+        if wf is None:
+            return
+        has = bool(self.chantier.arbres)
+        if has:
+            if wf.winfo_ismapped():
+                wf.pack_forget()
+            if not self.nb.winfo_ismapped():
+                self.nb.pack(fill="both", expand=True)
+        else:
+            if self.nb.winfo_ismapped():
+                self.nb.pack_forget()
+            if not wf.winfo_ismapped():
+                wf.pack(fill="both", expand=True)
+
     def _refresh_brin_selector(self) -> None:
         """Reconstruit la barre « Brin a / b / c » au-dessus des onglets.
 

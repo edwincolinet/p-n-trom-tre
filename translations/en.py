@@ -626,4 +626,6 @@ TRANSLATIONS = {
     "sans lui, le bois altéré n'est pas calculé.":
         "⚠ Enter the trunk radius in the Identification tab: "
         "without it, altered wood cannot be calculated.",
+    "Créez ou ouvrez une mission pour commencer.":
+        "Create or open a project to get started.",
 }

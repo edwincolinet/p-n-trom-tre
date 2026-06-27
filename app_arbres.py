@@ -106,6 +106,7 @@ class ArbreListMixin(_MixinBase):
         def _load_arbre_to_ui(self) -> None: ...
         def set_status(self, text: str) -> None: ...
         def _reset_all_filters(self) -> None: ...
+        def _refresh_welcome_visibility(self) -> None: ...
 
     # --- Liste d'arbres ---------------------------------------------
 
@@ -226,6 +227,7 @@ class ArbreListMixin(_MixinBase):
         if target in self.tree_arbres.get_children():
             self.tree_arbres.selection_set(target)
             self.tree_arbres.focus(target)
+        self._refresh_welcome_visibility()
 
     def _update_etat_footer(self) -> None:
         """Footer = **vue de triage macro** de la mission : répartition des

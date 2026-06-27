@@ -42,6 +42,7 @@ from geometry import GRADES, WIND_LABELS
 from i18n import _
 from model import Brin, Contrefort
 from palette import COLOR_ACCENT
+from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
 # Largeur angulaire d'un contrefort : multiples de 25, de 25 à 400 gr.
@@ -105,10 +106,11 @@ class ContrefortsPane(ttk.Frame):
 
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
+                                cursor="hand2",
                                 font=ui_font("Helvetica", 10, "bold"))
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
-                               width=7)
+                               width=7, cursor="hand2")
             lbl_gr.grid(row=r, column=1, sticky="w", padx=6, pady=1)
 
             ent = ttk.Entry(grid, textvariable=var_long, width=10,
@@ -150,6 +152,7 @@ class ContrefortsPane(ttk.Frame):
             # éditables — comme la grille de sondages.
             for lbl in (lbl_dir, lbl_gr):
                 lbl.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
+                Tooltip(lbl, _("Double-cliquez pour saisir la largeur en cm"))
 
         grid.columnconfigure(4, weight=1)
 

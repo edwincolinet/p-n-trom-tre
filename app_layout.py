@@ -99,6 +99,8 @@ class LayoutMixin(_MixinBase):
         def action_next_a_finir(self) -> None: ...
         def _reset_all_filters(self) -> None: ...
         def _urgence_filter_choices(self) -> "list[str]": ...
+        def action_new(self) -> None: ...
+        def action_open(self) -> None: ...
         def action_save(self) -> None: ...
         def _open_last_export_folder(self) -> None: ...
         def _open_last_export_file(self) -> None: ...
@@ -498,7 +500,37 @@ class LayoutMixin(_MixinBase):
         # par la souris. Pas de conflit avec Ctrl+PgUp/PgDown (navigation
         # entre arbres) ni Ctrl+Z/Y.
         nb.enable_traversal()
-        nb.pack(fill="both", expand=True)
+        # nb n'est PAS packagé ici : affiché seulement quand des arbres
+        # existent (_refresh_welcome_visibility bascule entre welcome et nb).
+
+        # Écran de bienvenue : affiché quand la mission est vide.
+        self._welcome_frame = ttk.Frame(frame, style="Panel.TFrame")
+        _inner = ttk.Frame(self._welcome_frame, style="Panel.TFrame")
+        _inner.place(relx=0.5, rely=0.44, anchor="center")
+        ttk.Label(
+            _inner, text="Pénétromètre",
+            font=ui_font("Georgia", 28), style="Panel.TLabel",
+        ).pack(pady=(0, 2))
+        ttk.Label(
+            _inner, text=_("  Expertise arboricole"),
+            font=ui_font("Helvetica", 12), style="Sub.TLabel",
+        ).pack(pady=(0, 28))
+        ttk.Label(
+            _inner,
+            text=_("Créez ou ouvrez une mission pour commencer."),
+            font=ui_font("Helvetica", 11), style="Muted.TLabel",
+        ).pack(pady=(0, 18))
+        _btns = ttk.Frame(_inner, style="Panel.TFrame")
+        _btns.pack()
+        ttk.Button(
+            _btns, text=_("Nouvelle mission"), style="Accent.TButton",
+            command=cast("App", self).action_new,
+        ).pack(side="left", padx=8)
+        ttk.Button(
+            _btns, text=_("Ouvrir mission…"),
+            command=cast("App", self).action_open,
+        ).pack(side="left", padx=8)
+        self._welcome_frame.pack(fill="both", expand=True)
 
         # Les panes attendent un `host` satisfaisant leur Protocol (toute
         # la surface d'`App`). `self` est ici typé `LayoutMixin` ; le cast
