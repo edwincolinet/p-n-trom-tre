@@ -75,6 +75,7 @@ def cmd_keygen(args: argparse.Namespace) -> None:
 
 def cmd_issue(args: argparse.Namespace) -> None:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from datetime import timedelta
 
     key_path = Path(args.key)
     if not key_path.exists():
@@ -84,13 +85,19 @@ def cmd_issue(args: argparse.Namespace) -> None:
 
     priv = Ed25519PrivateKey.from_private_bytes(key_path.read_bytes())
 
+    today = date.today()
+    # Par défaut : expiration 1 an. Passer --no-expires pour illimité.
+    expires = args.expires if args.expires else (
+        None if args.no_expires else (today.replace(year=today.year + 1)).isoformat()
+    )
+
     payload: dict = {
         "n": args.name,
         "e": args.email,
-        "i": date.today().isoformat(),
+        "i": today.isoformat(),
     }
-    if args.expires:
-        payload["x"] = args.expires
+    if expires:
+        payload["x"] = expires
 
     payload_bytes = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     sig = priv.sign(payload_bytes)
@@ -98,8 +105,8 @@ def cmd_issue(args: argparse.Namespace) -> None:
 
     print()
     print("Licence émise pour :", args.name, f"<{args.email}>")
-    if args.expires:
-        print("Expire le          :", args.expires)
+    if expires:
+        print("Expire le          :", expires)
     else:
         print("Durée              : illimitée")
     print()
@@ -141,7 +148,8 @@ def main() -> None:
     iss = sub.add_parser("issue", help="Émettre une licence client")
     iss.add_argument("name", help="Nom du titulaire / cabinet")
     iss.add_argument("email", help="Email du titulaire")
-    iss.add_argument("--expires", default=None, metavar="AAAA-MM-JJ", help="Date d'expiration (optionnelle)")
+    iss.add_argument("--expires", default=None, metavar="AAAA-MM-JJ", help="Date d'expiration (défaut : 1 an)")
+    iss.add_argument("--no-expires", action="store_true", help="Licence illimitée (sans expiration)")
     iss.add_argument("--key", default=str(_DEFAULT_KEY_PATH), help="Fichier clé privée")
 
     ver = sub.add_parser("verify", help="Vérifier une clé")
