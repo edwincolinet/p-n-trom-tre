@@ -461,6 +461,19 @@ class DegradationsPane(ttk.Frame):
             entries[0].focus_set()
             entries[0].select_range(0, "end")
 
+    def focus_last_row(self) -> None:
+        """Pose le focus sur la profondeur de la dernière ligne.
+        Appelé par `App.open_add_degradation` après création par glissé."""
+        b = self._host._current_brin()
+        if not b:
+            return
+        entries = [w for w in self._rows_frame.grid_slaves(
+            row=len(b.degradations_externes), column=4)
+            if isinstance(w, ttk.Entry)]
+        if entries:
+            entries[0].focus_set()
+            entries[0].select_range(0, "end")
+
     def _on_del(self, deg: DegradationExterne) -> None:
         b = self._host._current_brin()
         if not b:

@@ -50,12 +50,14 @@ from dialogs import (
     edit_contrefort,
     edit_degradation,
     edit_sondage,
+    message_chevauchement,
     normaliser_date,
 )
 from dialogs_license import show_activation_dialog
 from i18n import _, setup_language
 from license import LicenseData, load_license, is_bundled
-from model import URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort, DegradationExterne, Sondage
+from model import (URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort,
+                   DegradationExterne, Sondage, degradations_chevauchements)
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,
@@ -889,6 +891,37 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.push_undo_snapshot(snap)
             self._refresh_contreforts_table()
             self._debounced_redraw()
+
+    def open_add_degradation(self, grade_debut: int, grade_fin: int) -> None:
+        """Crée une dégradation externe sur l'arc debut→fin (glissé canvas).
+        Vérifie l'absence de chevauchement, bascule vers l'onglet Dégradations
+        et pose le focus sur la profondeur de la nouvelle ligne."""
+        b = self._current_brin()
+        if not b:
+            return
+        conflicts = degradations_chevauchements(
+            b.degradations_externes, None, grade_debut, grade_fin)
+        if conflicts:
+            other, shared = conflicts[0]
+            messagebox.showwarning(
+                "Chevauchement",
+                message_chevauchement(other, shared),
+                parent=self,
+            )
+            return
+        self.push_undo()
+        deg = DegradationExterne(
+            numero=len(b.degradations_externes) + 1,
+            grade_debut=grade_debut, grade_fin=grade_fin,
+            profondeur_cm=2.0,
+        )
+        b.degradations_externes.append(deg)
+        b.renumeroter_degradations()
+        self._refresh_degradations_table()
+        self._debounced_redraw()
+        if self.pane_de is not None:
+            self.nb.select(self.pane_de)
+            self.after(50, self.pane_de.focus_last_row)
 
     # Actions d'export (action_export_png / _pdf_arbre / _pdf_mission /
     # _csv / _synthesis_{xlsx,csv} / _prbs_{xlsx,html}) : cf.

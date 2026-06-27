@@ -68,6 +68,7 @@ class _CanvasHost(Protocol):
     def open_edit_degradation(self, d: DegradationExterne) -> None: ...
     def open_edit_contrefort(self, c: Contrefort) -> None: ...
     def open_add_sondage(self, grade: int) -> None: ...
+    def open_add_degradation(self, grade_debut: int, grade_fin: int) -> None: ...
 
 
 class SectionCanvas(tk.Canvas):
@@ -97,6 +98,12 @@ class SectionCanvas(tk.Canvas):
     # Échantillonnage du polygone d'altération (segments Catmull-Rom).
     CAVITY_SAMPLES_PER_SEGMENT = 28
 
+    # Glissé pour créer une dégradation : distance minimale avant
+    # d'activer le mode « dessin d'arc » (sinon = clic → sondage).
+    _DRAG_THRESHOLD_PX = 8
+    # Arc minimum créé par glissé (25 gr = 1 direction).
+    _DRAG_MIN_GRADES = 25
+
     def __init__(self, master: tk.Misc,
                  host: Optional[_CanvasHost] = None, **kw: Any) -> None:
         super().__init__(master, bg=COLOR_PANEL, highlightthickness=0,
@@ -113,6 +120,9 @@ class SectionCanvas(tk.Canvas):
         # fenêtre flottante + tick `after` différé, cf. `_show_comment_tip`.
         self._tip: Optional[tk.Toplevel] = None
         self._tip_after: Optional[str] = None
+        # État du glissé en cours (création de dégradation).
+        self._drag_start_grade: Optional[int] = None
+        self._drag_start_pos: Optional[Tuple[int, int]] = None
         self.bind("<Configure>", lambda e: self.redraw())
         # Bindings sur tags : valent pour tous les items recréés à
         # chaque redraw qui portent le tag correspondant. Le curseur
@@ -130,11 +140,12 @@ class SectionCanvas(tk.Canvas):
                           self._on_click_degradation)
             self.tag_bind("contrefort_item", "<Button-1>",
                           self._on_click_contrefort)
-            # Clic sur le fond (hors élément interactif) : ajoute un
-            # sondage dans la direction la plus proche. Binding au
-            # niveau widget — il se déclenche aussi sur les items, d'où
-            # le garde par tags dans le handler (cf. `_on_click_background`).
-            self.bind("<Button-1>", self._on_click_background)
+            # Gestion du fond : clic simple → sondage, glissé → dégradation.
+            # <ButtonPress-1> enregistre le début ; <B1-Motion> dessine
+            # l'aperçu ; <ButtonRelease-1> finalise selon la distance.
+            self.bind("<ButtonPress-1>", self._on_press)
+            self.bind("<B1-Motion>", self._on_drag_motion)
+            self.bind("<ButtonRelease-1>", self._on_drag_release)
 
     # ------------------------------------------------------------------
     # Handlers d'interaction — actifs uniquement si un host a été fourni.
@@ -249,6 +260,85 @@ class SectionCanvas(tk.Canvas):
         host = self._host
         self.after_idle(lambda: host.open_edit_contrefort(c))
 
+    def _on_press(self, event: "tk.Event[tk.Misc]") -> None:
+        """Démarre le suivi d'un éventuel glissé (création de dégradation).
+        Ignoré si le clic porte sur un élément interactif (sondage, etc.)."""
+        if self._host is None or self.arbre is None:
+            return
+        for tag in self.gettags("current"):
+            if tag in ("sondage_item", "degradation_item", "contrefort_item"):
+                return
+        grade = self._grade_at_event(event)
+        if grade is None:
+            return
+        self._drag_start_grade = grade
+        self._drag_start_pos = (event.x, event.y)
+
+    def _on_drag_motion(self, event: "tk.Event[tk.Misc]") -> None:
+        """Dessine l'aperçu de l'arc de dégradation pendant le glissé."""
+        if self._drag_start_grade is None or self._drag_start_pos is None:
+            return
+        if self._geom is None:
+            return
+        dx = event.x - self._drag_start_pos[0]
+        dy = event.y - self._drag_start_pos[1]
+        if math.hypot(dx, dy) < self._DRAG_THRESHOLD_PX:
+            return
+        g_end = self._grade_at_event(event)
+        self.delete("drag_preview")
+        if g_end is None:
+            return
+        g_start = self._drag_start_grade
+        arc_grades = (g_end - g_start) % 400
+        if arc_grades < self._DRAG_MIN_GRADES:
+            return
+        cx, cy, scale, _R, R_ext = self._geom
+        r = R_ext * scale + 3
+        tk_start = 90.0 - g_start * 360.0 / 400.0
+        tk_extent = -arc_grades * 360.0 / 400.0
+        self.configure(cursor="crosshair")
+        self.create_arc(
+            cx - r, cy - r, cx + r, cy + r,
+            start=tk_start, extent=tk_extent,
+            style=tk.ARC, outline="#E67E22", width=5,
+            tags="drag_preview",
+        )
+
+    def _on_drag_release(self, event: "tk.Event[tk.Misc]") -> None:
+        """Finalise : distance faible → clic (sondage) ; grand glissé → dégradation."""
+        g_start = self._drag_start_grade
+        pos = self._drag_start_pos
+        self._drag_start_grade = None
+        self._drag_start_pos = None
+        self.delete("drag_preview")
+        self.configure(cursor="")
+        if self._host is None or self.arbre is None:
+            return
+        if g_start is None or pos is None:
+            return
+        dx = event.x - pos[0]
+        dy = event.y - pos[1]
+        host = self._host
+        if math.hypot(dx, dy) < self._DRAG_THRESHOLD_PX:
+            # Clic simple → comportement existant (sondage).
+            grade = self._grade_at_event(event)
+            if grade is None:
+                return
+            existing = next(
+                (s for s in self.arbre.sondages if s.grade == grade), None)
+            if existing is not None:
+                self.after_idle(lambda: host.open_edit_sondage(existing))
+            else:
+                self.after_idle(lambda: host.open_add_sondage(grade))
+            return
+        g_end = self._grade_at_event(event)
+        if g_end is None:
+            return
+        arc_grades = (g_end - g_start) % 400
+        if arc_grades < self._DRAG_MIN_GRADES:
+            return
+        self.after_idle(lambda: host.open_add_degradation(g_start, g_end))
+
     def _grade_at_event(self, event: "tk.Event[tk.Misc]") -> Optional[int]:
         """Convertit le pixel cliqué en grade (multiple de 25, 0-375).
 
@@ -270,29 +360,6 @@ class SectionCanvas(tk.Canvas):
         deg = math.degrees(math.atan2(dy, dx))
         grade = round((deg + 90.0) * 400.0 / 360.0 / 25.0) * 25
         return int(grade % 400)
-
-    def _on_click_background(self, event: "tk.Event[tk.Misc]") -> None:
-        """Clic sur le fond du dessin : ajoute un sondage dans la
-        direction la plus proche (ou édite celui qui existe déjà à ce
-        grade). Ignoré si le clic porte sur un élément interactif, dont
-        le handler dédié (`_on_click_sondage`/`_degradation`/`_contrefort`)
-        a déjà géré l'événement."""
-        if self._host is None or self.arbre is None:
-            return
-        for tag in self.gettags("current"):
-            if tag in ("sondage_item", "degradation_item",
-                       "contrefort_item"):
-                return
-        grade = self._grade_at_event(event)
-        if grade is None:
-            return
-        host = self._host
-        existing = next((s for s in self.arbre.sondages
-                         if s.grade == grade), None)
-        if existing is not None:
-            self.after_idle(lambda: host.open_edit_sondage(existing))
-        else:
-            self.after_idle(lambda: host.open_add_sondage(grade))
 
     def set_arbre(self, arbre: Optional[Arbre]) -> None:
         self.arbre = arbre
