@@ -174,7 +174,7 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
 
     ttk.Label(
         outer,
-        text="Pour obtenir une licence : contact@silvavenir.fr",
+        text="Pour obtenir une licence : e.colinet@silvavenir.fr",
         foreground=COLOR_MUTED,
         font=("Helvetica", 8),
     ).pack(anchor="w", pady=(16, 0))
