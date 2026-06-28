@@ -1,13 +1,17 @@
 # Chantier commercialisation — Pénétromètre v3.x
 
-Analyse critique du 20/06/2026. Objectif : passer d'un outil interne
-Silvavenir à un produit vendable à des cabinets arboricoles extérieurs.
+Analyse critique du 20/06/2026. Objectif : commercialiser Pénétromètre
+auprès de cabinets arboricoles extérieurs (projet personnel d'Edwin Colinet).
+
+**Mise à jour du statut : 28/06/2026** — les items P1-B/C/D et P2-A/B/C/D
+ont tous été implémentés (voir cases ✅ ci-dessous). P1-A (signature de code)
+requiert des certificats payants à obtenir par Edwin.
 
 ---
 
 ## Priorités — Phase 1 : vendre à 1-2 cabinets (≈ 2 semaines)
 
-### P1-A — Signature de code (BLOQUANT immédiat)
+### P1-A — Signature de code (BLOQUANT immédiat) — ⚠ À FAIRE (certificats payants)
 **Problème** : installeurs Windows et macOS non signés → SmartScreen bloque
 l'exécution, Gatekeeper empêche l'ouverture. Aucun client pro ne peut
 recevoir un logiciel qui déclenche une alerte antivirus.
@@ -24,13 +28,13 @@ recevoir un logiciel qui déclenche une alerte antivirus.
 
 ---
 
-### P1-B — EULA + politique de confidentialité (BLOQUANT légal)
+### P1-B — EULA + politique de confidentialité ✅ FAIT
 **Problème** : aucun contrat d'utilisation, aucun `LICENSE` logiciel (seul
 DejaVu a le sien). Impossible de facturer sans CGV/EULA. Requis par les
 App Stores si distribution future.
 
 **Solution** :
-- Rédiger `LICENSE` (ex. propriétaire, tous droits réservés Silvavenir, ou
+- Rédiger `LICENSE` (ex. propriétaire, tous droits réservés Edwin Colinet, ou
   AGPL si open-source assumé).
 - Créer `PRIVACY.md` : données stockées localement uniquement, aucun
   télémétrie, aucun cloud, backups dans `~/.penetrometre/`.
@@ -43,7 +47,7 @@ App Stores si distribution future.
 
 ---
 
-### P1-C — Mission d'exemple + guide de démarrage rapide (BLOQUANT onboarding)
+### P1-C — Mission d'exemple + guide de démarrage rapide ✅ FAIT
 **Problème** : un nouvel utilisateur sans formation ne sait pas par où
 commencer. Aucun tutoriel, aucune donnée d'exemple.
 
@@ -62,7 +66,7 @@ commencer. Aucun tutoriel, aucune donnée d'exemple.
 
 ---
 
-### P1-D — Barème configurable (BLOQUANT pour vente externe)
+### P1-D — Barème configurable ✅ FAIT
 **Problème** : seuils t/R (Vert/Orange/Rouge par port) codés en dur dans
 `bareme.py`. Chaque cabinet peut utiliser des référentiels différents
 (VTA France, norme ISA, barème propriétaire). Impossible de vendre sans
@@ -71,7 +75,7 @@ recompiler.
 **Solution envisagée** : exposer les seuils dans `~/.penetrometre/bareme.json`
 (généré au premier lancement depuis les valeurs actuelles). Un dialog
 **Fichier → Barème…** permet de les éditer (tableau : port → seuil Orange,
-seuil Rouge). Un bouton « Restaurer les valeurs Silvavenir » recharge les
+seuil Rouge). Un bouton « Restaurer les valeurs par défaut » recharge les
 défauts.
 
 **Impact** : `bareme.py` (charger depuis JSON si présent, fallback
@@ -86,7 +90,7 @@ est indépendant des fichiers mission).
 
 ## Priorités — Phase 2 : mise à l'échelle (≈ 1 mois)
 
-### P2-A — Mise à jour automatique (in-app update check)
+### P2-A — Mise à jour automatique (in-app update check) ✅ FAIT
 **Problème** : aucun mécanisme de mise à jour. Les corrections de bugs
 n'atteignent pas les clients déjà installés.
 
@@ -104,7 +108,7 @@ n'atteignent pas les clients déjà installés.
 
 ---
 
-### P2-B — Internationalisation anglaise (expansion marché)
+### P2-B — Internationalisation anglaise (expansion marché) ✅ FAIT (EN + IT)
 **Problème** : 100 % français. Marché limité à la France/Belgique/Suisse
 romande.
 
@@ -122,7 +126,7 @@ romande.
 
 ---
 
-### P2-C — Multi-utilisateur léger (cabinets multi-agents)
+### P2-C — Multi-utilisateur léger (cabinets multi-agents) ✅ FAIT (profil opérateur)
 **Problème** : un seul opérateur par installation. Pas de profils, pas de
 droits.
 
@@ -135,7 +139,7 @@ droits.
 
 ---
 
-### P2-D — Import données externes
+### P2-D — Import données externes ✅ FAIT (import CSV)
 **Problème** : saisie 100 % manuelle. Aucune connexion avec les outils
 terrain (IML RESI-PD, ArborPix, CSV tiers).
 
@@ -180,7 +184,7 @@ P2-D (Import CSV)            → 2 semaines → confort terrain
 
 | # | Question | Décision |
 |---|----------|----------|
-| 1 | Licence | **Propriétaire** — Silvavenir contrôle la distribution et la revente |
+| 1 | Licence | **Propriétaire** — Edwin Colinet contrôle la distribution et la revente |
 | 2 | Barème configurable | **Dialog in-app** avec validation (pas de JSON brut) |
 | 3 | Update checker | **GitHub Releases** — gratuit, sans serveur propre |
 | 4 | Profil opérateur | **Historique par opérateur** — nom dans exports + traçabilité |

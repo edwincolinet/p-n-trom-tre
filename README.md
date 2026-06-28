@@ -91,29 +91,57 @@ python -m tests.test_section_canvas --update
 ```text
 mon-dossier/
 ├── penetrometre.py             ← App + main (orchestration Tk)
+├── app_arbres.py               ← ArbreListMixin (liste d'arbres, filtres, CRUD)
+├── app_recovery.py             ← RecoveryMixin (autosave anti-crash)
+├── app_export_actions.py       ← ExportActionsMixin (action_export_*)
+├── app_fichier.py              ← FichierMixin (cycle de vie fichier mission)
+├── app_layout.py               ← LayoutMixin (construction de l'UI)
+├── app_reglages.py             ← ReglagesMixin (préférences, mises à jour)
+├── app_exports.py              ← actions d'export PNG/PDF/CSV/XLSX/HTML
+├── app_menu.py                 ← barre de menu Tk
+├── app_recent.py               ← RecentFilesStore (historique récents)
+├── app_settings.py             ← SettingsStore (réglages UI persistés)
+├── app_style.py                ← thème ttk (couleurs, polices, padding)
 ├── section_canvas.py           ← SectionCanvas (rendu Tk de la section)
 ├── pane_identification.py      ← onglet Identification (form + sync Ø↔R)
-├── pane_sondages.py            ← onglet Sondages (table + add/edit/del)
+├── pane_sondages.py            ← onglet Sondages (grille 16 directions)
 ├── pane_degradations.py        ← onglet Dégradations externes
 ├── pane_contreforts.py         ← onglet Contreforts
 ├── pane_diagnostic.py          ← onglet Diagnostic (résumé + PRBS + exports)
-├── app_exports.py              ← actions d'export PNG/PDF/CSV/XLSX/HTML
-├── app_menu.py                 ← barre de menu Tk (Fichier/Arbres/?)
-├── app_style.py                ← thème ttk (couleurs, polices, padding)
-├── dialogs.py                  ← boîtes de dialogue Tk (Sondage,
-│                                  Dégradation externe, Contrefort)
+├── comparaison.py              ← fenêtre de comparaison inter-missions
+├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
+├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,
+│                                  Contrefort, Forme du tronc, Cépée)
+├── dialogs_license.py          ← fenêtre d'activation bloquante (licence)
+├── dialogs_settings.py         ← dialogs préférences avancées (barème, logo)
+├── dialogs_shared.py           ← helpers partagés entre dialogues
 ├── model.py                    ← dataclasses + mutateurs de cohérence
 ├── diagnostic.py               ← calculs purs (extrapolation, PRBS, t/R,
-│                                  DiagnosticSnapshot, résumé textuel)
+│                                  DiagnosticSnapshot, cépées)
 ├── persistence.py              ← I/O JSON des missions (save/load + migration)
 ├── bareme.py                   ← barème de classification (classer_prbs)
+├── bareme_store.py             ← barème configurable (bareme.json)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG de la section
 ├── fiche_pdf.py                ← layout de la fiche d'expertise PDF A4
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
+├── license.py                  ← vérification/chargement licence offline Ed25519
+├── i18n.py                     ← internationalisation (gettext, catalogues)
+├── update_checker.py           ← vérification mises à jour GitHub Releases
+├── template_store.py           ← modèles de mission réutilisables
+├── photo_gallery.py            ← galerie photos par arbre
+├── undo.py                     ← pile undo/redo (50 snapshots)
+├── tooltip.py                  ← infobulle Tk légère
+├── aide_repliable.py           ← widget d'aide repliable
+├── ui_fonts.py                 ← échelle des polices (facteur global)
+├── translations/               ← catalogues i18n (fr.py, en.py, it.py)
+├── exemples/
+│   └── mission_demo.json       ← mission fictive (5 arbres, variété de cas)
+├── docs/
+│   └── guide_demarrage.html    ← guide de démarrage autonome (2 pages A4)
 ├── assets/
-│   ├── default_logo.jpg      ← logo par défaut (header app + fiche PDF)
+│   ├── default_logo.jpg        ← logo par défaut (header app + fiche PDF)
 │   ├── Icone.jpeg              ← icône bureau (.desktop)
 │   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
@@ -332,6 +360,38 @@ champs au lieu de planter.
 Note technique : la classe Python interne s'appelle toujours `Chantier`
 pour rester compatible avec les fichiers déjà enregistrés. Seuls les
 libellés affichés à l'utilisateur ont été changés en « Mission ».
+
+### Internationalisation
+
+Le menu **Affichage → Langue** permet de basculer entre le **français**,
+l'**anglais** et l'**italien**. L'interface, les exports PDF/XLSX et les
+labels de diagnostic s'adaptent. Un redémarrage est requis.
+
+### Galerie photos
+
+L'onglet **Identification** accueille une galerie de photos par arbre.
+Les photos sont stockées dans un dossier compagnon `<mission>_photos/`
+à côté du fichier `.json`. Une **page photo dédiée** peut être incluse
+dans la fiche PDF.
+
+### Modèles de mission
+
+**Fichier → Nouveau depuis un modèle…** : enregistrez et réutilisez un
+gabarit (méta-données, opérateur, barème) pour démarrer rapidement une
+nouvelle mission sans ressaisir les informations récurrentes.
+
+### Barème configurable
+
+Le menu **Réglages → Barème…** permet d'ajuster les seuils t/R
+Vert / Orange / Rouge par port d'arbre, sans recompiler. Les valeurs
+sont persistées dans `~/.penetrometre/bareme.json` ; un bouton restaure
+les valeurs par défaut.
+
+### Licence et mode essai
+
+Pénétromètre est un logiciel propriétaire. Un système de **licence offline**
+(Ed25519, binding machine optionnel) et un **mode essai gratuit 30 jours**
+sont intégrés. Pour obtenir une licence : `e.colinet@silvavenir.fr`.
 
 ## En cas de problème
 

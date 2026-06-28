@@ -3,6 +3,91 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## En développement (depuis 3.6.0)
+
+### Fonctionnel — Commercialisation & distribution
+
+- **Système de licence offline Ed25519** : activation par clé + identifiant
+  machine (SHA-256[:12] de `/etc/machine-id` / `ioreg` / registre Windows).
+  Dialog d'activation bloquant au démarrage (bundle uniquement, sauté en
+  développement). `license.py` + `dialogs_license.py`.
+- **Mode essai 30 jours** : bouton dans le dialog d'activation (caché si
+  essai déjà démarré) ; bannière persistante dans l'app avec compte à rebours
+  et lien vers l'activation. Fichier `~/.penetrometre/trial.json` (atomique).
+- **Machine binding** : option `--machine-id` dans `gen_license.py` pour
+  lier une clé à une machine précise. Sous-commande `machine-id` pour obtenir
+  l'ID sans lancer l'app.
+- **Guide de démarrage** : `docs/guide_demarrage.html` autonome (2 pages A4,
+  CSS embarqué, bouton Imprimer). Accessible via **Aide → Guide de démarrage**.
+- **Canal de support intégré** : **Aide → Contacter le support** → dialog
+  avec email/Machine ID/version (boutons Copier), lien `mailto:` pré-rempli,
+  accès direct au fichier de log. Contact : `e.colinet@silvavenir.fr`.
+- **Barème t/R configurable** : `bareme_store.py` + dialog in-app
+  (**Réglages → Barème…**) pour ajuster les seuils Vert/Orange/Rouge par
+  port. Persisté dans `~/.penetrometre/bareme.json`.
+- **Vérification des mises à jour** : `update_checker.py` interroge l'API
+  GitHub Releases au démarrage (timeout 2 s, best-effort). Désactivable via
+  **Aide → Vérification automatique au démarrage**.
+- **EULA & confidentialité** : `PRIVACY.md` + `EULA.txt` ; lien dans
+  **Aide → À propos**.
+- **Workflow de signature de code** (`.github/workflows/build.yml`) :
+  support conditionnel `signtool.exe` (Windows) et `codesign` + `notarytool`
+  (macOS) — actif si les secrets `CODESIGN_P12_BASE64` sont configurés.
+
+### Fonctionnel — Internationalisation
+
+- **i18n anglais + italien** : infrastructure `i18n.py` (`_("…")` wrapper
+  gettext) + catalogues `translations/en.py` et `translations/it.py`.
+  Couvre UI complète, exports PDF/XLSX, dialogues, labels d'état, aide.
+  Sélecteur **Affichage → Langue** (redémarre l'app). Verrouillé par
+  `test_i18n.I18nCompletenessTests`.
+
+### Fonctionnel — Nouvelles fonctionnalités
+
+- **Galerie photos par arbre** (`photo_gallery.py`) : onglet Identification,
+  dossier compagnon `<mission>_photos/`, undo-able. Page photo optionnelle
+  dans la fiche PDF (intégrée via `fiche_pdf.py`).
+- **Modèles de mission** (`template_store.py`) : **Fichier → Nouveau depuis
+  un modèle…** sauvegarde/charge un gabarit (méta, opérateur, barème)
+  sans les arbres.
+- **Profil opérateur** : historique des opérateurs récents (combobox
+  pré-remplie), nom visible dans les exports PDF.
+- **Import CSV terrain** : **Fichier → Importer des données CSV…** — dialog
+  de mapping colonnes → champs modèle (N° arbre, rayon, sondages par grade).
+- **Champs Client et Référence chantier** sur la mission (méta).
+- **Filtres avancés dans la liste d'arbres** : filtre par échéance +
+  complétude (en plus du filtre texte et classe de risque existants).
+- **Checkliste de complétude avant export mission** : avertissement si des
+  arbres sont incomplets ou sans préconisation.
+- **Marquage sondage incertain** : flag par sondage, visible sur la grille.
+- **Colonne Commentaire inline** dans la grille des sondages.
+- **Dégradation externe par clic-glissé** : tracer un arc directement sur
+  le canvas en maintenant le clic (sans ouvrir le dialog).
+- **Raccourcis clavier découvrables** via tooltips sur les boutons principaux.
+- **Écran de bienvenue** : panneau central au démarrage (pas de mission
+  ouverte) avec affordances contreforts et raccourcis.
+- **Sauvegardes glissantes** (`persistence.write_backup`) : copie horodatée
+  à chaque enregistrement réussi (`~/.penetrometre/backups/`, 12 max/mission).
+  **Fichier → Ouvrir le dossier des sauvegardes…**.
+- **Infobulle de commentaire** au survol des sondages/dégradations/contreforts
+  sur le canvas.
+
+### Interne / Architecture
+
+- **Extraction de 2 mixins supplémentaires** : `app_layout.LayoutMixin`
+  (construction de l'UI) + `app_reglages.ReglagesMixin` (préférences +
+  mises à jour). `App` passe de 4 à **6 mixins**.
+- **Undo scopé** : `capture_undo_snapshot()` produit un snapshot arbre seul
+  `{"_type":"arbre","_idx":int,"_arbre":Arbre}` (O(1)) au lieu d'un JSON
+  complet du chantier. `push_undo_snapshot()` + `set_live_tip()` idempotent.
+- **Cache `_etat_cache`** : `dict[int, tuple[str, str, str]]` keyed by
+  `id(arbre)` évite les doublons de `genet_diagnostic()` entre
+  `_refresh_tree_arbres` et `_update_etat_footer`.
+- **mypy propre sur 40 fichiers** (exit 0, `python_version = 3.10`).
+  Stubs PIL via `[mypy-PIL.*] ignore_missing_imports = True`.
+- Retrait de toutes les références à "Silvavenir" (projet personnel d'Edwin
+  Colinet — contact `e.colinet@silvavenir.fr`).
+
 ## 3.6.0
 
 ### Fonctionnel (accessibilité & ergonomie)

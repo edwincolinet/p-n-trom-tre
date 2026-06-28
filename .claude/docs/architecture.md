@@ -2,12 +2,12 @@
 
 Ce document détaille les **modules du cœur** (géométrie, modèle, diagnostic,
 persistance, rendu, exports, dialogues, canevas). La **couche App** (`App`
-+ ses 4 mixins + helpers + accessibilité + ré-inspection) est **cartographiée
++ ses 6 mixins + helpers + accessibilité + ré-inspection) est **cartographiée
 en bref en fin de document** (purpose + surface publique) avec renvoi à
 **CLAUDE.md** pour le détail — on évite d'y dupliquer la prose volatile.
 **En cas de doute, CLAUDE.md fait foi pour la couche App.**
 
-## `bareme.py` — barème métier Silvavenir (stdlib uniquement)
+## `bareme.py` — barème métier Pénétromètre (stdlib uniquement)
 
 - `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`.
 - `normaliser_port(value) -> str` — vérifie l'appartenance à `PORTS_ARBRE`.
@@ -157,9 +157,9 @@ genet-level étant passé explicitement quand il intervient.
   une cépée = **ligne de tête** (classe globale = pire brin) + une **sous-ligne
   par brin** (`MissionSynthesisRow.brin_label`).
 
-Convention : classe globale d'un **brin** = t/R **moyen** (confirmé Silvavenir
-mai 2026) ; classe globale d'un **genet** = **pire classe** parmi ses brins
-fiables (jamais une moyenne inter-brins — repères polaires distincts).
+Convention : classe globale d'un **brin** = t/R **moyen** (confirmé Edwin
+Colinet mai 2026) ; classe globale d'un **genet** = **pire classe** parmi ses
+brins fiables (jamais une moyenne inter-brins — repères polaires distincts).
 
 ## `persistence.py` — I/O JSON des missions
 
@@ -239,7 +239,11 @@ globaux. Quatre cascades :
   Renommer, Supprimer.
 - **Affichage** : Taille du texte (Petit/Normal/Grand/Très grand,
   radiobuttons) ; Contraste élevé (checkbutton).
-- **Aide** : Raccourcis clavier, Ouvrir le fichier de log, À propos.
+- **Comparaison** : Faire une comparaison (ré-inspection), Choisir la
+  mission de référence, Diagnostic de la comparaison.
+- **Aide** : Guide de démarrage, Raccourcis clavier, separator, Contacter
+  le support, Ouvrir le fichier de log, separator, Vérifier les mises à
+  jour / Vérification automatique, separator, Redémarrer, À propos.
 
 `refresh_recent_menu(app)` est exposée pour être réappelée par l'App
 après chaque ouverture/enregistrement ; elle vide et reconstruit le
@@ -354,7 +358,7 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
   (`MissionSynthesisRow.brin_label`) s'affichent « ↳ brin a », identité genet
   laissée vide ; le bilan ne compte que les genets.
 - `export_prbs_xlsx(…)` — Excel stylé (openpyxl). En-têtes et méta sur
-  fond vert Silvavenir, alternance de lignes, largeurs auto-fit,
+  fond vert Pénétromètre, alternance de lignes, largeurs auto-fit,
   compartimentation ✓/✗/— (glyphe coloré), t/R coloré par classe.
   Sous le tableau : légende des 3 glyphes (collée, sans ligne vide) puis
   légende des classes « Classe verte/orange/rouge » (texte coloré).
@@ -379,7 +383,7 @@ sur son 1er champ utile (la combobox Direction/Orientation). Le paramètre
 peuvent éditer un brin précis d'une cépée.
 
 `ask_string(parent, title, prompt, initial, info=…)` : dialogue de
-saisie texte thémé (look ttk Silvavenir) qui remplace
+saisie texte thémé (look ttk Pénétromètre) qui remplace
 `simpledialog.askstring`. Renvoie `None` si annulé, la chaîne (sans
 `strip`) si validé — `""` validé ≠ `None`. Utilisé par
 `App.action_rename_arbre`.
@@ -440,26 +444,40 @@ et menu déroulant « Exporter le tableau » → XLSX / HTML / CSV).
 
 ## `undo.py` — pile undo/redo
 
-- `UndoStack` (dataclass) : pile de snapshots `Dict[str, Any]` (dicts
-  JSON via `chantier_to_dict`), curseur, profondeur max 50.
-- `push(snapshot)` — sauvegarde avant mutation, tronque le futur.
-- `undo(current)` → dict à restaurer (ou `None`).
-- `redo()` → dict à restaurer (ou `None`).
-- `clear()` — vidée sur new/open.
+- `UndoStack` (dataclass) : pile de snapshots `Any` (typée Any pour
+  accueillir deux formats), curseur, profondeur max 50. `_live_tip:
+  Optional[Any]` retient le snapshot capturé au focus-in sans encore
+  l'empiler (seul le focus-out l'empile si la valeur a changé).
+- `push(snapshot)` — sauvegarde avant mutation, tronque le futur ;
+  remet `_live_tip = None`.
+- `set_live_tip(tip)` — idempotent : ne pose le tip que s'il est `None`
+  (focus-in suivant ignoré si déjà posé).
+- `peek_top()` → snapshot au sommet sans déplacer le curseur.
+- `undo(current)` → snapshot à restaurer (ou `None`).
+- `redo()` → snapshot à restaurer (ou `None`).
+- `clear()` — vidée sur new/open ; remet `_live_tip = None`.
 - `can_undo` / `can_redo` — propriétés booléennes.
 
-Intégré dans `App` via `push_undo()` (appelé par les panes avant
-chaque mutation discrète). Bindings : Ctrl+Z (undo), Ctrl+Y ou
-Ctrl+Shift+Z (redo).
+**Deux formats de snapshot** dans `App._restore_snapshot(snapshot)` :
+- `{"_type":"arbre","_idx":int,"_arbre":Arbre}` — snapshot **scopé au brin
+  courant** (O(1 arbre)), construit par `capture_undo_snapshot()` quand un
+  arbre courant existe. Restauration : remplace l'arbre à `_idx`, rafraîchit
+  la liste + l'UI si nécessaire.
+- `dict` JSON complet (`chantier_to_dict`) — snapshot global (fallback si
+  aucun arbre courant). Restauration : rechargement complet.
+
+Intégré dans `App` via `push_undo()` / `capture_undo_snapshot()` /
+`push_undo_snapshot()` (appelés par les panes avant / au focus-in / au
+focus-out). Bindings : Ctrl+Z (undo), Ctrl+Y ou Ctrl+Shift+Z (redo).
 
 ## `penetrometre.py` — application Tk + main
 
-`App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin, tk.Tk)`
-— fenêtre principale, layout 3 colonnes (`PanedWindow`), instanciation des
-panes, callbacks communs. La logique d'`App` est **répartie en 4 mixins par
-responsabilité** dont le détail vit dans CLAUDE.md (« App = orchestration +
-4 mixins + 1 helper ») — on ne le duplique pas ici pour ne pas le
-désynchroniser. Ce qui reste **dans `penetrometre.py`** :
+`App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
+LayoutMixin, ReglagesMixin, tk.Tk)` — fenêtre principale, layout 3 colonnes
+(`PanedWindow`), instanciation des panes, callbacks communs. La logique d'`App`
+est **répartie en 6 mixins par responsabilité** dont le détail vit dans CLAUDE.md
+(« App = orchestration + 6 mixins + 1 helper ») — on ne le duplique pas ici
+pour ne pas le désynchroniser. Ce qui reste **dans `penetrometre.py`** :
 
 - **Dirty flag** (`_dirty`) : tracké sur toute mutation, reset au
   save/open/new. Titre dynamique avec `•` si modifié.
@@ -501,14 +519,16 @@ désynchroniser. Ce qui reste **dans `penetrometre.py`** :
 
 ## Couche App — mixins et helpers (carte)
 
-`App` délègue par **responsabilité** à 4 mixins + 1 helper (couplage
+`App` délègue par **responsabilité** à 6 mixins + 1 helper (couplage
 **assumé** : sauf `ExportActionsMixin`, les mixins lisent et mutent l'état
 d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
-4 mixins + 1 helper ») ; carte synthétique :
+6 mixins + 1 helper ») ; carte synthétique :
 
 - **`app_arbres.ArbreListMixin`** — panneau gauche « Arbres de la
-  mission » : filtre texte + classe de risque, `Treeview`, pastilles
-  d'état (`_arbre_etat` → colonnes État + Risque), footer de **triage**
+  mission » : filtre texte + classe de risque + filtre échéance/complétude,
+  `Treeview`, pastilles d'état (`_arbre_etat` → colonnes État + Risque),
+  cache `_etat_cache` (keyed by `id(arbre)` pour éviter les doublons de
+  `genet_diagnostic()`), footer de **triage**
   (`_update_etat_footer` : `N rouge · N orange · N vert · N à finir`),
   navigation clavier, CRUD (ajouter vierge / hériter, dupliquer, renommer,
   supprimer).
@@ -521,8 +541,53 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   (new/open/save/save_as, `_open_path`, récents) + **ré-inspection**
   (`action_load_reference`/`_compare_arbre`/`_export_comparison`). Fournit
   `_BACKUP_PATH` (sauvegardes glissantes).
+- **`app_layout.LayoutMixin`** — construction de l'UI (`_build_layout` /
+  `_build_left` / `_build_center` / `_build_right` / `_build_statusbar` + sash,
+  `_trial_banner`). Quasi-pur builder : crée et assigne la plupart des
+  attributs UI d'`App` (`tree_arbres`, `nb`, `section`, `var_*`, les 5 panes…).
+- **`app_reglages.ReglagesMixin`** — préférences + mises à jour
+  (`action_set_language` / `_set_ui_scale` / `_set_high_contrast` /
+  `_bareme_settings` / `_cabinet_settings`, `_apply_ui_scale` /
+  `_apply_styles` / `_apply_bareme` au démarrage, cycle vérification de
+  version + bannière, `action_restart`).
 - **`app_recent.RecentFilesStore`** (composition, pur) — historique des
   fichiers récents (JSON, 8 max, déduplication, callback `on_change`).
+
+## Modules annexes
+
+- **`license.py`** (pur) — vérification/chargement/sauvegarde de licence
+  offline Ed25519 (`_PUBLIC_KEY_B64`). `LicenseData` + `TrialInfo` (essai
+  30 jours). `get_machine_id()` = SHA-256[:12] de l'ID platform
+  (`/etc/machine-id` Linux, `ioreg` macOS, registre Windows). `is_bundled()`
+  : True si PyInstaller (`sys.frozen`) — les contrôles de licence ne
+  s'activent qu'en bundle. `get_trial_info()` / `start_trial()` / `save_license()`.
+- **`dialogs_license.py`** — fenêtre d'activation bloquante au démarrage
+  (si bundle sans licence). Retourne `Optional[Union[LicenseData, TrialInfo]]`.
+  Affiche l'identifiant machine + bouton Copier ; bouton « Essai 30 jours »
+  (caché si essai déjà démarré) ; contact `e.colinet@silvavenir.fr`.
+- **`gen_license.py`** — outil interne d'émission de clés (non distribué).
+  Sous-commandes : `issue` (name + email + expiration optionnelle +
+  `--machine-id ID12`), `verify`, `machine-id`. Non committé avec `private.key`.
+- **`i18n.py`** — internationalisation : `_("…")` wrapper autour de
+  `gettext`. Catalogues dans `translations/` (`en.py`, `it.py`, `fr.py`).
+  Sélecteur de langue persisté dans `settings.json`
+  (`app_reglages.action_set_language`, redémarre l'app).
+- **`bareme_store.py`** — barème t/R configurable. Charge `~/.penetrometre/
+  bareme.json` si présent, sinon défauts codés. Exposé via
+  `dialogs_settings.py` (dialog **Réglages → Barème…**).
+- **`dialogs_settings.py`** — dialogs de préférences avancées (barème t/R,
+  nom du cabinet, logo).
+- **`dialogs_shared.py`** — helpers partagés entre dialogues (validateurs,
+  widgets communs).
+- **`update_checker.py`** — vérification des mises à jour via l'API GitHub
+  Releases (timeout 2 s, best-effort). Activé au démarrage et via
+  **Aide → Vérifier les mises à jour**.
+- **`template_store.py`** — modèles de mission réutilisables : sauvegarde /
+  chargement d'un `Chantier` sans arbres comme gabarit (méta, opérateur,
+  barème). Dialog **Fichier → Nouveau depuis un modèle…**.
+- **`photo_gallery.py`** — galerie photos par arbre (onglet Identification) :
+  ajout/suppression de photos depuis le dossier compagnon `<mission>_photos/`
+  undo-able ; intégrées optionnellement dans la fiche PDF (page dédiée).
 
 ## Accessibilité & réglages
 
