@@ -782,7 +782,7 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
     # Pré-calcul des largeurs pour centrer le bloc complet.
     def text_w(txt: str, font: Any) -> float:
         bbox = d.textbbox((0, 0), txt, font=font)
-        return bbox[2] - bbox[0]
+        return float(bbox[2] - bbox[0])
 
     item_widths = [swatch_w + 8 + text_w(label, item_font)
                    for _, label in items]

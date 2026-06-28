@@ -70,9 +70,9 @@ def ask_cabinet_settings(parent: tk.Misc,
             pil = _PILImage.open(path)
             target_h = 80
             ratio = target_h / pil.height
-            pil = pil.resize(  # type: ignore[assignment]
+            pil = pil.resize(
                 (int(pil.width * ratio), target_h),
-                _PILImage.LANCZOS)  # type: ignore[attr-defined]
+                _PILImage.LANCZOS)
             img = _ImageTk.PhotoImage(pil)
             _preview_img[0] = img
             preview_lbl.configure(image=img, text="")
