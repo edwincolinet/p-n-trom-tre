@@ -20,20 +20,23 @@ qui garantit un round-trip fidèle via `chantier_from_dict`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 
 @dataclass
 class UndoStack:
-    _stack: List[Dict[str, Any]] = field(default_factory=list)
+    # Chaque entrée est soit un dict chantier complet (mutations globales :
+    # add/delete arbre, méta chantier) soit un dict arbre scopé
+    # {"_type":"arbre","_idx":int,"_arbre":Arbre} (éditions live dans les grilles).
+    _stack: List[Any] = field(default_factory=list)
     _cursor: int = -1
     _max_depth: int = 50
     # État vivant au-delà du dernier push : nécessaire pour le redo après
     # le premier undo d'une séquence (la valeur non poussée qui serait perdue
     # sinon). Remis à None par push() — une nouvelle mutation invalide le redo.
-    _live_tip: Optional[Dict[str, Any]] = field(default=None)
+    _live_tip: Optional[Any] = field(default=None)
 
-    def push(self, snapshot: Dict[str, Any]) -> None:
+    def push(self, snapshot: Any) -> None:
         """Sauvegarde un snapshot avant mutation.
 
         Tronque le futur (tout ce qui est après le curseur) — un push
@@ -48,7 +51,7 @@ class UndoStack:
             self._stack = self._stack[-self._max_depth:]
         self._cursor = len(self._stack) - 1
 
-    def set_live_tip(self, tip: Dict[str, Any]) -> None:
+    def set_live_tip(self, tip: Any) -> None:
         """Sauvegarde l'état vivant courant pour permettre le redo.
 
         À appeler une fois avant le premier `undo()` d'une séquence.
@@ -59,7 +62,17 @@ class UndoStack:
         if self._live_tip is None:
             self._live_tip = tip
 
-    def undo(self) -> Optional[Dict[str, Any]]:
+    def peek_top(self) -> Optional[Any]:
+        """Renvoie le snapshot au sommet de la pile sans modifier le curseur.
+
+        Utilisé par l'App pour déterminer le type de live_tip à capturer
+        (arbre scopé vs chantier complet) avant d'appeler undo().
+        """
+        if self._cursor < 0:
+            return None
+        return self._stack[self._cursor]
+
+    def undo(self) -> Optional[Any]:
         """Recule d'un pas.
 
         Renvoie le snapshot à restaurer, ou None si rien à annuler.
@@ -72,7 +85,7 @@ class UndoStack:
         self._cursor -= 1
         return result
 
-    def redo(self) -> Optional[Dict[str, Any]]:
+    def redo(self) -> Optional[Any]:
         """Avance d'un pas. Renvoie le snapshot à restaurer, ou None."""
         if self._cursor + 1 >= len(self._stack):
             return None

@@ -14,6 +14,7 @@ Dépendances : Python 3.9+, tkinter (stdlib), Pillow (PNG/PDF).
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import sys
@@ -165,6 +166,11 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._suspend_sync = False
         self._redraw_id: Optional[str] = None
         self._undo_stack = UndoStack()
+        # Cache des résultats _arbre_etat(a) indexé par id(a).
+        # Peuplé par _refresh_tree_arbres, invalidé pour l'arbre courant
+        # par _refresh_current_arbre_etat. Réduit genet_diagnostic de
+        # O(N) à O(1) par redraw live (seul l'arbre muté est recalculé).
+        self._etat_cache: dict[int, tuple[str, str, str]] = {}
         self._recent = RecentFilesStore(
             _RECENT_FILES_PATH, _RECENT_FILES_MAX,
             on_change=lambda: refresh_recent_menu(self))  # type: ignore[arg-type]
@@ -342,9 +348,21 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
     def _perform_undo(self) -> None:
         if not self._undo_stack.can_undo:
             return
-        # Sérialise le chantier une seule fois par séquence d'undos :
         # set_live_tip est idempotent (no-op si déjà positionné).
-        self._undo_stack.set_live_tip(chantier_to_dict(self.chantier))
+        # On aligne le type du live_tip sur le type du snapshot qu'on va
+        # annuler : si c'est un snapshot arbre scopé, on capture seulement
+        # l'arbre concerné (deepcopy rapide) ; sinon chantier complet (JSON).
+        top = self._undo_stack.peek_top()
+        if isinstance(top, dict) and top.get("_type") == "arbre":
+            idx = top["_idx"]
+            if 0 <= idx < len(self.chantier.arbres):
+                live: Any = {"_type": "arbre", "_idx": idx,
+                             "_arbre": copy.deepcopy(self.chantier.arbres[idx])}
+            else:
+                live = chantier_to_dict(self.chantier)
+        else:
+            live = chantier_to_dict(self.chantier)
+        self._undo_stack.set_live_tip(live)
         snapshot = self._undo_stack.undo()
         if snapshot is None:
             return
@@ -356,7 +374,20 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             return
         self._restore_snapshot(snapshot)
 
-    def _restore_snapshot(self, snapshot: dict) -> None:
+    def _restore_snapshot(self, snapshot: Any) -> None:
+        if isinstance(snapshot, dict) and snapshot.get("_type") == "arbre":
+            # Snapshot arbre scopé : on ne touche qu'à un seul arbre dans la
+            # liste — le reste du chantier (méta, autres arbres) est inchangé.
+            idx: int = snapshot["_idx"]
+            if 0 <= idx < len(self.chantier.arbres):
+                self.chantier.arbres[idx] = snapshot["_arbre"]
+            # _refresh_tree_arbres vide le cache et le repeuple.
+            self._refresh_tree_arbres()
+            if idx == self.current_idx:
+                self._load_arbre_to_ui()
+            return
+        # Snapshot chantier complet (mutations globales : add/delete arbre,
+        # méta chantier, ou live_tip du premier undo d'une séquence mixte).
         self.chantier = chantier_from_dict(snapshot)
         if not self.chantier.arbres:
             self.chantier.arbres.append(Arbre(numero_arbre="1"))
@@ -808,14 +839,23 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         """Persiste les durées de suivi personnalisées."""
         self._settings.set_suivi_custom(values)
 
-    def capture_undo_snapshot(self) -> dict:
+    def capture_undo_snapshot(self) -> Any:
         """Renvoie un snapshot de l'état courant sans l'empiler. Utilisé
         par les éditions live (grilles de saisie) : on capture l'état
         AVANT édition au focus-in, on ne l'empile (`push_undo_snapshot`)
-        qu'au focus-out si la valeur a réellement changé."""
-        return chantier_to_dict(self.chantier)
+        qu'au focus-out si la valeur a réellement changé.
 
-    def push_undo_snapshot(self, snapshot: dict) -> None:
+        Quand un arbre courant existe, renvoie un snapshot arbre scopé
+        (deepcopy de l'arbre seul) — beaucoup plus léger que la
+        sérialisation JSON complète du chantier.
+        """
+        a = self._current_arbre()
+        if a is None:
+            return chantier_to_dict(self.chantier)
+        return {"_type": "arbre", "_idx": self.current_idx,
+                "_arbre": copy.deepcopy(a)}
+
+    def push_undo_snapshot(self, snapshot: Any) -> None:
         """Empile un snapshot pré-édition capturé par `capture_undo_snapshot`
         (cf. édition live de la grille de sondages)."""
         self._undo_stack.push(snapshot)

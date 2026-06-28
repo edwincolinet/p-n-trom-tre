@@ -100,6 +100,7 @@ class ArbreListMixin(_MixinBase):
         _lbl_filtre_actif: ttk.Label
         _lst_frame: ttk.Frame
         pane_id: IdentificationPane
+        _etat_cache: dict[int, tuple[str, str, str]]
 
         def push_undo(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
@@ -192,6 +193,10 @@ class ArbreListMixin(_MixinBase):
 
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
+        # Vider le cache : les objets Arbre peuvent avoir été remplacés
+        # (undo/redo arbre scopé) — on repart propre.
+        if hasattr(self, "_etat_cache"):
+            self._etat_cache.clear()
         n_rouge = n_orange = n_vert = n_afinir = 0
         for i, a in enumerate(self.chantier.arbres):
             # _arbre_etat appelle genet_diagnostic — on le fait une seule
@@ -199,6 +204,8 @@ class ArbreListMixin(_MixinBase):
             # ET les compteurs du footer (évite un second parcours complet
             # dans _update_etat_footer).
             glyph, risque, tag = self._arbre_etat(a)
+            if hasattr(self, "_etat_cache"):
+                self._etat_cache[id(a)] = (glyph, risque, tag)
             if risque == CLASSE_ROUGE:
                 n_rouge += 1
             elif risque == CLASSE_ORANGE:
@@ -262,8 +269,14 @@ class ArbreListMixin(_MixinBase):
         Recalculé sur toute la mission (jamais la sous-liste filtrée) à
         chaque rafraîchissement de l'état de l'arbre courant."""
         n_rouge = n_orange = n_vert = n_afinir = 0
+        cache = getattr(self, "_etat_cache", {})
         for a in self.chantier.arbres:
-            risque = self._arbre_etat(a)[1]
+            key = id(a)
+            if key in cache:
+                risque = cache[key][1]
+            else:
+                glyph, risque, tag = self._arbre_etat(a)
+                cache[key] = (glyph, risque, tag)
             if risque == CLASSE_ROUGE:
                 n_rouge += 1
             elif risque == CLASSE_ORANGE:
@@ -335,10 +348,15 @@ class ArbreListMixin(_MixinBase):
         a = self._current_arbre()
         if a is None:
             return
+        # Invalide l'entrée de cache de l'arbre courant et recalcule.
+        if hasattr(self, "_etat_cache"):
+            self._etat_cache.pop(id(a), None)
         sel = self.tree_arbres.selection()
         if sel:
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
             glyph, risque, tag = self._arbre_etat(a)
+            if hasattr(self, "_etat_cache"):
+                self._etat_cache[id(a)] = (glyph, risque, tag)
             self.tree_arbres.item(sel[0], text=label,
                                   values=(a.essence, glyph, risque),
                                   tags=(tag,))
