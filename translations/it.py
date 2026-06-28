@@ -607,4 +607,5 @@ TRANSLATIONS = {
         "senza di esso, il legno alterato non viene calcolato.",
     "Créez ou ouvrez une mission pour commencer.":
         "Crea o apri una missione per iniziare.",
+    "Activer une licence": "Attivare una licenza",
 }

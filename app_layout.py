@@ -109,6 +109,8 @@ class LayoutMixin(_MixinBase):
         def _dismiss_update_banner(self) -> None: ...
         def action_restart(self) -> None: ...
         def _dismiss_restart_banner(self) -> None: ...
+        def _show_trial_banner(self, days_remaining: int) -> None: ...
+        def _action_activate_from_trial(self) -> None: ...
         def _on_brin_bar_configure(
             self, event: "tk.Event[tk.Misc]") -> None: ...
         def _meta_focus_in(self) -> None: ...
@@ -686,6 +688,22 @@ class LayoutMixin(_MixinBase):
             self._restart_banner, text="✕", style="Ghost.TButton",
             command=self._dismiss_restart_banner,
         ).pack(side="right")
+
+        # Bannière mode essai : affichée durant les 30 jours d'essai, non
+        # dismissable (rappel permanent de l'état non-licencié). Packée
+        # side="bottom" par _show_trial_banner.
+        self._trial_banner = ttk.Frame(self, style="Side.TFrame",
+                                       padding=(10, 3))
+        self._trial_banner_lbl = ttk.Label(
+            self._trial_banner, text="",
+            style="Side.TLabel", foreground=COLOR_WARN,
+            font=ui_font("Helvetica", 9, "bold"))
+        self._trial_banner_lbl.pack(side="left")
+        ttk.Button(
+            self._trial_banner, text=_("Activer une licence"),
+            style="Accent.TButton",
+            command=self._action_activate_from_trial,
+        ).pack(side="left", padx=(12, 0))
 
         bar = ttk.Frame(self, style="Side.TFrame")
         bar.pack(side="bottom", fill="x")

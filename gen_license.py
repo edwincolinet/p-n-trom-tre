@@ -12,7 +12,13 @@ Commandes :
 
   python gen_license.py issue "Nom du cabinet" "email@example.com"
   python gen_license.py issue "Nom du cabinet" "email@example.com" --expires 2027-06-01
+  python gen_license.py issue "Nom du cabinet" "email@example.com" --machine-id a3b4c5d6e7f8
       → émet une clé de licence signée à envoyer au client.
+        --machine-id lie la licence à une machine spécifique (recommandé).
+        L'ID est affiché dans le dialogue d'activation de l'app cliente.
+
+  python gen_license.py machine-id
+      → affiche l'ID machine de la machine courante (pour tests locaux).
 
   python gen_license.py verify <clé>
       → vérifie une clé (utile pour le support).
@@ -98,6 +104,8 @@ def cmd_issue(args: argparse.Namespace) -> None:
     }
     if expires:
         payload["x"] = expires
+    if args.machine_id:
+        payload["m"] = args.machine_id
 
     payload_bytes = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     sig = priv.sign(payload_bytes)
@@ -105,6 +113,10 @@ def cmd_issue(args: argparse.Namespace) -> None:
 
     print()
     print("Licence émise pour :", args.name, f"<{args.email}>")
+    if args.machine_id:
+        print("Machine ID         :", args.machine_id)
+    else:
+        print("Machine            : toutes (non liée)")
     if expires:
         print("Expire le          :", expires)
     else:
@@ -114,6 +126,16 @@ def cmd_issue(args: argparse.Namespace) -> None:
     print()
     print(key)
     print()
+
+
+def cmd_machine_id(args: argparse.Namespace) -> None:
+    import license as lic
+    mid = lic.get_machine_id()
+    print("Machine ID (à fournir lors de la demande de licence) :")
+    print()
+    print(f"  {mid}")
+    print()
+    print("Source brute :", lic._raw_machine_id())
 
 
 def cmd_verify(args: argparse.Namespace) -> None:
@@ -150,7 +172,11 @@ def main() -> None:
     iss.add_argument("email", help="Email du titulaire")
     iss.add_argument("--expires", default=None, metavar="AAAA-MM-JJ", help="Date d'expiration (défaut : 1 an)")
     iss.add_argument("--no-expires", action="store_true", help="Licence illimitée (sans expiration)")
+    iss.add_argument("--machine-id", default=None, metavar="ID12",
+                     help="Lier la licence à cette machine (12 hex chars — cf. machine-id)")
     iss.add_argument("--key", default=str(_DEFAULT_KEY_PATH), help="Fichier clé privée")
+
+    sub.add_parser("machine-id", help="Afficher l'ID machine de cette machine")
 
     ver = sub.add_parser("verify", help="Vérifier une clé")
     ver.add_argument("key", help="Clé à vérifier")
@@ -160,6 +186,8 @@ def main() -> None:
         cmd_keygen(args)
     elif args.cmd == "issue":
         cmd_issue(args)
+    elif args.cmd == "machine-id":
+        cmd_machine_id(args)
     elif args.cmd == "verify":
         cmd_verify(args)
 

@@ -56,7 +56,7 @@ from dialogs import (
 )
 from dialogs_license import show_activation_dialog
 from i18n import _, setup_language
-from license import LicenseData, load_license, is_bundled
+from license import LicenseData, TrialInfo, get_trial_info, load_license, is_bundled
 from model import (URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort,
                    DegradationExterne, Sondage, degradations_chevauchements)
 from palette import (
@@ -142,17 +142,34 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # Vérification de licence — seulement dans le bundle de distribution.
         # En développement (python penetrometre.py), le check est sauté.
         self._license: Optional[LicenseData] = None
+        self._trial: Optional[TrialInfo] = None
         if is_bundled():
             self.withdraw()
             _lic: Optional[LicenseData] = load_license()
             if _lic is None:
-                _lic = show_activation_dialog(self)
-            if _lic is None:
+                # Pas de licence valide : essai actif ?
+                _trial_existing = get_trial_info()
+                if _trial_existing is not None:
+                    self._trial = _trial_existing
+                else:
+                    # Dialogue d'activation (licence OU démarrage essai)
+                    result = show_activation_dialog(self)
+                    if isinstance(result, LicenseData):
+                        _lic = result
+                    elif isinstance(result, TrialInfo):
+                        self._trial = result
+                    else:
+                        self.destroy()
+                        sys.exit(0)
+            if _lic is None and self._trial is None:
                 self.destroy()
                 sys.exit(0)
             self.deiconify()
             self._license = _lic
-            log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
+            if _lic is not None:
+                log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
+            elif self._trial is not None:
+                log.info("Mode essai — %d jours restants", self._trial.days_remaining)
 
         self.chantier = Chantier()
         self.current_idx = 0
@@ -217,6 +234,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # démarrage (laisse le temps à l'UI de se stabiliser, et évite
         # de bloquer le démarrage si le réseau est lent).
         self.after(3000, self._check_for_update_async)
+        # Bannière mode essai — après deiconify pour ne pas flasher en blanc.
+        if self._trial is not None:
+            self.after(100, lambda: self._show_trial_banner(
+                self._trial.days_remaining if self._trial else 0))
+
+    def _show_trial_banner(self, days_remaining: int) -> None:
+        """Affiche la bannière d'essai avec le nombre de jours restants."""
+        if not hasattr(self, "_trial_banner"):
+            return
+        self._trial_banner_lbl.configure(
+            text=f"Mode essai — {days_remaining} jour(s) restant(s) sur 30"
+        )
+        if not self._trial_banner.winfo_ismapped():
+            self._trial_banner.pack(side="bottom", fill="x")
+
+    def _action_activate_from_trial(self) -> None:
+        """Ouvre le dialogue d'activation depuis la bannière essai."""
+        from dialogs_license import show_activation_dialog
+        result = show_activation_dialog(self)
+        if isinstance(result, LicenseData):
+            self._license = result
+            self._trial = None
+            if hasattr(self, "_trial_banner"):
+                self._trial_banner.pack_forget()
+            log.info("Licence activée depuis mode essai — %s <%s>",
+                     result.name, result.email)
+            self.set_status(f"✓ Licence activée — {result.name}")
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
         """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
@@ -988,22 +1032,33 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                   style="Sub.TLabel").pack(anchor="w")
         ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
 
+        from license import get_machine_id
         if self._license:
             lic_titulaire = self._license.name
             if self._license.expires:
                 lic_expiration = self._license.expires.strftime("%d/%m/%Y")
             else:
                 lic_expiration = "Illimitée"
+            lic_machine = self._license.machine_id or "toutes machines"
+            lic_mode = "Licence active"
+        elif self._trial:
+            lic_titulaire = "Mode essai"
+            lic_expiration = f"{self._trial.days_remaining} jour(s) restant(s)"
+            lic_machine = get_machine_id()
+            lic_mode = "Essai gratuit 30 jours"
         else:
             lic_titulaire = "Mode développement"
             lic_expiration = "—"
+            lic_machine = get_machine_id()
+            lic_mode = "Développement (non bundlé)"
 
         infos = [
-            ("Version",     __version__),
-            ("Auteur",      "Edwin Colinet"),
-            ("Contact",     "e.colinet@silvavenir.fr"),
-            ("Titulaire",   lic_titulaire),
-            ("Expiration",  lic_expiration),
+            ("Version",        __version__),
+            ("Auteur",         "Edwin Colinet"),
+            ("Licence",        lic_mode),
+            ("Titulaire",      lic_titulaire),
+            ("Expiration",     lic_expiration),
+            ("Machine ID",     lic_machine),
         ]
         for lbl, val in infos:
             row = ttk.Frame(frm)

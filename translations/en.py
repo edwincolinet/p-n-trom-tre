@@ -628,4 +628,5 @@ TRANSLATIONS = {
         "without it, altered wood cannot be calculated.",
     "Créez ou ouvrez une mission pour commencer.":
         "Create or open a project to get started.",
+    "Activer une licence": "Activate a licence",
 }
