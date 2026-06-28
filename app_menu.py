@@ -82,6 +82,8 @@ class AppLike(Protocol):
     def action_restart(self) -> None: ...
     def action_about(self) -> None: ...
     def action_shortcuts(self) -> None: ...
+    def action_open_guide(self) -> None: ...
+    def action_contact_support(self) -> None: ...
     def action_open_log(self) -> None: ...
     def action_check_updates(self) -> None: ...
     def action_toggle_check_updates(self) -> None: ...
@@ -211,11 +213,13 @@ def build_menu(app: AppLike) -> None:
 
     # Aide
     h = tk.Menu(m, tearoff=0)
-    h.add_command(label=_("Redémarrer l'application"),
-                  command=app.action_restart)
-    h.add_separator()
+    h.add_command(label=_("Guide de démarrage…"),
+                  command=app.action_open_guide)
     h.add_command(label=_("Raccourcis clavier…"),
                   command=app.action_shortcuts)
+    h.add_separator()
+    h.add_command(label=_("Contacter le support…"),
+                  command=app.action_contact_support)
     h.add_command(label=_("Ouvrir le fichier de log"),
                   command=app.action_open_log)
     h.add_separator()
@@ -227,6 +231,8 @@ def build_menu(app: AppLike) -> None:
         variable=chk_var,
         command=app.action_toggle_check_updates)
     h.add_separator()
+    h.add_command(label=_("Redémarrer l'application"),
+                  command=app.action_restart)
     h.add_command(label=_("À propos"), command=app.action_about)
     m.add_cascade(label=_("Aide"), menu=h)
 

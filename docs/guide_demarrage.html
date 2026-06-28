@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pénétromètre — Guide de démarrage rapide</title>
+<style>
+  /* ------------------------------------------------------------------ */
+  /* Mise en page générale                                                */
+  /* ------------------------------------------------------------------ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: #1a2a1f;
+    background: #fff;
+    line-height: 1.55;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 14mm 16mm 12mm 16mm;
+    background: #fff;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { width: 100%; margin: 0; padding: 14mm 16mm 12mm 16mm; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .no-print { display: none; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* En-tête de page                                                      */
+  /* ------------------------------------------------------------------ */
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 2px solid #3a7d52;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #3a7d52;
+    letter-spacing: -0.3px;
+  }
+  .header-sub {
+    font-size: 10px;
+    color: #789;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Sections et étapes                                                   */
+  /* ------------------------------------------------------------------ */
+  h2 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #3a7d52;
+    margin: 14px 0 7px 0;
+    border-left: 3px solid #3a7d52;
+    padding-left: 7px;
+  }
+
+  .steps { counter-reset: step; }
+
+  .step {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 9px;
+  }
+  .step-num {
+    counter-increment: step;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    background: #3a7d52;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-body strong { color: #1a2a1f; }
+
+  /* ------------------------------------------------------------------ */
+  /* Encadrés                                                             */
+  /* ------------------------------------------------------------------ */
+  .box {
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .box-tip {
+    background: #eaf5ee;
+    border-left: 3px solid #3a7d52;
+  }
+  .box-warn {
+    background: #fff8e6;
+    border-left: 3px solid #d4900a;
+    color: #6b4a00;
+  }
+  .box-info {
+    background: #eef4ff;
+    border-left: 3px solid #4a7fd4;
+  }
+  .box-title {
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Raccourcis                                                            */
+  /* ------------------------------------------------------------------ */
+  .shortcuts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 16px;
+    font-size: 11.5px;
+    margin: 6px 0;
+  }
+  .shortcuts .row { display: contents; }
+  kbd {
+    display: inline-block;
+    background: #f0f0f0;
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    padding: 0px 4px;
+    font-family: "Courier New", monospace;
+    font-size: 10.5px;
+    color: #333;
+    white-space: nowrap;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tableau de référence                                                  */
+  /* ------------------------------------------------------------------ */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 11.5px;
+    margin: 8px 0;
+  }
+  th {
+    background: #3a7d52;
+    color: #fff;
+    text-align: left;
+    padding: 4px 7px;
+    font-weight: 600;
+  }
+  td {
+    padding: 3px 7px;
+    border-bottom: 1px solid #e0e8e4;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f5faf7; }
+
+  .badge {
+    display: inline-block;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .badge-vert   { background: #3a7d52; }
+  .badge-orange { background: #d4900a; }
+  .badge-rouge  { background: #c0392b; }
+  .badge-gris   { background: #7a8a84; }
+
+  /* ------------------------------------------------------------------ */
+  /* Pied de page                                                          */
+  /* ------------------------------------------------------------------ */
+  .footer {
+    border-top: 1px solid #c0d5c8;
+    margin-top: 14px;
+    padding-top: 6px;
+    font-size: 10px;
+    color: #789;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Bouton impression (no-print)                                          */
+  /* ------------------------------------------------------------------ */
+  .print-bar {
+    text-align: center;
+    padding: 10px;
+    background: #f0f4f2;
+    border-bottom: 1px solid #c0d5c8;
+  }
+  .print-bar button {
+    background: #3a7d52;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 18px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .print-bar button:hover { background: #2e6340; }
+
+  /* séparateur de colonne dans la grille 2-col */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+  }
+  .two-col > * { min-width: 0; }
+</style>
+</head>
+<body>
+
+<div class="print-bar no-print">
+  <button onclick="window.print()">🖨 Imprimer / Enregistrer en PDF</button>
+</div>
+
+<!-- ================================================================== -->
+<!-- PAGE 1 — Première mission                                           -->
+<!-- ================================================================== -->
+<div class="page">
+
+  <div class="header">
+    <span class="header-title">Pénétromètre — Guide de démarrage rapide</span>
+    <span class="header-sub">Page 1 / 2 — Première mission</span>
+  </div>
+
+  <!-- ----- Créer une mission ----- -->
+  <h2>1 · Créer une nouvelle mission</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Cliquez sur <strong>Fichier → Nouvelle mission</strong> (ou <kbd>Ctrl+N</kbd>).
+        Remplissez les champs d'en-tête : <strong>Nom du chantier</strong>, <strong>Date</strong>,
+        <strong>Opérateur</strong> (votre nom). Ces informations apparaissent sur toutes les fiches PDF exportées.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Cliquez sur <strong>＋ Ajouter → Arbre vierge</strong> (ou <kbd>Ctrl+T</kbd>) pour créer
+        le premier arbre de la mission. Le panneau de droite bascule en mode saisie.
+      </div>
+    </div>
+  </div>
+
+  <!-- ----- Identifier l'arbre ----- -->
+  <h2>2 · Onglet Identification</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Saisissez le <strong>N° d'arbre</strong> (doit contenir au moins un chiffre : « 1 », « 12 bis »…),
+        l'<strong>Essence</strong> et le <strong>Port</strong>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Saisissez le <strong>Rayon (cm)</strong> — c'est la mesure la plus importante :
+        elle borne toutes les PRBS. Le dessin se met à jour immédiatement.
+        Renseignez aussi la <strong>Hauteur de sondage</strong> et l'<strong>Épaisseur d'écorce</strong>.
+      </div>
+    </div>
+  </div>
+
+  <div class="box box-warn">
+    <div class="box-title">⚠ Sans rayon, le diagnostic est impossible</div>
+    Si le rayon est à 0, l'onglet Sondages affiche un bandeau ambre et les altérations ne
+    sont pas calculées. Saisissez toujours le rayon en premier.
+  </div>
+
+  <!-- ----- Saisir les sondages ----- -->
+  <h2>3 · Onglet Sondages</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        La grille affiche les <strong>16 directions</strong> (N, N-NE, NE…). Pour chaque direction
+        sondée, saisissez la <strong>PRBS en cm</strong> (Paroi Résiduelle de Bois Sain)
+        dans la colonne « Sain ». Descendez avec <kbd>Entrée</kbd> ou <kbd>↓</kbd>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        La colonne <strong>Altéré</strong> (lecture seule) se calcule automatiquement :
+        Altéré = Rayon − PRBS. Le dessin se met à jour en temps réel.
+        Une case <strong>vide</strong> signifie direction non sondée (ignorée du diagnostic).
+        <strong>Effacer</strong> une valeur supprime le sondage.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        <strong>≥ 3 sondages</strong> sont requis pour un diagnostic fiable. En dessous,
+        la pastille de la liste reste <strong>◐</strong> (partiel) et les exports masquent le t/R.
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <!-- ----- Dégradations ----- -->
+      <h2>4 · Onglet Dégradations (optionnel)</h2>
+      <p style="font-size:12px; margin-bottom:5px;">
+        Cliquez <strong>＋ Ajouter</strong> pour déclarer une zone de bois altérée en périphérie
+        (pourriture externe, blessure…). Définissez les grades début/fin et la profondeur.
+        La dégradation est déduite du bois sain dans le diagnostic.
+      </p>
+
+      <!-- ----- Contreforts ----- -->
+      <h2>5 · Onglet Contreforts (optionnel)</h2>
+      <p style="font-size:12px;">
+        Saisissez la <strong>longueur (cm)</strong> de chaque contrefort sur sa direction.
+        Les contreforts gonflent le contour du dessin et sont pris en compte dans le rendu
+        des dégradations externes.
+      </p>
+    </div>
+
+    <div>
+      <!-- ----- Canvas interactif ----- -->
+      <h2>6 · Dessin interactif</h2>
+      <p style="font-size:12px; margin-bottom:5px;">
+        Le canvas central se met à jour à chaque frappe.
+        Vous pouvez <strong>cliquer sur une direction libre</strong> pour y ajouter un sondage,
+        ou <strong>cliquer sur un élément existant</strong> (sondage, dégradation, contrefort)
+        pour l'éditer.
+      </p>
+      <div class="box box-tip" style="font-size:11.5px;">
+        <div class="box-title">💡 Afficher / masquer les sondages</div>
+        La case <em>Afficher sondages</em> sous le dessin contrôle les flèches sur le canvas
+        <strong>et</strong> sur les exports PDF.
+      </div>
+    </div>
+  </div>
+
+  <!-- ----- Enregistrer ----- -->
+  <h2>7 · Enregistrer</h2>
+  <p style="font-size:12px; margin-bottom:5px;">
+    Cliquez sur <strong>💾 Enregistrer</strong> (en bas à gauche) ou <kbd>Ctrl+S</kbd>.
+    L'indicateur passe de <em>● Modifications non enregistrées</em> à <em>✓ Enregistré</em>.
+    L'autosave protège votre travail toutes les 60 secondes en cas de crash — une fenêtre
+    de reprise s'affiche automatiquement au prochain démarrage.
+  </p>
+
+  <div class="box box-tip">
+    <div class="box-title">💡 Enchaîner les arbres rapidement</div>
+    Utilisez <strong>＋ Ajouter → Hériter du précédent</strong> pour reprendre l'essence,
+    le port et les paramètres de protocole (mèche, hauteur, épaisseur d'écorce) sans les re-saisir.
+    Naviguez entre les arbres avec <kbd>Ctrl+PgDown</kbd> / <kbd>Ctrl+PgUp</kbd>.
+  </div>
+
+  <div class="footer">
+    <span>Pénétromètre — Logiciel d'expertise arboricole au pénétromètre</span>
+    <span>contact@silvavenir.fr</span>
+  </div>
+
+</div><!-- /page 1 -->
+
+
+<!-- ================================================================== -->
+<!-- PAGE 2 — Diagnostic et exports                                      -->
+<!-- ================================================================== -->
+<div class="page">
+
+  <div class="header">
+    <span class="header-title">Pénétromètre — Guide de démarrage rapide</span>
+    <span class="header-sub">Page 2 / 2 — Diagnostic, exports et référence</span>
+  </div>
+
+  <!-- ----- Diagnostic ----- -->
+  <h2>8 · Onglet Diagnostic</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Le tableau <strong>PRBS par direction</strong> synthétise toutes les mesures.
+        La colonne <strong>t/R</strong> (= PRBS / Rayon) est l'indicateur clé :
+        plus il est bas, plus la paroi est mince et le risque élevé.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        La <strong>Classe globale</strong> (Vert / Orange / Rouge) est calculée sur le
+        t/R moyen des 16 directions. Elle s'affiche aussi dans la liste d'arbres à gauche.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-body">
+        Renseignez la <strong>Préconisation</strong> (urgence, échéance, texte libre) :
+        ces champs sont repris dans la synthèse de mission et les fiches PDF.
+      </div>
+    </div>
+  </div>
+
+  <!-- ----- Classes de risque ----- -->
+  <table>
+    <tr>
+      <th>Classe</th>
+      <th>t/R moyen</th>
+      <th>Signification</th>
+      <th>Pastille liste</th>
+    </tr>
+    <tr>
+      <td><span class="badge badge-vert">Vert</span></td>
+      <td>&gt; 0,33</td>
+      <td>Paroi résiduelle satisfaisante</td>
+      <td>● vert</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-orange">Orange</span></td>
+      <td>0,20 – 0,33</td>
+      <td>Vigilance — surveillance recommandée</td>
+      <td>● orange</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-rouge">Rouge</span></td>
+      <td>&lt; 0,20</td>
+      <td>Risque élevé — intervention à planifier</td>
+      <td>● rouge</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-gris">—</span></td>
+      <td>N/A</td>
+      <td>Moins de 3 sondages — diagnostic non fiable</td>
+      <td>◐ ou ○ gris</td>
+    </tr>
+  </table>
+
+  <!-- ----- Exports ----- -->
+  <h2>9 · Exporter</h2>
+  <div class="two-col">
+    <div>
+      <p style="font-size:12px; margin-bottom:6px;"><strong>Par arbre :</strong></p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body" style="font-size:12px;">
+            <strong>Fiche PDF</strong> : bouton <em>Exporter la fiche PDF</em> dans l'onglet
+            Diagnostic, ou <kbd>Ctrl+E</kbd>. Une page A4 avec dessin, tableau PRBS et préconisation.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body" style="font-size:12px;">
+            <strong>Image PNG</strong> : bouton <em>Exporter PNG</em> — uniquement le dessin
+            de section, sans tableau.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p style="font-size:12px; margin-bottom:6px;"><strong>Mission complète :</strong></p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body" style="font-size:12px;">
+            <strong>Fiches PDF mission</strong> : <em>Fichier → Exporter toutes les fiches (PDF)</em> —
+            un PDF multi-pages, une fiche par arbre.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body" style="font-size:12px;">
+            <strong>Synthèse XLSX</strong> : <em>Fichier → Exporter la synthèse mission (XLSX)</em> —
+            tableau de hiérarchisation du risque, trié, avec préconisations.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box box-info" style="margin-top:6px;">
+    <div class="box-title">📂 Après chaque export</div>
+    La barre d'état (en bas) affiche le nom du fichier et propose deux boutons :
+    <em>Ouvrir le fichier</em> et <em>Ouvrir le dossier</em> — sans avoir à naviguer dans l'Explorateur.
+  </div>
+
+  <!-- ----- Référence raccourcis ----- -->
+  <h2>10 · Raccourcis clavier essentiels</h2>
+  <div class="shortcuts">
+    <div><kbd>Ctrl+N</kbd> &nbsp;Nouvelle mission</div>
+    <div><kbd>Ctrl+O</kbd> &nbsp;Ouvrir mission</div>
+    <div><kbd>Ctrl+S</kbd> &nbsp;Enregistrer</div>
+    <div><kbd>Ctrl+T</kbd> &nbsp;Ajouter un arbre</div>
+    <div><kbd>Ctrl+E</kbd> &nbsp;Exporter fiche PDF (arbre)</div>
+    <div><kbd>Ctrl+Z</kbd> &nbsp;Annuler</div>
+    <div><kbd>Ctrl+PgDown</kbd> &nbsp;Arbre suivant</div>
+    <div><kbd>Ctrl+PgUp</kbd> &nbsp;Arbre précédent</div>
+    <div><kbd>Entrée / ↓</kbd> &nbsp;Sondage suivant (grille)</div>
+    <div><kbd>Échap</kbd> &nbsp;Vider le filtre de liste</div>
+  </div>
+
+  <!-- ----- Trucs terrain ----- -->
+  <h2>11 · Conseils terrain</h2>
+  <div class="two-col">
+    <div>
+      <div class="box box-tip" style="font-size:11.5px; margin-top:0;">
+        <div class="box-title">🔍 Filtres de la liste</div>
+        Le champ de recherche filtre par n°, essence ou commentaire.
+        La combobox filtre par classe de risque (<em>Rouge / Orange / Vert / Non fiable</em>).
+        Le bouton <strong>⏭ Prochain à finir</strong> saute au prochain arbre avec &lt; 3 sondages.
+      </div>
+      <div class="box box-tip" style="font-size:11.5px;">
+        <div class="box-title">↩ Undo / Redo</div>
+        <kbd>Ctrl+Z</kbd> annule la dernière action, <kbd>Ctrl+Y</kbd> la rétablit.
+        L'historique remonte jusqu'à 50 étapes.
+      </div>
+    </div>
+    <div>
+      <div class="box box-warn" style="font-size:11.5px; margin-top:0;">
+        <div class="box-title">💾 Sauvegarde et récupération</div>
+        L'autosave écrit toutes les 60 s (si non enregistré). En cas de crash,
+        une fenêtre de <strong>reprise</strong> s'affiche au prochain démarrage.
+        Les sauvegardes glissantes (une copie horodatée par enregistrement)
+        sont accessibles via <em>Fichier → Ouvrir le dossier des sauvegardes</em>.
+      </div>
+      <div class="box box-info" style="font-size:11.5px;">
+        <div class="box-title">🌐 Accessibilité</div>
+        <em>Affichage → Taille du texte</em> : Petit / Normal / Grand / Très grand.<br>
+        <em>Affichage → Contraste élevé</em> : texte plus sombre pour plein soleil.<br>
+        <em>Affichage → Langue</em> : Français / English / Italiano.
+      </div>
+    </div>
+  </div>
+
+  <!-- ----- Support ----- -->
+  <div class="box box-info" style="margin-top:10px; font-size:12px;">
+    <div class="box-title">📧 Aide et support</div>
+    En cas de problème, utilisez <strong>Aide → Contacter le support</strong> dans l'application.
+    Joignez le fichier de log (<em>Aide → Ouvrir le fichier de log</em>) à votre message.
+    Contact : <strong>contact@silvavenir.fr</strong>
+  </div>
+
+  <div class="footer">
+    <span>Pénétromètre — Logiciel d'expertise arboricole au pénétromètre</span>
+    <span>contact@silvavenir.fr</span>
+  </div>
+
+</div><!-- /page 2 -->
+
+</body>
+</html>

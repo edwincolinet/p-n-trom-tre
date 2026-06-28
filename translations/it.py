@@ -608,4 +608,16 @@ TRANSLATIONS = {
     "Créez ou ouvrez une mission pour commencer.":
         "Crea o apri una missione per iniziare.",
     "Activer une licence": "Attivare una licenza",
+    "Guide de démarrage": "Guida rapida",
+    "Guide de démarrage…": "Guida rapida…",
+    "Guide introuvable : {p}": "Guida non trovata: {p}",
+    "Contacter le support": "Contattare il supporto",
+    "Contacter le support…": "Contattare il supporto…",
+    "Copier": "Copia",
+    "Email": "Email",
+    "Machine ID": "ID macchina",
+    "Envoyer un email": "Invia un'email",
+    "Ouvrir le log": "Aprire il log",
+    "Pour tout signalement, joignez le fichier de log à votre message.":
+        "Per qualsiasi segnalazione, allegare il file di log al messaggio.",
 }

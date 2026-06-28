@@ -80,6 +80,7 @@ from ui_fonts import font as ui_font
 from undo import UndoStack
 
 __version__ = "3.6.0"
+_SUPPORT_EMAIL = "contact@silvavenir.fr"
 
 # Fichiers récents : on en garde 8, persistés en JSON dans le même
 # répertoire que le log (~/.penetrometre/). 8 est un bon compromis :
@@ -1211,6 +1212,95 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                    command=dlg.destroy).pack(side="right")
 
         dlg.bind("<Escape>", lambda e: dlg.destroy())
+        from dialogs import _make_modal
+        _make_modal(dlg, self)
+
+    def action_open_guide(self) -> None:
+        """Ouvre le guide de démarrage rapide (HTML) dans le navigateur."""
+        guide = Path(__file__).parent / "docs" / "guide_demarrage.html"
+        if not guide.exists():
+            messagebox.showinfo(
+                _("Guide de démarrage"),
+                _("Guide introuvable : {p}").format(p=guide))
+            return
+        self._open_in_system(guide)
+
+    def action_contact_support(self) -> None:
+        """Dialogue de support : contact, Machine ID, lien vers le log."""
+        from license import get_machine_id
+        machine_id = get_machine_id()
+        log_path = Path.home() / ".penetrometre" / "penetrometre.log"
+
+        dlg = tk.Toplevel(self)
+        dlg.title(_("Contacter le support"))
+        dlg.resizable(False, False)
+        dlg.configure(bg=COLOR_BG)
+        frm = ttk.Frame(dlg, padding=22)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text=_("Contacter le support"),
+                  font=ui_font("Helvetica", 13, "bold"),
+                  foreground=COLOR_ACCENT).pack(anchor="w")
+        ttk.Separator(frm).pack(fill="x", pady=(8, 12))
+
+        def _row(label: str, value: str, copy: bool = False) -> None:
+            r = ttk.Frame(frm)
+            r.pack(fill="x", pady=2)
+            ttk.Label(r, text=f"{label} :", width=16, anchor="e",
+                      style="Muted.TLabel").pack(side="left", padx=(0, 8))
+            if copy:
+                ttk.Label(r, text=value,
+                          font=("Courier", 10)).pack(side="left")
+            else:
+                ttk.Label(r, text=value).pack(side="left")
+            if copy:
+                def _copy(v: str = value) -> None:
+                    dlg.clipboard_clear()
+                    dlg.clipboard_append(v)
+                ttk.Button(r, text=_("Copier"), width=7,
+                           command=_copy).pack(side="left", padx=(8, 0))
+
+        _row(_("Email"), _SUPPORT_EMAIL, copy=True)
+        _row(_("Machine ID"), machine_id, copy=True)
+
+        _row(_("Version"), __version__)
+
+        ttk.Separator(frm).pack(fill="x", pady=(12, 8))
+        ttk.Label(frm,
+                  text=_("Pour tout signalement, joignez le fichier de log "
+                          "à votre message."),
+                  foreground=COLOR_MUTED, wraplength=360,
+                  justify="left").pack(anchor="w")
+
+        frm_btn = ttk.Frame(frm)
+        frm_btn.pack(fill="x", pady=(10, 0))
+
+        def _open_log() -> None:
+            if log_path.exists():
+                self._open_in_system(log_path)
+            else:
+                messagebox.showinfo(
+                    _("Fichier de log"),
+                    _("Aucun fichier de log trouvé à :\n{p}").format(p=log_path),
+                    parent=dlg)
+
+        def _open_mail() -> None:
+            import urllib.parse
+            import webbrowser
+            subject = urllib.parse.quote(f"Support Pénétromètre {__version__}")
+            body = urllib.parse.quote(
+                f"Machine ID : {machine_id}\nVersion : {__version__}\n\n"
+                f"[Décrivez votre problème ici]")
+            webbrowser.open(f"mailto:{_SUPPORT_EMAIL}?subject={subject}&body={body}")
+
+        ttk.Button(frm_btn, text=_("Ouvrir le log"),
+                   command=_open_log).pack(side="left")
+        ttk.Button(frm_btn, text=_("Envoyer un email"),
+                   style="Accent.TButton",
+                   command=_open_mail).pack(side="left", padx=(8, 0))
+        ttk.Button(frm_btn, text=_("Fermer"),
+                   command=dlg.destroy).pack(side="right")
+
         from dialogs import _make_modal
         _make_modal(dlg, self)
 
