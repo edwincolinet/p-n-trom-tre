@@ -340,7 +340,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._mark_dirty()
 
     def _perform_undo(self) -> None:
-        snapshot = self._undo_stack.undo(chantier_to_dict(self.chantier))
+        if not self._undo_stack.can_undo:
+            return
+        # Sérialise le chantier une seule fois par séquence d'undos :
+        # set_live_tip est idempotent (no-op si déjà positionné).
+        self._undo_stack.set_live_tip(chantier_to_dict(self.chantier))
+        snapshot = self._undo_stack.undo()
         if snapshot is None:
             return
         self._restore_snapshot(snapshot)

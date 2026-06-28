@@ -11,7 +11,7 @@ class UndoStackTests(unittest.TestCase):
 
     def test_undo_vide_renvoie_none(self):
         stack = UndoStack()
-        self.assertIsNone(stack.undo({"current": True}))
+        self.assertIsNone(stack.undo())
 
     def test_redo_vide_renvoie_none(self):
         stack = UndoStack()
@@ -20,7 +20,8 @@ class UndoStackTests(unittest.TestCase):
     def test_push_puis_undo(self):
         stack = UndoStack()
         stack.push({"state": "A"})
-        result = stack.undo({"state": "B"})
+        stack.set_live_tip({"state": "B"})
+        result = stack.undo()
         self.assertEqual(result, {"state": "A"})
 
     def test_undo_puis_redo(self):
@@ -28,7 +29,8 @@ class UndoStackTests(unittest.TestCase):
         stack.push({"state": "A"})
         stack.push({"state": "B"})
         # On est à l'état C, on undo → B
-        stack.undo({"state": "C"})
+        stack.set_live_tip({"state": "C"})
+        stack.undo()
         # Redo → C
         result = stack.redo()
         self.assertEqual(result, {"state": "C"})
@@ -37,7 +39,8 @@ class UndoStackTests(unittest.TestCase):
         stack = UndoStack()
         stack.push({"state": "A"})
         stack.push({"state": "B"})
-        stack.undo({"state": "C"})
+        stack.set_live_tip({"state": "C"})
+        stack.undo()
         # On push un nouvel état → le redo (C) est perdu
         stack.push({"state": "D"})
         self.assertIsNone(stack.redo())
@@ -65,8 +68,47 @@ class UndoStackTests(unittest.TestCase):
         stack.push({"state": "A"})
         self.assertTrue(stack.can_undo)
         self.assertFalse(stack.can_redo)
-        stack.undo({"state": "B"})
+        stack.set_live_tip({"state": "B"})
+        stack.undo()
         self.assertTrue(stack.can_redo)
+
+    def test_set_live_tip_idempotent(self):
+        """set_live_tip n'écrase pas le tip déjà positionné."""
+        stack = UndoStack()
+        stack.push({"state": "A"})
+        stack.set_live_tip({"state": "B"})
+        stack.set_live_tip({"state": "OVERWRITE"})  # doit être ignoré
+        stack.undo()
+        self.assertEqual(stack.redo(), {"state": "B"})
+
+    def test_push_remet_live_tip_a_none(self):
+        """Un nouveau push invalide le live_tip (redo path abandonné)."""
+        stack = UndoStack()
+        stack.push({"state": "A"})
+        stack.set_live_tip({"state": "C"})
+        stack.undo()
+        stack.push({"state": "B"})  # nouvelle mutation
+        self.assertIsNone(stack._live_tip)
+        self.assertFalse(stack.can_redo)
+
+    def test_undo_multiples_puis_redo_complet(self):
+        """Séquence complète : 2 pushes → 2 undos → 2 redos."""
+        stack = UndoStack()
+        stack.push({"state": "A"})
+        stack.push({"state": "B"})
+        stack.set_live_tip({"state": "C"})
+        # Undo × 2
+        r1 = stack.undo()
+        self.assertEqual(r1, {"state": "B"})
+        r2 = stack.undo()
+        self.assertEqual(r2, {"state": "A"})
+        self.assertFalse(stack.can_undo)
+        # Redo × 2
+        r3 = stack.redo()
+        self.assertEqual(r3, {"state": "B"})
+        r4 = stack.redo()
+        self.assertEqual(r4, {"state": "C"})
+        self.assertFalse(stack.can_redo)
 
 
 class UndoIntegrationTests(unittest.TestCase):
@@ -85,7 +127,6 @@ class UndoIntegrationTests(unittest.TestCase):
         chantier.arbres.append(arbre)
 
         stack = UndoStack()
-        # Simuler push_undo avant suppression
         stack.push(chantier_to_dict(chantier))
 
         # Mutation : supprimer le premier sondage
@@ -94,7 +135,8 @@ class UndoIntegrationTests(unittest.TestCase):
         self.assertEqual(len(arbre.sondages), 1)
 
         # Undo
-        snapshot = stack.undo(chantier_to_dict(chantier))
+        stack.set_live_tip(chantier_to_dict(chantier))
+        snapshot = stack.undo()
         self.assertIsNotNone(snapshot)
         restored = chantier_from_dict(snapshot)
         self.assertEqual(len(restored.arbres[0].sondages), 2)
@@ -118,9 +160,9 @@ class UndoIntegrationTests(unittest.TestCase):
         arbre.sondages[0].bois_sain_cm = 10.0
         arbre.sondages[0].bois_altere_cm = 15.0
 
-        current = chantier_to_dict(chantier)
         # Undo → état avant mutation
-        before = stack.undo(current)
+        stack.set_live_tip(chantier_to_dict(chantier))
+        before = stack.undo()
         restored = chantier_from_dict(before)
         self.assertAlmostEqual(
             restored.arbres[0].sondages[0].bois_sain_cm, 20.0)

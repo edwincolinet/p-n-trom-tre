@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 log = logging.getLogger("penetrometre")
@@ -182,7 +184,17 @@ class SettingsStore:
     def _save(self) -> None:
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._path, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=2)
+            fd, tmp = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp",
+                                       prefix=self._path.stem + "_")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, self._path)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except Exception:
             log.exception("Écriture settings.json")

@@ -192,12 +192,25 @@ class ArbreListMixin(_MixinBase):
 
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
+        n_rouge = n_orange = n_vert = n_afinir = 0
         for i, a in enumerate(self.chantier.arbres):
+            # _arbre_etat appelle genet_diagnostic — on le fait une seule
+            # fois par arbre pour alimenter à la fois la ligne du Treeview
+            # ET les compteurs du footer (évite un second parcours complet
+            # dans _update_etat_footer).
+            glyph, risque, tag = self._arbre_etat(a)
+            if risque == CLASSE_ROUGE:
+                n_rouge += 1
+            elif risque == CLASSE_ORANGE:
+                n_orange += 1
+            elif risque == CLASSE_VERT:
+                n_vert += 1
+            else:
+                n_afinir += 1
             if not self._arbre_matches_filter(a):
                 continue
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
-            glyph, risque, tag = self._arbre_etat(a)
             # iid = position réelle dans chantier.arbres (cf.
             # _on_select_arbre) — préservée même quand des lignes sont
             # masquées par le filtre.
@@ -206,7 +219,7 @@ class ArbreListMixin(_MixinBase):
                                     values=(a.essence, glyph, risque),
                                     tags=(tag,))
         # Footer = vue macro sur TOUTE la mission (pas la sous-liste filtrée).
-        self._update_etat_footer()
+        self._set_etat_footer_counts(n_rouge, n_orange, n_vert, n_afinir)
         # Bandeau "filtre actif" : signale le nombre d'arbres masqués et
         # propose un bouton de réinitialisation rapide.
         if hasattr(self, "_filtre_actif_frame"):
@@ -229,15 +242,25 @@ class ArbreListMixin(_MixinBase):
             self.tree_arbres.focus(target)
         self._refresh_welcome_visibility()
 
+    def _set_etat_footer_counts(self, n_rouge: int, n_orange: int,
+                                   n_vert: int, n_afinir: int) -> None:
+        """Affiche les compteurs pré-calculés dans le footer. Séparé de
+        _update_etat_footer pour que _refresh_tree_arbres puisse passer
+        ses comptes sans second parcours de la liste."""
+        if not hasattr(self, "lbl_etat_footer"):
+            return
+        n_total = len(self.chantier.arbres)
+        self.lbl_etat_footer.configure(
+            text=(f"{n_rouge} rouge · {n_orange} orange · {n_vert} vert "
+                  + _("· {n} à finir   ({t})").format(n=n_afinir, t=n_total)))
+
     def _update_etat_footer(self) -> None:
         """Footer = **vue de triage macro** de la mission : répartition des
         arbres par classe de risque (fiables) + nombre encore « à finir »
         (rayon/sondages incomplets → diagnostic non fiable). Répond au
         « puis-je quitter le site ? » sans ouvrir l'export de synthèse.
         Recalculé sur toute la mission (jamais la sous-liste filtrée) à
-        chaque rafraîchissement de la liste ou de l'état de l'arbre courant."""
-        if not hasattr(self, "lbl_etat_footer"):
-            return
+        chaque rafraîchissement de l'état de l'arbre courant."""
         n_rouge = n_orange = n_vert = n_afinir = 0
         for a in self.chantier.arbres:
             risque = self._arbre_etat(a)[1]
@@ -249,10 +272,7 @@ class ArbreListMixin(_MixinBase):
                 n_vert += 1
             else:  # « — » : incomplet (○/◐) → à finir
                 n_afinir += 1
-        n_total = len(self.chantier.arbres)
-        self.lbl_etat_footer.configure(
-            text=(f"{n_rouge} rouge · {n_orange} orange · {n_vert} vert "
-                  + _("· {n} à finir   ({t})").format(n=n_afinir, t=n_total)))
+        self._set_etat_footer_counts(n_rouge, n_orange, n_vert, n_afinir)
 
     @staticmethod
     def _arbre_diag_fiable(a: Arbre) -> bool:

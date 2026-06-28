@@ -67,7 +67,7 @@ def check_for_update(
                      "User-Agent": f"Penetrometre/{current_version}"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode())
+            data = json.loads(resp.read(65536).decode())
     except urllib.error.HTTPError as e:
         if e.code == 404:
             # Dépôt privé ou aucune release publiée — silencieux.
