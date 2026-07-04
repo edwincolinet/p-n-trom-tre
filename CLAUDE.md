@@ -6,9 +6,19 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
 ## Stack
 
 - **Python 3.10+** (3.13 recommandé), **Tkinter** (UI stdlib), **Pillow** (PNG/PDF)
-- Aucun framework, aucun build system — lancement par double-clic.
+- Aucun framework ; pas de build pour le **développement** (lancement par
+  double-clic). **Empaquetage distribution** : PyInstaller (`penetrometre.spec`,
+  installeurs Win/macOS/Linux via `.github/workflows/build.yml` sur tag `v*`)
+  **ou** Nuitka (binaire compilé, `build/build_nuitka.py` — plus dur à
+  décompiler ; `license.is_bundled()` détecte les deux).
 - Dépendance optionnelle : openpyxl (export XLSX).
-- Dépendance runtime : cryptography (vérification de licence Ed25519 offline).
+- Dépendances runtime : cryptography (licence Ed25519 offline) ; **fpdf2**
+  (déclarée pour la future fiche PDF vectorielle — **pas encore utilisée**,
+  chantier planifié).
+- **Outillage dev** (`requirements-dev.txt`, versions **épinglées** pour ruff
+  et Pillow → CI reproductible) : ruff (lint), mypy (types), pytest (runner de
+  la suite) + hypothesis (property-tests, `tests/test_properties.py`), Nuitka,
+  pyinstaller.
 
 ## Structure
 
@@ -336,6 +346,14 @@ Golden-tests :
 
 - PIL : `python -m tests.test_render --update`
 - Tk : `xvfb-run -a python -m tests.test_section_canvas --update`
+
+Build / empaquetage (distribution uniquement — le dev tourne sans build) :
+
+- PyInstaller (référence) : `pyinstaller penetrometre.spec` → `dist/Penetrometre/`
+  (installeurs Win/macOS/Linux produits par `.github/workflows/build.yml` sur
+  tag `v*`).
+- Nuitka (binaire compilé, option durcie) : `python build/build_nuitka.py` →
+  `dist-nuitka/` (compilateur C requis ; réplique le spec).
 
 Gestion des licences (usage interne — `private.key` requis, jamais commité) :
 

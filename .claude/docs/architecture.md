@@ -561,8 +561,9 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   offline Ed25519 (`_PUBLIC_KEY_B64`). `LicenseData` + `TrialInfo` (essai
   30 jours). `get_machine_id()` = SHA-256[:12] de l'ID platform
   (`/etc/machine-id` Linux, `ioreg` macOS, registre Windows). `is_bundled()`
-  : True si PyInstaller (`sys.frozen`) — les contrôles de licence ne
-  s'activent qu'en bundle. `get_trial_info()` / `start_trial()` / `save_license()`.
+  : True en binaire de production **PyInstaller** (`sys.frozen`) **OU Nuitka**
+  (`__compiled__` dans les globals) — les contrôles de licence ne s'activent
+  qu'en bundle, jamais en dev. `get_trial_info()` / `start_trial()` / `save_license()`.
 - **`dialogs_license.py`** — fenêtre d'activation bloquante au démarrage
   (si bundle sans licence). Retourne `Optional[Union[LicenseData, TrialInfo]]`.
   Affiche l'identifiant machine + bouton Copier ; bouton « Essai 30 jours »
@@ -579,8 +580,14 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   `dialogs_settings.py` (dialog **Réglages → Barème…**).
 - **`dialogs_settings.py`** — dialogs de préférences avancées (barème t/R,
   nom du cabinet, logo).
-- **`dialogs_shared.py`** — helpers partagés entre dialogues (validateurs,
-  widgets communs).
+- **`dialogs_shared.py`** — helpers **purs** partagés entre dialogues et panes
+  (validateurs numériques, choix de grades, dates). Porte la **source unique
+  des symboles de compartimentation** : `COMPART_GLYPH`/`COMPART_COLOR` +
+  `compart_glyph`/`compart_color`/`compart_visual` (**✔** active / **✘** absente
+  / **—** non renseignée) — le même glyphe est affiché à la **saisie**
+  (`compart_label`/`compart_from_label` préfixent/retirent le glyphe du
+  combobox) **et** dans **tous les exports** (XLSX/HTML via `export.py`, PDF via
+  `fiche_pdf.py`).
 - **`update_checker.py`** — vérification des mises à jour via l'API GitHub
   Releases (timeout 2 s, best-effort). Activé au démarrage et via
   **Aide → Vérifier les mises à jour**.
@@ -590,6 +597,10 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 - **`photo_gallery.py`** — galerie photos par arbre (onglet Identification) :
   ajout/suppression de photos depuis le dossier compagnon `<mission>_photos/`
   undo-able ; intégrées optionnellement dans la fiche PDF (page dédiée).
+- **Empaquetage** (`build/`) — distribution uniquement, hors app : PyInstaller
+  (`penetrometre.spec` + `build/*.sh`/`installer.iss`, installeurs via
+  `.github/workflows/build.yml` sur tag `v*`) et Nuitka (`build/build_nuitka.py`,
+  binaire compilé — réplique le spec). `build/build_icons.py` génère les icônes.
 
 ## Accessibilité & réglages
 
