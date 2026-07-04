@@ -64,7 +64,8 @@ jobs:
           comparaison.py comparaison_render.py
           undo.py tooltip.py aide_repliable.py penetrometre.py
 
-      - name: Suite de tests (unittest, sous Xvfb)
+      - name: Suite de tests (pytest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk
-        # (test_section_canvas) s'exécutent au lieu de skipper.
-        run: xvfb-run -a python -m unittest discover tests -v
+        # (test_section_canvas) s'exécutent au lieu de skipper. pytest
+        # exécute nativement les tests `unittest.TestCase` (cf. pytest.ini).
+        run: xvfb-run -a python -m pytest tests
