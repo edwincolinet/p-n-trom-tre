@@ -70,10 +70,10 @@ def ask_cabinet_settings(parent: tk.Misc,
             pil = _PILImage.open(path)
             target_h = 80
             ratio = target_h / pil.height
-            pil = pil.resize(
+            resized = pil.resize(
                 (int(pil.width * ratio), target_h),
-                _PILImage.LANCZOS)
-            img = _ImageTk.PhotoImage(pil)
+                _PILImage.Resampling.LANCZOS)
+            img = _ImageTk.PhotoImage(resized)
             _preview_img[0] = img
             preview_lbl.configure(image=img, text="")
         except ImportError:

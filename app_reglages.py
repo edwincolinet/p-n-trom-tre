@@ -283,10 +283,10 @@ class ReglagesMixin(_MixinBase):
             pil = PILImage.open(p)
             target_h = 56
             ratio = target_h / pil.height
-            pil = pil.resize(
+            resized = pil.resize(
                 (int(pil.width * ratio), target_h),
-                PILImage.LANCZOS)
-            self._logo_image = ImageTk.PhotoImage(pil)
+                PILImage.Resampling.LANCZOS)
+            self._logo_image = ImageTk.PhotoImage(resized)
             lbl = ttk.Label(self._logo_frame, image=self._logo_image)
             lbl.pack()
             lbl.bind("<Button-1>",
