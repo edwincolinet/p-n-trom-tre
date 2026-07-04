@@ -34,6 +34,12 @@ jobs:
   # ──────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
+    # `secrets` est INTERDIT dans un `if:` (→ « Unrecognized named-value:
+    # 'secrets' » = fichier de workflow invalide, échec au démarrage). On
+    # mappe les secrets en drapeaux booléens au niveau job (où `secrets`
+    # EST autorisé), et les étapes testent `env.<flag> == 'true'`.
+    env:
+      HAS_WIN_SIGNING: ${{ secrets.CODESIGN_P12_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -63,7 +69,7 @@ jobs:
       # Signature optionnelle — activée seulement si CODESIGN_P12_BASE64
       # est configuré dans les secrets du dépôt.
       - name: Signer l'exécutable (Windows)
-        if: secrets.CODESIGN_P12_BASE64 != ''
+        if: env.HAS_WIN_SIGNING == 'true'
         shell: pwsh
         env:
           CODESIGN_P12_BASE64: ${{ secrets.CODESIGN_P12_BASE64 }}
@@ -99,7 +105,7 @@ jobs:
 
       # Signer aussi l'installeur .exe (optionnel, même secret)
       - name: Signer l'installeur Setup.exe (Windows)
-        if: secrets.CODESIGN_P12_BASE64 != ''
+        if: env.HAS_WIN_SIGNING == 'true'
         shell: pwsh
         env:
           CODESIGN_P12_BASE64: ${{ secrets.CODESIGN_P12_BASE64 }}
@@ -139,6 +145,11 @@ jobs:
   # ──────────────────────────────────────────────
   build-macos:
     runs-on: macos-latest
+    # Cf. build-windows : `secrets` interdit dans `if:` → drapeaux booléens
+    # au niveau job, testés via `env.<flag>` dans les étapes.
+    env:
+      HAS_MAC_SIGNING: ${{ secrets.APPLE_CERT_BASE64 != '' }}
+      HAS_MAC_NOTARY:  ${{ secrets.APPLE_ID != '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -169,7 +180,7 @@ jobs:
       # Sans ces secrets : l'app fonctionne mais Gatekeeper la bloque.
       # ─────────────────────────────────────────────────────────────────
       - name: Importer le certificat Developer ID (macOS)
-        if: secrets.APPLE_CERT_BASE64 != ''
+        if: env.HAS_MAC_SIGNING == 'true'
         env:
           APPLE_CERT_BASE64:    ${{ secrets.APPLE_CERT_BASE64 }}
           APPLE_CERT_PASSWORD:  ${{ secrets.APPLE_CERT_PASSWORD }}
@@ -195,7 +206,7 @@ jobs:
           echo "KEYCHAIN_PWD=$KEYCHAIN_PWD"   >> $GITHUB_ENV
 
       - name: Signer l'application (macOS)
-        if: secrets.APPLE_CERT_BASE64 != ''
+        if: env.HAS_MAC_SIGNING == 'true'
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
@@ -217,7 +228,7 @@ jobs:
       # Nécessite en plus : APPLE_ID et APPLE_APP_PASSWORD
       # ─────────────────────────────────────────────────────────────────
       - name: Notariser et agrafer (macOS)
-        if: secrets.APPLE_ID != ''
+        if: env.HAS_MAC_NOTARY == 'true'
         env:
           APPLE_ID:           ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
@@ -237,7 +248,7 @@ jobs:
           echo "✅ Notarisation macOS OK : $DMG"
 
       - name: Nettoyer le keychain temporaire
-        if: always() && secrets.APPLE_CERT_BASE64 != ''
+        if: always() && env.HAS_MAC_SIGNING == 'true'
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
 
