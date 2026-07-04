@@ -821,7 +821,7 @@ def _render_photos_page(
     # --- Pied de page ---
     d.line([margin, H - 46, W - margin, H - 46], fill=COLOR_MUTED, width=1)
     d.text((W / 2, H - 24),
-           f"Pénétromètre   •   "
+           "Pénétromètre   •   "
            + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
            font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
 

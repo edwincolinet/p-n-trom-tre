@@ -27,7 +27,6 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
     Retourne LicenseData, TrialInfo ou None (= quitter).
     """
     from license import (
-        TrialInfo,
         get_machine_id,
         get_trial_info,
         save_license,

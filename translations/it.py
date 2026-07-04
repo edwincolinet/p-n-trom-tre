@@ -552,7 +552,6 @@ TRANSLATIONS = {
     "＋ Photo":                           "＋ Foto",
     "Aucune photo":                       "Nessuna foto",
     "Ajouter des photos":                 "Aggiungi foto",
-    "Mission non enregistrée":            "Progetto non salvato",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
                                           "Salva prima il progetto (Ctrl+S) per poter aggiungere foto.",
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
