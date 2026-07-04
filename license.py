@@ -53,8 +53,15 @@ class TrialInfo:
 
 
 def is_bundled() -> bool:
-    """True si l'app tourne depuis un bundle PyInstaller (production)."""
-    return getattr(sys, "frozen", False)
+    """True si l'app tourne depuis un binaire de production (PyInstaller
+    OU Nuitka), False en développement (`python penetrometre.py`).
+
+    PyInstaller pose `sys.frozen` ; Nuitka pose `__compiled__` dans les
+    globals de chaque module compilé (dont celui-ci). Sans le second test,
+    le binaire Nuitka sauterait la vérification de licence — or c'est
+    précisément pour durcir cette protection qu'on propose un build Nuitka.
+    """
+    return getattr(sys, "frozen", False) or "__compiled__" in globals()
 
 
 def _b64url_decode(s: str) -> bytes:
