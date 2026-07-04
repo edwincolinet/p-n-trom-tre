@@ -7,8 +7,11 @@
 # Install :  pip install -r requirements-dev.txt
 
 # Linter / sorteur d'imports unifié. Configuration dans `ruff.toml`.
-# Plage 0.15+ : tolère le format `[lint]` séparé qu'on utilise.
-ruff>=0.15,<1
+# ÉPINGLÉ exactement : ruff ajoute/renforce des règles même en versions
+# mineures — une plage laisse la CI installer une version plus stricte et
+# échouer sans le moindre changement de code (déjà arrivé). Bump délibéré :
+# changer cette ligne PUIS lancer `ruff check .` et corriger le delta.
+ruff==0.15.20
 
 # Vérificateur de types statique. Configuré dans `mypy.ini` : strict
 # uniquement sur le cœur pur (bareme/geometry/palette/model). Les
