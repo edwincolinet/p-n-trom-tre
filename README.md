@@ -42,11 +42,14 @@ Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
 ## Tests
 
 ```bash
-python -m unittest discover tests
+pytest tests
 
 # en CI (ou sans X local) pour exécuter aussi les tests Tk :
-xvfb-run -a python -m unittest discover tests
+xvfb-run -a pytest tests
 ```
+
+Les tests sont des `unittest.TestCase` : `python -m unittest discover tests`
+reste fonctionnel si pytest n'est pas installé.
 
 Un hook `pre-push` versionné (`.githooks/pre-push`) rejoue lint + tests
 avant chaque `git push`. Activation (une fois par clone) :
