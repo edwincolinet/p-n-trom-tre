@@ -39,5 +39,6 @@ hypothesis>=6.100,<7
 # Packaging durci : Nuitka COMPILE le Python en C (binaire plus rapide et
 # nettement plus dur à décompiler que le bundle .pyc de PyInstaller) —
 # complète la protection licence Ed25519. Alternative à pyinstaller, pas
-# un remplacement obligatoire.
+# un remplacement obligatoire. Driver de build : `build/build_nuitka.py`
+# (réplique penetrometre.spec ; nécessite un compilateur C + patchelf).
 Nuitka>=2.4,<5

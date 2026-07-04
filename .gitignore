@@ -63,3 +63,6 @@ Communication/
 
 # Clé privée de licence — NE JAMAIS COMMITTER
 private.key
+
+# Build Nuitka (dossier autonome / onefile)
+dist-nuitka/
