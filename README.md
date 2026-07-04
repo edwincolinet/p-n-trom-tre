@@ -76,7 +76,9 @@ La suite de tests unitaires couvre :
 - 4 **golden-dump tests Tk** (mêmes scénarios) qui comparent la liste
   d'items du `SectionCanvas` à des fixtures JSON. Skipped si pas
   de `DISPLAY` (CI sans Xvfb, SSH sans X11) ;
-- un smoke test XLSX bout-en-bout.
+- un smoke test XLSX bout-en-bout ;
+- des **property-tests** (hypothesis) sur le cœur pur : barème monotone,
+  rayon d'ellipse borné, spline fermée (`tests/test_properties.py`).
 
 Pour régénérer les fixtures après une évolution **intentionnelle** du
 rendu :
@@ -87,6 +89,32 @@ python -m tests.test_render --update
 
 # Côté Tk (JSON) — DISPLAY requis, utiliser xvfb-run en CI
 python -m tests.test_section_canvas --update
+```
+
+## Build / Distribution
+
+Le lancement quotidien ne nécessite **aucun build** (`python penetrometre.py`).
+Pour produire des exécutables distribuables, deux options :
+
+**PyInstaller** (référence) — dossier autonome + installeurs natifs :
+
+```bash
+python build/build_icons.py     # génère les icônes
+pyinstaller penetrometre.spec   # → dist/Penetrometre/
+```
+
+Les **installeurs** Windows (`.exe` Inno Setup), macOS (`.dmg` signé/notarisé)
+et Linux (`.AppImage`) sont produits automatiquement par
+`.github/workflows/build.yml` **au push d'un tag `vX.Y.Z`**, puis publiés en
+GitHub Release. La signature de code est optionnelle (activée si les secrets
+correspondants sont configurés).
+
+**Nuitka** (option durcie) — binaire **compilé** (démarrage plus rapide, plus
+difficile à décompiler qu'un bundle PyInstaller, en complément de la licence
+Ed25519) :
+
+```bash
+python build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
 ```
 
 ## Fichiers à conserver ensemble
