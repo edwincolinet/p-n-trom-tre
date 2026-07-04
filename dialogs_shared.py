@@ -20,16 +20,53 @@ from model import DegradationExterne
 # fichier). L'ordre n'est pas imposé : chaque combobox passe le sien.
 COMPART_FR = ["non renseignée", "active", "absente"]
 # Valeur « non renseignée » et son libellé d'affichage : un tiret long
-# (cadratin U+2014), neutre quelle que soit la langue — aligné sur le
-# glyphe « — » déjà utilisé par les exports (cf. export._COMPART_NEUTRE).
+# (cadratin U+2014), neutre quelle que soit la langue.
 COMPART_NR = "non renseignée"
 COMPART_NR_LABEL = "—"
 
+# SOURCE UNIQUE des symboles de compartimentation. Le MÊME glyphe est
+# affiché à la saisie (combobox « ✔ active ») et dans tous les exports
+# (cellule XLSX/HTML/PDF, symbole seul + légende). Coche et croix
+# renforcées (U+2714 / U+2718, présentes dans DejaVu → rendu PDF garanti),
+# choisies pour bien se distinguer l'une de l'autre. Couleurs = accent vert
+# Pénétromètre / rouge alerte / gris neutre (hex avec « # » : PIL & CSS ;
+# openpyxl attend sans « # » → `.lstrip("#")` côté export).
+COMPART_GLYPH = {
+    "active": "✔",
+    "absente": "✘",
+    "non renseignée": "—",
+}
+COMPART_COLOR = {
+    "active": "#2D7A3E",
+    "absente": "#C0392B",
+    "non renseignée": "#6E7B73",
+}
+
+
+def compart_glyph(value_fr: str) -> str:
+    """Symbole d'un état de compartimentation (repli neutre « — »)."""
+    return COMPART_GLYPH.get((value_fr or "").lower().strip(),
+                             COMPART_NR_LABEL)
+
+
+def compart_color(value_fr: str) -> str:
+    """Couleur (hex `#RRGGBB`) associée au symbole (repli neutre gris)."""
+    return COMPART_COLOR.get((value_fr or "").lower().strip(),
+                             COMPART_COLOR[COMPART_NR])
+
+
+def compart_visual(value_fr: str) -> tuple[str, str]:
+    """`(glyphe, couleur_hex)` — pratique pour les exports qui posent les
+    deux d'un coup."""
+    return compart_glyph(value_fr), compart_color(value_fr)
+
 
 def compart_label(value_fr: str) -> str:
-    """Libellé affiché d'une compartimentation : tiret long pour
-    « non renseignée », traduction i18n sinon."""
-    return COMPART_NR_LABEL if value_fr == COMPART_NR else _(value_fr)
+    """Libellé affiché d'une compartimentation : tiret long seul pour
+    « non renseignée », sinon « ✔/✘ » + le mot traduit (i18n)."""
+    if value_fr == COMPART_NR:
+        return COMPART_NR_LABEL
+    return f"{compart_glyph(value_fr)} {_(value_fr)}"
 
 
 def compart_choices(order: Optional[List[str]] = None) -> List[str]:
@@ -40,11 +77,17 @@ def compart_choices(order: Optional[List[str]] = None) -> List[str]:
 
 def compart_from_label(display: str) -> str:
     """Valeur modèle depuis le libellé affiché (inverse de
-    `compart_label`). Tolère l'ancien libellé traduit de « non
-    renseignée » et les valeurs inconnues (renvoyées telles quelles)."""
-    if display in (COMPART_NR_LABEL, _(COMPART_NR)):
+    `compart_label`). Retire un éventuel glyphe de tête (« ✔ active » →
+    « active »), tolère l'ancien libellé traduit de « non renseignée » et
+    les valeurs inconnues (renvoyées telles quelles)."""
+    d = (display or "").strip()
+    for g in COMPART_GLYPH.values():
+        if g != COMPART_NR_LABEL and d.startswith(g):
+            d = d[len(g):].strip()
+            break
+    if d in ("", COMPART_NR_LABEL, _(COMPART_NR)):
         return COMPART_NR
-    return untranslate_value(display, COMPART_FR)
+    return untranslate_value(d, COMPART_FR)
 
 
 def grade_choices() -> list[str]:

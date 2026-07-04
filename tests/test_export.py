@@ -169,7 +169,7 @@ class XlsxSmokeTests(unittest.TestCase):
             ws = wb.active
             header_row = next(
                 row for row in range(1, 30)
-                if ws.cell(row=row, column=1).value == "Sondage")
+                if ws.cell(row=row, column=1).value == "N°")
             # 2 sondages → 2 lignes de données, numéros 1 et 2.
             numeros = [ws.cell(row=header_row + 1 + k, column=1).value
                        for k in range(2)]
@@ -184,17 +184,14 @@ class XlsxSmokeTests(unittest.TestCase):
             if os.path.exists(path):
                 os.unlink(path)
 
-    def test_legendes_calquees_sur_la_fiche_du_cabinet(self):
-        """Verrouille la conformité du tableau XLSX (1 arbre) à la fiche
-        de référence du cabinet (`Communication/export excel attendu.xlsx`) :
+    def test_diagnostic_et_legendes_du_tableau(self):
+        """Verrouille la mise en page (propre à Pénétromètre) du tableau XLSX :
 
-        - 3e entrée de légende expliquant le glyphe « — » (la colonne
-          Compartimentation l'emploie : la légende doit le couvrir) ;
-        - légende des classes « Classe verte/orange/rouge » colorée,
-          sous le pied, expliquant le code couleur de la colonne
-          proportion ;
-        - légende collée au tableau (ligne juste après le dernier
-          sondage, sans ligne vide intercalée).
+        - une ligne « Diagnostic » (t/R moyen + classe globale) sous le
+          tableau, alignée sur la fiche PDF ;
+        - une légende compartimentation couvrant les 3 glyphes ✔/✘/— ;
+        - une légende des classes « Classe verte/orange/rouge » colorée
+          de la couleur de chaque classe.
         """
         import os
         import tempfile
@@ -221,31 +218,42 @@ class XlsxSmokeTests(unittest.TestCase):
             with open(path, "rb") as f:
                 ws = openpyxl.load_workbook(f).active
 
-            header_row = next(r for r in range(1, 30)
-                              if ws.cell(row=r, column=1).value == "Sondage")
-            # Légende collée : ligne juste après le dernier sondage (3).
-            legend_row = header_row + 1 + len(a.sondages)
-            self.assertEqual(ws.cell(row=legend_row, column=1).value,
-                             "Légende :")
-            # 3e entrée : glyphe — + libellé (orthographe corrigée).
-            self.assertEqual(ws.cell(row=legend_row, column=6).value, "—")
-            self.assertEqual(ws.cell(row=legend_row, column=7).value,
-                             "Non renseignée/pas d'altération")
+            # Toutes les valeurs de la colonne A (recherche par contenu :
+            # robuste aux décalages de lignes).
+            col_a = {r: ws.cell(row=r, column=1).value
+                     for r in range(1, ws.max_row + 1)}
 
-            # Légende des classes : 3 libellés en colonne D, chacun coloré
-            # de la couleur de sa classe.
+            # Ligne Diagnostic (3 sondages → diagnostic fiable publié).
+            diag_row = next(r for r, v in col_a.items()
+                            if isinstance(v, str) and v.startswith("Diagnostic —"))
+            self.assertIn("t/R moyen", col_a[diag_row])
+            self.assertIn("Classe globale", col_a[diag_row])
+
+            # Légende compartimentation : couvre les 3 glyphes.
+            legend_row = next(r for r, v in col_a.items()
+                              if isinstance(v, str)
+                              and v.startswith("Compartimentation :"))
+            legend = col_a[legend_row]
+            for glyph in ("✔", "✘", "—"):
+                self.assertIn(glyph, legend)
+            self.assertIn("pas d'altération", legend)
+
+            # Légende des classes : 3 cellules « ● Classe … », chacune
+            # colorée de la couleur de sa classe.
+            classe_row = next(r for r, v in col_a.items()
+                              if isinstance(v, str) and v.startswith("● "))
             labels = {}
-            for r in range(legend_row, legend_row + 12):
-                v = ws.cell(row=r, column=4).value
-                if isinstance(v, str) and v.startswith("Classe "):
-                    labels[v] = ws.cell(row=r, column=4).font.color.rgb
-            self.assertEqual(set(labels),
-                             {"Classe verte", "Classe orange", "Classe rouge"})
-            # Couleur de texte = couleur de classe (suffixe hex, openpyxl
-            # préfixe l'alpha "00").
-            self.assertTrue(labels["Classe verte"].endswith(
+            for col in range(1, 4):
+                cell = ws.cell(row=classe_row, column=col)
+                if isinstance(cell.value, str) and cell.value.startswith("● "):
+                    labels[cell.value] = cell.font.color.rgb
+            self.assertEqual(
+                set(labels),
+                {"● Classe verte", "● Classe orange", "● Classe rouge"})
+            # Couleur de texte = couleur de classe (openpyxl préfixe l'alpha).
+            self.assertTrue(labels["● Classe verte"].endswith(
                 COULEUR_CLASSE["Vert"].lstrip("#")))
-            self.assertTrue(labels["Classe rouge"].endswith(
+            self.assertTrue(labels["● Classe rouge"].endswith(
                 COULEUR_CLASSE["Rouge"].lstrip("#")))
         finally:
             if os.path.exists(path):
@@ -254,7 +262,7 @@ class XlsxSmokeTests(unittest.TestCase):
 
 class HtmlExportAlignementTests(unittest.TestCase):
     """Verrouille l'alignement du tableau HTML sur le XLSX : la légende
-    compartimentation à 3 entrées (✓/✗/—) et la légende des classes colorée
+    compartimentation à 3 entrées (✔/✘/—) et la légende des classes colorée
     doivent figurer dans le HTML comme dans le XLSX (régression : elles
     n'avaient pas été reportées du XLSX vers le HTML)."""
 
@@ -280,8 +288,14 @@ class HtmlExportAlignementTests(unittest.TestCase):
                              classer_prbs=classer_prbs)
             with open(path, encoding="utf-8") as f:
                 html = f.read()
-            # 3e entrée de légende compartimentation (glyphe « — »).
-            self.assertIn("Non renseignée/pas d&#39;altération", html)
+            # Colonnes propres à la refonte (parité avec le XLSX).
+            for th in ("Direction", "t/R (%)", "Classe", "Compart."):
+                self.assertIn(f"<th>{th}</th>", html)
+            # Ligne Diagnostic (mêmes valeurs que le XLSX / la fiche PDF).
+            self.assertIn('class="diagnostic"', html)
+            self.assertIn("Diagnostic —", html)
+            # Légende compartimentation couvrant le glyphe neutre « — ».
+            self.assertIn("pas d&#39;altération", html)
             # Légende des classes colorée (bloc + 3 libellés + couleurs).
             self.assertIn("classe-legend", html)
             for label in ("Classe verte", "Classe orange", "Classe rouge"):

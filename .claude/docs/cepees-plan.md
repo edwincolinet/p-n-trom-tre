@@ -10,7 +10,7 @@
 ## 1. Contexte
 
 L'`Arbre` était un **cercle** de rayon scalaire unique centré sur un cœur
-unique — seul vrai angle mort partagé avec l'Excel d'origine du cabinet. On
+unique. On
 généralise vers : formes **singulières** (ovale) et **cépées** (un genet =
 plusieurs brins/ramets, chacun avec sa forme, son diamètre, sa position).
 

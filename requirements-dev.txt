@@ -7,8 +7,11 @@
 # Install :  pip install -r requirements-dev.txt
 
 # Linter / sorteur d'imports unifié. Configuration dans `ruff.toml`.
-# Plage 0.15+ : tolère le format `[lint]` séparé qu'on utilise.
-ruff>=0.15,<1
+# ÉPINGLÉ exactement : ruff ajoute/renforce des règles même en versions
+# mineures — une plage laisse la CI installer une version plus stricte et
+# échouer sans le moindre changement de code (déjà arrivé). Bump délibéré :
+# changer cette ligne PUIS lancer `ruff check .` et corriger le delta.
+ruff==0.15.20
 
 # Vérificateur de types statique. Configuré dans `mypy.ini` : strict
 # uniquement sur le cœur pur (bareme/geometry/palette/model). Les
@@ -21,3 +24,20 @@ mypy>=1.10,<2
 # scripts build/*.sh + build/installer.iss transforment en installeur
 # natif selon la plateforme (voir .github/workflows/build.yml).
 pyinstaller>=6.0,<7
+
+# Framework de test. La suite existante (`python -m unittest discover tests`)
+# tourne telle quelle sous pytest (`pytest tests`), avec de meilleurs
+# messages d'échec et le paramétrage/fixtures pour les nouveaux tests.
+pytest>=8.0,<10
+
+# Tests par propriété (property-based) : génère des milliers d'entrées et
+# cherche l'invariant qui casse. Ciblé sur le cœur PUR — geometry.py
+# (spline, ellipse, polaire), bareme.py (classer_prbs), diagnostic.py
+# (écrêtage/fusion PRBS) — là où un bug de calcul fausserait un diagnostic.
+hypothesis>=6.100,<7
+
+# Packaging durci : Nuitka COMPILE le Python en C (binaire plus rapide et
+# nettement plus dur à décompiler que le bundle .pyc de PyInstaller) —
+# complète la protection licence Ed25519. Alternative à pyinstaller, pas
+# un remplacement obligatoire.
+Nuitka>=2.4,<5

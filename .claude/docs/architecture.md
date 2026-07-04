@@ -357,18 +357,20 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
 - Synthèse mission (`export_synthesis_csv/xlsx`) : les sous-lignes de brin
   (`MissionSynthesisRow.brin_label`) s'affichent « ↳ brin a », identité genet
   laissée vide ; le bilan ne compte que les genets.
-- `export_prbs_xlsx(…)` — Excel stylé (openpyxl). En-têtes et méta sur
-  fond vert Pénétromètre, alternance de lignes, largeurs auto-fit,
-  compartimentation ✓/✗/— (glyphe coloré), t/R coloré par classe.
-  Sous le tableau : légende des 3 glyphes (collée, sans ligne vide) puis
-  légende des classes « Classe verte/orange/rouge » (texte coloré).
-  Calqué cellule pour cellule sur la fiche de référence du cabinet
-  (`Communication/export excel attendu.xlsx`) — verrouillé par
-  `test_legendes_calquees_sur_la_fiche_du_cabinet`.
+- `export_prbs_xlsx(…)` — Excel stylé (openpyxl). Mise en page propre à
+  Pénétromètre (terminologie interne, plus de gabarit externe) : titre mission
+  + identité de l'arbre en toutes lettres (bannières fusionnées), puis les
+  9 colonnes N° · Direction · Grade · Rayon · PRBS · Bois altéré · t/R
+  (coloré par classe) · Classe (texte coloré) · Compart. (glyphe coloré),
+  alternance de lignes, en-tête gelé. Sous le tableau : une ligne
+  **Diagnostic** (t/R moyen + classe globale, alignée sur la fiche PDF,
+  masquée si < 3 sondées via `DiagnosticSnapshot.diagnostic_global`), une
+  légende compartimentation ✔/✘/— puis une légende des classes colorée.
+  Verrouillé par `test_diagnostic_et_legendes_du_tableau`.
 - `export_prbs_html(…)` — HTML autonome imprimable, même thème vert.
-  **À garder aligné cellule pour cellule sur le XLSX** : même ligne méta,
-  tableau par sondage, légende compartimentation à 3 entrées (✓/✗/—) ET légende
-  des classes colorée (`.classe-legend`). Verrouillé par
+  **À garder aligné sur le XLSX** : mêmes colonnes (dont Direction/Classe),
+  même ligne Diagnostic, légende compartimentation à 3 entrées (✔/✘/—) ET
+  légende des classes colorée (`.classe-legend`). Verrouillé par
   `HtmlExportAlignementTests` — toute modif du XLSX doit être reportée ici.
 - Injection de `couleur_classe` + `classer_prbs` pour éviter cycles.
 

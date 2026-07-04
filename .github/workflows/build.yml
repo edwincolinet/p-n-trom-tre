@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: pip
 
       - name: Installer les dépendances
@@ -143,11 +143,11 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Installer Tk (requis par Tkinter)
-        run: brew install python-tk@3.12
+        run: brew install python-tk@3.13
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: pip
 
       - name: Installer les dépendances
@@ -262,7 +262,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: pip
 
       - name: Installer les dépendances Python

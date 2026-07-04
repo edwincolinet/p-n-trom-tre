@@ -56,9 +56,17 @@ from dialogs import (
 )
 from dialogs_license import show_activation_dialog
 from i18n import _, setup_language
-from license import LicenseData, TrialInfo, get_trial_info, load_license, is_bundled
-from model import (URGENCE_NIVEAUX, Arbre, Brin, Chantier, Contrefort,
-                   DegradationExterne, Sondage, degradations_chevauchements)
+from license import LicenseData, TrialInfo, get_trial_info, is_bundled, load_license
+from model import (
+    URGENCE_NIVEAUX,
+    Arbre,
+    Brin,
+    Chantier,
+    Contrefort,
+    DegradationExterne,
+    Sondage,
+    degradations_chevauchements,
+)
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,

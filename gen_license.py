@@ -80,8 +80,8 @@ def cmd_keygen(args: argparse.Namespace) -> None:
 
 
 def cmd_issue(args: argparse.Namespace) -> None:
+
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    from datetime import timedelta
 
     key_path = Path(args.key)
     if not key_path.exists():

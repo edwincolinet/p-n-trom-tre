@@ -24,7 +24,7 @@ permet, pour chaque arbre d'une mission, de :
 ## Installation
 
 ```bash
-# Prérequis : Python 3.9 ou plus récent (Python 3.12 recommandé)
+# Prérequis : Python 3.10 ou plus récent (Python 3.13 recommandé)
 pip install -r requirements.txt
 ```
 
@@ -141,7 +141,6 @@ mon-dossier/
 ├── docs/
 │   └── guide_demarrage.html    ← guide de démarrage autonome (2 pages A4)
 ├── assets/
-│   ├── default_logo.jpg        ← logo par défaut (header app + fiche PDF)
 │   ├── Icone.jpeg              ← icône bureau (.desktop)
 │   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
@@ -267,9 +266,9 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la
-  robustesse du diagnostic. Les exports XLSX/HTML, calqués sur la
-  fiche Excel d'origine, ne reprennent pas ce bloc — il reste
-  consultable dans l'onglet Diagnostic et sur la fiche PDF.
+  robustesse du diagnostic. Les exports XLSX/HTML ne reprennent pas ce
+  bloc — il reste consultable dans l'onglet Diagnostic et sur la fiche
+  PDF.
 - **Diagnostic non publié si n_sondages < 3** : en-dessous de 3
   directions sondées, trop peu de mesures réelles sur le pourtour (les
   directions non sondées sont extrapolées ou supposées saines) pour
@@ -314,13 +313,14 @@ purement descriptif : n'impacte pas le diagnostic.
 - **PNG** : dessin haute résolution 2400×2400, avec scaling automatique
   des polices et pastilles pour rester lisible une fois réduit dans
   un rapport Word.
-- **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**
-  (calqué cellule pour cellule sur la fiche Excel d'origine du cabinet),
-  en-têtes et méta sur fond vert Pénétromètre, alternance de lignes,
-  largeurs de colonnes auto-ajustées, compartimentation ✓ / ✗ / —
-  colorée, colonne t/R color-codée par classe. Sous le tableau, une
-  légende des trois glyphes puis une légende des classes
-  (« Classe verte / orange / rouge »). Nécessite
+- **XLSX** : tableau PRBS d'un arbre, **une ligne par sondage**.
+  Titre mission + identité de l'arbre en toutes lettres, puis les
+  colonnes N° · Direction (N/NE/…) · Grade · Rayon · PRBS bois sain ·
+  Bois altéré · t/R (color-codé par classe) · Classe · Compartimentation
+  ✔ / ✘ / —. Sous le tableau : une ligne **Diagnostic** (t/R moyen +
+  classe globale, alignée sur la fiche PDF), une légende des glyphes
+  puis une légende des classes. Thème vert Pénétromètre, alternance de
+  lignes, en-tête gelé. Nécessite
   [openpyxl](https://pypi.org/project/openpyxl/)
   (`pip install -r requirements.txt`).
 - **HTML** autonome : même tableau, même thème vert, en page imprimable.

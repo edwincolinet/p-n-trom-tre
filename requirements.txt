@@ -4,10 +4,13 @@
 #   sudo apt install python3-tk
 #
 # Pillow est utilisée pour le rendu PNG et la génération du PDF d'expertise.
-# Plage testée localement de Pillow 10.x à 12.x. Le code n'utilise aucune
-# API dépréciée (le rendu passe par `tobytes`, pas `getdata`) → compatible
-# jusqu'à la 14 sans changement. On garde une borne haute prudente.
-Pillow>=10.0,<13
+# ÉPINGLÉE exactement : le rendu PIL est verrouillé par des golden-tests
+# sensibles au moteur de police de Pillow — une dérive de version peut
+# décaler l'anti-aliasing et casser les goldens (et le bundle/CI doivent
+# rester reproductibles). Bump = geste délibéré : changer cette ligne PUIS
+# régénérer les goldens (`python -m tests.test_render --update`) et
+# revalider. NB : un correctif de sécurité Pillow impose donc un bump manuel.
+Pillow==12.2.0
 
 # cryptography est utilisée pour la vérification offline des licences
 # (signatures Ed25519). PyInstaller l'embarque automatiquement via ses
@@ -19,3 +22,9 @@ cryptography>=41,<45
 # et fonctionne sans, mais l'entrée de menu signale alors qu'elle
 # n'est pas disponible.
 openpyxl>=3.1,<4
+
+# fpdf2 génère la fiche d'expertise PDF en VECTORIEL (texte sélectionnable,
+# net à l'impression, fichier léger) — remplace à terme la rasterisation
+# Pillow de `fiche_pdf.py`. Le dessin de section reste rendu par Pillow et
+# collé comme image dans la page vectorielle (approche hybride).
+fpdf2>=2.8,<3

@@ -10,9 +10,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.9 = plancher déclaré dans le README ; 3.12 = version
-        # recommandée et utilisée localement par l'équipe de développement.
-        python-version: ["3.9", "3.12"]
+        # 3.10 = plancher supporté déclaré dans le README ; 3.13 = version
+        # de build (bundle livré) et recommandée en développement.
+        python-version: ["3.10", "3.13"]
 
     steps:
       - uses: actions/checkout@v6
