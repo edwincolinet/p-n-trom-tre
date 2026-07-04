@@ -4,11 +4,11 @@
 # I = isort), tolérantes sur le style. Ligne 120 (au-delà du PEP 8 79 mais
 # raisonnable pour les templates HTML/SQL embarqués).
 #
-# `target-version = py39` permet à ruff de détecter les fonctionnalités
-# qui ne sont valides qu'à partir de Python 3.10+ — notamment les
-# f-strings PEP 701 (3.12+).
+# `target-version = py310` = plancher supporté : ruff signale l'emploi de
+# syntaxe plus récente que 3.10 et cale ses suggestions de modernisation
+# dessus (union `X | Y`, `match`… sont valides dès 3.10).
 
-target-version = "py39"
+target-version = "py310"
 line-length = 120
 exclude = ["venv", "__pycache__", ".github", "assets"]
 

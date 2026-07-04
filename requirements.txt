@@ -19,3 +19,9 @@ cryptography>=41,<45
 # et fonctionne sans, mais l'entrée de menu signale alors qu'elle
 # n'est pas disponible.
 openpyxl>=3.1,<4
+
+# fpdf2 génère la fiche d'expertise PDF en VECTORIEL (texte sélectionnable,
+# net à l'impression, fichier léger) — remplace à terme la rasterisation
+# Pillow de `fiche_pdf.py`. Le dessin de section reste rendu par Pillow et
+# collé comme image dans la page vectorielle (approche hybride).
+fpdf2>=2.8,<3

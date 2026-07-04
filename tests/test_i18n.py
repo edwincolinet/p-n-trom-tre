@@ -27,15 +27,19 @@ import unittest
 # Racine du projet (le dossier parent de tests/).
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Dossiers exclus du scan : les catalogues eux-mêmes et les tests.
-_SKIP_DIRS = {"translations", "tests"}
+# Dossiers exclus du scan : les catalogues eux-mêmes, les tests, et tout
+# ce qui n'est pas du source projet (virtualenv, artefacts de build). Sans
+# ça, `rglob` fouille `venv/` et récolte les `_("…")` des dépendances
+# installées (ex. Nuitka embarque des messages getopt traduits par gettext).
+_SKIP_DIRS = {"translations", "tests", "venv", ".venv", "build", "dist"}
 
 
 def _collect_literal_calls() -> set[str]:
     """Récolte tous les littéraux passés à `_(...)` dans le source."""
     lits: set[str] = set()
     for path in _ROOT.rglob("*.py"):
-        if any(part in _SKIP_DIRS for part in path.relative_to(_ROOT).parts):
+        parts = path.relative_to(_ROOT).parts
+        if any(p in _SKIP_DIRS or p.startswith(".") for p in parts):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):

@@ -24,7 +24,7 @@ permet, pour chaque arbre d'une mission, de :
 ## Installation
 
 ```bash
-# Prérequis : Python 3.9 ou plus récent (Python 3.12 recommandé)
+# Prérequis : Python 3.10 ou plus récent (Python 3.13 recommandé)
 pip install -r requirements.txt
 ```
 

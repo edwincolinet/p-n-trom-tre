@@ -5,7 +5,7 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
 
 ## Stack
 
-- **Python 3.9+** (3.12 recommandé), **Tkinter** (UI stdlib), **Pillow** (PNG/PDF)
+- **Python 3.10+** (3.13 recommandé), **Tkinter** (UI stdlib), **Pillow** (PNG/PDF)
 - Aucun framework, aucun build system — lancement par double-clic.
 - Dépendance optionnelle : openpyxl (export XLSX).
 - Dépendance runtime : cryptography (vérification de licence Ed25519 offline).
@@ -256,7 +256,7 @@ penetrometre.py  (Tk + main) ← undo.py
 
 ## Conventions de code
 
-- Pas de dépendance sans bonne raison. Compat Python 3.9+.
+- Pas de dépendance sans bonne raison. Compat Python 3.10+.
 - Tout en français (UI + docstrings).
 - Pas de `print` — logger applicatif (`~/.penetrometre/penetrometre.log`).
 - Exports : `log.exception(...)` avant `messagebox.showerror`.
