@@ -39,6 +39,7 @@ from diagnostic import (
     repartition_classes,
     repartition_classes_brin,
 )
+from dialogs_shared import compart_color, compart_glyph
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
 from palette import (
@@ -401,17 +402,28 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 _pfx = "~" if getattr(s, "incertain", False) else ""
                 num_txt = (_pfx + (f"{b.label}{s.numero}" if multi_brins and b.label
                            else str(s.numero)))
-                vals = [num_txt, direction, prbs_txt,
-                        f"{100*ratio:.1f}", classe, s.compartimentation]
+                # Colonne Compart. = glyphe coloré ✔/✘/— (source unique
+                # `dialogs_shared`, identique à la saisie et aux exports).
+                vals = [num_txt, direction, prbs_txt, f"{100*ratio:.1f}",
+                        classe, compart_glyph(s.compartimentation)]
                 for i, v in enumerate(vals):
-                    col = col_c if i == 4 else COLOR_INK
-                    wt = "sans_bold" if i == 4 else "sans"
+                    if i == 4:
+                        col, wt = col_c, "sans_bold"
+                    elif i == 5:
+                        col = compart_color(s.compartimentation)
+                        wt = "sans_bold"
+                    else:
+                        col, wt = COLOR_INK, "sans"
                     font_v = f(row_font_size, wt)
                     col_w = col_widths[i] - 24  # padding 12 de chaque côté
                     txt = _fit_text(v, font_v, col_w, d)
                     if i in right_align_data:
                         d.text((cols_x[i+1]-12, y+row_h/2), txt,
                                font=font_v, fill=col, anchor="rm")
+                    elif i == 5:
+                        # Glyphe centré dans sa colonne.
+                        d.text(((cols_x[i]+cols_x[i+1])/2, y+row_h/2), txt,
+                               font=font_v, fill=col, anchor="mm")
                     else:
                         d.text((cols_x[i]+12, y+row_h/2), txt,
                                font=font_v, fill=col, anchor="lm")
