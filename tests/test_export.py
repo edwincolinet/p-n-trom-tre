@@ -308,8 +308,11 @@ class HtmlExportAlignementTests(unittest.TestCase):
 
 
 class FichePdfSondagesTests(unittest.TestCase):
-    """La case « Afficher les sondages » doit gouverner le dessin de la
-    fiche PDF (régression : les pastilles étaient toujours dessinées)."""
+    """La case « Afficher les sondages » gouverne le DESSIN de section
+    (resté raster PIL, collé dans la fiche PDF vectorielle) : les pastilles
+    y sont présentes ou absentes. On teste directement le dessin
+    (`render_arbre_to_pil_image`) — l'info qu'on vérifie y vit, la page
+    elle-même est désormais un PDF fpdf2 (cf. `FichePdfSmokeTests`)."""
 
     def setUp(self) -> None:
         from pil_render import HAS_PIL
@@ -317,28 +320,28 @@ class FichePdfSondagesTests(unittest.TestCase):
             self.skipTest("Pillow absent")
 
     def test_show_sondages_false_omet_les_pastilles_du_dessin(self):
-        from fiche_pdf import render_fiche_arbre_to_pdf_page
-        from model import Arbre, Chantier, Sondage
+        from model import Arbre, Sondage
+        from pil_render import render_arbre_to_pil_image
 
         a = Arbre(numero_arbre="1", essence="Chêne", rayon_tronc_cm=20.0)
         for n, g in enumerate((0, 50, 100, 150), start=1):
             a.sondages.append(Sondage(numero=n, grade=g,
                                       bois_sain_cm=8.0, bois_altere_cm=12.0))
-        c = Chantier(nom="t", arbres=[a])
-        on = render_fiche_arbre_to_pdf_page(a, c, show_sondages=True)[0]
-        off = render_fiche_arbre_to_pdf_page(a, c, show_sondages=False)[0]
+        on = render_arbre_to_pil_image(a, 600, 600, show_sondages=True)
+        off = render_arbre_to_pil_image(a, 600, 600, show_sondages=False)
         # Le dessin diffère (pastilles présentes vs absentes)…
         # `tobytes()` plutôt que `getdata()` (déprécié Pillow 12, retiré 14)
         # et stable sur toute la plage supportée (Pillow 10→12).
         self.assertNotEqual(on.tobytes(), off.tobytes())
-        # …mais la page reste de même format A4.
+        # …mais l'image garde la même taille demandée.
         self.assertEqual(on.size, off.size)
 
 
 class FichePdfCepeeLayoutTests(unittest.TestCase):
-    """Le dessin d'une cépée sur la fiche PDF occupe la pleine largeur
-    utile de la page (le carré historique, calibré pour une section
-    ronde, rendait chaque brin minuscule)."""
+    """Le dessin d'une cépée occupe la pleine largeur utile (le carré
+    historique, calibré pour une section ronde, rendait chaque brin
+    minuscule). Le dessin étant collé tel quel dans la fiche PDF, on teste
+    directement l'image PIL en pleine largeur."""
 
     def setUp(self) -> None:
         from pil_render import HAS_PIL
@@ -346,22 +349,63 @@ class FichePdfCepeeLayoutTests(unittest.TestCase):
             self.skipTest("Pillow absent")
 
     def test_dessin_cepee_pleine_largeur(self):
-        from fiche_pdf import render_fiche_arbre_to_pdf_page
-        from model import Chantier
+        from pil_render import render_arbre_to_pil_image
         from tests._fixtures import build_arbre
 
         a = build_arbre("cepee")
-        c = Chantier(nom="t", arbres=[a])
-        page = render_fiche_arbre_to_pdf_page(a, c)[0]
-        W = page.size[0]
-        px = page.load()
-        # Bande de la zone dessin (sous l'identité, au-dessus du tableau) :
-        # le contenu non blanc (brins + boussole) doit balayer l'essentiel
-        # de la largeur — un dessin carré centré plafonnerait vers 60 %.
-        xs = [x for y in range(320, 880, 10) for x in range(0, W, 5)
+        # Pleine largeur utile de la fiche (W - 2*marge = 1240 - 120).
+        Wd, Hd = 1120, 700
+        img = render_arbre_to_pil_image(a, Wd, Hd, show_title=False,
+                                        show_legend=False).convert("RGB")
+        px = img.load()
+        xs = [x for y in range(0, Hd, 10) for x in range(0, Wd, 5)
               if px[x, y] != (255, 255, 255)]
         self.assertTrue(xs, "aucun contenu trouvé dans la zone du dessin")
-        self.assertGreater(max(xs) - min(xs), 0.75 * W)
+        self.assertGreater(max(xs) - min(xs), 0.75 * Wd)
+
+
+class FichePdfSmokeTests(unittest.TestCase):
+    """La fiche PDF vectorielle (fpdf2) produit un document valide."""
+
+    def setUp(self) -> None:
+        from pil_render import HAS_PIL
+        if not HAS_PIL:
+            self.skipTest("Pillow absent")
+
+    def test_produit_un_pdf_valide(self):
+        from fiche_pdf import _new_pdf, render_fiche_arbre
+        from model import Arbre, Chantier, Sondage
+
+        a = Arbre(numero_arbre="1", essence="Chêne", rayon_tronc_cm=20.0,
+                  port_arbre="libre")
+        for n, g in enumerate((0, 50, 100, 150), start=1):
+            a.sondages.append(Sondage(numero=n, grade=g,
+                                      bois_sain_cm=8.0, bois_altere_cm=12.0))
+        c = Chantier(nom="Mission test", arbres=[a], operateur="Op")
+        pdf = _new_pdf()
+        render_fiche_arbre(pdf, a, c)
+        data = bytes(pdf.output())
+        self.assertTrue(data.startswith(b"%PDF"))
+        self.assertGreater(len(data), 1000)
+        # Une seule page sans photos.
+        self.assertEqual(len(pdf.pages), 1)
+
+    def test_mission_concatene_les_fiches(self):
+        from fiche_pdf import _new_pdf, render_fiche_arbre
+        from model import Arbre, Chantier, Sondage
+
+        arbres = []
+        for num in ("1", "2"):
+            a = Arbre(numero_arbre=num, essence="Chêne", rayon_tronc_cm=20.0)
+            a.sondages.append(Sondage(numero=1, grade=0,
+                                      bois_sain_cm=8.0, bois_altere_cm=12.0))
+            arbres.append(a)
+        c = Chantier(nom="m", arbres=arbres)
+        pdf = _new_pdf()
+        for a in arbres:
+            render_fiche_arbre(pdf, a, c)
+        self.assertEqual(len(pdf.pages), 2)
+        self.assertTrue(bytes(pdf.output()).startswith(b"%PDF"))
 
 
 class MissionSynthesisRowsTests(unittest.TestCase):

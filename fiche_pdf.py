@@ -1,36 +1,56 @@
 """
-Fiche d'expertise PDF — layout d'une page A4 pour un arbre.
+Fiche d'expertise PDF — layout d'une page A4 pour un arbre (VECTORIEL).
 
-Pendant « page A4 » de `pil_render.render_arbre_to_pil_image` : assemble
-sur une page portrait 150 DPI l'en-tête mission + logo cabinet,
-l'identité de l'arbre, le dessin de section, la légende horizontale,
-le tableau PRBS ajustée et le diagnostic enrichi (t/R moyen + min,
-barre de répartition, classe globale).
+Depuis l'adoption de **fpdf2**, la fiche est un **PDF vectoriel** : tout le
+texte, le tableau PRBS, le diagnostic et la préconisation sont des objets
+PDF natifs (texte sélectionnable/cherchable, net à l'impression et au zoom,
+fichier bien plus léger). Approche **hybride** :
 
-Ce module est dédié au LAYOUT — il n'introduit aucune géométrie nouvelle
-et ne dessine pas la section transversale lui-même. Il compose des
-briques existantes :
-- `pil_render.render_arbre_to_pil_image` pour le dessin du tronc ;
-- `pil_render._draw_horizontal_legend_pil` pour la légende ;
-- `pil_render._pil_load_fonts` pour la factory de polices ;
-- les calculs métier (`Arbre.repartition_classes`,
-  `Arbre.degradation_externe_par_grade`, `classer_prbs`) pour le tableau
-  et le diagnostic.
+- **Texte + tableau + mise en page** : vectoriel fpdf2.
+- **Dessin de section** (rose des vents) : **reste rendu par Pillow**
+  (`pil_render.render_arbre_to_pil_image`) et **collé comme image**
+  (`pdf.image(pil_image, …)`). Le réécrire en vectoriel serait énorme et sans
+  gain — hors périmètre.
+- **Légende horizontale** : rendue sur une petite image PIL
+  (`pil_render._draw_horizontal_legend_pil`) puis collée — fidélité maximale,
+  sans réimplémenter la légende.
+- **Photos** : chaque photo est une image collée, le reste (en-tête,
+  légendes) est vectoriel.
 
-`render_fiche_arbre_to_pdf_page` renvoie une `PIL.Image`. La conversion
-en fichier PDF (`page.save(p, "PDF", resolution=150.0)`) reste à la
-charge de l'appelant (`app_exports.export_pdf_arbre`).
+Le document travaille en **unité = 1 px @150 DPI** (`FPDF(unit=72/150,
+format=(1240, 1754))` ⟹ page A4 exacte). On garde donc **verbatim** le système
+de coordonnées historique (marges, largeurs de colonnes, tailles de police en
+« px ») ; seules les tailles de police sont converties en points à la
+frontière de l'API fpdf2 (helper `_Page`).
 
-Si Pillow n'est pas installé, importer ce module reste possible ; le
-premier appel à `render_fiche_arbre_to_pdf_page` lèvera `ImportError`.
-L'appelant doit tester `pil_render.HAS_PIL` avant.
+API :
+
+    pdf = _new_pdf()
+    render_fiche_arbre(pdf, arbre, chantier, …)   # ajoute la/les page(s)
+    pdf.output(chemin)
+
+- **1 arbre**  : un `_new_pdf`, un `render_fiche_arbre`, un `output`.
+- **Mission** : un `_new_pdf`, une boucle de `render_fiche_arbre`, un `output`
+  (concaténation native — plus de `append_images` Pillow).
+
+`fpdf2` est une dépendance runtime déclarée (`requirements.txt`).
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple
+
+try:
+    from fpdf import FPDF
+    HAS_FPDF = True
+except ImportError:   # pragma: no cover - fpdf2 est une dépendance déclarée
+    # Import paresseux : l'app doit **démarrer** même sans fpdf2 (l'export PDF
+    # seul est indisponible). Même philosophie que Pillow (`pil_render.HAS_PIL`)
+    # et openpyxl. `_new_pdf` lève alors un message clair.
+    FPDF = None       # type: ignore[assignment,misc]
+    HAS_FPDF = False
 
 from bareme import classer_prbs
 from diagnostic import (
@@ -56,40 +76,208 @@ from pil_render import (
 )
 
 if TYPE_CHECKING:
-    from PIL import ImageDraw  # noqa: F401
-    from PIL.Image import Image as PILImage  # noqa: F401
-
     from model import Arbre, Chantier  # noqa: F401
 
 
-def _fit_text(text: str, font: Any, max_width: float,
-              draw: "ImageDraw.ImageDraw") -> str:
+# --- Constantes de page ---------------------------------------------------
+
+# A4 portrait raisonné en px @150 DPI (comme l'ancien rendu raster) ; le
+# document fpdf2 prend 1 unité = 1 px (voir `_new_pdf`).
+W, H = 1240, 1754
+# Points par unité-doc : 1 px @150 DPI = 72/150 pt. `set_font` attend des
+# points → on multiplie la taille « px » par ce facteur.
+_PX = 72.0 / 150.0
+
+_FONT_DIR = Path(__file__).parent / "assets" / "fonts"
+
+# Style logique (hérité de la factory PIL) → (famille fpdf2, style fpdf2).
+_STYLE = {
+    "sans":       ("DejaVu", ""),
+    "sans_bold":  ("DejaVu", "B"),
+    "serif_bold": ("DejaVuSerif", "B"),
+}
+
+# Fractions de l'em pour poser la ligne de base et imiter les ancres PIL.
+# PIL « a »/« t » (haut) aligne le haut de l'ascendante sur y ; « m » centre
+# la boîte verticale. Ligne de base = y + facteur × taille.
+_ASC = 0.90    # ancre haut  (la, mt, …)
+_MID = 0.35    # ancre milieu (lm, rm, mm)
+
+
+# --- Polices --------------------------------------------------------------
+
+# Fallbacks système par variante, au cas où `assets/fonts/` serait retiré.
+_FONT_FALLBACK = {
+    "DejaVuSans.ttf": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        r"C:\Windows\Fonts\arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+    ],
+    "DejaVuSans-Bold.ttf": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        r"C:\Windows\Fonts\arialbd.ttf",
+    ],
+    "DejaVuSerif-Bold.ttf": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+        r"C:\Windows\Fonts\georgiab.ttf",
+        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
+    ],
+}
+
+
+def _font_file(name: str) -> str:
+    """Chemin de la police `name` : embarquée en priorité, sinon système.
+
+    DejaVu porte accents + ✔ (U+2714) + ✘ (U+2718) + — (U+2014) + Ø + ● →
+    tout ce qu'utilise la fiche (Helvetica de base est latin-1 → casserait
+    les accents et les glyphes de compartimentation)."""
+    embedded = _FONT_DIR / name
+    if embedded.exists():
+        return str(embedded)
+    for cand in _FONT_FALLBACK.get(name, []):
+        if Path(cand).exists():
+            return cand
+    return str(embedded)  # laisse fpdf2 lever une erreur explicite
+
+
+def _register_fonts(pdf: FPDF) -> None:
+    pdf.add_font("DejaVu", "", _font_file("DejaVuSans.ttf"))
+    pdf.add_font("DejaVu", "B", _font_file("DejaVuSans-Bold.ttf"))
+    pdf.add_font("DejaVuSerif", "B", _font_file("DejaVuSerif-Bold.ttf"))
+
+
+# --- Couleurs -------------------------------------------------------------
+
+def _rgb(color: Any) -> Tuple[int, int, int]:
+    """Convertit une couleur (`#RRGGBB`, `"white"`, ou triplet RGB) en RGB."""
+    if isinstance(color, (tuple, list)):
+        return (int(color[0]), int(color[1]), int(color[2]))
+    if color == "white":
+        return (255, 255, 255)
+    if color == "black":
+        return (0, 0, 0)
+    h = str(color).lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def _text_h(size: float) -> int:
+    """Hauteur approx. d'une ligne de texte (px) pour dimensionner un badge.
+
+    Utilisée **à la fois** au dessin et à l'estimation de hauteur → tant que
+    les deux appellent ce helper, le budget vertical reste cohérent."""
+    return int(size * 0.75)
+
+
+# --- Couche de dessin vectoriel ------------------------------------------
+
+class _Page:
+    """Fine surface de dessin sur un `FPDF` déjà positionné sur une page.
+
+    Reproduit les primitives PIL utilisées par l'ancienne fiche
+    (`text`/`rect`/`line`/`polygon`/`image`) avec les mêmes coordonnées en
+    « px @150 DPI » et une gestion d'ancre calquée sur PIL."""
+
+    def __init__(self, pdf: FPDF) -> None:
+        self.pdf = pdf
+
+    def _set(self, size: float, style: str) -> None:
+        fam, st = _STYLE[style]
+        self.pdf.set_font(fam, st, size * _PX)
+
+    def sw(self, s: str, size: float, style: str = "sans") -> float:
+        """Largeur de `s` en px (unité-doc)."""
+        self._set(size, style)
+        return self.pdf.get_string_width(s)
+
+    def text(self, x: float, y: float, s: str, size: float,
+             style: str = "sans", color: Any = COLOR_INK,
+             anchor: str = "la") -> None:
+        if not s:
+            return
+        self._set(size, style)
+        self.pdf.set_text_color(*_rgb(color))
+        w = self.pdf.get_string_width(s)
+        ah = anchor[0]
+        av = anchor[1] if len(anchor) > 1 else "a"
+        if ah == "m":
+            x -= w / 2.0
+        elif ah == "r":
+            x -= w
+        if av in ("a", "t"):
+            by = y + _ASC * size
+        elif av == "m":
+            by = y + _MID * size
+        else:  # "s" : ligne de base
+            by = y
+        self.pdf.text(x, by, s)
+
+    def rect(self, x0: float, y0: float, x1: float, y1: float,
+             color: Any) -> None:
+        self.pdf.set_fill_color(*_rgb(color))
+        self.pdf.rect(x0, y0, x1 - x0, y1 - y0, style="F")
+
+    def line(self, x0: float, y0: float, x1: float, y1: float,
+             color: Any, width: float = 1.0) -> None:
+        self.pdf.set_draw_color(*_rgb(color))
+        self.pdf.set_line_width(max(0.4, width))
+        self.pdf.line(x0, y0, x1, y1)
+
+    def polygon(self, points: Sequence[Tuple[float, float]],
+                color: Any) -> None:
+        self.pdf.set_fill_color(*_rgb(color))
+        self.pdf.polygon([(float(px), float(py)) for px, py in points],
+                         style="F")
+
+    def image(self, pil_image: Any, x: float, y: float, w: float,
+              h: float = 0.0) -> None:
+        # h=0 ⟹ fpdf2 déduit la hauteur du ratio de l'image.
+        self.pdf.image(pil_image, x=x, y=y, w=w, h=h)
+
+
+def _new_pdf() -> FPDF:
+    """Crée un document A4 portrait en unité « px @150 DPI » et enregistre
+    les polices DejaVu. À nourrir ensuite par `render_fiche_arbre`."""
+    if not HAS_FPDF:
+        raise ImportError(
+            "fpdf2 est requis pour l'export PDF (pip install fpdf2)")
+    pdf = FPDF(orientation="P", unit=_PX, format=(W, H))
+    pdf.set_auto_page_break(False)
+    pdf.set_margins(0, 0)
+    pdf.set_margin(0)
+    _register_fonts(pdf)
+    pdf.set_title("Fiche d'expertise Pénétromètre")
+    pdf.set_creator("Pénétromètre")
+    return pdf
+
+
+# --- Helpers texte (mesure via _Page) ------------------------------------
+
+def _fit_text(pg: _Page, text: str, size: float, style: str,
+              max_width: float) -> str:
     """Tronque `text` avec une ellipsis « … » si sa largeur dépasse
     `max_width`. Évite que les valeurs débordent de leur colonne."""
     if not text:
         return ""
-    bbox = draw.textbbox((0, 0), text, font=font)
-    if bbox[2] - bbox[0] <= max_width:
+    if pg.sw(text, size, style) <= max_width:
         return text
     ellipsis = "…"
     while text:
         text = text[:-1]
-        bbox = draw.textbbox((0, 0), text + ellipsis, font=font)
-        if bbox[2] - bbox[0] <= max_width:
+        if pg.sw(text + ellipsis, size, style) <= max_width:
             return text + ellipsis
     return ellipsis
 
 
-def _wrap_lines(text: str, font: Any, max_width: float,
-                draw: "ImageDraw.ImageDraw", max_lines: int = 4) -> list:
+def _wrap_lines(pg: _Page, text: str, size: float, style: str,
+                max_width: float, max_lines: int = 4) -> List[str]:
     """Découpe `text` en lignes tenant dans `max_width` (retour à la ligne
     par mots), bornées à `max_lines` (dernière ligne tronquée « … » si le
-    texte déborde). Pour la préconisation libre de la fiche PDF."""
-    lines: list = []
+    texte déborde). Pour la préconisation/suivi libres de la fiche PDF."""
+    lines: List[str] = []
     cur = ""
     for word in (text or "").split():
         trial = (cur + " " + word).strip()
-        if not cur or draw.textbbox((0, 0), trial, font=font)[2] <= max_width:
+        if not cur or pg.sw(trial, size, style) <= max_width:
             cur = trial
         else:
             lines.append(cur)
@@ -98,7 +286,7 @@ def _wrap_lines(text: str, font: Any, max_width: float,
         lines.append(cur)
     if len(lines) > max_lines:
         lines = lines[:max_lines]
-        lines[-1] = _fit_text(lines[-1] + " …", font, max_width, draw)
+        lines[-1] = _fit_text(pg, lines[-1] + " …", size, style, max_width)
     return lines
 
 
@@ -112,27 +300,25 @@ _URGENCE_COLOR = {
 }
 
 
-def _estimate_preco_height(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
-                           txt_w: int, has_intervention: bool,
-                           has_suivi: bool) -> int:
+def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
+                           has_intervention: bool, has_suivi: bool) -> int:
     """Hauteur (px) qu'occupera la colonne préconisation.
 
-    Miroir **exact** des incréments de `y_preco` dans le dessin
-    (`render_fiche_arbre_to_pdf_page`), pour réserver la place dans le
-    budget vertical : sans ça, un suivi (ou une intervention) long déborde
-    sur le pied de page, le dessin ne rétrécissant que pour le diagnostic.
-    Toute modif des incréments de dessin doit être répercutée ici."""
+    Miroir **exact** des incréments de `y_preco` dans `render_fiche_arbre`,
+    pour réserver la place dans le budget vertical (sinon un texte long
+    déborde sur le pied de page, le dessin ne rétrécissant que pour le
+    diagnostic). Toute modif des incréments de dessin doit être répercutée
+    ici."""
     h = 36  # titre "Préconisation" (y_preco = y_section + 36)
     if has_intervention:
         h += 32 + 12   # bande "Intervention" (_preco_header)
         if arbre.urgence:
-            bb = d.textbbox((0, 0), arbre.urgence, font=f(16, "sans_bold"))
-            h += int(bb[3] - bb[1]) + 2 * 7 + 12   # badge
+            h += _text_h(16) + 2 * 7 + 12   # badge
         if arbre.echeance:
             h += 26
         if arbre.preconisation:
-            n = len(_wrap_lines(arbre.preconisation, f(16, "sans"),
-                                txt_w, d, max_lines=8))
+            n = len(_wrap_lines(pg, arbre.preconisation, 16, "sans",
+                                txt_w, max_lines=8))
             h += 2 + n * 22
         h += 14
     if has_suivi:
@@ -140,46 +326,47 @@ def _estimate_preco_height(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
         if arbre.suivi_validite:
             h += 26
         if arbre.suivi_texte:
-            n = len(_wrap_lines(arbre.suivi_texte, f(16, "sans"),
-                                txt_w, d, max_lines=8))
+            n = len(_wrap_lines(pg, arbre.suivi_texte, 16, "sans",
+                                txt_w, max_lines=8))
             h += 2 + n * 22
         h += 6
     return h
 
 
-def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
-                                   chantier: "Chantier",
-                                   show_sondages: bool = True,
-                                   logo_path: "str | None" = None,
-                                   cabinet_name: str = "",
-                                   mission_file: "Path | None" = None) -> "List[PILImage]":
-    """Construit une page A4 portrait 150 DPI (1240 × 1754 px environ)
-    avec : en-tête chantier, dessin, tableau PRBS, diagnostic.
-    Retourne une liste d'images (1 page sans photos, 2 pages si des photos
-    sont associées — la 2ᵉ page est une grille de photos pleine page).
+def render_fiche_arbre(pdf: FPDF,
+                       arbre: "Arbre",
+                       chantier: "Chantier",
+                       *,
+                       show_sondages: bool = True,
+                       logo_path: "str | None" = None,
+                       cabinet_name: str = "",
+                       mission_file: "Path | None" = None) -> None:
+    """Ajoute au document `pdf` la/les page(s) de l'arbre.
+
+    Une page « fiche » (en-tête mission, dessin, tableau PRBS, diagnostic,
+    préconisation) ; plus une page « photos » si des photos sont associées.
 
     Les tailles de police, largeurs de colonnes et marges sont calibrées
-    pour rester lisibles à l'impression (≈ 12 pt minimum au tirage A4).
+    pour rester lisibles à l'impression A4.
 
     `show_sondages` reflète la case « Afficher l'emplacement des sondages
     sur le dessin » : à `False`, les pastilles/flèches sont omises **du
     dessin** (le tableau PRBS reste, lui, toujours présent — c'est la donnée).
     """
     from PIL import Image, ImageDraw
-    f = _pil_load_fonts()
 
-    # A4 portrait à 150 DPI
-    W, H = 1240, 1754
-    page = Image.new("RGB", (W, H), "white")
-    d = ImageDraw.Draw(page)
+    f = _pil_load_fonts()     # pour le dessin de section + la légende (PIL)
+
+    pdf.add_page()
+    pg = _Page(pdf)
 
     margin = 60
     y = margin
 
     # --- En-tête mission avec logo cabinet ---
     header_h = 116
-    d.rectangle([margin, y, W-margin, y+header_h], fill=COLOR_ACCENT)
-    # Logo à droite
+    pg.rect(margin, y, W - margin, y + header_h, COLOR_ACCENT)
+    # Logo à droite (fond blanc pour le détacher du vert)
     logo_w = 0
     try:
         _logo_path = Path(logo_path) if logo_path else None
@@ -187,73 +374,61 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
             logo = Image.open(_logo_path).convert("RGBA")
             target_h = header_h - 24
             ratio = target_h / logo.height
-            logo = logo.resize(
-                (int(logo.width * ratio), target_h),
-                Image.Resampling.LANCZOS)
-            # Fond blanc derrière le logo pour le détacher du vert
+            lw = int(logo.width * ratio)
+            lx = W - margin - lw - 12
+            ly = y + 12
             logo_bg = Image.new("RGB", logo.size, "white")
-            logo_bg.paste(logo, (0, 0), logo if logo.mode == "RGBA" else None)
-            page.paste(logo_bg,
-                       (W - margin - logo.width - 12, y + 12))
-            logo_w = logo.width + 24
+            logo_bg.paste(logo, (0, 0), logo)
+            pg.rect(lx, ly, lx + lw, ly + target_h, "white")
+            pg.image(logo_bg, lx, ly, lw, target_h)
+            logo_w = lw + 24
     except Exception:
         pass
 
-    # Largeur disponible pour le texte d'en-tête (sans empiéter sur le logo)
-    header_text_w = W - margin*2 - logo_w - 20
-    title_txt = "Fiche d'expertise — Pénétromètre"
-    d.text((margin+20, y+22), title_txt,
-           font=f(30, "serif_bold"), fill="white")
+    header_text_w = W - margin * 2 - logo_w - 20
+    pg.text(margin + 20, y + 22, "Fiche d'expertise — Pénétromètre",
+            30, "serif_bold", "white")
     _lbl_client = _("Client")
     _lbl_ref = _("Réf.")
     mission_txt = _fit_text(
+        pg,
         (_("Mission") + f" : {chantier.nom}"
          + (f"   •   {chantier.adresse}" if chantier.adresse else "")
          + (f"   •   {_lbl_client} : {chantier.client}" if chantier.client else "")
          + (f"   •   {_lbl_ref} : {chantier.reference}" if chantier.reference else "")),
-        f(19, "sans"), header_text_w, d)
-    d.text((margin+20, y+64), mission_txt,
-           font=f(19, "sans"), fill="white")
-    d.text((margin+20, y+92),
-           f"{chantier.date_releve}   •   " + _("Opérateur") + f" : {chantier.operateur}",
-           font=f(17, "sans"), fill="white")
+        19, "sans", header_text_w)
+    pg.text(margin + 20, y + 64, mission_txt, 19, "sans", "white")
+    pg.text(margin + 20, y + 92,
+            f"{chantier.date_releve}   •   " + _("Opérateur")
+            + f" : {chantier.operateur}",
+            17, "sans", "white")
     y += header_h + 18
 
     # --- Identité de l'arbre ---
-    d.text((margin, y), arbre.display_name,
-           font=f(35, "serif_bold"), fill=COLOR_INK)
+    pg.text(margin, y, arbre.display_name, 35, "serif_bold", COLOR_INK)
     y += 50
     R = arbre.rayon_tronc_cm
     ligne = (f"Rayon : {R:g} cm   •   "
              + _("Ø sous écorce") + f" : {arbre.diametre_sous_ecorce_cm:g} cm   •   "
              + f"Hauteur : {arbre.hauteur_arbre_m:g} m   •   "
              + f"Port : {arbre.port_arbre}")
-    ligne = _fit_text(ligne, f(18, "sans"), W - 2*margin, d)
-    d.text((margin, y), ligne, font=f(18, "sans"), fill=COLOR_MUTED)
+    ligne = _fit_text(pg, ligne, 18, "sans", W - 2 * margin)
+    pg.text(margin, y, ligne, 18, "sans", COLOR_MUTED)
     y += 32
     if arbre.commentaire:
-        comm = _fit_text(f"Commentaire : {arbre.commentaire}",
-                          f(17, "sans"), W - 2*margin, d)
-        d.text((margin, y), comm, font=f(17, "sans"), fill=COLOR_INK)
+        comm = _fit_text(pg, f"Commentaire : {arbre.commentaire}",
+                         17, "sans", W - 2 * margin)
+        pg.text(margin, y, comm, 17, "sans", COLOR_INK)
         y += 30
 
-    # --- Dessin ---
-    # Taille adaptative : on estime la hauteur que vont occuper le
-    # tableau PRBS, le diagnostic et la préconisation (en pied), puis on
-    # alloue le reste au dessin (entre 480 et 900 px).
+    # --- Dessin (adaptatif : le reste de la page réserve sa place) ---
     multi_brins = len(arbre.brins) > 1
-    # Cépée = même prédicat de routage que les renderers (≥ 2 brins, ou un
-    # brin décentré) : le dessin part alors en composition multi-brins.
+    # Cépée = même prédicat de routage que les renderers.
     is_cepee = not (len(arbre.brins) == 1
                     and arbre.brins[0].pos_x_cm == 0.0
                     and arbre.brins[0].pos_y_cm == 0.0)
-    # Total des sondages sur tous les brins (cépée) pour dimensionner la
-    # hauteur du tableau et du dessin.
     n_sond = sum(len(b.sondages) for b in arbre.brins
                  if b.rayon_tronc_cm > 0)
-    # Hauteur de ligne adaptative : on resserre les lignes du tableau
-    # quand l'arbre a beaucoup de sondages, pour éviter de déborder de la
-    # page. La police reste lisible (15 pt minimum).
     if n_sond > 12:
         row_h = 32
         row_font_size = 15
@@ -265,48 +440,26 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         row_font_size = 17
     est_table_h = (36 + 44 + n_sond * row_h + 18) if n_sond > 0 else 0
     if multi_brins:
-        # Cépée : encadré classe globale (76) + titre du détail (32) +
-        # une ligne par brin (28) + marge. Bien plus compact que le bloc
-        # mono-brin — le majorant 360 rapetissait le dessin pour rien.
         est_diag_h = 76 + 32 + 28 * len(arbre.brins) + 24
     else:
         est_diag_h = 360  # majorant : t/R + bar + détail + classe globale
-    # La légende horizontale est dessinée APRÈS le dessin du tronc, sur
-    # la pleine largeur de la page (pas dans l'image du tronc qui est
-    # plus étroite). On réserve une bande pour elle dans le calcul.
     est_legend_h = 56
     footer_reserve = 60
-    # has_intervention/has_suivi : utilisés plus bas pour le layout côte à côte.
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
     has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
-    # La préconisation (colonne droite) partage la bande verticale du
-    # diagnostic ; on réserve donc le MAX des deux hauteurs, sinon une
-    # préconisation plus haute que le diagnostic déborde sur le pied de page
-    # (le dessin ne rétrécissant que pour le diagnostic). La géométrie de la
-    # colonne droite est dérivée à l'identique du dessin (cf. plus bas).
     if has_intervention or has_suivi:
         _preco_left = (margin + 680) + 20
         _preco_txt_w = (W - margin) - 12 - (_preco_left + 12)
         est_preco_h = _estimate_preco_height(
-            d, f, arbre, _preco_txt_w, has_intervention, has_suivi)
+            pg, arbre, _preco_txt_w, has_intervention, has_suivi)
     else:
         est_preco_h = 0
     est_section_h = max(est_diag_h, est_preco_h)
-    used_so_far = y - margin   # depuis le haut de la page utile
+    used_so_far = y - margin
     remaining = (H - margin - footer_reserve) - used_so_far \
-                - est_table_h - est_section_h - est_legend_h - 22
-    # Plancher modeste (340) : il ne s'active que sur une page chargée
-    # (beaucoup de sondages / longue préconisation), cas où l'on VEUT que
-    # le dessin rétrécisse pour honorer le budget vertical et éviter de
-    # rogner le texte. Sur une page normale, `remaining` dépasse le plancher.
+        - est_table_h - est_section_h - est_legend_h - 22
     drawing_h = max(340, min(900, remaining))
     if is_cepee:
-        # Une cépée est LARGE (brins côte à côte, cadrée sur la largeur) :
-        # dans le carré historique chaque brin devenait minuscule. Pleine
-        # largeur utile de la page ; la hauteur est en plus bornée par le
-        # ratio cm réel de la cépée (+ marges internes du rendu : boussole,
-        # bandes) pour ne pas créer de grandes bandes blanches — la
-        # composition centre verticalement les brins.
         drawing_w = W - 2 * margin
         drawable = [b for b in arbre.brins if b.rayon_tronc_cm > 0]
         if drawable:
@@ -319,25 +472,24 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 drawing_h = max(420, min(drawing_h, fitted))
     else:
         drawing_w = drawing_h
-    # Le dessin lui-même est rendu sans légende ; la légende est tracée
-    # ci-dessous, en dehors du dessin, pour profiter de toute la largeur.
     drawing = render_arbre_to_pil_image(arbre, drawing_w, drawing_h,
                                         show_sondages=show_sondages,
                                         show_title=False,
                                         show_legend=False)
     x_draw = (W - drawing_w) // 2
-    page.paste(drawing, (x_draw, y))
+    pg.image(drawing, x_draw, y, drawing_w, drawing_h)
     y += drawing_h + 6
-    # Légende horizontale, centrée, sur la pleine largeur utile. Calibrée
-    # pour donner des polices ≈ 16 pt et des pastilles bien lisibles.
+
+    # Légende horizontale : rendue sur une bande PIL puis collée (fidélité).
     if R > 0:
-        # `show_sondage_item` suit la case « Afficher les sondages » : si
-        # les pastilles sont masquées sur le dessin, l'item « Sondage » de
-        # la légende disparaît aussi (sinon incohérence légende ↔ dessin).
-        _draw_horizontal_legend_pil(d, arbre, y_top=y,
-                                     width=W, height=900, font_fn=f,
-                                     show_sondage_item=show_sondages,
-                                     show_classes=False)
+        strip_h = est_legend_h + 20
+        strip = Image.new("RGB", (W, strip_h), "white")
+        ds = ImageDraw.Draw(strip)
+        _draw_horizontal_legend_pil(ds, arbre, y_top=0,
+                                    width=W, height=900, font_fn=f,
+                                    show_sondage_item=show_sondages,
+                                    show_classes=False)
+        pg.image(strip, 0, y, W, strip_h)
         y += est_legend_h
 
     # --- Tableau PRBS ajustée par sondage (par brin pour une cépée) ---
@@ -345,39 +497,27 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
         titre_tbl = ("Paroi Résiduelle de Bois Sain par sondage et par brin"
                      if multi_brins
                      else "Paroi Résiduelle de Bois Sain par sondage")
-        d.text((margin, y), titre_tbl,
-               font=f(22, "serif_bold"), fill=COLOR_ACCENT)
+        pg.text(margin, y, titre_tbl, 22, "serif_bold", COLOR_ACCENT)
         y += 36
-        # Largeurs de colonnes redistribuées : Direction et PRBS plus
-        # généreuses (où les valeurs sont les plus longues), Compart.
-        # rétrécie (souvent juste « - » ou « active »).
         # Total = 70 + 220 + 270 + 130 + 160 + 270 = 1120 = W - 2*margin.
         col_widths = [70, 220, 270, 130, 160, 270]
         cols_x = [margin]
         for w in col_widths:
             cols_x.append(cols_x[-1] + w)
-        # cols_x = [60, 130, 350, 620, 750, 910, 1180]
         headers = [_("N°"), _("Direction"), _("PRBS (cm)"), _("t/R (%)"),
                    _("Classe"), _("Compart.")]
-        # Alignement : N° et nombres à droite ; texte à gauche.
         right_align = {0, 3}            # N°, t/R (%)
-        right_align_data = {0, 3}       # idem pour les valeurs
+        right_align_data = {0, 3}
         header_h_row = 44
-        d.rectangle([cols_x[0], y, cols_x[-1], y+header_h_row],
-                    fill=COLOR_ACCENT)
+        pg.rect(cols_x[0], y, cols_x[-1], y + header_h_row, COLOR_ACCENT)
         for i, h in enumerate(headers):
             if i in right_align:
-                d.text((cols_x[i+1]-12, y+header_h_row/2), h,
-                       font=f(17, "sans_bold"), fill="white",
-                       anchor="rm")
+                pg.text(cols_x[i + 1] - 12, y + header_h_row / 2, h,
+                        17, "sans_bold", "white", anchor="rm")
             else:
-                d.text((cols_x[i]+12, y+header_h_row/2), h,
-                       font=f(17, "sans_bold"), fill="white",
-                       anchor="lm")
+                pg.text(cols_x[i] + 12, y + header_h_row / 2, h,
+                        17, "sans_bold", "white", anchor="lm")
         y += header_h_row
-        # Itère tous les brins ; le N° est préfixé par le label en cépée
-        # (« a1 », « b2 »). Chaque brin a son propre rayon et ses propres
-        # dégradations externes (port partagé au niveau genet).
         k = 0
         for b in arbre.brins:
             R_b = b.rayon_tronc_cm
@@ -395,16 +535,14 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                 classe = classer_prbs(ratio, arbre.port_arbre)
                 col_c = COULEUR_CLASSE[classe]
                 if k % 2 == 0:
-                    d.rectangle([cols_x[0], y, cols_x[-1], y+row_h],
-                                fill=COLOR_BG)
+                    pg.rect(cols_x[0], y, cols_x[-1], y + row_h, COLOR_BG)
                 k += 1
                 prbs_txt = f"{prbs_adj:g}"
                 _pfx = "~" if getattr(s, "incertain", False) else ""
                 num_txt = (_pfx + (f"{b.label}{s.numero}" if multi_brins and b.label
                            else str(s.numero)))
-                # Colonne Compart. = glyphe coloré ✔/✘/— (source unique
-                # `dialogs_shared`, identique à la saisie et aux exports).
-                vals = [num_txt, direction, prbs_txt, f"{100*ratio:.1f}",
+                # Colonne Compart. = glyphe coloré ✔/✘/— (source unique).
+                vals = [num_txt, direction, prbs_txt, f"{100 * ratio:.1f}",
                         classe, compart_glyph(s.compartimentation)]
                 for i, v in enumerate(vals):
                     if i == 4:
@@ -414,114 +552,95 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
                         wt = "sans_bold"
                     else:
                         col, wt = COLOR_INK, "sans"
-                    font_v = f(row_font_size, wt)
                     col_w = col_widths[i] - 24  # padding 12 de chaque côté
-                    txt = _fit_text(v, font_v, col_w, d)
+                    txt = _fit_text(pg, v, row_font_size, wt, col_w)
                     if i in right_align_data:
-                        d.text((cols_x[i+1]-12, y+row_h/2), txt,
-                               font=font_v, fill=col, anchor="rm")
+                        pg.text(cols_x[i + 1] - 12, y + row_h / 2, txt,
+                                row_font_size, wt, col, anchor="rm")
                     elif i == 5:
-                        # Glyphe centré dans sa colonne.
-                        d.text(((cols_x[i]+cols_x[i+1])/2, y+row_h/2), txt,
-                               font=font_v, fill=col, anchor="mm")
+                        pg.text((cols_x[i] + cols_x[i + 1]) / 2, y + row_h / 2,
+                                txt, row_font_size, wt, col, anchor="mm")
                     else:
-                        d.text((cols_x[i]+12, y+row_h/2), txt,
-                               font=font_v, fill=col, anchor="lm")
+                        pg.text(cols_x[i] + 12, y + row_h / 2, txt,
+                                row_font_size, wt, col, anchor="lm")
                 y += row_h
         y += 18
 
-    # --- Diagnostic (col. gauche) + Préconisation (col. droite) côte à côte ---
-    # Si une préconisation est saisie, la page se partage en deux colonnes :
-    # diagnostic à gauche (680 px), trait de séparation, préconisation à droite
-    # (400 px). Sans préconisation, le diagnostic occupe toute la largeur.
+    # --- Diagnostic (col. gauche) + Préconisation (col. droite) ---
     has_preco = has_intervention or has_suivi
     col_diag_left = margin
     col_diag_right = (margin + 680) if has_preco else (W - margin)
     col_preco_left = col_diag_right + 20
     col_preco_right = W - margin
 
-    y_section = y                 # y commun aux deux colonnes
-    d.text((col_diag_left, y_section), _("Diagnostic"),
-           font=f(22, "serif_bold"), fill=COLOR_ACCENT)
+    y_section = y
+    pg.text(col_diag_left, y_section, _("Diagnostic"),
+            22, "serif_bold", COLOR_ACCENT)
     y_diag = y_section + 36
     if multi_brins:
         y_diag = int(_draw_cepee_diagnostic(
-            d, f, arbre, col_diag_left, col_diag_right, y_diag))
+            pg, arbre, col_diag_left, col_diag_right, y_diag))
     else:
         y_diag = int(_draw_mono_diagnostic(
-            d, f, arbre, col_diag_left, col_diag_right, R, y_diag))
+            pg, arbre, col_diag_left, col_diag_right, R, y_diag))
 
     y_preco = y_section
     if has_preco:
-        pad = 12                       # padding interne sous les bandes
+        pad = 12
         txt_x = col_preco_left + pad
         txt_w = col_preco_right - pad - txt_x
 
-        # Titre aligné sur "Diagnostic" (même police, même baseline)
-        d.text((col_preco_left, y_preco), _("Préconisation"),
-               font=f(22, "serif_bold"), fill=COLOR_ACCENT)
+        pg.text(col_preco_left, y_preco, _("Préconisation"),
+                22, "serif_bold", COLOR_ACCENT)
         y_preco = y_section + 36
 
-        # Filet de sécurité : ligne basse que le rendu ne franchit JAMAIS,
-        # calée 8 px au-dessus du filet de pied de page (tracé à H-46).
-        # Le budget vertical réserve déjà max(diagnostic, préconisation) et
-        # rétrécit le dessin, mais un cas pathologique (beaucoup de sondages
-        # ET deux textes longs) ne tient pas sur une A4 : on tronque alors le
-        # texte (« … ») plutôt que de déborder sur le pied de page.
+        # Ligne basse que le rendu ne franchit JAMAIS (8 px au-dessus du
+        # filet de pied de page tracé à H-46).
         y_limit = (H - 46) - 8
 
         def _preco_header(title: str, y0: int) -> int:
-            """Sous-titre = bande verte pleine largeur, texte blanc — même
-            langage visuel que les en-têtes de tableau du reste de la page."""
             bar_h = 32
-            d.rectangle([col_preco_left, y0, col_preco_right, y0 + bar_h],
-                        fill=COLOR_ACCENT)
-            d.text((col_preco_left + pad, y0 + bar_h / 2), title,
-                   font=f(16, "sans_bold"), fill="white", anchor="lm")
+            pg.rect(col_preco_left, y0, col_preco_right, y0 + bar_h,
+                    COLOR_ACCENT)
+            pg.text(col_preco_left + pad, y0 + bar_h / 2, title,
+                    16, "sans_bold", "white", anchor="lm")
             return y0 + bar_h + 12
 
         def _draw_preco_text(text: str, y0: int) -> int:
-            """Dessine `text` en lignes 16 pt sans jamais dépasser `y_limit`
-            (tronque avec « … » si la place manque)."""
             avail = int((y_limit - y0) // 22)
             if avail < 1:
                 return y0
-            for line in _wrap_lines(text, f(16, "sans"), txt_w, d,
+            for line in _wrap_lines(pg, text, 16, "sans", txt_w,
                                     max_lines=min(8, avail)):
-                d.text((txt_x, y0), line, font=f(16, "sans"), fill=COLOR_INK)
+                pg.text(txt_x, y0, line, 16, "sans", COLOR_INK)
                 y0 += 22
             return y0
 
-        # On ne pose une bande d'en-tête que si au moins une ligne de
-        # contenu peut suivre (sinon une bande verte vide en bas de page).
         if has_intervention and y_preco + 32 + 24 <= y_limit:
             y_preco = _preco_header("Intervention", y_preco)
 
             if arbre.urgence and y_preco + 46 <= y_limit:
-                # Ligne "Urgence : [badge coloré]" (symétrie avec "Échéance :")
                 lbl = "Urgence : "
-                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
+                lbl_w = pg.sw(lbl, 16, "sans")
                 urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
-                fnt = f(16, "sans_bold")
-                bb = d.textbbox((0, 0), arbre.urgence, font=fnt)
-                uw, uh = bb[2] - bb[0], bb[3] - bb[1]
+                uw = pg.sw(arbre.urgence, 16, "sans_bold")
+                uh = _text_h(16)
                 bx, by = 12, 7
-                d.text((txt_x, y_preco + by), lbl,
-                       font=f(16, "sans"), fill=COLOR_MUTED)
+                pg.text(txt_x, y_preco + by, lbl, 16, "sans", COLOR_MUTED)
                 badge_x = txt_x + lbl_w
-                d.rectangle([badge_x, y_preco,
-                             badge_x + uw + 2 * bx, y_preco + uh + 2 * by],
-                            fill=urg_color)
-                d.text((badge_x + bx, y_preco + by), arbre.urgence,
-                       font=fnt, fill="white")
+                pg.rect(badge_x, y_preco,
+                        badge_x + uw + 2 * bx, y_preco + uh + 2 * by,
+                        urg_color)
+                pg.text(badge_x + bx, y_preco + by, arbre.urgence,
+                        16, "sans_bold", "white")
                 y_preco += int(uh) + 2 * by + 12
 
             if arbre.echeance and y_preco + 26 <= y_limit:
                 lbl = "Échéance : "
-                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
-                d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
-                d.text((txt_x + lbl_w, y_preco), arbre.echeance,
-                       font=f(16, "sans_bold"), fill=COLOR_INK)
+                lbl_w = pg.sw(lbl, 16, "sans")
+                pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
+                pg.text(txt_x + lbl_w, y_preco, arbre.echeance,
+                        16, "sans_bold", COLOR_INK)
                 y_preco += 26
 
             if arbre.preconisation:
@@ -533,10 +652,10 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
 
             if arbre.suivi_validite and y_preco + 26 <= y_limit:
                 lbl = "Validité : "
-                lbl_w = d.textbbox((0, 0), lbl, font=f(16, "sans"))[2]
-                d.text((txt_x, y_preco), lbl, font=f(16, "sans"), fill=COLOR_MUTED)
-                d.text((txt_x + lbl_w, y_preco), arbre.suivi_validite,
-                       font=f(16, "sans_bold"), fill=COLOR_INK)
+                lbl_w = pg.sw(lbl, 16, "sans")
+                pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
+                pg.text(txt_x + lbl_w, y_preco, arbre.suivi_validite,
+                        16, "sans_bold", COLOR_INK)
                 y_preco += 26
 
             if arbre.suivi_texte:
@@ -546,14 +665,12 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     y = max(y_diag, y_preco) + 10
 
     # --- Pied de page ---
-    d.line([margin, H-46, W-margin, H-46], fill=COLOR_MUTED, width=1)
+    pg.line(margin, H - 46, W - margin, H - 46, COLOR_MUTED, width=1)
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
-    d.text((W/2, H-24),
-           f"Pénétromètre{cab_suffix}   •   "
-           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
-
-    pages: List[PILImage] = [page]
+    pg.text(W / 2, H - 24,
+            f"Pénétromètre{cab_suffix}   •   " + _("Édité le")
+            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+            14, "sans", COLOR_MUTED, anchor="mm")
 
     # --- Page photos (si photos associées) ---
     def _resolve_photo(stored: str) -> Optional[Path]:
@@ -568,52 +685,49 @@ def render_fiche_arbre_to_pdf_page(arbre: "Arbre",
     photos_valides = [r for p in (arbre.photos or [])
                       if (r := _resolve_photo(p)) is not None]
     if photos_valides:
-        pages.append(_render_photos_page(
-            photos_valides, arbre, chantier, f, margin, W, H))
-
-    return pages
+        _render_photos_page(pdf, photos_valides, arbre, chantier, margin)
 
 
-def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
-                          x_left: int, x_right: int, R: float, y: float) -> float:
+def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
+                          x_left: int, x_right: int, R: float,
+                          y: float) -> float:
     """Bloc diagnostic d'un genet mono-caule.
 
-    `x_left`/`x_right` délimitent la colonne allouée (permet le rendu côte
-    à côte avec la préconisation). Renvoie l'ordonnée après le bloc.
+    `x_left`/`x_right` délimitent la colonne allouée (rendu côte à côte avec
+    la préconisation). Renvoie l'ordonnée après le bloc.
     """
     snap = repartition_classes(arbre)
     diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         if diag is not None:
             tR_moyen_diag, _cls_tmp = diag
-            d.text((x_left, y),
-                   _("t/R moyen sur le pourtour") + f" : {100*tR_moyen_diag:.1f} %",
-                   font=f(18, "sans_bold"), fill=COLOR_INK)
+            pg.text(x_left, y,
+                    _("t/R moyen sur le pourtour") + f" : {100 * tR_moyen_diag:.1f} %",
+                    18, "sans_bold", COLOR_INK)
             y += 28
-        d.text((x_left, y),
-               _("t/R minimal") + f" : {100*snap.tR_min:.1f} %  "
-               f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
-               font=f(18, "sans"), fill=COLOR_INK)
+        pg.text(x_left, y,
+                _("t/R minimal") + f" : {100 * snap.tR_min:.1f} %  "
+                f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
+                18, "sans", COLOR_INK)
         y += 28
         if snap.extrapolation_text:
-            d.text((x_left, y), snap.extrapolation_text,
-                   font=f(16, "sans"), fill=COLOR_MUTED)
+            pg.text(x_left, y, snap.extrapolation_text, 16, "sans", COLOR_MUTED)
             y += 28
         else:
             y += 4
         if diag is None:
-            d.text((x_left, y),
-                   "⚠ Diagnostic global indisponible : il faut au moins",
-                   font=f(18, "sans_bold"), fill=(176, 0, 32))
+            pg.text(x_left, y,
+                    "⚠ Diagnostic global indisponible : il faut au moins",
+                    18, "sans_bold", (176, 0, 32))
             y += 26
-            d.text((x_left, y),
-                   "2 directions sondées pour extrapoler le pourtour.",
-                   font=f(18, "sans_bold"), fill=(176, 0, 32))
+            pg.text(x_left, y,
+                    "2 directions sondées pour extrapoler le pourtour.",
+                    18, "sans_bold", (176, 0, 32))
             y += 30
         else:
-            d.text((x_left, y),
-                   "Répartition sur le pourtour (16 directions) :",
-                   font=f(18, "sans_bold"), fill=COLOR_INK)
+            pg.text(x_left, y,
+                    "Répartition sur le pourtour (16 directions) :",
+                    18, "sans_bold", COLOR_INK)
             y += 30
             bar_w = x_right - x_left
             bar_h = 36
@@ -624,24 +738,22 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                 seg_w = bar_w * seg_pct / 100.0
                 if seg_w > 0:
                     col = COULEUR_CLASSE[cls]
-                    d.rectangle([x_cur, y, x_cur + seg_w, y + bar_h],
-                                fill=col)
+                    pg.rect(x_cur, y, x_cur + seg_w, y + bar_h, col)
                     if seg_w > 95:
-                        d.text((x_cur + seg_w/2, y + bar_h/2),
-                               f"{cls} {seg_pct:.0f} %",
-                               font=f(15, "sans_bold"), fill="white",
-                               anchor="mm")
+                        pg.text(x_cur + seg_w / 2, y + bar_h / 2,
+                                f"{cls} {seg_pct:.0f} %",
+                                15, "sans_bold", "white", anchor="mm")
                     else:
                         outside_labels.append((cls, seg_pct, col,
-                                                x_cur + seg_w/2))
+                                                x_cur + seg_w / 2))
                     x_cur += seg_w
             y += bar_h + 4
             for cls, pct, col, x_center in outside_labels:
-                d.polygon([(x_center, y),
-                           (x_center - 6, y + 8),
-                           (x_center + 6, y + 8)], fill=col)
-                d.text((x_center, y + 12), f"{cls} {pct:.0f} %",
-                       font=f(15, "sans_bold"), fill=col, anchor="mt")
+                pg.polygon([(x_center, y),
+                            (x_center - 6, y + 8),
+                            (x_center + 6, y + 8)], col)
+                pg.text(x_center, y + 12, f"{cls} {pct:.0f} %",
+                        15, "sans_bold", col, anchor="mt")
             if outside_labels:
                 y += 36
             else:
@@ -651,41 +763,35 @@ def _draw_mono_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
                 r = snap.par_classe(cls)
                 if r.n > 0:
                     col = COULEUR_CLASSE[cls]
-                    chunks.append(
-                        (f"{cls} {r.n}/16 ({r.grades} gr)", col))
+                    chunks.append((f"{cls} {r.n}/16 ({r.grades} gr)", col))
             if chunks:
-                font_chunk = f(17, "sans")
-                font_sep = f(17, "sans")
                 sep = "   •   "
-                sep_w = d.textbbox((0, 0), sep, font=font_sep)[2]
+                sep_w = pg.sw(sep, 17, "sans")
                 x_chunk: float = x_left
                 for i, (txt, col) in enumerate(chunks):
                     if i > 0:
-                        d.text((x_chunk, y), sep,
-                               font=font_sep, fill=COLOR_MUTED)
+                        pg.text(x_chunk, y, sep, 17, "sans", COLOR_MUTED)
                         x_chunk += sep_w
-                    d.text((x_chunk, y), txt,
-                           font=font_chunk, fill=col)
-                    bbox = d.textbbox((0, 0), txt, font=font_chunk)
-                    x_chunk += bbox[2] - bbox[0]
+                    pg.text(x_chunk, y, txt, 17, "sans", col)
+                    x_chunk += pg.sw(txt, 17, "sans")
                 y += 28
             y += 10
             _tR_tmp, classe_g = diag
             col_g = COULEUR_CLASSE[classe_g]
             box_w, box_h = 460, 60
-            d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
-            d.text((x_left+box_w/2, y+box_h/2),
-                   _("Classe globale") + f" : {classe_g}",
-                   font=f(24, "sans_bold"), fill="white", anchor="mm")
+            pg.rect(x_left, y, x_left + box_w, y + box_h, col_g)
+            pg.text(x_left + box_w / 2, y + box_h / 2,
+                    _("Classe globale") + f" : {classe_g}",
+                    24, "sans_bold", "white", anchor="mm")
             y += box_h + 8
     else:
-        d.text((x_left, y), _("Aucune altération saisie."),
-               font=f(18, "sans"), fill=COLOR_INK)
+        pg.text(x_left, y, _("Aucune altération saisie."),
+                18, "sans", COLOR_INK)
         y += 28
     return y
 
 
-def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
+def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
                            x_left: int, x_right: int, y: float) -> float:
     """Bloc diagnostic d'une cépée.
 
@@ -697,88 +803,76 @@ def _draw_cepee_diagnostic(d: "ImageDraw.ImageDraw", f: Any, arbre: "Arbre",
     if gd.classe_globale is not None:
         col_g = COULEUR_CLASSE[gd.classe_globale]
         box_w, box_h = 560, 60
-        d.rectangle([x_left, y, x_left+box_w, y+box_h], fill=col_g)
-        d.text((x_left+box_w/2, y+box_h/2),
-               _("Classe globale (pire brin)") + f" : {gd.classe_globale}",
-               font=f(22, "sans_bold"), fill="white", anchor="mm")
+        pg.rect(x_left, y, x_left + box_w, y + box_h, col_g)
+        pg.text(x_left + box_w / 2, y + box_h / 2,
+                _("Classe globale (pire brin)") + f" : {gd.classe_globale}",
+                22, "sans_bold", "white", anchor="mm")
         y += box_h + 16
     else:
-        d.text((x_left, y),
-               "⚠ Classe globale indisponible : aucun brin avec au moins "
-               "3 directions sondées.",
-               font=f(18, "sans_bold"), fill=(176, 0, 32))
+        pg.text(x_left, y,
+                "⚠ Classe globale indisponible : aucun brin avec au moins "
+                "3 directions sondées.",
+                18, "sans_bold", (176, 0, 32))
         y += 36
-    d.text((x_left, y), "Détail par brin :",
-           font=f(18, "sans_bold"), fill=COLOR_INK)
+    pg.text(x_left, y, "Détail par brin :", 18, "sans_bold", COLOR_INK)
     y += 32
     for b in arbre.brins:
         lbl = b.label or "?"
         prefix = f"Brin {lbl} :  "
-        d.text((x_left, y), prefix, font=f(17, "sans_bold"), fill=COLOR_INK)
-        px = x_left + d.textbbox((0, 0), prefix, font=f(17, "sans_bold"))[2]
+        pg.text(x_left, y, prefix, 17, "sans_bold", COLOR_INK)
+        px = x_left + pg.sw(prefix, 17, "sans_bold")
         if b.rayon_tronc_cm <= 0:
-            d.text((px, y), "rayon non renseigné.",
-                   font=f(17, "sans"), fill=COLOR_MUTED)
+            pg.text(px, y, "rayon non renseigné.", 17, "sans", COLOR_MUTED)
             y += 28
             continue
         snap = repartition_classes_brin(b, port)
         diag = snap.diagnostic_global
         if diag is not None:
             tR_moyen_b, classe_b = diag
-            txt = (f"{classe_b}   •   t/R moyen {100*tR_moyen_b:.1f} %"
-                   f"   •   t/R min {100*snap.tR_min:.1f} %")
-            d.text((px, y), txt, font=f(17, "sans"),
-                   fill=COULEUR_CLASSE[classe_b])
+            txt = (f"{classe_b}   •   t/R moyen {100 * tR_moyen_b:.1f} %"
+                   f"   •   t/R min {100 * snap.tR_min:.1f} %")
+            pg.text(px, y, txt, 17, "sans", COULEUR_CLASSE[classe_b])
         else:
-            d.text((px, y),
-                   _("non fiable ({n}/16 directions sondées).").format(n=snap.n_sondees),
-                   font=f(17, "sans"), fill=COLOR_MUTED)
+            pg.text(px, y,
+                    _("non fiable ({n}/16 directions sondées).").format(
+                        n=snap.n_sondees),
+                    17, "sans", COLOR_MUTED)
         y += 28
     return y
 
 
-def _render_photos_page(
-    photos: "List[Path]",
-    arbre: "Arbre",
-    chantier: "Chantier",
-    f: Any,
-    margin: int,
-    W: int,
-    H: int,
-) -> "PILImage":
-    """Page de grille de photos (jusqu'à 6 photos en 2 × 3).
+def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
+                        chantier: "Chantier", margin: int) -> None:
+    """Ajoute une page de grille de photos (jusqu'à 6 photos en 2 × 3).
 
-    Renvoie une image A4 (W × H) avec :
-    - En-tête vert « Photos — Arbre N°X »
-    - Grille 2 colonnes de photos avec légende (nom de fichier)
-    - Pied de page identique à la fiche principale
+    En-tête vert « Photos — Arbre N°X », grille 2 colonnes avec légende (nom
+    de fichier), pied de page identique à la fiche principale. Les photos
+    sont des images collées ; l'en-tête et les légendes sont vectoriels.
     """
-    from PIL import Image, ImageDraw
+    from PIL import Image
 
-    page = Image.new("RGB", (W, H), "white")
-    d = ImageDraw.Draw(page)
+    pdf.add_page()
+    pg = _Page(pdf)
 
     y = margin
 
-    # --- En-tête ---
     header_h = 80
-    d.rectangle([margin, y, W - margin, y + header_h], fill=COLOR_ACCENT)
-    titre = _("Photos") + f"   —   {arbre.display_name}"
-    d.text((margin + 20, y + header_h // 2), titre,
-           font=f(28, "serif_bold"), fill="white", anchor="lm")
-    sous_titre = _("Mission") + f" : {chantier.nom}"
-    d.text((W - margin - 20, y + header_h // 2), sous_titre,
-           font=f(17, "sans"), fill="white", anchor="rm")
+    pg.rect(margin, y, W - margin, y + header_h, COLOR_ACCENT)
+    pg.text(margin + 20, y + header_h // 2,
+            _("Photos") + f"   —   {arbre.display_name}",
+            28, "serif_bold", "white", anchor="lm")
+    pg.text(W - margin - 20, y + header_h // 2,
+            _("Mission") + f" : {chantier.nom}",
+            17, "sans", "white", anchor="rm")
     y += header_h + 24
 
-    # --- Grille de photos (2 colonnes, 3 lignes max) ---
     n_cols = 2
     gap = 20
     col_w = (W - 2 * margin - (n_cols - 1) * gap) // n_cols
     caption_h = 28
-    footer_reserve = 46 + 32   # filet + texte pied de page
+    footer_reserve = 46 + 32
 
-    n_photos = min(len(photos), 6)   # cap à 6 par page
+    n_photos = min(len(photos), 6)
     n_rows = max(1, (n_photos + n_cols - 1) // n_cols)
     available_h = H - y - footer_reserve
     row_total_h = (available_h - (n_rows - 1) * gap) // n_rows
@@ -791,8 +885,7 @@ def _render_photos_page(
         x0 = margin + col * (col_w + gap)
         y0 = y + row * (row_total_h + gap)
 
-        # Fond gris clair pour la zone photo
-        d.rectangle([x0, y0, x0 + col_w, y0 + photo_h], fill="#F0F0F0")
+        pg.rect(x0, y0, x0 + col_w, y0 + photo_h, "#F0F0F0")
 
         try:
             img = Image.open(photo_path).convert("RGB")
@@ -804,25 +897,19 @@ def _render_photos_page(
             else:
                 new_h = photo_h
                 new_w = int(photo_h * img_ratio)
-            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
             px = x0 + (col_w - new_w) // 2
             py = y0 + (photo_h - new_h) // 2
-            page.paste(img, (px, py))
+            pg.image(img, px, py, new_w, new_h)
         except Exception:
-            d.text((x0 + col_w // 2, y0 + photo_h // 2),
-                   "⚠ Photo illisible",
-                   font=f(16, "sans"), fill=COLOR_MUTED, anchor="mm")
+            pg.text(x0 + col_w // 2, y0 + photo_h // 2, "⚠ Photo illisible",
+                    16, "sans", COLOR_MUTED, anchor="mm")
 
-        # Légende = nom du fichier, tronqué si nécessaire
-        caption = _fit_text(photo_path.name, f(15, "sans"), col_w, d)
-        d.text((x0 + col_w // 2, y0 + photo_h + 6), caption,
-               font=f(15, "sans"), fill=COLOR_MUTED, anchor="mt")
+        caption = _fit_text(pg, photo_path.name, 15, "sans", col_w)
+        pg.text(x0 + col_w // 2, y0 + photo_h + 6, caption,
+                15, "sans", COLOR_MUTED, anchor="mt")
 
-    # --- Pied de page ---
-    d.line([margin, H - 46, W - margin, H - 46], fill=COLOR_MUTED, width=1)
-    d.text((W / 2, H - 24),
-           "Pénétromètre   •   "
-           + _("Édité le") + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-           font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
-
-    return page
+    pg.line(margin, H - 46, W - margin, H - 46, COLOR_MUTED, width=1)
+    pg.text(W / 2, H - 24,
+            "Pénétromètre   •   " + _("Édité le")
+            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+            14, "sans", COLOR_MUTED, anchor="mm")

@@ -41,7 +41,7 @@ from export import (
     export_synthesis_csv,
     export_synthesis_xlsx,
 )
-from fiche_pdf import render_fiche_arbre_to_pdf_page
+from fiche_pdf import HAS_FPDF, _new_pdf, render_fiche_arbre
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
 from model import Arbre, Chantier
@@ -100,6 +100,18 @@ def _need_pil(format_label: str) -> bool:
     return False
 
 
+def _need_fpdf() -> bool:
+    """Affiche un message clair si fpdf2 est absent (fiche PDF vectorielle).
+    Renvoie True si OK pour continuer, False si on doit avorter."""
+    if HAS_FPDF:
+        return True
+    messagebox.showinfo(
+        "fpdf2 requis",
+        "L'export de la fiche PDF nécessite fpdf2.\n"
+        "Installez-le :  pip install fpdf2")
+    return False
+
+
 def export_png(parent: tk.Misc, arbre: Optional[Arbre],
                show_sondages: bool) -> None:
     if not _need_pil("PNG"):
@@ -134,6 +146,8 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     sur le dessin uniquement ; le tableau PRBS reste présent)."""
     if not _need_pil("PDF"):
         return
+    if not _need_fpdf():
+        return
     if not arbre:
         return
     suggest = (f"fiche_arbre_{arbre.numero_arbre or 'sans_num'}.pdf"
@@ -146,13 +160,13 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         return
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        pages = render_fiche_arbre_to_pdf_page(arbre, chantier,
-                                               show_sondages=show_sondages,
-                                               logo_path=logo_path,
-                                               cabinet_name=cabinet_name,
-                                               mission_file=mission_file)
-        pages[0].save(p, "PDF", resolution=150.0,
-                      save_all=True, append_images=pages[1:])
+        pdf = _new_pdf()
+        render_fiche_arbre(pdf, arbre, chantier,
+                           show_sondages=show_sondages,
+                           logo_path=logo_path,
+                           cabinet_name=cabinet_name,
+                           mission_file=mission_file)
+        pdf.output(p)
         _notify_export(parent, p, _("Fiche PDF enregistrée"))
     except Exception as e:
         log.exception("Échec export PDF")
@@ -170,6 +184,8 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     `os.startfile('print')` sur Windows). Aucun filedialog."""
     if not _need_pil("PDF"):
         return
+    if not _need_fpdf():
+        return
     if not arbre:
         return
     import subprocess
@@ -177,19 +193,19 @@ def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
     import tempfile
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        pages = render_fiche_arbre_to_pdf_page(arbre, chantier,
-                                               show_sondages=show_sondages,
-                                               logo_path=logo_path,
-                                               cabinet_name=cabinet_name,
-                                               mission_file=mission_file)
+        pdf = _new_pdf()
+        render_fiche_arbre(pdf, arbre, chantier,
+                           show_sondages=show_sondages,
+                           logo_path=logo_path,
+                           cabinet_name=cabinet_name,
+                           mission_file=mission_file)
         num = arbre.numero_arbre or "arbre"
         with tempfile.NamedTemporaryFile(
                 suffix=".pdf",
                 prefix=f"penetrometre_{num}_",
                 delete=False) as tmp:
             tmp_path = tmp.name
-        pages[0].save(tmp_path, "PDF", resolution=150.0,
-                      save_all=True, append_images=pages[1:])
+        pdf.output(tmp_path)
 
         if sys.platform.startswith("win"):
             import os as _os
@@ -217,6 +233,8 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
     les arbres de la mission. `show_sondages` : cf. `export_pdf_arbre`."""
     if not _need_pil("PDF"):
         return
+    if not _need_fpdf():
+        return
     if not _check_completeness(parent, chantier):
         return
     arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
@@ -234,16 +252,15 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         return
     try:
         cabinet_name, logo_path = _get_cabinet_info(parent)
-        all_pages = []
+        pdf = _new_pdf()
         for a in arbres:
-            all_pages.extend(render_fiche_arbre_to_pdf_page(
-                a, chantier,
+            render_fiche_arbre(
+                pdf, a, chantier,
                 show_sondages=show_sondages,
                 logo_path=logo_path,
                 cabinet_name=cabinet_name,
-                mission_file=mission_file))
-        all_pages[0].save(p, "PDF", resolution=150.0, save_all=True,
-                          append_images=all_pages[1:])
+                mission_file=mission_file)
+        pdf.output(p)
         _notify_export(
             parent, p,
             f"PDF mission enregistré ({len(arbres)} fiche(s))")

@@ -154,7 +154,7 @@ mon-dossier/
 ├── bareme_store.py             ← barème configurable (bareme.json)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG de la section
-├── fiche_pdf.py                ← layout de la fiche d'expertise PDF A4
+├── fiche_pdf.py                ← fiche d'expertise PDF A4 vectorielle (fpdf2)
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── license.py                  ← vérification/chargement licence offline Ed25519
