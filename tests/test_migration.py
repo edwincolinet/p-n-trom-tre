@@ -369,6 +369,10 @@ class PreconisationRoundTripTests(unittest.TestCase):
         legacy_map = {
             "Court terme (< 1 an)":  "< 1 an",
             "Moyen terme (1-3 ans)": "< 2 ans",
+            # Ancêtre nu (sans le délai entre parenthèses) — présent dans les
+            # fichiers du terrain les plus anciens (dont la mission de démo).
+            "Court terme":           "< 1 an",
+            "Moyen terme":           "< 2 ans",
             "Surveillance":          "",
             "Sans objet":            "",
         }

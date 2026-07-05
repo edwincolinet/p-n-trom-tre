@@ -1,8 +1,18 @@
 # Chantier fpdf2 — fiche PDF vectorielle
 
-> **Statut** : planifié, approche **validée par Edwin**, pas encore implémenté.
-> **Branche de travail** : `adopt-fpdf2` (créée, ne contient que ce plan).
-> Reprendre avec `git checkout adopt-fpdf2`.
+> **Statut** : ✅ **IMPLÉMENTÉ** (branche `adopt-fpdf2`). La fiche PDF est
+> désormais vectorielle (fpdf2). Ce document est conservé comme **trace de
+> conception** (pourquoi l'approche hybride, pièges polices/unités) ;
+> l'état à jour vit dans `CLAUDE.md` (section « Fiche d'expertise PDF =
+> VECTORIELLE ») et `.claude/docs/architecture.md` (`fiche_pdf.py`).
+>
+> Écarts vs plan initial : `render_fiche_arbre_to_pdf_page → render_fiche_arbre`
+> (ajoute au doc, ne renvoie plus de liste) ; la **légende** est rendue sur une
+> bande PIL collée (pas réimplémentée en vectoriel) ; le document travaille en
+> **unité = 1 px @150 DPI** (`FPDF(unit=72/150, format=(1240,1754))`) pour
+> réutiliser les coordonnées historiques telles quelles ; les champs **suivi**
+> (`suivi_validite`/`suivi_texte`) et l'indice `incertain` des sondages,
+> apparus depuis, sont pris en charge.
 
 ## Objectif
 

@@ -266,10 +266,18 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         "Libre, semi-libre ou traumatique": "libre",
         "Architecturé ou traumatique": "architecturé",
     }
-    # Migration des anciens niveaux d'urgence (renommage 2026-06)
+    # Migration des anciens niveaux d'urgence (renommage 2026-06).
+    # Deux schémas antérieurs cohabitent dans les fichiers du terrain :
+    # le libellé « à délai » (« Court terme (< 1 an) ») ET son ancêtre nu
+    # (« Court terme »), tous deux rabattus sur les niveaux actuels de
+    # `model.URGENCE_NIVEAUX` — sinon la valeur reste orpheline et le badge
+    # d'urgence (fiche PDF) comme la cellule de synthèse XLSX s'affichent en
+    # gris neutre au lieu de la couleur du délai.
     urgence_legacy = {
         "Court terme (< 1 an)":  "< 1 an",
         "Moyen terme (1-3 ans)": "< 2 ans",
+        "Court terme":           "< 1 an",
+        "Moyen terme":           "< 2 ans",
         "Surveillance":          "",
         "Sans objet":            "",
     }

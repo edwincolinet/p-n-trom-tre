@@ -292,15 +292,38 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   (`show_legend`). Pendant Tk : `SectionCanvas._draw_cepee` (même centrage,
   sans légende). Fixtures golden `cepee`, `cepee_rotation`.
 
-## `fiche_pdf.py` — layout fiche PDF A4
+## `fiche_pdf.py` — fiche PDF A4 VECTORIELLE (fpdf2)
 
-- `render_fiche_arbre_to_pdf_page(arbre, chantier, show_sondages=True)` — page
-  1240×1754 px (150 DPI). `show_sondages` (= case « Afficher les sondages » sous
-  le canevas, propagée par `app_exports.export_pdf_arbre`/`_mission`) masque les
-  pastilles **sur le dessin** ET l'item « Sondage » de la légende
-  (`show_sondage_item`) — le **tableau PRBS reste** (c'est la donnée).
-- Assemble : en-tête + logo, identité arbre, dessin section (via `pil_render`),
-  légende, tableau PRBS, diagnostic (t/R moyen+min, barre répartition, classe).
+- **PDF vectoriel** (fpdf2) : texte sélectionnable/cherchable, net au zoom,
+  fichier ~3-4× plus léger que l'ancien rendu raster. **Hybride** : texte +
+  tableau + diagnostic + préconisation en vectoriel ; le **dessin de section**
+  (`pil_render.render_arbre_to_pil_image`) et la **légende horizontale**
+  (`_draw_horizontal_legend_pil`) **restent raster** et sont **collés** via
+  `pdf.image` — les réécrire en vectoriel serait énorme et sans gain.
+- **API** : `_new_pdf()` crée le document (A4, unité = 1 px @150 DPI via
+  `FPDF(unit=72/150, format=(1240,1754))` ⟹ **coordonnées historiques
+  conservées verbatim** ; polices DejaVu embarquées enregistrées par
+  `add_font` — l'Helvetica de base est latin-1). `render_fiche_arbre(pdf,
+  arbre, chantier, *, show_sondages=True, …)` **ajoute** la/les page(s)
+  (fiche + page photos si `arbre.photos`). Un arbre : `_new_pdf` +
+  `render_fiche_arbre` + `pdf.output(p)`. Mission : **un seul** `pdf`, boucle,
+  `output` (concaténation native — plus d'`append_images`).
+- `_Page` = fine surface de dessin sur le `FPDF` (text/rect/line/polygon/image)
+  qui **émule les ancres PIL** (`la`/`lm`/`rm`/`mm`/`mt` → décalage horizontal
+  via `get_string_width`, ligne de base via fractions de l'em `_ASC`/`_MID`) et
+  convertit les tailles de police « px » en points (`× 72/150`).
+- `show_sondages` (= case « Afficher les sondages » sous le canevas, propagée
+  par `app_exports.export_pdf_arbre`/`_mission`) masque les pastilles **sur le
+  dessin** ET l'item « Sondage » de la légende (`show_sondage_item`) — le
+  **tableau PRBS reste** (c'est la donnée).
+- Assemble : en-tête + logo, identité arbre, dessin section (collé, via
+  `pil_render`), légende (bande PIL collée), tableau PRBS, diagnostic
+  (t/R moyen+min, barre répartition, classe), préconisation/suivi, pied.
+- **Pas de golden pixel** (les goldens `test_render` visent `comparaison_render`,
+  resté raster) : couverts par `FichePdfSmokeTests` (`%PDF` + nb pages) ; les 2
+  tests de dessin (`FichePdfSondagesTests`, `FichePdfCepeeLayoutTests`) sont
+  redirigés sur `render_arbre_to_pil_image` (l'info qu'ils vérifient vit dans
+  le dessin, resté PIL).
 - Dimensionnement adaptatif : au-delà de 8/12 sondages, police et hauteur
   de ligne se resserrent pour rester sur 1 page.
 - **Cépée** : tableau PRBS itère tous les brins (N° préfixé « a1 ») ; le bloc
