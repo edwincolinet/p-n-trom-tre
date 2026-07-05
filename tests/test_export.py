@@ -229,13 +229,15 @@ class XlsxSmokeTests(unittest.TestCase):
             self.assertIn("t/R moyen", col_a[diag_row])
             self.assertIn("Classe globale", col_a[diag_row])
 
-            # Légende compartimentation : couvre les 3 glyphes.
+            # Légende compartimentation : couvre les 3 glyphes (source unique
+            # `dialogs_shared` → suit un éventuel restyle des symboles).
+            from dialogs_shared import compart_glyph
             legend_row = next(r for r, v in col_a.items()
                               if isinstance(v, str)
                               and v.startswith("Compartimentation :"))
             legend = col_a[legend_row]
-            for glyph in ("✔", "✘", "—"):
-                self.assertIn(glyph, legend)
+            for value in ("active", "absente", "non renseignée"):
+                self.assertIn(compart_glyph(value), legend)
             self.assertIn("pas d'altération", legend)
 
             # Légende des classes : 3 cellules « ● Classe … », chacune

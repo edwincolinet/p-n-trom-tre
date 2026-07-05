@@ -348,7 +348,7 @@ purement descriptif : n'impacte pas le diagnostic.
   Titre mission + identité de l'arbre en toutes lettres, puis les
   colonnes N° · Direction (N/NE/…) · Grade · Rayon · PRBS bois sain ·
   Bois altéré · t/R (color-codé par classe) · Classe · Compartimentation
-  ✔ / ✘ / —. Sous le tableau : une ligne **Diagnostic** (t/R moyen +
+  ✓ / ✗ / –. Sous le tableau : une ligne **Diagnostic** (t/R moyen +
   classe globale, alignée sur la fiche PDF), une légende des glyphes
   puis une légende des classes. Thème vert Pénétromètre, alternance de
   lignes, en-tête gelé. Nécessite

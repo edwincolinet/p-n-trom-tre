@@ -388,11 +388,11 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
   alternance de lignes, en-tête gelé. Sous le tableau : une ligne
   **Diagnostic** (t/R moyen + classe globale, alignée sur la fiche PDF,
   masquée si < 3 sondées via `DiagnosticSnapshot.diagnostic_global`), une
-  légende compartimentation ✔/✘/— puis une légende des classes colorée.
+  légende compartimentation ✓/✗/– puis une légende des classes colorée.
   Verrouillé par `test_diagnostic_et_legendes_du_tableau`.
 - `export_prbs_html(…)` — HTML autonome imprimable, même thème vert.
   **À garder aligné sur le XLSX** : mêmes colonnes (dont Direction/Classe),
-  même ligne Diagnostic, légende compartimentation à 3 entrées (✔/✘/—) ET
+  même ligne Diagnostic, légende compartimentation à 3 entrées (✓/✗/–) ET
   légende des classes colorée (`.classe-legend`). Verrouillé par
   `HtmlExportAlignementTests` — toute modif du XLSX doit être reportée ici.
 - Injection de `couleur_classe` + `classer_prbs` pour éviter cycles.
@@ -606,7 +606,7 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 - **`dialogs_shared.py`** — helpers **purs** partagés entre dialogues et panes
   (validateurs numériques, choix de grades, dates). Porte la **source unique
   des symboles de compartimentation** : `COMPART_GLYPH`/`COMPART_COLOR` +
-  `compart_glyph`/`compart_color`/`compart_visual` (**✔** active / **✘** absente
+  `compart_glyph`/`compart_color`/`compart_visual` (**✓** active / **✗** absente
   / **—** non renseignée) — le même glyphe est affiché à la **saisie**
   (`compart_label`/`compart_from_label` préfixent/retirent le glyphe du
   combobox) **et** dans **tous les exports** (XLSX/HTML via `export.py`, PDF via

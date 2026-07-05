@@ -17,11 +17,11 @@ Mise en page (propre à Pénétromètre, terminologie interne) :
 - L'en-tête des colonnes.
 - UNE LIGNE PAR SONDAGE : N° · Direction (N/NE/…) · Grade · Rayon ·
   PRBS bois sain · Bois altéré · t/R coloré · Classe (en toutes
-  lettres) · Compartimentation ✔/✘/—.
+  lettres) · Compartimentation ✓/✗/–.
 - Une ligne « Diagnostic » (t/R moyen, classe globale, t/R min),
   alignée sur la fiche PDF (classe publiée = celle du t/R moyen,
   masquée si < 3 directions sondées).
-- Une légende compartimentation (✔ active / ✘ absente / — neutre) et
+- Une légende compartimentation (✓ active / ✗ absente / – neutre) et
   une légende des classes (Vert/Orange/Rouge).
 
 Les fonctions reçoivent les objets `arbre` / `chantier` via des
@@ -229,7 +229,7 @@ def _brin_table_rows(section: Any, R: float, port: str, label: str,
 
 def _compart_visual(value: str) -> Tuple[str, str]:
     """(glyphe, couleur_hex_SANS_dièse) pour openpyxl. Symbole & couleur =
-    source unique `dialogs_shared` (mêmes ✔/✘/— qu'à la saisie)."""
+    source unique `dialogs_shared` (mêmes ✓/✗/– qu'à la saisie)."""
     glyph, hexa = compart_visual(value)
     return glyph, hexa.lstrip("#")
 
@@ -318,7 +318,7 @@ _NCOLS = len(_HEADERS)
 # Index (1-based) des colonnes à traitement spécial.
 _COL_TR = 7        # fond coloré par classe (heatmap)
 _COL_CLASSE = 8    # texte de classe, police colorée
-_COL_COMPART = 9   # glyphe ✔/✘/—
+_COL_COMPART = 9   # glyphe ✓/✗/–
 
 # Libellés de la légende des classes (sous le tableau) — explique le code
 # couleur des colonnes « t/R » et « Classe ». Keyé par les labels de classe
@@ -472,9 +472,12 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     row += 2
 
     # --- Légende compartimentation (une bannière, glyphes en clair) ---
+    # Glyphes issus de la source unique (`dialogs_shared`) pour rester
+    # alignés sur la saisie et les cellules du tableau.
     _banner(row,
-            "Compartimentation :   ✔ active     ✘ absente     "
-            "— non renseignée / pas d'altération",
+            f"Compartimentation :   {compart_glyph('active')} active     "
+            f"{compart_glyph('absente')} absente     "
+            f"{compart_glyph('non renseignée')} non renseignée / pas d'altération",
             LEGEND_FONT)
     row += 1
 
@@ -549,7 +552,7 @@ td.tR {
 td.classe { font-weight: 700; }
 td.compart-active { color: #2D7A3E; font-size: 18px; font-weight: 700; }
 td.compart-absente { color: #C0392B; font-size: 18px; font-weight: 700; }
-td.compart-neutre { color: #6E7B73; }
+td.compart-neutre { color: #55605A; }
 .diagnostic {
     margin-top: 14px; font-size: 15px; font-weight: 700;
     padding: 8px 12px; border-left: 5px solid #2D7A3E;
@@ -560,7 +563,7 @@ td.compart-neutre { color: #6E7B73; }
 }
 .legend .ok { color: #2D7A3E; font-style: normal; font-weight: 700; }
 .legend .ko { color: #C0392B; font-style: normal; font-weight: 700; }
-.legend .neutre { color: #6E7B73; font-style: normal; font-weight: 700; }
+.legend .neutre { color: #55605A; font-style: normal; font-weight: 700; }
 .classe-legend { margin-top: 8px; display: flex; gap: 22px;
                  font-weight: 700; font-size: 13px; }
 .classe-legend .classe-item { white-space: nowrap; }
@@ -617,7 +620,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
         for r in rows_data:
             classe_color = couleur_classe.get(r["classe"], "#CCCCCC")
             comp = (r["compartimentation"] or "").lower().strip()
-            glyph = compart_glyph(comp)  # ✔ / ✘ / — (source unique)
+            glyph = compart_glyph(comp)  # ✓ / ✗ / – (source unique)
             if comp == "active":
                 comp_html = f'<td class="compart-active">{glyph}</td>'
             elif comp == "absente":
@@ -649,13 +652,13 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
         f'<div class="diagnostic" style="border-left-color:{diag_color}">'
         f'{_h(diag_text)}</div>')
 
-    # Légende compartimentation : ✔ active · ✘ absente · — neutre.
+    # Légende compartimentation (glyphes source-unique `dialogs_shared`).
     legend_html = (
         '<div class="legend">Compartimentation : '
-        '<span class="ok">✔</span> active&nbsp;&nbsp; '
-        '<span class="ko">✘</span> absente&nbsp;&nbsp; '
-        '<span class="neutre">—</span> non renseignée / pas '
-        'd&#39;altération</div>')
+        f'<span class="ok">{compart_glyph("active")}</span> active&nbsp;&nbsp; '
+        f'<span class="ko">{compart_glyph("absente")}</span> absente&nbsp;&nbsp; '
+        f'<span class="neutre">{compart_glyph("non renseignée")}</span> '
+        'non renseignée / pas d&#39;altération</div>')
 
     # Légende des classes (code couleur des colonnes « t/R » et « Classe »),
     # comme dans le XLSX : une entrée par classe, texte coloré.
