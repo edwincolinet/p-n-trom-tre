@@ -128,7 +128,7 @@ _FONT_FALLBACK = {
 def _font_file(name: str) -> str:
     """Chemin de la police `name` : embarquée en priorité, sinon système.
 
-    DejaVu porte accents + ✔ (U+2714) + ✘ (U+2718) + — (U+2014) + Ø + ● →
+    DejaVu porte accents + ✓ (U+2713) + ✗ (U+2717) + – (U+2013) + Ø + ● →
     tout ce qu'utilise la fiche (Helvetica de base est latin-1 → casserait
     les accents et les glyphes de compartimentation)."""
     embedded = _FONT_DIR / name
@@ -541,7 +541,7 @@ def render_fiche_arbre(pdf: FPDF,
                 _pfx = "~" if getattr(s, "incertain", False) else ""
                 num_txt = (_pfx + (f"{b.label}{s.numero}" if multi_brins and b.label
                            else str(s.numero)))
-                # Colonne Compart. = glyphe coloré ✔/✘/— (source unique).
+                # Colonne Compart. = glyphe coloré ✓/✗/– (source unique).
                 vals = [num_txt, direction, prbs_txt, f"{100 * ratio:.1f}",
                         classe, compart_glyph(s.compartimentation)]
                 for i, v in enumerate(vals):

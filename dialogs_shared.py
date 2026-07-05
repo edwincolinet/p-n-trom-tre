@@ -19,27 +19,29 @@ from model import DegradationExterne
 # Valeurs modèle canoniques (français, stockées telles quelles dans le
 # fichier). L'ordre n'est pas imposé : chaque combobox passe le sien.
 COMPART_FR = ["non renseignée", "active", "absente"]
-# Valeur « non renseignée » et son libellé d'affichage : un tiret long
-# (cadratin U+2014), neutre quelle que soit la langue.
+# Valeur « non renseignée » et son libellé d'affichage : un tiret fin
+# (demi-cadratin U+2013), neutre quelle que soit la langue.
 COMPART_NR = "non renseignée"
-COMPART_NR_LABEL = "—"
+COMPART_NR_LABEL = "–"
 
 # SOURCE UNIQUE des symboles de compartimentation. Le MÊME glyphe est
-# affiché à la saisie (combobox « ✔ active ») et dans tous les exports
-# (cellule XLSX/HTML/PDF, symbole seul + légende). Coche et croix
-# renforcées (U+2714 / U+2718, présentes dans DejaVu → rendu PDF garanti),
-# choisies pour bien se distinguer l'une de l'autre. Couleurs = accent vert
-# Pénétromètre / rouge alerte / gris neutre (hex avec « # » : PIL & CSS ;
-# openpyxl attend sans « # » → `.lstrip("#")` côté export).
+# affiché à la saisie (combobox « ✓ active ») et dans tous les exports
+# (cellule XLSX/HTML/PDF, symbole seul + légende). Coche et croix **fines**
+# (U+2713 / U+2717, présentes dans DejaVu → rendu PDF garanti) : traits
+# légers, plus dans l'esprit épuré du logiciel que les « ballot » épais
+# (U+2714 / U+2718) d'avant, tout en gardant des formes bien distinctes.
+# Couleurs = accent vert Pénétromètre / rouge alerte / gris muted palette (hex
+# avec « # » : PIL & CSS ; openpyxl attend sans « # » → `.lstrip("#")` côté
+# export).
 COMPART_GLYPH = {
-    "active": "✔",
-    "absente": "✘",
-    "non renseignée": "—",
+    "active": "✓",
+    "absente": "✗",
+    "non renseignée": COMPART_NR_LABEL,
 }
 COMPART_COLOR = {
     "active": "#2D7A3E",
     "absente": "#C0392B",
-    "non renseignée": "#6E7B73",
+    "non renseignée": "#55605A",
 }
 
 
