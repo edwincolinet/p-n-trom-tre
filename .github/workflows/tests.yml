@@ -1,7 +1,11 @@
 name: tests
 
 on:
+  # Sur `main` (merges) ET sur les PR. Une branche de feature avec PR ouverte
+  # ne déclenche donc qu'UN run (via `pull_request`) au lieu de deux
+  # (push + pull_request) → moitié moins de runs et de notifications d'échec.
   push:
+    branches: [main]
   pull_request:
 
 jobs:
@@ -51,6 +55,10 @@ jobs:
       - name: Vérification de types (mypy)
         # Configuré dans mypy.ini : strict sur cœur pur + rendu PIL ;
         # souple sur la couche Tk (panes, dialogs, section_canvas).
+        # Liste alignée sur celle de CLAUDE.md (« Commandes utiles ») :
+        # tous les modules typés, y compris app_layout/app_reglages,
+        # dialogs_shared, i18n, bareme_store, template_store, update_checker,
+        # photo_gallery et dialogs_settings.
         run: >-
           python -m mypy
           bareme.py geometry.py palette.py model.py diagnostic.py
@@ -58,11 +66,15 @@ jobs:
           app_exports.py app_menu.py
           app_recent.py app_settings.py ui_fonts.py
           app_arbres.py app_recovery.py app_export_actions.py app_fichier.py
+          app_layout.py app_reglages.py
           pane_identification.py pane_sondages.py pane_degradations.py
           pane_contreforts.py pane_diagnostic.py
           dialogs.py section_canvas.py
           comparaison.py comparaison_render.py
-          undo.py tooltip.py aide_repliable.py penetrometre.py
+          undo.py tooltip.py aide_repliable.py
+          penetrometre.py photo_gallery.py
+          dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py
+          template_store.py update_checker.py
 
       - name: Suite de tests (pytest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk
