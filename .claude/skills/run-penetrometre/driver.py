@@ -98,7 +98,7 @@ def main() -> int:
                     return 3
                 app.current_idx = idx
             arbre = app._current_arbre()
-            print(f"MODE=arbre")
+            print("MODE=arbre")
             print(f"ARBRE={arbre.display_name if arbre else '(aucun)'}")
             app.action_export_pdf_arbre()
         app.update()
