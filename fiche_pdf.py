@@ -325,6 +325,8 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
         h += 32 + 12   # bande "Suivi"
         if arbre.suivi_validite:
             h += 26
+        if arbre.suivi_echeance:
+            h += 26
         if arbre.suivi_texte:
             n = len(_wrap_lines(pg, arbre.suivi_texte, 16, "sans",
                                 txt_w, max_lines=8))
@@ -446,7 +448,8 @@ def render_fiche_arbre(pdf: FPDF,
     est_legend_h = 56
     footer_reserve = 60
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
-    has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
+    has_suivi = bool(arbre.suivi_validite or arbre.suivi_echeance
+                     or arbre.suivi_texte)
     if has_intervention or has_suivi:
         _preco_left = (margin + 680) + 20
         _preco_txt_w = (W - margin) - 12 - (_preco_left + 12)
@@ -655,6 +658,14 @@ def render_fiche_arbre(pdf: FPDF,
                 lbl_w = pg.sw(lbl, 16, "sans")
                 pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
                 pg.text(txt_x + lbl_w, y_preco, arbre.suivi_validite,
+                        16, "sans_bold", COLOR_INK)
+                y_preco += 26
+
+            if arbre.suivi_echeance and y_preco + 26 <= y_limit:
+                lbl = "Prochaine visite : "
+                lbl_w = pg.sw(lbl, 16, "sans")
+                pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
+                pg.text(txt_x + lbl_w, y_preco, arbre.suivi_echeance,
                         16, "sans_bold", COLOR_INK)
                 y_preco += 26
 

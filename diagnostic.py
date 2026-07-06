@@ -373,20 +373,17 @@ def extrapolation_summary(arbre: "Section") -> Dict[str, int]:
 
 
 def extrapolation_summary_text(arbre: "Section") -> str:
-    """Phrase prête à afficher pour le diagnostic. Renvoie une chaîne
-    vide si aucun sondage n'a été saisi (auquel cas le diagnostic
-    affiche déjà « aucune altération »)."""
-    s = extrapolation_summary(arbre)
-    n = s["n_sondees"]
+    """Phrase de couverture de sondage pour la fiche PDF : « N/16 directions
+    sondées ». Chaîne vide si aucun sondage (le diagnostic affiche déjà
+    « aucune altération »). L'écart angulaire entre voisins, peu parlant pour
+    la lecture du diagnostic, n'est plus affiché ; la fiabilité (< 3 sondages)
+    est signalée séparément par l'avertissement dédié."""
+    n = extrapolation_summary(arbre)["n_sondees"]
     if n == 0:
         return ""
-    if n == 16:
-        return "16/16 directions sondées — aucune extrapolation."
     if n == 1:
-        return ("1/16 direction sondée — pas de second point, "
-                "l'extrapolation est désactivée.")
-    return (f"{n}/16 directions sondées — écart angulaire maximal "
-            f"entre voisins : {s['ecart_max_grades']} gr.")
+        return "1/16 direction sondée."
+    return f"{n}/16 directions sondées."
 
 
 def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
@@ -582,30 +579,36 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
 
     R = section.rayon_tronc_cm
     snap = repartition_classes_brin(section, port)
+    n_sondees = extrapolation_summary(section)["n_sondees"]
+
+    # Ligne d'identité compacte : rayon + port + couverture de sondage.
+    # (Le nb de dégrad./contreforts et l'écart angulaire n'aident pas la
+    # lecture du diagnostic → retirés ; « N/16 directions sondées » remplace
+    # à la fois l'ancien compteur « Sondages : N » et la phrase d'extrapolation.)
+    meta = f"Rayon : {R:g} cm"
+    if show_port:
+        meta += f"   •   Port : {port}"
+    meta += f"   •   {n_sondees}/16 directions sondées"
     lignes: List[Tuple[str, str]] = [
         (f"« {titre} »", ""),
-        (f"Rayon : {R:g} cm   •   Sondages : {len(section.sondages)}"
-         f"   •   Dégrad. ext. : {len(section.degradations_externes)}"
-         f"   •   Contreforts : {len(section.contreforts)}", ""),
+        (meta, ""),
+        ("", ""),
     ]
-    if show_port:
-        lignes.append((f"Port : {port}", ""))
-    lignes.append(("", ""))
-    if snap.extrapolation_text:
-        lignes.append((snap.extrapolation_text, ""))
-        lignes.append(("", ""))
 
     if all(r >= 0.999 for r in snap.ratios):
         lignes.append(("Aucune altération saisie (interne ou externe).", ""))
         return lignes
 
-    lignes.append(
-        (f"t/R minimal : {100*snap.tR_min:.1f} %  "
-         f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})", ""))
-    lignes.append(("", ""))
+    # Direction critique = mesure réelle → montrée même en diagnostic non
+    # fiable (< 3 sondages). t/R minimal est regroupé avec t/R moyen (zone
+    # unique) quand le diagnostic global est publiable.
+    tR_min_txt = (f"t/R minimal : {100*snap.tR_min:.1f} %  "
+                  f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
 
     diag = snap.diagnostic_global
     if diag is None:
+        lignes.append((tR_min_txt, ""))
+        lignes.append(("", ""))
         lignes.append(
             ("⚠ Diagnostic global indisponible : il faut au moins "
              "3 directions sondées pour un diagnostic fiable.", "warn"))
@@ -621,8 +624,9 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
                 (f"  ● {cls:<7} : {r.n}/16 directions  "
                  f"({r.grades} gr / {r.pct:.0f} % du pourtour)", tag))
     lignes.append(("", ""))
+    # Zone t/R regroupée : moyen (global) + minimal (direction critique).
     lignes.append(
-        (f"t/R moyen sur le pourtour : {100*tR_moyen:.1f} %", ""))
+        (f"t/R moyen : {100*tR_moyen:.1f} %      {tR_min_txt}", ""))
     lignes.append((f"→ Classe globale : {classe_globale}",
                    _TAG_CLASSE.get(classe_globale, "")))
     return lignes
@@ -716,6 +720,7 @@ class MissionSynthesisRow(NamedTuple):
     preconisation: str = ""
     # Suivi (même portée genet).
     suivi_validite: str = ""
+    suivi_echeance: str = ""
     suivi_texte: str = ""
 
 
@@ -816,6 +821,7 @@ def mission_synthesis_rows(chantier: "Chantier", *,
                                 echeance=arbre.echeance,
                                 preconisation=arbre.preconisation,
                                 suivi_validite=arbre.suivi_validite,
+                                suivi_echeance=arbre.suivi_echeance,
                                 suivi_texte=arbre.suivi_texte)
         if len(a.brins) <= 1:
             rows.append(_with_preco(_synthesis_row_for_section(

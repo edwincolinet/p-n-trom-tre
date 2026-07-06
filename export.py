@@ -716,7 +716,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
                   "t/R moyen (%)", "Classe globale", "Direction critique",
                   "t/R critique (%)", "Urgence", "Échéance", "Préconisation",
-                  "Validité suivi", "Commentaire suivi"]
+                  "Validité suivi", "Échéance suivi", "Commentaire suivi"]
 
 # Couleur de la cellule « Urgence » dans le XLSX : (fond, police) en hexa.
 # Aligne la lecture du délai d'intervention sur celle de la classe de risque.
@@ -783,6 +783,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                 _synth_or_dash(r.echeance),
                 _synth_or_dash(r.preconisation),
                 _synth_or_dash(r.suivi_validite),
+                _synth_or_dash(r.suivi_echeance),
                 _synth_or_dash(r.suivi_texte),
             ])
 
@@ -875,11 +876,12 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
             _synth_or_dash(row.echeance),
             _synth_or_dash(row.preconisation),
             _synth_or_dash(row.suivi_validite),
+            _synth_or_dash(row.suivi_echeance),
             _synth_or_dash(row.suivi_texte),
         ]
         urgence_col = 10
         preco_col = 12
-        suivi_texte_col = 14
+        suivi_texte_col = 15
         use_alt = k % 2 == 1
         for i, v in enumerate(values, start=1):
             c = ws.cell(row=r_idx, column=i, value=v)
@@ -927,7 +929,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                    end_row=footer_row, end_column=last)
 
     # --- Largeurs de colonnes ---
-    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14, 20, 12, 40, 14, 40]
+    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14, 20, 12, 40, 14, 12, 40]
     for i, wdt in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = wdt
 
