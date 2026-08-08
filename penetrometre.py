@@ -450,7 +450,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.var_ch_nom.set(self.chantier.nom)
             self.var_ch_adr.set(self.chantier.adresse)
             self.var_ch_client.set(self.chantier.client)
-            self.var_ch_ref.set(self.chantier.reference)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
         self._refresh_tree_arbres()
@@ -508,13 +507,13 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
     def _meta_focus_in(self) -> None:
         self._meta_snapshot = (
             f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
-            f"{self.var_ch_client.get()}|{self.var_ch_ref.get()}|"
+            f"{self.var_ch_client.get()}|"
             f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
 
     def _meta_focus_out(self) -> None:
         current = (
             f"{self.var_ch_nom.get()}|{self.var_ch_adr.get()}|"
-            f"{self.var_ch_client.get()}|{self.var_ch_ref.get()}|"
+            f"{self.var_ch_client.get()}|"
             f"{self.var_ch_ope.get()}|{self.var_ch_date.get()}")
         if self._meta_snapshot is not None and current != self._meta_snapshot:
             self.push_undo()
@@ -556,7 +555,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self.chantier.nom = self.var_ch_nom.get()
         self.chantier.adresse = self.var_ch_adr.get()
         self.chantier.client = self.var_ch_client.get()
-        self.chantier.reference = self.var_ch_ref.get()
         self.chantier.operateur = self.var_ch_ope.get()
         self.chantier.date_releve = self.var_ch_date.get()
         self._mark_dirty()

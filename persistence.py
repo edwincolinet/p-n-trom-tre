@@ -73,6 +73,7 @@ def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
     """
     return {"format_version": FORMAT_VERSION,
             "nom": chantier.nom, "adresse": chantier.adresse,
+            "client": chantier.client,
             "operateur": chantier.operateur,
             "date_releve": chantier.date_releve,
             "arbres": [asdict(a) for a in chantier.arbres]}
@@ -366,6 +367,7 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
             arb.brins = [_brin_from_dict(a_norm)]
         arbres.append(arb)
     c = Chantier(nom=d.get("nom", ""), adresse=d.get("adresse", ""),
+                  client=d.get("client", ""),
                   operateur=d.get("operateur", ""),
                   date_releve=d.get("date_releve", ""))
     c.arbres = arbres

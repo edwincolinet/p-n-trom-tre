@@ -83,6 +83,7 @@ from model import (
     degradations_chevauchements,
 )
 from palette import COLOR_ACCENT, COLOR_ACCENT_SOFT, COLOR_BG, COLOR_INK, COLOR_MUTED, COLOR_PANEL, COLOR_WOOD
+from tooltip import Tooltip
 from ui_fonts import font as ui_font
 
 # Les dialogues d'édition (sondage/dégradation/contrefort) ne lisent que de la
@@ -366,8 +367,18 @@ def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
         result["val"] = (max(0.0, petit), int(round(orient)) % 400)
         dlg.destroy()
 
+    def reset_circulaire() -> None:
+        v_petit.set("")
+        v_orient.set("")
+        e_petit.focus_set()
+
     btns = ttk.Frame(dlg, style="Panel.TFrame")
-    btns.grid(row=3, column=0, sticky="e", padx=12, pady=(8, 12))
+    btns.grid(row=3, column=0, sticky="we", padx=12, pady=(8, 12))
+    btn_reset = ttk.Button(btns, text=_("↺ Circulaire"),
+                           style="Ghost.TButton", command=reset_circulaire)
+    btn_reset.pack(side="left")
+    Tooltip(btn_reset, _("Efface le petit axe et l'orientation — "
+                         "revient à une section circulaire."))
     ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
     ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
