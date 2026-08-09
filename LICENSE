@@ -81,7 +81,25 @@ L'Auteur ne garantit pas que le Logiciel fonctionnera sans interruption
 ou sans erreur, ni que les défauts seront corrigés.
 
 
-7. LIMITATION DE RESPONSABILITÉ
+7. NATURE DU LOGICIEL — OUTIL D'AIDE À LA DÉCISION
+-----------------------------------------------------
+Le Logiciel est un outil d'aide au diagnostic destiné à des utilisateurs
+possédant les compétences professionnelles requises en expertise
+arboricole. Les mesures, calculs, classifications (Vert / Orange /
+Rouge) et préconisations produits par le Logiciel dépendent entièrement
+des données saisies par le Licencié (mesures de terrain, barème
+appliqué, paramètres de l'arbre) et des choix méthodologiques qu'il a
+retenus.
+
+Le Logiciel ne se substitue en aucun cas au jugement, à l'expérience et
+à la responsabilité professionnelle de l'expert qui l'utilise. La
+décision finale relative à l'état sanitaire d'un arbre, au risque qu'il
+présente et aux mesures à prendre (surveillance, élagage, abattage,
+etc.) relève exclusivement de l'expert, sur la base de son examen de
+terrain, et non de la seule sortie du Logiciel.
+
+
+8. LIMITATION DE RESPONSABILITÉ
 ---------------------------------
 En aucun cas l'Auteur ne pourra être tenu responsable des dommages
 directs, indirects, accessoires, spéciaux ou consécutifs (y compris,
@@ -91,10 +109,12 @@ même si l'Auteur a été informé de la possibilité de tels dommages.
 
 La responsabilité totale de l'Auteur au titre du présent CLU est limitée
 au montant effectivement payé par le Licencié pour la licence du
-Logiciel.
+Logiciel. Cette limitation ne s'applique pas dans les cas où la loi
+française l'exclut expressément, notamment en cas de dommage corporel
+ou de faute lourde ou dolosive de l'Auteur.
 
 
-8. RÉSILIATION
+9. RÉSILIATION
 --------------
 Le présent CLU est en vigueur jusqu'à sa résiliation. Il prend fin
 automatiquement et sans préavis en cas de violation par le Licencié de
@@ -103,14 +123,14 @@ cesser toute utilisation du Logiciel et détruire toutes les copies en sa
 possession.
 
 
-9. DROIT APPLICABLE — JURIDICTION
+10. DROIT APPLICABLE — JURIDICTION
 -----------------------------------
 Le présent CLU est régi par le droit français. Tout litige relatif à son
 interprétation ou à son exécution sera soumis à la compétence exclusive
 des tribunaux compétents du ressort d'Edwin Colinet.
 
 
-10. DISPOSITIONS GÉNÉRALES
+11. DISPOSITIONS GÉNÉRALES
 ----------------------------
 Si une disposition du présent CLU est jugée invalide ou inapplicable,
 les autres dispositions demeurent en vigueur. Le fait pour l'Auteur de
