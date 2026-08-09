@@ -315,6 +315,11 @@ TRANSLATIONS = {
     # Forme du tronc
     "Petit axe — rayon (cm)":             "Minor axis — radius (cm)",
     "Orientation grand axe (gr)":         "Major axis orientation (gr)",
+    "↺ Circulaire":                       "↺ Circular",
+    "Efface le petit axe et l'orientation — "
+    "revient à une section circulaire.":
+        "Clears the minor axis and orientation — "
+        "reverts to a circular cross-section.",
 
     # Édition sondage
     "Direction (grade)":                   "Direction (grade)",
@@ -562,9 +567,10 @@ TRANSLATIONS = {
     "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copies species, habit, Ø, heights, probe, bark.",
 
     "Client":                             "Client",
-    "Référence":                          "Reference",
-    "Référence du chantier, n° de commande…": "Project reference, order no.…",
-    "Réf.":                               "Ref.",
+    "Nom de la mission — peut aussi porter une "
+    "référence ou un n° de commande.":
+        "Project name — can also carry a "
+        "reference or order number.",
 
     "La mission présente des points incomplets :": "The project has incomplete items:",
     "Exporter quand même ?": "Export anyway?",

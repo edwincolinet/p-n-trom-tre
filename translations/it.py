@@ -297,6 +297,11 @@ TRANSLATIONS = {
 
     "Petit axe — rayon (cm)":             "Semiasse minore — raggio (cm)",
     "Orientation grand axe (gr)":         "Orientazione asse maggiore (gr)",
+    "↺ Circulaire":                       "↺ Circolare",
+    "Efface le petit axe et l'orientation — "
+    "revient à une section circulaire.":
+        "Cancella il semiasse minore e l'orientazione — "
+        "torna a una sezione circolare.",
 
     "Direction (grade)":                   "Direzione (grado)",
     "Épaisseur bois sain (cm)":           "Spessore legno sano (cm)",
@@ -531,9 +536,10 @@ TRANSLATIONS = {
     "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copia specie, port., Ø, altezze, sonda, cort.",
 
     "Client":                             "Cliente",
-    "Référence":                          "Riferimento",
-    "Référence du chantier, n° de commande…": "Riferimento cantiere, n° ordine…",
-    "Réf.":                               "Rif.",
+    "Nom de la mission — peut aussi porter une "
+    "référence ou un n° de commande.":
+        "Nome del progetto — può contenere anche un "
+        "riferimento o un n° d'ordine.",
 
     "La mission présente des points incomplets :": "Il progetto presenta elementi incompleti:",
     "Exporter quand même ?": "Esportare comunque?",

@@ -175,7 +175,6 @@ class LayoutMixin(_MixinBase):
         self.var_ch_nom = tk.StringVar(value=self.chantier.nom)
         self.var_ch_adr = tk.StringVar(value=self.chantier.adresse)
         self.var_ch_client = tk.StringVar(value=self.chantier.client)
-        self.var_ch_ref = tk.StringVar(value=self.chantier.reference)
         self.var_ch_ope = tk.StringVar(value=self.chantier.operateur)
         self.var_ch_date = tk.StringVar(value=self.chantier.date_releve)
         self._meta_snapshot: Optional[str] = None
@@ -191,11 +190,13 @@ class LayoutMixin(_MixinBase):
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
             e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
             e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
-        # Rangée 2 : client, référence, opérateur, date
+            if lbl == _("Mission"):
+                Tooltip(e, _("Nom de la mission — peut aussi porter une "
+                             "référence ou un n° de commande."))
+        # Rangée 2 : client, opérateur, date
         row2 = ttk.Frame(meta, style="Panel.TFrame")
         row2.pack(fill="x")
         for lbl, var, w in [(_("Client"), self.var_ch_client, 20),
-                             (_("Référence"), self.var_ch_ref, 14),
                              (_("Opérateur"), self.var_ch_ope, 18),
                              (_("Date"), self.var_ch_date, 12)]:
             ttk.Label(row2, text=lbl).pack(side="left", padx=(0, 4))
@@ -205,12 +206,6 @@ class LayoutMixin(_MixinBase):
                 e.pack(side="left", padx=(0, 14))
                 e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
-            elif lbl == _("Référence"):
-                e = ttk.Entry(row2, textvariable=var, width=w)
-                e.pack(side="left", padx=(0, 14))
-                e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
-                e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
-                Tooltip(e, _("Référence du chantier, n° de commande…"))
             elif lbl == _("Opérateur"):
                 # Combobox éditable : propose l'historique des opérateurs.
                 self._ope_cmb = ttk.Combobox(

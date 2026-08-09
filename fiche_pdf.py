@@ -325,6 +325,8 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
         h += 32 + 12   # bande "Suivi"
         if arbre.suivi_validite:
             h += 26
+        if arbre.suivi_echeance:
+            h += 26
         if arbre.suivi_texte:
             n = len(_wrap_lines(pg, arbre.suivi_texte, 16, "sans",
                                 txt_w, max_lines=8))
@@ -389,13 +391,11 @@ def render_fiche_arbre(pdf: FPDF,
     pg.text(margin + 20, y + 22, "Fiche d'expertise — Pénétromètre",
             30, "serif_bold", "white")
     _lbl_client = _("Client")
-    _lbl_ref = _("Réf.")
     mission_txt = _fit_text(
         pg,
         (_("Mission") + f" : {chantier.nom}"
          + (f"   •   {chantier.adresse}" if chantier.adresse else "")
-         + (f"   •   {_lbl_client} : {chantier.client}" if chantier.client else "")
-         + (f"   •   {_lbl_ref} : {chantier.reference}" if chantier.reference else "")),
+         + (f"   •   {_lbl_client} : {chantier.client}" if chantier.client else "")),
         19, "sans", header_text_w)
     pg.text(margin + 20, y + 64, mission_txt, 19, "sans", "white")
     pg.text(margin + 20, y + 92,
@@ -446,7 +446,8 @@ def render_fiche_arbre(pdf: FPDF,
     est_legend_h = 56
     footer_reserve = 60
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
-    has_suivi = bool(arbre.suivi_validite or arbre.suivi_texte)
+    has_suivi = bool(arbre.suivi_validite or arbre.suivi_echeance
+                     or arbre.suivi_texte)
     if has_intervention or has_suivi:
         _preco_left = (margin + 680) + 20
         _preco_txt_w = (W - margin) - 12 - (_preco_left + 12)
@@ -658,6 +659,14 @@ def render_fiche_arbre(pdf: FPDF,
                         16, "sans_bold", COLOR_INK)
                 y_preco += 26
 
+            if arbre.suivi_echeance and y_preco + 26 <= y_limit:
+                lbl = "Prochaine visite : "
+                lbl_w = pg.sw(lbl, 16, "sans")
+                pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
+                pg.text(txt_x + lbl_w, y_preco, arbre.suivi_echeance,
+                        16, "sans_bold", COLOR_INK)
+                y_preco += 26
+
             if arbre.suivi_texte:
                 y_preco = _draw_preco_text(arbre.suivi_texte, y_preco + 2)
             y_preco += 6
@@ -748,14 +757,38 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
                                                 x_cur + seg_w / 2))
                     x_cur += seg_w
             y += bar_h + 4
-            for cls, pct, col, x_center in outside_labels:
-                pg.polygon([(x_center, y),
-                            (x_center - 6, y + 8),
-                            (x_center + 6, y + 8)], col)
-                pg.text(x_center, y + 12, f"{cls} {pct:.0f} %",
-                        15, "sans_bold", col, anchor="mt")
             if outside_labels:
-                y += 36
+                label_size = 15
+                texts = [f"{cls} {pct:.0f} %" for cls, pct, _c, _x
+                         in outside_labels]
+                cols = [col for _cls, _pct, col, _x in outside_labels]
+                anchors = [x_center for _cls, _pct, _col, x_center
+                           in outside_labels]
+                widths = [pg.sw(t, label_size, "sans_bold") for t in texts]
+                label_xs = list(anchors)
+                # Écarte les étiquettes qui se chevaucheraient (segments
+                # étroits voisins) en les repoussant vers la droite, puis
+                # ramène l'ensemble dans la largeur de la barre.
+                gap = 8.0
+                for i in range(1, len(label_xs)):
+                    min_x = (label_xs[i - 1] + widths[i - 1] / 2
+                              + widths[i] / 2 + gap)
+                    if label_xs[i] < min_x:
+                        label_xs[i] = min_x
+                overflow = label_xs[-1] + widths[-1] / 2 - x_right
+                if overflow > 0:
+                    label_xs = [lx - overflow for lx in label_xs]
+                underflow = x_left - (label_xs[0] - widths[0] / 2)
+                if underflow > 0:
+                    label_xs = [lx + underflow for lx in label_xs]
+                for ax, lx, txt, col in zip(anchors, label_xs, texts, cols):
+                    pg.polygon([(ax, y), (ax - 6, y + 8), (ax + 6, y + 8)],
+                               col)
+                    if abs(lx - ax) > 2:
+                        pg.line(ax, y + 8, lx, y + 18, col)
+                    pg.text(lx, y + 22, txt, label_size,
+                            "sans_bold", col, anchor="mt")
+                y += 46
             else:
                 y += 8
             chunks = []

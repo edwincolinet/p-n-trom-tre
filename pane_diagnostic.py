@@ -198,7 +198,28 @@ class DiagnosticPane(ttk.Frame):
         self.tbl_prbs.column("prbs", width=85, anchor="center")
         self.tbl_prbs.column("tR", width=70, anchor="center")
         self.tbl_prbs.column("classe", width=90, anchor="center")
+        # Scrollbar propre au tableau : au-delà de `height` lignes (cépée,
+        # ou 16 directions), on fait défiler le tableau lui-même sans avoir
+        # à scroller tout l'onglet.
+        prbs_scroll = ttk.Scrollbar(prbs_frame, orient="vertical",
+                                    command=self.tbl_prbs.yview)
+        self.tbl_prbs.configure(yscrollcommand=prbs_scroll.set)
         self.tbl_prbs.pack(side="left", fill="x", expand=True)
+        prbs_scroll.pack(side="right", fill="y")
+
+        # Molette sur le tableau : ne fait défiler QUE le tableau. Le binding
+        # est posé sur le widget lui-même (bindtag instance, prioritaire sur le
+        # « all » où vit le scroll global de l'onglet) et renvoie "break" pour
+        # couper la propagation → les deux scrollbars ne bougent plus ensemble.
+        def _on_table_wheel(event):
+            self.tbl_prbs.yview_scroll(int(-event.delta / 120), "units")
+            return "break"
+        def _on_table_wheel_linux(event):
+            self.tbl_prbs.yview_scroll(-1 if event.num == 4 else 1, "units")
+            return "break"
+        self.tbl_prbs.bind("<MouseWheel>", _on_table_wheel)
+        self.tbl_prbs.bind("<Button-4>", _on_table_wheel_linux)
+        self.tbl_prbs.bind("<Button-5>", _on_table_wheel_linux)
         self.tbl_prbs.tag_configure(
             "vert",   background="#A8D8AE", foreground="#1A4E22")
         self.tbl_prbs.tag_configure(
@@ -308,6 +329,22 @@ class DiagnosticPane(ttk.Frame):
         btn_edit_suivi.pack(side="left")
         Tooltip(btn_edit_suivi, "Gérer les durées de suivi personnalisées")
 
+        ttk.Label(suivi_line, text=_("Échéance"), style="Panel.TLabel").pack(
+            side="left", padx=(12, 4))
+        self.var_suivi_echeance = tk.StringVar()
+        ent_sech = ttk.Entry(suivi_line, textvariable=self.var_suivi_echeance,
+                             width=12)
+        ent_sech.pack(side="left", padx=(0, 2))
+        ent_sech.bind("<FocusIn>", lambda e: self._suivi_focus_in())
+        ent_sech.bind("<FocusOut>",
+                      lambda e: self._on_suivi_echeance_focus_out())
+        btn_scal = ttk.Button(suivi_line, text="📅", style="Ghost.TButton",
+                              width=3, command=self._pick_suivi_echeance)
+        btn_scal.pack(side="left")
+        Tooltip(btn_scal, "Choisir la date de prochaine visite au calendrier")
+        ttk.Label(suivi_line, text=_("(facultatif)"), style="Muted.TLabel",
+                  foreground=COLOR_MUTED).pack(side="left", padx=(6, 0))
+
         ttk.Label(parent, text=_("Contenu du suivi (texte libre)"),
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
         self.txt_suivi = tk.Text(parent, height=3, wrap="word",
@@ -366,6 +403,7 @@ class DiagnosticPane(ttk.Frame):
             all_suivi = list(SUIVI_VALIDITES) + self._host.get_suivi_custom()
             sv = a.suivi_validite if a and a.suivi_validite in all_suivi else ""
             self.var_suivi_validite.set(sv or _SUIVI_VIDE)
+            self.var_suivi_echeance.set(a.suivi_echeance if a else "")
             self.txt_suivi.delete("1.0", "end")
             self.txt_suivi.insert("1.0", a.suivi_texte if a else "")
         finally:
@@ -443,6 +481,33 @@ class DiagnosticPane(ttk.Frame):
             return
         self._host.push_undo()
         a.suivi_validite = untranslate_value(new, list(SUIVI_VALIDITES))
+        self._host.on_preconisation_changed()
+
+    def _on_suivi_echeance_focus_out(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        raw = self.var_suivi_echeance.get()
+        norm = normaliser_date(raw)
+        if norm is None:                 # illisible → revert
+            self.var_suivi_echeance.set(a.suivi_echeance)
+        elif norm != a.suivi_echeance:
+            self._commit_suivi_undo()
+            a.suivi_echeance = norm
+            self.var_suivi_echeance.set(norm)
+            self._host.on_preconisation_changed()
+        self._suivi_snapshot = None
+
+    def _pick_suivi_echeance(self) -> None:
+        a = self._host._current_arbre()
+        if a is None:
+            return
+        res = ask_date(self, self.var_suivi_echeance.get())
+        if res is None or res == a.suivi_echeance:
+            return
+        self._host.push_undo()
+        a.suivi_echeance = res
+        self.var_suivi_echeance.set(res)
         self._host.on_preconisation_changed()
 
     def _on_suivi_texte_focus_out(self) -> None:

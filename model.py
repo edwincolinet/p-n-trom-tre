@@ -458,6 +458,7 @@ class Arbre:
     echeance: str = ""       # date limite d'intervention JJ/MM/AAAA, optionnelle
     preconisation: str = ""  # action recommandée, texte libre
     suivi_validite: str = "" # durée de validité du suivi ("1 an" … "5 ans"), "" = non renseignée
+    suivi_echeance: str = "" # date de prochaine visite JJ/MM/AAAA, optionnelle
     suivi_texte: str = ""    # description du suivi, texte libre
     photos: List[str] = field(default_factory=list)  # chemins absolus des photos
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
@@ -477,6 +478,7 @@ class Arbre:
         echeance: str = "",
         preconisation: str = "",
         suivi_validite: str = "",
+        suivi_echeance: str = "",
         suivi_texte: str = "",
         photos: "Optional[List[str]]" = None,
         # --- Compat : kwargs de géométrie/mesures hérités de l'API pré-brins.
@@ -502,6 +504,7 @@ class Arbre:
         self.echeance = echeance
         self.preconisation = preconisation
         self.suivi_validite = suivi_validite
+        self.suivi_echeance = suivi_echeance
         self.suivi_texte = suivi_texte
         self.photos: List[str] = list(photos) if photos is not None else []
         self.brins = list(brins) if brins is not None else [Brin()]
@@ -690,7 +693,6 @@ class Chantier:
     nom: str = "Nouvelle mission"
     adresse: str = ""
     client: str = ""          # Nom du client / maître d'ouvrage
-    reference: str = ""       # Référence du chantier / n° de contrat
     operateur: str = ""
     date_releve: str = field(
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))
