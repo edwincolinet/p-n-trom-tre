@@ -33,6 +33,7 @@ app_reglages.py        ← ReglagesMixin (préférences : langue, barème, taill
 app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
 app_settings.py        ← SettingsStore (réglages UI persistés : ui_scale, pur)
 ui_fonts.py            ← échelle des polices (facteur global + helper font(), pur)
+photo_paths.py         ← résolution CONFINÉE des chemins de photos (jail mission + whitelist, pur)
 section_canvas.py      ← SectionCanvas (rendu Tk section)
 pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
@@ -57,7 +58,7 @@ export.py              ← exports XLSX/HTML tableau PRBS + synthèse mission (X
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-license.py             ← vérification/chargement/sauvegarde de licence offline (Ed25519, pur)
+license.py             ← licence offline Ed25519 : vérification, repère de date monotone, essai (pur)
 dialogs_license.py     ← fenêtre d'activation bloquante (premier lancement sans licence valide)
 gen_license.py         ← outil interne d'émission de clés (NON distribué aux clients)
 tests/                 ← suite de tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
@@ -115,7 +116,7 @@ documentent la surface de couplage (greppable) mais ne l'encapsulent pas**
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py
+model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + photo_paths.py
    ↑
 diagnostic.py
    ↑
@@ -256,6 +257,20 @@ penetrometre.py  (Tk + main) ← undo.py
   déduite de la profondeur des dégradations externes qui **comprennent l'écorce**
   (cf. ci-dessus) — l'écorce abîmée ne compte pas comme bois sain perdu.
 - **COLOR_BARK ≠ COLOR_ROT** : ne jamais unifier (contraste dégradation/écorce).
+- **Traçabilité du barème** : les seuils Vert/Orange/Rouge sont un réglage
+  de **poste** (`~/.penetrometre/bareme.json`). Deux opérateurs aux réglages
+  différents classent donc les mêmes mesures différemment. Pour que le
+  diagnostic reste reproductible, les seuils **en vigueur à l'enregistrement**
+  sont écrits dans la mission (`Chantier.bareme_seuils`, clé JSON
+  `bareme_seuils`) et **cités dans chaque livrable** : pied de la fiche PDF,
+  bannière des exports XLSX/HTML, ligne `# Barème appliqué` en tête des CSV.
+  Source unique des libellés : `bareme.description_seuils` /
+  `description_seuils_mission` (duck-typing sur le chantier pour que `bareme`
+  reste sous `model` dans le graphe). **Ouvrir une mission n'applique JAMAIS
+  son barème** (ce serait reconfigurer le poste en douce) : l'écart est
+  seulement signalé en barre d'état par `App._avertir_bareme_different`.
+  Absence de la clé = mission antérieure à cette trace ⟹ « inconnu », pas de
+  migration.
 - **Unicité** : un seul sondage par direction, pas de dégradations qui se
   chevauchent (arcs mitoyens bout-à-bout autorisés), un seul contrefort par
   grade central. Sondages et contreforts : **garantie par construction**
@@ -267,6 +282,60 @@ penetrometre.py  (Tk + main) ← undo.py
 ## Conventions de code
 
 - Pas de dépendance sans bonne raison. Compat Python 3.10+.
+- **Photos = entrée semi-fiable** : un `.json` de mission circule entre
+  confrères. `Arbre.photos` contient des chemins libres que l'app ouvre et
+  embarque dans le PDF. Toute résolution passe donc par
+  `photo_paths.resolve_photo` (pur) : extension dans `PHOTO_SUFFIXES`,
+  chemin relatif **confiné** au dossier de la mission (`..` et symlinks
+  sortants neutralisés), chemin absolu toléré pour compat mais signalé
+  (`hors_mission`). En complément, `photo_gallery._view_photo` vérifie que
+  le fichier est **réellement décodable comme image** avant de le passer à
+  la visionneuse système — sans quoi un `.desktop` renommé `.png` serait
+  exécuté par `xdg-open`. Le motif de refus est affiché sur la vignette
+  (un garde-fou silencieux passerait pour un bug).
+- **Threads et Tk : ne pas mélanger.** Les tâches longues (export PDF de
+  mission) se découpent en tranches sur la boucle Tk — jamais dans un
+  thread worker. Deux raisons vérifiées en test : `after()` appelé depuis
+  un thread lève « main thread is not in main loop » (avalé sans trace par
+  un thread daemon), et le **GC** peut s'exécuter dans le worker et y
+  finaliser un objet Tk, ce qui fait **abandonner le processus**
+  (`Fatal Python error: Aborted`). Cf. `dialogs.ProgressDialog` (progression
+  + Annuler, `update()` entre les tranches) et
+  `app_exports.export_pdf_mission`. La seule exception tolérée est
+  `update_checker`, qui ne touche aucun widget.
+- **Polices PIL mémorisées** : `pil_render._pil_font(size, variant)` est sous
+  `lru_cache`. Sans ça, chaque `d.text(...)` reconstruisait un `FreeTypeFont`
+  (réouverture du .ttf + cache de glyphes vide) — le halo des lettres
+  cardinales tire 24 tracés par lettre, ce qui représentait l'essentiel du
+  temps d'export PDF (÷2 après correction). Réutiliser l'objet police ne
+  change rien au rendu : les golden-tests PIL le verrouillent.
+- **Redraw débouncé partout** : `SectionCanvas` regroupe ses `<Configure>`
+  (80 ms, `_RESIZE_DEBOUNCE_MS`) comme `App._debounced_redraw`. Un glissement
+  de poignée de la `PanedWindow` émet un `<Configure>` par pixel ; seule la
+  dernière taille compte.
+- **Licence : portée réaliste.** La vérification est locale et hors-ligne ;
+  elle n'est pas inviolable et ne cherche pas à l'être. Ce qui est garanti :
+  signature Ed25519 non forgeable, refus d'une licence utilisée **avant sa
+  date d'émission** (date signée), et décisions de date prises sur
+  `license.today_effectif()` — plancherée par un repère monotone
+  (`state.json`) pour qu'un recul d'horloge ne ressuscite ni une licence
+  expirée ni un essai consommé. L'essai est écrit en double
+  (`trial.json` + `state.json`) et `essai_deja_consomme()` — et non
+  `get_trial_info()` — décide d'afficher le bouton « Essai gratuit »
+  (les deux valent `None` quand l'essai est **expiré**). Tous ces fichiers
+  sont en 0600 sous un dossier 0700, **y compris sur les installations
+  antérieures** au durcissement : `durcir_config_existante()`, appelée par
+  `main()` à chaque démarrage, resserre le dossier et les 3 fichiers privés
+  s'ils sont trop permissifs — sans quoi la `license.key` d'un client
+  resterait en 0644 indéfiniment (on ne la réécrit qu'à la réactivation).
+  Les autres fichiers (`bareme.json`, `recent.json`, le log) ne sont pas
+  touchés : le 0700 du **dossier** interdit déjà la traversée.
+  Émission : `--machine-id` est **requis**
+  (`--any-machine` pour y renoncer explicitement) et la clé privée vit hors
+  du dépôt (`~/.penetrometre-keys/`, `$PENETROMETRE_LICENSE_KEY`).
+- **Journal = artefact de support** : il est explicitement destiné à être
+  envoyé par le client. Pas d'email en clair (`license.masquer_email`), pas
+  de chemin complet de mission (nom de fichier seul).
 - Tout en français (UI + docstrings).
 - Pas de `print` — logger applicatif (`~/.penetrometre/penetrometre.log`).
 - Exports : `log.exception(...)` avant `messagebox.showerror`.
@@ -321,10 +390,10 @@ penetrometre.py  (Tk + main) ← undo.py
 ## Commandes utiles
 
 ```bash
-python penetrometre.py                      # Lancer l'app
+python3 penetrometre.py                      # Lancer l'app
 pytest tests                                # suite de tests (unittest discover reste OK)
 ruff check .                                # Lint
-python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
+python3 -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
@@ -332,7 +401,7 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
-  template_store.py update_checker.py
+  template_store.py update_checker.py photo_paths.py
 ```
 
 > NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy
@@ -345,30 +414,39 @@ python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
 
 Golden-tests :
 
-- PIL : `python -m tests.test_render --update`
-- Tk : `xvfb-run -a python -m tests.test_section_canvas --update`
+- PIL : `python3 -m tests.test_render --update`
+- Tk : `xvfb-run -a python3 -m tests.test_section_canvas --update`
 
 Build / empaquetage (distribution uniquement — le dev tourne sans build) :
 
 - PyInstaller (référence) : `pyinstaller penetrometre.spec` → `dist/Penetrometre/`
   (installeurs Win/macOS/Linux produits par `.github/workflows/build.yml` sur
   tag `v*`).
-- Nuitka (binaire compilé, option durcie) : `python build/build_nuitka.py` →
+- Nuitka (binaire compilé, option durcie) : `python3 build/build_nuitka.py` →
   `dist-nuitka/` (compilateur C requis ; réplique le spec).
 
-Gestion des licences (usage interne — `private.key` requis, jamais commité) :
+Gestion des licences (usage interne). La clé privée vit **hors du dépôt**,
+dans `~/.penetrometre-keys/private.key` (ou `$PENETROMETRE_LICENSE_KEY`) :
 
 ```bash
-python gen_license.py issue "Nom du cabinet" "email@client.fr"   # licence 1 an (défaut)
-python gen_license.py issue "Nom" "email" --expires 2028-01-01   # date personnalisée
-python gen_license.py issue "Nom" "email" --no-expires           # illimitée
-python gen_license.py verify "<clé>"                             # vérifier une clé
+python3 gen_license.py machine-id                    # ID de CETTE machine (tests)
+# --machine-id est REQUIS (l'ID vient du client, via sa fenêtre d'activation)
+python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8
+python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8 --expires 2028-01-01
+python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8 --no-expires
+python3 gen_license.py issue "Cabinet" "a@b.fr" --any-machine   # clé TRANSFÉRABLE (rare)
+python3 gen_license.py verify "<clé>"                # support : pour qui / jusqu'à quand
 ```
 
-Le check de licence ne s'active que dans le **bundle PyInstaller** (`is_bundled()`).
-En développement (`python penetrometre.py`), il est sauté automatiquement.
-La clé publique est dans `license.py` (`_PUBLIC_KEY_B64`) ; la clé privée (`private.key`)
-doit rester hors du repo git (déjà dans `.gitignore`).
+Le check de licence ne s'active que dans un **binaire de production**
+(`is_bundled()` : PyInstaller *ou* Nuitka). En développement
+(`python3 penetrometre.py`), il est sauté automatiquement — la fenêtre
+d'activation ne s'affiche donc **pas**, c'est normal.
+
+La clé publique est dans `license.py` (`_PUBLIC_KEY_B64`) ; la clé privée ne
+doit jamais entrer dans le dépôt. `keygen` refuse d'écrire dans un dépôt git,
+`issue` avertit si la clé y traîne encore, et le hook `pre-push` bloque tout
+fichier de clé suivi par git.
 
 ## Quand tu modifies l'app
 

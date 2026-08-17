@@ -5,6 +5,80 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ## En développement (depuis 3.6.0)
 
+### Sécurité
+
+- **Chemins de photos confinés** (`photo_paths.py`, nouveau module pur) : un
+  `.json` de mission reçu d'un tiers ne peut plus faire ouvrir ni embarquer
+  un fichier arbitraire du poste. Whitelist d'extensions, chemins relatifs
+  jailés dans le dossier de la mission (`..` et symlinks sortants
+  neutralisés), chemins absolus tolérés pour compat mais signalés. La
+  visionneuse système ne reçoit un fichier qu'après vérification qu'il est
+  **réellement décodable comme image** (un `.desktop` renommé `.png` était
+  exécuté par `xdg-open`). Le motif de refus est affiché sur la vignette.
+- **Licence durcie** (`license.py`) : toutes les décisions de date passent
+  par `today_effectif()`, plancherée par un repère monotone
+  (`~/.penetrometre/state.json`) — reculer l'horloge ne ressuscite plus une
+  licence expirée ni un essai consommé ; une licence est refusée avant sa
+  date d'émission (signée) ; la date de début d'essai est écrite en double
+  pour qu'un `rm trial.json` ne rende pas 30 jours ; **le bouton « Essai
+  gratuit » ne réapparaît plus après expiration** (`essai_deja_consomme()`,
+  là où `get_trial_info()` renvoyait `None` aussi bien pour « jamais
+  démarré » que pour « terminé » — un essai relançable indéfiniment depuis
+  l'UI). `license.key`, `trial.json` et `state.json` en 0600, dossier 0700
+  — **y compris sur les installations existantes** :
+  `durcir_config_existante()` tourne à chaque démarrage et resserre ce qui
+  est trop permissif. Une licence déjà installée n'étant jamais réécrite,
+  elle serait autrement restée lisible par tous les comptes du poste.
+- **Émission de licences** : `--machine-id` devient **requis**
+  (`--any-machine` pour y renoncer sciemment) — une clé non liée valait
+  pour un nombre illimité de postes. La clé privée vit désormais hors du
+  dépôt (`~/.penetrometre-keys/`, ou `$PENETROMETRE_LICENSE_KEY`), `keygen` refuse
+  d'écrire dans un dépôt git, et le hook `pre-push` bloque tout fichier de
+  clé suivi par git.
+- **Journal sans données personnelles** : l'email du titulaire est masqué
+  (`license.masquer_email`) et les chemins de fichiers réduits au nom —
+  le log est explicitement destiné à être envoyé au support.
+- **URL de mise à jour validée** (`update_checker.url_de_release_sure`) :
+  `html_url` vient d'une réponse HTTP distante et finissait dans
+  `webbrowser.open` sans contrôle de schéma ni d'hôte.
+- **CI** : actions épinglées par SHA de commit (dont l'action tierce
+  `softprops/action-gh-release`, dans le job qui porte `contents: write` et
+  les secrets de signature) + `permissions: contents: read` par défaut.
+
+### Performance
+
+- **Export PDF de mission non bloquant** : fenêtre de progression avec
+  **Annuler** (`dialogs.ProgressDialog`) et boucle qui rend la main à Tk
+  entre chaque fiche. Une mission de 300 arbres gelait la fenêtre ~20 s,
+  jusqu'à la faire déclarer « ne répond pas » par l'OS. L'écriture du
+  fichier n'a lieu qu'une fois **toutes** les fiches produites : une
+  annulation ne laisse aucun PDF partiel.
+- **Rendu PIL 2,5× plus rapide** : les objets police sont mémorisés
+  (`pil_render._pil_font`, `lru_cache`). Chaque `d.text(...)` rouvrait le
+  `.ttf` et repartait d'un cache de glyphes vide ; le halo des lettres
+  cardinales tire 24 tracés par lettre. Fiche PDF : 130 → 63 ms par arbre.
+  Goldens PIL byte-identiques.
+- **Liste d'arbres** : `_arbre_etat` (donc `genet_diagnostic`) n'est plus
+  calculé deux fois par arbre quand un filtre de risque est actif — ~60 →
+  ~30 ms par frappe dans le champ de recherche sur 300 arbres.
+- **Redimensionnement débouncé** : `SectionCanvas` regroupe ses
+  `<Configure>` (80 ms) au lieu de se redessiner intégralement à chaque
+  pixel de glissement d'une poignée de la `PanedWindow`.
+
+### Fiabilité du livrable
+
+- **Barème tracé dans les livrables** : les seuils Vert/Orange/Rouge sont un
+  réglage de poste ; rien n'indiquait lesquels avaient produit une classe.
+  Ils sont désormais enregistrés dans la mission (`Chantier.bareme_seuils`)
+  et cités en pied de fiche PDF, dans les exports XLSX/HTML et en tête des
+  CSV. Ouvrir une mission n'applique **pas** son barème (ce serait
+  reconfigurer le poste) : l'écart est signalé en barre d'état.
+- **CSV des sondages : les cépées ne sont plus tronquées.**
+  `export_csv_mission` bouclait sur `Arbre.sondages`, propriété-relais vers
+  `brins[0]` : les sondages des brins b, c… disparaissaient du fichier sans
+  le moindre signal. L'export itère les brins et ajoute une colonne
+  « Brin » (vide en mono-caule).
+
 ### Fonctionnel — Commercialisation & distribution
 
 - **Système de licence offline Ed25519** : activation par clé + identifiant

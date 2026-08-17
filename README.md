@@ -34,7 +34,7 @@ Sur Linux : `sudo apt install python3-tk`.
 ## Lancement
 
 ```bash
-python penetrometre.py
+python3 penetrometre.py
 ```
 
 Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
@@ -48,7 +48,7 @@ pytest tests
 xvfb-run -a pytest tests
 ```
 
-Les tests sont des `unittest.TestCase` : `python -m unittest discover tests`
+Les tests sont des `unittest.TestCase` : `python3 -m unittest discover tests`
 reste fonctionnel si pytest n'est pas installé.
 
 Un hook `pre-push` versionné (`.githooks/pre-push`) rejoue lint + tests
@@ -85,21 +85,21 @@ rendu :
 
 ```bash
 # Côté PIL (PNG)
-python -m tests.test_render --update
+python3 -m tests.test_render --update
 
 # Côté Tk (JSON) — DISPLAY requis, utiliser xvfb-run en CI
-python -m tests.test_section_canvas --update
+python3 -m tests.test_section_canvas --update
 ```
 
 ## Build / Distribution
 
-Le lancement quotidien ne nécessite **aucun build** (`python penetrometre.py`).
+Le lancement quotidien ne nécessite **aucun build** (`python3 penetrometre.py`).
 Pour produire des exécutables distribuables, deux options :
 
 **PyInstaller** (référence) — dossier autonome + installeurs natifs :
 
 ```bash
-python build/build_icons.py     # génère les icônes
+python3 build/build_icons.py     # génère les icônes
 pyinstaller penetrometre.spec   # → dist/Penetrometre/
 ```
 
@@ -114,7 +114,7 @@ difficile à décompiler qu'un bundle PyInstaller, en complément de la licence
 Ed25519) :
 
 ```bash
-python build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
+python3 build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
 ```
 
 ## Fichiers à conserver ensemble

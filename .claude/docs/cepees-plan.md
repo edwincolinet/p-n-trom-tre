@@ -239,9 +239,9 @@ Faire grandir `ask_forme_tronc` (ou un nouveau Toplevel plus large) en
 - **Shims `brins[0]`** : couche de compat temporaire. Ne PAS l'étendre
   gratuitement ; commencer à la retirer en Étape 4 (brin courant explicite).
 - **Pureté `diagnostic.py`/`geometry.py`** : pas de Tk, pas de mutation.
-- **Qualité** : `python -m unittest discover tests`, `ruff check .`, et la
+- **Qualité** : `python3 -m unittest discover tests`, `ruff check .`, et la
   liste mypy de CLAUDE.md doivent rester verts (exit 0) à chaque commit.
-  Golden Tk : `DISPLAY=:0 python -m tests.test_section_canvas` (xvfb-run absent
+  Golden Tk : `DISPLAY=:0 python3 -m tests.test_section_canvas` (xvfb-run absent
   sur cette machine — utiliser `DISPLAY=:0`). Golden PIL : `python -m
   tests.test_render`. Régénération : `--update`.
 
