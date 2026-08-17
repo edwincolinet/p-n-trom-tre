@@ -157,7 +157,9 @@ class FichierMixin(_MixinBase):
         data = template_from_chantier(self.chantier)
         p = save_template(nom, data)
         self.set_status(_("Modèle « {nom} » enregistré.").format(nom=nom))
-        log.info("Modèle enregistré : %s", p)
+        # Nom de fichier seul : le journal est destiné au support, le
+        # chemin complet n'ajoute rien et expose l'arborescence du poste.
+        log.info("Modèle enregistré : %s", p.name)
 
     def action_new_from_template(self) -> None:
         """Crée une nouvelle mission en choisissant un modèle existant."""
