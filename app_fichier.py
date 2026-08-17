@@ -34,6 +34,7 @@ from app_arbres import _RISK_FILTER_ALL
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from app_settings import SettingsStore
+from bareme import description_seuils, get_seuils
 from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
@@ -522,6 +523,32 @@ class FichierMixin(_MixinBase):
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
+        self._avertir_bareme_different()
+
+    def _avertir_bareme_different(self) -> None:
+        """Signale que la mission ouverte a été classée avec d'autres seuils.
+
+        Le barème est un réglage de POSTE : rouvrir une mission relevée
+        avec d'autres seuils **reclasse** silencieusement les arbres
+        (un Orange peut devenir Vert). On ne réapplique pas les seuils du
+        fichier — ouvrir une mission ne doit pas reconfigurer le poste —
+        mais l'écart doit être visible, sinon l'opérateur compare deux
+        campagnes sur des bases différentes sans le savoir.
+
+        Non bloquant : message de barre d'état, pas de modale.
+        """
+        seuils_fichier = getattr(self.chantier, "bareme_seuils", None)
+        if not seuils_fichier:
+            return           # mission antérieure à cette trace : rien à dire
+        if seuils_fichier == get_seuils():
+            return
+        log.warning("Barème du fichier ≠ barème du poste (%s vs %s)",
+                    seuils_fichier, get_seuils())
+        self.set_status(
+            _("⚠ Cette mission a été classée avec un autre barème "
+              "({b}). Les classes affichées sont recalculées avec "
+              "le barème de ce poste.").format(
+                  b=description_seuils(seuils_fichier)))
 
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise

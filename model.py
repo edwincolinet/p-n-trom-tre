@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from geometry import GRADES, ellipse_radius
 
@@ -172,6 +172,20 @@ class DegradationExterne:
             return False
         offset = (grade - self.grade_debut) % 400
         return offset <= self.largeur_grades()
+
+
+def label_brin(index: int) -> str:
+    """Libellé canonique du brin d'indice `index` : « a », « b », … puis
+    le rang en clair au-delà de 26 brins.
+
+    Source unique : `Arbre._relabel_brins` s'en sert pour étiqueter, et
+    les exports pour **retrouver** un libellé quand `Brin.label` est vide.
+    Le champ n'est peuplé que par `ajouter_brin`/`supprimer_brin` : une
+    cépée reconstruite autrement (JSON édité à la main, fixture de test)
+    a des labels vides, et afficher « ? » dans un livrable au lieu de la
+    position réelle du brin n'aide personne.
+    """
+    return chr(ord("a") + index) if index < 26 else str(index + 1)
 
 
 def degradations_chevauchements(
@@ -637,7 +651,7 @@ class Arbre:
                 b.label = ""
         else:
             for i, b in enumerate(self.brins):
-                b.label = chr(ord("a") + i) if i < 26 else str(i + 1)
+                b.label = label_brin(i)
 
     def ajouter_brin(self) -> Brin:
         """Ajoute un brin à la cépée et le renvoie.
@@ -697,3 +711,15 @@ class Chantier:
     date_releve: str = field(
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))
     arbres: List[Arbre] = field(default_factory=list)
+    # Seuils du barème EFFECTIVEMENT utilisés pour cette mission, sous la
+    # forme {"libre": (vert, orange), "strict": (vert, orange)}.
+    #
+    # Le barème est un réglage de POSTE (`~/.penetrometre/bareme.json`) :
+    # sans cette trace, rien dans le fichier ni dans le livrable ne dit
+    # avec quels seuils une classe Vert/Orange/Rouge a été obtenue, et le
+    # diagnostic n'est pas reproductible d'un poste à l'autre. Rempli à
+    # l'enregistrement par `persistence.chantier_to_dict` ; vide pour les
+    # missions antérieures à cette trace (aucune migration : l'absence
+    # signifie « inconnu », ce qui est l'information juste).
+    bareme_seuils: "Dict[str, Tuple[float, float]]" = field(
+        default_factory=dict)

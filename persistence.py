@@ -36,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from bareme import normaliser_port
+from bareme import get_seuils, normaliser_port, seuils_depuis_brut
 from model import (
     Arbre,
     Brin,
@@ -71,11 +71,18 @@ def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
     `chantier_from_dict` (qui tolère son absence) garantit qu'un round-
     trip save → load reproduit fidèlement la mission.
     """
+    # Barème : on écrit les seuils EN VIGUEUR au moment de l'enregistrement,
+    # pas ceux éventuellement chargés depuis le fichier. Le fichier doit
+    # décrire comment ses classes ont été obtenues ; recopier une valeur
+    # ancienne mentirait dès qu'on ré-enregistre après un changement de
+    # réglage. Cf. `model.Chantier.bareme_seuils`.
+    seuils = get_seuils()
     return {"format_version": FORMAT_VERSION,
             "nom": chantier.nom, "adresse": chantier.adresse,
             "client": chantier.client,
             "operateur": chantier.operateur,
             "date_releve": chantier.date_releve,
+            "bareme_seuils": {k: [v[0], v[1]] for k, v in seuils.items()},
             "arbres": [asdict(a) for a in chantier.arbres]}
 
 
@@ -370,5 +377,12 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                   client=d.get("client", ""),
                   operateur=d.get("operateur", ""),
                   date_releve=d.get("date_releve", ""))
+    # Barème d'origine : **relu mais pas appliqué**. Ouvrir une mission ne
+    # doit pas reconfigurer le poste en douce ; en revanche l'app peut
+    # signaler l'écart (cf. `App._avertir_bareme_different`) et les
+    # exports peuvent citer le barème réellement utilisé.
+    # Absent (missions antérieures) ⟹ dict vide = « inconnu ».
+    if "bareme_seuils" in d:
+        c.bareme_seuils = seuils_depuis_brut(d["bareme_seuils"])
     c.arbres = arbres
     return c

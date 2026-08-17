@@ -48,6 +48,73 @@ def set_seuils(libre: tuple[float, float],
     _seuils["strict"] = strict
 
 
+def seuils_personnalises() -> bool:
+    """Vrai si les seuils courants diffèrent des seuils par défaut."""
+    return get_seuils() != SEUILS_DEFAUT
+
+
+def description_seuils(seuils: "dict[str, tuple[float, float]] | None" = None
+                       ) -> str:
+    """Phrase courte décrivant les seuils, pour les **livrables**.
+
+    Le barème est réglable par poste (`bareme_store`, dans
+    `~/.penetrometre/`) : deux opérateurs aux réglages différents
+    classent les mêmes mesures en Vert chez l'un et Orange chez
+    l'autre. Tant que le document remis au client ne dit pas quels
+    seuils ont servi, son diagnostic n'est pas reproductible — c'est un
+    problème de traçabilité, pas de présentation. D'où cette ligne,
+    présente sur la fiche PDF et dans les exports tableur.
+
+    `seuils` : jeu à décrire (défaut : celui en vigueur). Passer le jeu
+    lu dans un fichier de mission permet de décrire le barème
+    **historique** d'un relevé plutôt que celui du poste courant.
+    """
+    s = seuils if seuils is not None else get_seuils()
+    v_l, o_l = s.get("libre", SEUILS_DEFAUT["libre"])
+    v_s, o_s = s.get("strict", SEUILS_DEFAUT["strict"])
+
+    def pct(x: float) -> str:
+        return f"{x * 100:.4g} %"
+
+    return (f"libre/semi-libre/délaissé : vert > {pct(v_l)}, "
+            f"orange ≥ {pct(o_l)}  ·  "
+            f"architecturé/traumatique : vert > {pct(v_s)}, "
+            f"orange ≥ {pct(o_s)}")
+
+
+def description_seuils_mission(chantier: object) -> str:
+    """Description du barème d'une mission, pour un livrable.
+
+    Utilise les seuils **enregistrés dans la mission** s'ils existent
+    (`Chantier.bareme_seuils`), sinon ceux en vigueur sur le poste. Une
+    mission antérieure à cette trace est donc décrite avec le barème
+    courant — c'est la seule information disponible, et c'est bien celle
+    qui a servi à recalculer les classes affichées.
+
+    `chantier` est pris en duck-typing pour que ce module reste sous
+    `model` dans le graphe de dépendances.
+    """
+    return description_seuils(getattr(chantier, "bareme_seuils", None) or None)
+
+
+def seuils_depuis_brut(brut: object) -> "dict[str, tuple[float, float]]":
+    """Reconstruit un dict de seuils depuis la forme sérialisée JSON.
+
+    Tolérant : toute entrée absente ou illisible retombe sur le défaut,
+    pour qu'un fichier abîmé n'empêche jamais l'ouverture d'une mission.
+    """
+    out = dict(SEUILS_DEFAUT)
+    if isinstance(brut, dict):
+        for cle in ("libre", "strict"):
+            paire = brut.get(cle)
+            if (isinstance(paire, (list, tuple)) and len(paire) == 2):
+                try:
+                    out[cle] = (float(paire[0]), float(paire[1]))
+                except (TypeError, ValueError):
+                    pass
+    return out
+
+
 def normaliser_port(value: object) -> str:
     """Normalise une valeur de port en sa forme canonique.
 

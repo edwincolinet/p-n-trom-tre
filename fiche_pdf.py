@@ -52,7 +52,7 @@ except ImportError:   # pragma: no cover - fpdf2 est une dépendance déclarée
     FPDF = None       # type: ignore[assignment,misc]
     HAS_FPDF = False
 
-from bareme import classer_prbs
+from bareme import classer_prbs, description_seuils_mission
 from diagnostic import (
     degradation_externe_par_grade,
     genet_diagnostic,
@@ -445,7 +445,10 @@ def render_fiche_arbre(pdf: FPDF,
     else:
         est_diag_h = 360  # majorant : t/R + bar + détail + classe globale
     est_legend_h = 56
-    footer_reserve = 60
+    # Pied de page : filet (H-60) + ligne barème (H-44) + ligne
+    # Pénétromètre/date (H-22). Doit rester cohérent avec le bloc « Pied de
+    # page » plus bas, sinon le contenu déborde sur le pied.
+    footer_reserve = 76
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
     has_suivi = bool(arbre.suivi_validite or arbre.suivi_echeance
                      or arbre.suivi_texte)
@@ -597,8 +600,9 @@ def render_fiche_arbre(pdf: FPDF,
         y_preco = y_section + 36
 
         # Ligne basse que le rendu ne franchit JAMAIS (8 px au-dessus du
-        # filet de pied de page tracé à H-46).
-        y_limit = (H - 46) - 8
+        # filet de pied de page, tracé à H-60 depuis l'ajout de la ligne
+        # « Barème appliqué »).
+        y_limit = (H - 60) - 8
 
         def _preco_header(title: str, y0: int) -> int:
             bar_h = 32
@@ -675,9 +679,15 @@ def render_fiche_arbre(pdf: FPDF,
     y = max(y_diag, y_preco) + 10
 
     # --- Pied de page ---
-    pg.line(margin, H - 46, W - margin, H - 46, COLOR_MUTED, width=1)
+    pg.line(margin, H - 60, W - margin, H - 60, COLOR_MUTED, width=1)
+    # Barème effectivement appliqué : sans cette ligne, la classe
+    # Vert/Orange/Rouge du document n'est pas reproductible (les seuils
+    # sont un réglage de poste). Cf. `bareme.description_seuils`.
+    pg.text(W / 2, H - 44,
+            _("Barème appliqué") + " — " + description_seuils_mission(chantier),
+            12, "sans", COLOR_MUTED, anchor="mm")
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
-    pg.text(W / 2, H - 24,
+    pg.text(W / 2, H - 22,
             f"Pénétromètre{cab_suffix}   •   " + _("Édité le")
             + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
             14, "sans", COLOR_MUTED, anchor="mm")
