@@ -8,6 +8,14 @@ on:
     branches: [main]
   pull_request:
 
+# Moindre privilège : ce workflow ne fait que lire le code et exécuter des
+# tests. Sans ce bloc, le GITHUB_TOKEN hérite des droits par défaut du
+# dépôt (potentiellement en écriture), ce qui donne une capacité inutile
+# à tout ce qui s'exécute dans le job — y compris les dépendances pip
+# installées juste au-dessus.
+permissions:
+  contents: read
+
 jobs:
   unittest:
     runs-on: ubuntu-latest
@@ -19,10 +27,10 @@ jobs:
         python-version: ["3.10", "3.13"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -74,7 +82,7 @@ jobs:
           undo.py tooltip.py aide_repliable.py
           penetrometre.py photo_gallery.py
           dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py
-          template_store.py update_checker.py
+          template_store.py update_checker.py photo_paths.py
 
       - name: Suite de tests (pytest, sous Xvfb)
         # `xvfb-run -a` alloue un DISPLAY virtuel : les tests Tk

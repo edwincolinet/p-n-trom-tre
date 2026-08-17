@@ -96,11 +96,19 @@ class ReglagesMixin(_MixinBase):
             self._update_banner.pack(side="bottom", fill="x")
 
     def _open_update_url(self) -> None:
-        """Ouvre la page de téléchargement de la mise à jour dans le navigateur."""
+        """Ouvre la page de téléchargement de la mise à jour dans le navigateur.
+
+        Re-filtre l'URL au moment de l'ouverture : `check_for_update` la
+        valide déjà à la réception, mais c'est ici qu'elle est passée au
+        navigateur — le contrôle vit donc aussi au point d'usage, pour ne
+        pas dépendre du chemin par lequel `_update_banner_url` a été posé.
+        """
         import webbrowser
+
+        from update_checker import url_de_release_sure
         url = getattr(self, "_update_banner_url", "")
         if url:
-            webbrowser.open(url)
+            webbrowser.open(url_de_release_sure(url))
 
     def _dismiss_update_banner(self) -> None:
         """Ferme la bannière pour la session courante (ne désactive pas le check)."""
