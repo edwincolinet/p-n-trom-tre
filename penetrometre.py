@@ -56,7 +56,15 @@ from dialogs import (
 )
 from dialogs_license import show_activation_dialog
 from i18n import _, setup_language
-from license import LicenseData, TrialInfo, get_trial_info, is_bundled, load_license
+from license import (
+    LicenseData,
+    TrialInfo,
+    durcir_config_existante,
+    get_trial_info,
+    is_bundled,
+    load_license,
+    masquer_email,
+)
 from model import (
     URGENCE_NIVEAUX,
     Arbre,
@@ -176,7 +184,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.deiconify()
             self._license = _lic
             if _lic is not None:
-                log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
+                # Email masqué : le journal est destiné au support (cf.
+                # `license.masquer_email`).
+                log.info("Licence valide — %s <%s>", _lic.name,
+                         masquer_email(_lic.email))
             elif self._trial is not None:
                 log.info("Mode essai — %d jours restants", self._trial.days_remaining)
 
@@ -268,7 +279,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             if hasattr(self, "_trial_banner"):
                 self._trial_banner.pack_forget()
             log.info("Licence activée depuis mode essai — %s <%s>",
-                     result.name, result.email)
+                     result.name, masquer_email(result.email))
             self.set_status(f"✓ Licence activée — {result.name}")
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
@@ -1382,6 +1393,11 @@ def main() -> None:
     log_path = _setup_logging()
     log = logging.getLogger("penetrometre")
     log.info("Démarrage Pénétromètre v%s", __version__)
+    # Rattrape les installations antérieures au durcissement : dossier de
+    # config en 0700, licence/essai/repère en 0600. Ici plutôt que dans la
+    # branche licence, pour que le parc se corrige à TOUS les lancements —
+    # y compris en mode essai et en développement.
+    durcir_config_existante()
     try:
         App().mainloop()
     except Exception:

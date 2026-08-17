@@ -27,8 +27,8 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
     Retourne LicenseData, TrialInfo ou None (= quitter).
     """
     from license import (
+        essai_deja_consomme,
         get_machine_id,
-        get_trial_info,
         save_license,
         start_trial,
         verify_license,
@@ -36,9 +36,11 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
 
     result: list[Optional[ActivationResult]] = [None]
 
-    # Vérifier si un essai est déjà en cours (expiré ou actif)
-    existing_trial = get_trial_info()
-    trial_already_started = existing_trial is not None
+    # Un essai **déjà démarré**, y compris terminé, interdit d'en offrir un
+    # nouveau. `get_trial_info()` ne suffit pas : il renvoie None dans les
+    # deux cas (jamais démarré / expiré), si bien que le bouton « Essai
+    # gratuit » réapparaissait au 31ᵉ jour et relançait 30 jours.
+    trial_already_started = essai_deja_consomme()
 
     dlg = tk.Toplevel()
     dlg.title("Activation — Pénétromètre")
@@ -161,6 +163,12 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
 
     def on_trial() -> None:
         trial = start_trial()
+        if trial.days_remaining <= 0:
+            # Filet de sécurité : `start_trial` refuse de relancer un essai
+            # consommé et renvoie alors 0 jour restant.
+            lbl_status.config(
+                text="Période d'essai déjà utilisée sur cet ordinateur.")
+            return
         result[0] = trial
         dlg.destroy()
 
