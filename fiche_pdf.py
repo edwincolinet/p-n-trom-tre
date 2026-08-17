@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
 
 try:
     from fpdf import FPDF
@@ -69,6 +69,7 @@ from palette import (
     COLOR_MUTED,
     COULEUR_CLASSE,
 )
+from photo_paths import resolve_photo
 from pil_render import (
     _draw_horizontal_legend_pil,
     _pil_load_fonts,
@@ -682,17 +683,13 @@ def render_fiche_arbre(pdf: FPDF,
             14, "sans", COLOR_MUTED, anchor="mm")
 
     # --- Page photos (si photos associées) ---
-    def _resolve_photo(stored: str) -> Optional[Path]:
-        p = Path(stored)
-        if p.is_absolute():
-            return p if p.exists() else None
-        if mission_file is None:
-            return None
-        resolved = mission_file.parent / p
-        return resolved if resolved.exists() else None
-
+    # Confinement identique à la galerie (cf. `photo_paths`) : une
+    # référence hostile dans un `.json` reçu d'un tiers ne doit pas
+    # pouvoir faire embarquer un fichier arbitraire du poste dans le PDF
+    # remis au client.
+    mission_dir = mission_file.parent if mission_file is not None else None
     photos_valides = [r for p in (arbre.photos or [])
-                      if (r := _resolve_photo(p)) is not None]
+                      if (r := resolve_photo(p, mission_dir).path) is not None]
     if photos_valides:
         _render_photos_page(pdf, photos_valides, arbre, chantier, margin)
 

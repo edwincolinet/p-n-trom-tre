@@ -573,6 +573,21 @@ TRANSLATIONS = {
     "Aucun modèle":                       "Nessun modello",
     "Choisissez un modèle :": "Scegliere un modello:",
     "Nouvelle mission depuis un modèle":  "Nuovo progetto da modello",
+    # Garde-fous de confinement des photos (cf. photo_paths).
+    "Fichier non affichable":             "File non visualizzabile",
+    "Ce fichier n'est pas une image lisible — ouverture annulée par sécurité.":
+                                          "Questo file non è un'immagine leggibile — "
+                                          "apertura annullata per sicurezza.",
+    "Format non pris en charge":          "Formato non supportato",
+    "Ces fichiers ne sont pas des images reconnues :":
+                                          "Questi file non sono immagini riconosciute:",
+    "⚠ hors dossier mission":             "⚠ fuori dalla cartella del progetto",
+    # Motivi di rifiuto restituiti da photo_paths.resolve_photo — tradotti
+    # via `_(res.motif)`, quindi invisibili allo scan AST del test i18n.
+    "extension non autorisée":            "estensione non consentita",
+    "hors du dossier de la mission":      "fuori dalla cartella del progetto",
+    "mission non enregistrée":            "progetto non salvato",
+    "fichier introuvable":                "file non trovato",
     "Supprimer le modèle":                "Elimina modello",
     "Supprimer « {nom} » ?": "Eliminare « {nom} »?",
     "Créer la mission":                   "Crea progetto",

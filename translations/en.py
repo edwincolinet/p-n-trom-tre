@@ -604,6 +604,21 @@ TRANSLATIONS = {
     "Aucun modèle":                       "No templates",
     "Choisissez un modèle :": "Choose a template:",
     "Nouvelle mission depuis un modèle":  "New project from template",
+    # Garde-fous de confinement des photos (cf. photo_paths).
+    "Fichier non affichable":             "File cannot be displayed",
+    "Ce fichier n'est pas une image lisible — ouverture annulée par sécurité.":
+                                          "This file is not a readable image — "
+                                          "opening cancelled for safety.",
+    "Format non pris en charge":          "Unsupported format",
+    "Ces fichiers ne sont pas des images reconnues :":
+                                          "These files are not recognised images:",
+    "⚠ hors dossier mission":             "⚠ outside project folder",
+    # Motifs de refus renvoyés par photo_paths.resolve_photo — traduits
+    # via `_(res.motif)`, donc invisibles au scan AST du test i18n.
+    "extension non autorisée":            "file type not allowed",
+    "hors du dossier de la mission":      "outside the project folder",
+    "mission non enregistrée":            "project not saved",
+    "fichier introuvable":                "file not found",
     "Supprimer le modèle":                "Delete template",
     "Supprimer « {nom} » ?": "Delete « {nom} »?",
     "Créer la mission":                   "Create project",
