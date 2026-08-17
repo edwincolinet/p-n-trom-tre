@@ -123,7 +123,17 @@ class SectionCanvas(tk.Canvas):
         # État du glissé en cours (création de dégradation).
         self._drag_start_grade: Optional[int] = None
         self._drag_start_pos: Optional[Tuple[int, int]] = None
-        self.bind("<Configure>", lambda e: self.redraw())
+        # Redimensionnement : redraw DÉBOUNCÉ.
+        #
+        # `<Configure>` arrive à chaque pixel de glissement — d'une
+        # poignée de la PanedWindow à 3 colonnes comme du bord de la
+        # fenêtre. Redessiner intégralement à chaque événement rendait le
+        # geste saccadé (un rendu complet coûte des dizaines de ms,
+        # cépée comprise) alors que seule la dernière taille compte.
+        # Même délai que le `_debounced_redraw` de l'App, pour que le
+        # comportement soit cohérent d'un bout à l'autre.
+        self._resize_after: Optional[str] = None
+        self.bind("<Configure>", self._on_configure)
         # Bindings sur tags : valent pour tous les items recréés à
         # chaque redraw qui portent le tag correspondant. Le curseur
         # passe en « main » au survol pour signaler la zone cliquable, et
@@ -360,6 +370,24 @@ class SectionCanvas(tk.Canvas):
         deg = math.degrees(math.atan2(dy, dx))
         grade = round((deg + 90.0) * 400.0 / 360.0 / 25.0) * 25
         return int(grade % 400)
+
+    #: Délai de regroupement des `<Configure>`, en ms. Aligné sur
+    #: `App._debounced_redraw`.
+    _RESIZE_DEBOUNCE_MS = 80
+
+    def _on_configure(self, _event: "tk.Event[tk.Misc]") -> None:
+        """Regroupe les `<Configure>` d'un même geste en un seul redraw."""
+        if self._resize_after is not None:
+            try:
+                self.after_cancel(self._resize_after)
+            except tk.TclError:
+                pass
+        self._resize_after = self.after(self._RESIZE_DEBOUNCE_MS,
+                                        self._redraw_apres_resize)
+
+    def _redraw_apres_resize(self) -> None:
+        self._resize_after = None
+        self.redraw()
 
     def set_arbre(self, arbre: Optional[Arbre]) -> None:
         self.arbre = arbre

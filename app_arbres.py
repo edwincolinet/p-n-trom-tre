@@ -111,12 +111,23 @@ class ArbreListMixin(_MixinBase):
 
     # --- Liste d'arbres ---------------------------------------------
 
-    def _arbre_matches_filter(self, a: Arbre) -> bool:
+    def _arbre_matches_filter(self, a: Arbre,
+                              etat: "tuple[str, str, str] | None" = None
+                              ) -> bool:
         """Vrai si l'arbre concorde avec les filtres courants : recherche
         texte (sous-chaîne insensible à la casse sur n°, essence **ou
         commentaire**) **ET** filtre par classe de risque **ET** filtre par
         urgence de préconisation. Filtres vides = tout passe. Tolérant si
-        appelé avant la construction."""
+        appelé avant la construction.
+
+        `etat` : le triplet `_arbre_etat(a)` s'il a déjà été calculé par
+        l'appelant. `_arbre_etat` appelle `genet_diagnostic` (16
+        directions × brins) ; sans ce paramètre, `_refresh_tree_arbres`
+        le payait **deux fois par arbre** dès qu'un filtre de risque
+        était actif — une fois pour la ligne, une fois ici. Sur une
+        mission de 300 arbres, ça doublait le coût de chaque frappe dans
+        le champ de recherche (~30 ms → ~60 ms).
+        """
         q = getattr(self, "var_filter", None)
         if q is not None:
             needle = q.get().strip().lower()
@@ -128,7 +139,15 @@ class ArbreListMixin(_MixinBase):
         if rf is not None:
             choice = rf.get()
             if choice and choice != _RISK_FILTER_ALL:
-                risque = self._arbre_etat(a)[1]  # « Vert/Orange/Rouge/— »
+                if etat is None:
+                    # Repli sur le cache alimenté par `_refresh_tree_arbres`
+                    # (même source que `_update_etat_footer`) avant de
+                    # recalculer — sert la navigation clavier, qui filtre
+                    # toute la mission à chaque Ctrl+PgUp/PgDown.
+                    etat = getattr(self, "_etat_cache", {}).get(id(a))
+                if etat is None:
+                    etat = self._arbre_etat(a)
+                risque = etat[1]  # « Vert/Orange/Rouge/— »
                 if choice == _RISK_FILTER_UNRELIABLE:
                     if risque != "—":
                         return False
@@ -214,7 +233,9 @@ class ArbreListMixin(_MixinBase):
                 n_vert += 1
             else:
                 n_afinir += 1
-            if not self._arbre_matches_filter(a):
+            # L'état vient d'être calculé au-dessus : on le passe au
+            # filtre plutôt que de le laisser le recalculer.
+            if not self._arbre_matches_filter(a, (glyph, risque, tag)):
                 continue
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
             label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
