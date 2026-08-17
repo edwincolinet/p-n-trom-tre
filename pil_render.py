@@ -27,6 +27,7 @@ chaque fonction).
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -122,19 +123,15 @@ def _margin_top_titre(height: int, ds: float) -> int:
     return title_bottom + int(10 * ds) + CARDINALES_OFFSET_PX + int(22 * ds)
 
 
-def _pil_load_fonts() -> FontFn:
-    """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
+@lru_cache(maxsize=1)
+def _pil_font_paths() -> Dict[str, Optional[str]]:
+    """Chemin retenu pour chaque variante de police (sondé une seule fois).
 
-    Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
-    licence permissive). Garantit un rendu PDF/PNG identique sur toute
-    machine, indépendamment des polices système installées.
-    Priorité 2 : polices système connues (Linux/Windows/macOS), pour
-    rester compatible avec une installation où `assets/fonts/` aurait
-    été retiré.
-
-    Appelé uniquement depuis les fonctions `render_*` qui importent
-    `PIL.Image` en premier — si Pillow n'est pas installé, l'import
-    aura déjà levé `ImportError` avant qu'on n'arrive ici.
+    La détection ouvre jusqu'à 11 fichiers de police pour trouver le
+    premier disponible par variante. C'est un coût de découverte, pas de
+    rendu : il n'a aucune raison d'être payé à chaque image. Le cache est
+    volontairement au niveau module — les polices installées ne changent
+    pas pendant la vie du processus.
     """
     from PIL import ImageFont
     embedded = Path(__file__).parent / "assets" / "fonts"
@@ -166,14 +163,54 @@ def _pil_load_fonts() -> FontFn:
             paths[variant] = filepath
         except Exception:
             continue
+    return paths
 
+
+@lru_cache(maxsize=64)
+def _pil_font(size: int, variant: str) -> Any:
+    """Objet police PIL pour `(taille, variante)`, **mémorisé**.
+
+    Sans ce cache, chaque `d.text(...)` reconstruisait un `FreeTypeFont`
+    — donc rouvrait le .ttf ET repartait d'un cache de glyphes vide. Le
+    halo blanc des lettres cardinales tire 24 tracés par lettre : une
+    seule fiche PDF déclenchait ~240 chargements de police, soit
+    l'essentiel du temps d'export (profil : 1,4 s sur 2,9 s pour 20
+    arbres).
+
+    Réutiliser l'objet police ne change rien au rendu (même fichier,
+    même taille, même moteur FreeType) : les golden-tests PIL le
+    verrouillent.
+
+    Non thread-safe au sens strict (les objets PIL partagent un cache de
+    glyphes) : l'app ne rend jamais deux images en parallèle — l'export
+    long tourne dans un worker unique, l'UI étant bloquée par sa fenêtre
+    de progression.
+    """
+    from PIL import ImageFont
+    paths = _pil_font_paths()
+    path = paths.get(variant) or paths.get("sans") or paths.get("serif_bold")
+    try:
+        return ImageFont.truetype(path, size) if path \
+            else ImageFont.load_default()
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _pil_load_fonts() -> FontFn:
+    """Fabrique de polices `f(size, variant)` — API historique conservée.
+
+    Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
+    licence permissive). Garantit un rendu PDF/PNG identique sur toute
+    machine, indépendamment des polices système installées.
+    Priorité 2 : polices système connues (Linux/Windows/macOS), pour
+    rester compatible avec une installation où `assets/fonts/` aurait
+    été retiré.
+
+    N'est plus qu'un adaptateur vers `_pil_font` (mémorisé) : les
+    appelants gardent leur signature, le coût disparaît.
+    """
     def f(size: int, variant: str = "sans") -> Any:
-        path = paths.get(variant) or paths.get("sans") or paths.get("serif_bold")
-        try:
-            return ImageFont.truetype(path, size) if path \
-                else ImageFont.load_default()
-        except Exception:
-            return ImageFont.load_default()
+        return _pil_font(size, variant)
     return f
 
 
@@ -675,15 +712,17 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
                          R_ext: "RadiusSpec", scale: float) -> None:
     # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
     offset_cm = CARDINALES_OFFSET_PX / scale
+    # Police résolue UNE fois : le halo tire 24 tracés par lettre, la
+    # rechercher à chaque itération était le point chaud du rendu.
+    font = f(44, "serif_bold")
     for lx, ly, lbl in cardinal_label_positions(
             cx, cy, scale, R_ext, offset_cm):
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
-                    d.text((lx+dx, ly+dy), lbl, font=f(44, "serif_bold"),
+                    d.text((lx+dx, ly+dy), lbl, font=font,
                            fill="white", anchor="mm")
-        d.text((lx, ly), lbl, font=f(44, "serif_bold"),
-               fill=COLOR_INK, anchor="mm")
+        d.text((lx, ly), lbl, font=font, fill=COLOR_INK, anchor="mm")
 
 
 def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",

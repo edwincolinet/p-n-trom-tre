@@ -560,6 +560,18 @@ TRANSLATIONS = {
     "Ajouter des photos":                 "Aggiungi foto",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
                                           "Salva prima il progetto (Ctrl+S) per poter aggiungere foto.",
+    # Export long en arrière-plan (progression + annulation).
+    "Annulation en cours…":                  "Annullamento in corso…",
+    "⚠ Cette mission a été classée avec un autre barème ({b}). "
+    "Les classes affichées sont recalculées avec le barème de ce poste.":
+        "⚠ Questo progetto è stato classificato con altre soglie ({b}). "
+        "Le classi mostrate sono ricalcolate con le soglie di questo computer.",
+    "Barème appliqué":                       "Soglie applicate",
+    "Écriture du fichier…":                  "Scrittura del file…",
+    'Export PDF de la mission':             'Esportazione PDF del progetto',
+    'Génération des fiches…':               'Generazione delle schede…',
+    'Arbre n°{num}':                        'Albero n. {num}',
+    'Export PDF annulé — aucun fichier écrit.': 'Esportazione PDF annullata — nessun file scritto.',
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 
     "~":                                  "~",

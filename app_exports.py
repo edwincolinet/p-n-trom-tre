@@ -34,6 +34,7 @@ from diagnostic import (
     mission_completeness_warnings,
     mission_synthesis_rows,
 )
+from dialogs import ProgressDialog
 from export import (
     HAS_OPENPYXL,
     export_prbs_html,
@@ -250,23 +251,50 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         filetypes=[("Document PDF", "*.pdf")])
     if not p:
         return
+    # ~60 ms par fiche : produire le PDF d'une traite gèle la fenêtre (300
+    # arbres ⟹ ~20 s, l'OS la marque « ne répond pas »). On boucle donc en
+    # rendant la main à Tk entre chaque fiche — voir `ProgressDialog` pour
+    # les raisons de NE PAS passer par un thread.
+    cabinet_name, logo_path = _get_cabinet_info(parent)
+    prog = ProgressDialog(
+        parent, _("Export PDF de la mission"), len(arbres),
+        message=_("Génération des fiches…"))
+    annule = False
     try:
-        cabinet_name, logo_path = _get_cabinet_info(parent)
         pdf = _new_pdf()
-        for a in arbres:
+        for i, a in enumerate(arbres, start=1):
+            # `avancer` repeint ET traite les événements en attente :
+            # c'est ce qui garde le bouton Annuler réactif.
+            prog.avancer(i - 1, _("Arbre n°{num}").format(
+                num=a.numero_arbre or "?"))
+            if prog.demande_annulation():
+                annule = True
+                break
             render_fiche_arbre(
                 pdf, a, chantier,
                 show_sondages=show_sondages,
                 logo_path=logo_path,
                 cabinet_name=cabinet_name,
                 mission_file=mission_file)
-        pdf.output(p)
-        _notify_export(
-            parent, p,
-            f"PDF mission enregistré ({len(arbres)} fiche(s))")
+        if not annule:
+            prog.avancer(len(arbres), _("Écriture du fichier…"))
+            # L'écriture n'a lieu qu'une fois TOUTES les fiches produites :
+            # un PDF de mission tronqué serait pris pour un export complet.
+            pdf.output(p)
     except Exception as e:
+        prog.fermer()
         log.exception("Échec export PDF mission")
         messagebox.showerror("Erreur d'export PDF", str(e))
+        return
+    prog.fermer()
+
+    if annule:
+        set_status = getattr(parent, "set_status", None)
+        if set_status:
+            set_status(_("Export PDF annulé — aucun fichier écrit."))
+        return
+    _notify_export(parent, p,
+                   f"PDF mission enregistré ({len(arbres)} fiche(s))")
 
 
 def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:

@@ -591,6 +591,18 @@ TRANSLATIONS = {
     "Ajouter des photos":                 "Add photos",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
                                           "Save the project first (Ctrl+S) before adding photos.",
+    # Export long en arrière-plan (progression + annulation).
+    "Annulation en cours…":                  "Cancelling…",
+    "⚠ Cette mission a été classée avec un autre barème ({b}). "
+    "Les classes affichées sont recalculées avec le barème de ce poste.":
+        "⚠ This project was classified with different thresholds ({b}). "
+        "The classes shown are recomputed with this computer's thresholds.",
+    "Barème appliqué":                       "Applied thresholds",
+    "Écriture du fichier…":                  "Writing the file…",
+    'Export PDF de la mission':             'Project PDF export',
+    'Génération des fiches…':               'Generating sheets…',
+    'Arbre n°{num}':                        'Tree no. {num}',
+    'Export PDF annulé — aucun fichier écrit.': 'PDF export cancelled — no file written.',
     "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 
     "~":                                  "~",

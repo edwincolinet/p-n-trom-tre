@@ -1047,3 +1047,121 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     dlg.wait_window()
     return result["ok"]
 
+
+
+# ---------------------------------------------------------------------------
+# Progression d'une tâche longue (export mission)
+# ---------------------------------------------------------------------------
+
+class ProgressDialog:
+    """Fenêtre modale de progression, avec bouton **Annuler**.
+
+    Pensée pour les exports qui parcourent toute la mission : à ~60 ms
+    par fiche, une mission de 300 arbres bloquait la fenêtre une
+    vingtaine de secondes, sans rien afficher — l'OS finissait par la
+    déclarer « ne répond pas ». Le travail part donc dans un thread et
+    cette fenêtre en montre l'avancement.
+
+    **À piloter depuis le thread Tk uniquement** — l'appelant découpe
+    son travail en tranches et se replanifie par `after` (cf.
+    `app_exports.export_pdf_mission`). Ce n'est pas une commodité : deux
+    tentatives par thread worker ont échoué, et il faut savoir pourquoi
+    avant d'y revenir.
+
+    1. Poster la progression par `parent.after(0, …)` depuis le worker
+       appelle `Tcl_CreateCommand` hors du thread de l'interpréteur →
+       « RuntimeError: main thread is not in main loop ». Dans un thread
+       daemon, l'exception disparaît sans trace : l'export ne se termine
+       jamais, en silence.
+    2. Même en ne faisant transiter que des données (file + sondage
+       côté Tk), le worker reste exposé : le **ramasse-miettes** peut se
+       déclencher dans CE thread et y exécuter le `__del__` d'un objet
+       Tk devenu inaccessible (`tkinter.Variable.__del__` appelle
+       `globalunsetvar`). Tcl détecte l'accès hors thread et **abandonne
+       le processus** (`Fatal Python error: Aborted`) — observé en test,
+       pendant que fpdf2 chargeait ses polices.
+
+    Le découpage coopératif évite les deux : aucun thread, donc aucun
+    appel Tcl hors thread, et l'UI reste vivante parce qu'elle reprend
+    la main entre deux tranches.
+    """
+
+    def __init__(self, parent: tk.Misc, titre: str, total: int,
+                 message: str = "") -> None:
+        self._parent = parent
+        self._total = max(1, total)
+        self._annule = False
+        self._ferme = False
+
+        self.dlg = tk.Toplevel(parent)
+        self.dlg.title(titre)
+        self.dlg.resizable(False, False)
+        # Fermer la fenêtre = annuler (jamais « laisser tourner en fond
+        # sans retour » : l'utilisateur croirait l'export terminé).
+        self.dlg.protocol("WM_DELETE_WINDOW", self.annuler)
+
+        frm = ttk.Frame(self.dlg, padding=20)
+        frm.pack(fill="both", expand=True)
+
+        # Typés Optional : `fermer()` les remet à None (cf. commentaire là-bas).
+        self._var_txt: "Optional[tk.StringVar]" = tk.StringVar(value=message)
+        ttk.Label(frm, textvariable=self._var_txt).pack(anchor="w")
+
+        self._bar: "Optional[ttk.Progressbar]" = ttk.Progressbar(
+            frm, mode="determinate", length=380, maximum=self._total)
+        self._bar.pack(fill="x", pady=(10, 4))
+
+        self._var_compte: "Optional[tk.StringVar]" = tk.StringVar(
+            value=f"0 / {self._total}")
+        ttk.Label(frm, textvariable=self._var_compte,
+                  style="Muted.TLabel").pack(anchor="w")
+
+        ttk.Button(frm, text=_("Annuler"),
+                   command=self.annuler).pack(anchor="e", pady=(12, 0))
+
+        _make_modal(self.dlg, parent)
+
+    def demande_annulation(self) -> bool:
+        """Vrai si l'utilisateur a cliqué Annuler (ou fermé la fenêtre)."""
+        return self._annule
+
+    def avancer(self, n: int, message: str = "") -> None:
+        """Affiche `n` unités traitées sur `total`.
+
+        `update()` force le repaint ET le traitement des événements en
+        attente : c'est ce qui rend le bouton Annuler cliquable pendant
+        la boucle d'export, alors qu'on n'a jamais quitté le thread Tk.
+        """
+        if self._ferme or self._bar is None or self._var_compte is None:
+            return
+        try:
+            self._bar["value"] = n
+            self._var_compte.set(f"{n} / {self._total}")
+            if message and self._var_txt is not None:
+                self._var_txt.set(message)
+            self.dlg.update()
+        except tk.TclError:
+            pass                       # fenêtre détruite entre-temps
+
+    def annuler(self) -> None:
+        self._annule = True
+        if self._var_txt is not None:
+            self._var_txt.set(_("Annulation en cours…"))
+
+    def fermer(self) -> None:
+        if self._ferme:
+            return
+        self._ferme = True
+        try:
+            self.dlg.grab_release()
+            self.dlg.destroy()
+        except tk.TclError:
+            pass
+        # Libère les `StringVar` : si l'objet ProgressDialog survit à la
+        # destruction de la racine Tk (une référence gardée par
+        # l'appelant, par exemple), leur `__del__` tenterait de parler à
+        # un interpréteur Tcl mort — « main thread is not in main loop »
+        # au moment du GC. `_maj` ne les touche plus une fois `_ferme`.
+        self._var_txt = None
+        self._var_compte = None
+        self._bar = None
