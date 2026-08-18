@@ -73,6 +73,7 @@ class ContrefortsPane(ttk.Frame):
         #              "entry", "combo", "com_entry": widgets}.
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._entries_order: list[ttk.Entry] = []
+        self._com_entries_order: list[ttk.Entry] = []
         self._build()
 
     def _build(self) -> None:
@@ -146,6 +147,14 @@ class ContrefortsPane(ttk.Frame):
             ent.bind("<Return>", lambda e, i=row_idx: self._focus_entry(i + 1))
             ent.bind("<Down>", lambda e, i=row_idx: self._focus_entry(i + 1))
             ent.bind("<Up>", lambda e, i=row_idx: self._focus_entry(i - 1))
+            # Même navigation, colonne Commentaire (cf. `pane_sondages`).
+            self._com_entries_order.append(com)
+            com.bind("<Return>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Down>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Up>",
+                     lambda e, i=row_idx: self._focus_com_entry(i - 1))
             cmb.bind("<<ComboboxSelected>>",
                      lambda e, gr=g: self._on_larg_changed(gr))
             # Détail (largeur en cm) via double-clic sur les libellés non
@@ -171,6 +180,14 @@ class ContrefortsPane(ttk.Frame):
         et sélectionne son contenu pour réécriture immédiate."""
         if 0 <= i < len(self._entries_order):
             e = self._entries_order[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
+
+    def _focus_com_entry(self, i: int) -> str:
+        """Même chose que `_focus_entry`, pour la colonne Commentaire."""
+        if 0 <= i < len(self._com_entries_order):
+            e = self._com_entries_order[i]
             e.focus_set()
             e.select_range(0, "end")
         return "break"

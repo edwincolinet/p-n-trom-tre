@@ -623,10 +623,10 @@ def render_fiche_arbre(pdf: FPDF,
             return y0
 
         if has_intervention and y_preco + 32 + 24 <= y_limit:
-            y_preco = _preco_header("Intervention", y_preco)
+            y_preco = _preco_header(_("Intervention"), y_preco)
 
             if arbre.urgence and y_preco + 46 <= y_limit:
-                lbl = "Urgence : "
+                lbl = _("Urgence :") + " "
                 lbl_w = pg.sw(lbl, 16, "sans")
                 urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
                 uw = pg.sw(arbre.urgence, 16, "sans_bold")
@@ -642,7 +642,7 @@ def render_fiche_arbre(pdf: FPDF,
                 y_preco += int(uh) + 2 * by + 12
 
             if arbre.echeance and y_preco + 26 <= y_limit:
-                lbl = "Échéance : "
+                lbl = _("Échéance :") + " "
                 lbl_w = pg.sw(lbl, 16, "sans")
                 pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
                 pg.text(txt_x + lbl_w, y_preco, arbre.echeance,
@@ -654,10 +654,10 @@ def render_fiche_arbre(pdf: FPDF,
             y_preco += 14
 
         if has_suivi and y_preco + 32 + 24 <= y_limit:
-            y_preco = _preco_header("Suivi", y_preco)
+            y_preco = _preco_header(_("Suivi"), y_preco)
 
             if arbre.suivi_validite and y_preco + 26 <= y_limit:
-                lbl = "Validité : "
+                lbl = _("Validité :") + " "
                 lbl_w = pg.sw(lbl, 16, "sans")
                 pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
                 pg.text(txt_x + lbl_w, y_preco, arbre.suivi_validite,
@@ -665,7 +665,7 @@ def render_fiche_arbre(pdf: FPDF,
                 y_preco += 26
 
             if arbre.suivi_echeance and y_preco + 26 <= y_limit:
-                lbl = "Prochaine visite : "
+                lbl = _("Prochaine visite :") + " "
                 lbl_w = pg.sw(lbl, 16, "sans")
                 pg.text(txt_x, y_preco, lbl, 16, "sans", COLOR_MUTED)
                 pg.text(txt_x + lbl_w, y_preco, arbre.suivi_echeance,

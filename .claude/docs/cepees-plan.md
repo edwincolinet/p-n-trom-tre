@@ -256,6 +256,10 @@ Faire grandir `ask_forme_tronc` (ou un nouveau Toplevel plus large) en
   globalement (boussole partagée par tous les brins, même orientation) autour de
   la bbox globale ; la **moelle et les pastilles** restent par brin. Règle
   graduée : une seule, globale.
-- [ ] **Étape 3 (à trancher quand on y arrive)** : un genet est-il « non fiable »
-  dès qu'UN brin a < 3 sondages, ou fiabilité par brin seulement ? Rayon
-  « représentatif » du genet en synthèse (max des brins ? proposé par défaut).
+- [x] **Étape 3 — tranché et livré** : fiabilité **par brin** (un brin < 3
+  sondages est rapporté mais ne bloque pas les autres, cf. § 3/§ 6) ; rayon
+  « représentatif » du genet en synthèse = **max des brins**, implémenté dans
+  `diagnostic._synthesis_genet_row` et appliqué de façon cohérente par
+  `mission_synthesis_rows`, `export.py` et `fiche_pdf.py`. Cette entrée ne
+  correspond donc plus à une question ouverte — gardée seulement comme trace
+  de la décision (cf. § 5/§ 6 pour le détail).

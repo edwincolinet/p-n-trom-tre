@@ -31,6 +31,16 @@ TRANSLATIONS = {
     "Renommer l'arbre courant…":           "Rename current tree…",
     "Supprimer l'arbre courant…":          "Delete current tree…",
     "Prochain arbre à finir":              "Next unfinished tree",
+    "Urgence pour la sélection…":          "Priority for selection…",
+    "Urgence — sélection":                 "Priority — selection",
+    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
+                                           "Priority level for the {n} selected tree(s):",
+    "Urgence « {niveau} » appliquée à {n} arbre(s).":
+                                           "Priority « {niveau} » applied to {n} tree(s).",
+    "Sélectionnez d'abord un ou plusieurs arbres dans la liste "
+    "(Ctrl+clic ou Maj+clic pour une sélection multiple).":
+        "First select one or more trees in the list (Ctrl+click or "
+        "Shift+click for multiple selection).",
 
     # ── Menu Affichage ────────────────────────────────────────────────
     "Affichage":                           "View",
@@ -65,6 +75,7 @@ TRANSLATIONS = {
     "Arbres de la mission":                "Project trees",
     "Risque":                              "Risk",
     "Urgence":                             "Priority",
+    "Filtres avancés":                     "Advanced filters",
     "Tous":                                "All",
     "Non fiable":                          "Unreliable",
     "＋ Ajouter":                          "＋ Add",
@@ -249,6 +260,31 @@ TRANSLATIONS = {
     "── Suivi ──":                        "── Follow-up ──",
     "Validité":                           "Validity",
     "Contenu du suivi (texte libre)":    "Follow-up content (free text)",
+
+    # Export tableau PRBS / synthèse mission / fiche PDF — en-têtes et
+    # libellés des livrables (le client lit ceux-là, pas seulement l'UI).
+    "Grade (gr)":                         "Grade (gr)",
+    "PRBS bois sain (cm)":               "Sound wood PRBS (cm)",
+    "Bois altéré (cm)":                  "Altered wood (cm)",
+    "Classe verte":                       "Green class",
+    "Classe orange":                      "Orange class",
+    "Classe rouge":                       "Red class",
+    "Hauteur sondage":                    "Sounding height",
+    "Hauteur arbre":                      "Tree height",
+    "Arbre n°{n}":                        "Tree #{n}",
+    "Port {port}":                        "Growth habit {port}",
+    "Port":                               "Growth habit",
+    "t/R moyen (%)":                       "Average t/R (%)",
+    "Direction critique":                 "Critical direction",
+    "t/R critique (%)":                    "Critical t/R (%)",
+    "Validité suivi":                     "Follow-up validity",
+    "Échéance suivi":                     "Follow-up deadline",
+    "Commentaire suivi":                  "Follow-up comment",
+    "Aucun sondage enregistré.":          "No sounding recorded.",
+    "Intervention":                       "Action",
+    "Suivi":                              "Follow-up",
+    "Validité :":                         "Validity:",
+    "Prochaine visite :":                 "Next visit:",
 
     # ── Sprint 3 — UI restante ────────────────────────────────────────
 

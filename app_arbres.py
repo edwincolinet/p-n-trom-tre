@@ -22,9 +22,10 @@ from typing import TYPE_CHECKING, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import genet_diagnostic
-from dialogs import ask_string
-from i18n import _
+from dialogs import ask_choice, ask_string
+from i18n import _, translate_values, untranslate_value
 from model import URGENCE_NIVEAUX, Arbre
+from pane_diagnostic import _URGENCE_VIDE
 
 # Cf. note dans `app_recovery` : base `tk.Tk` pour mypy (self = widget),
 # `object` au runtime.
@@ -103,11 +104,14 @@ class ArbreListMixin(_MixinBase):
         _etat_cache: dict[int, tuple[str, str, str]]
 
         def push_undo(self) -> None: ...
+        def _mark_dirty(self) -> None: ...
+        def get_urgences_custom(self) -> "list[str]": ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def _load_arbre_to_ui(self) -> None: ...
         def set_status(self, text: str) -> None: ...
         def _reset_all_filters(self) -> None: ...
         def _refresh_welcome_visibility(self) -> None: ...
+        def _sync_filtres_avances(self) -> None: ...
 
     # --- Liste d'arbres ---------------------------------------------
 
@@ -269,6 +273,7 @@ class ArbreListMixin(_MixinBase):
             self.tree_arbres.selection_set(target)
             self.tree_arbres.focus(target)
         self._refresh_welcome_visibility()
+        self._sync_filtres_avances()
 
     def _set_etat_footer_counts(self, n_rouge: int, n_orange: int,
                                    n_vert: int, n_afinir: int) -> None:
@@ -628,3 +633,45 @@ class ArbreListMixin(_MixinBase):
         a.numero_arbre = new
         self.pane_id.load_from_arbre()
         self._refresh_tree_arbres()
+
+    def action_bulk_set_urgence(self) -> None:
+        """Applique un niveau d'urgence à tous les arbres actuellement
+        sélectionnés dans la liste (Ctrl/Maj-clic pour une sélection
+        multiple). La Treeview acceptait déjà la multi-sélection sans
+        qu'aucune action ne s'en serve — utile pour un alignement d'arbres
+        identiques qu'on ne veut pas trier un par un."""
+        sel = self.tree_arbres.selection()
+        idxs = sorted(int(iid[1:]) for iid in sel if iid.startswith("a"))
+        if not idxs:
+            messagebox.showinfo(
+                _("Urgence"),
+                _("Sélectionnez d'abord un ou plusieurs arbres dans la "
+                  "liste (Ctrl+clic ou Maj+clic pour une sélection "
+                  "multiple)."))
+            return
+        vide = _(_URGENCE_VIDE)
+        niveaux_fr = list(URGENCE_NIVEAUX)
+        custom = self.get_urgences_custom()
+        choices = [vide, *translate_values(niveaux_fr), *custom]
+        choice = ask_choice(
+            self, _("Urgence — sélection"),
+            _("Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :"
+             ).format(n=len(idxs)),
+            choices, initial=vide)
+        if choice is None:
+            return
+        if choice == vide:
+            new = ""
+        elif choice in custom:
+            new = choice
+        else:
+            new = untranslate_value(choice, niveaux_fr)
+        self.push_undo()
+        for i in idxs:
+            self.chantier.arbres[i].urgence = new
+        self._mark_dirty()
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
+        self.set_status(
+            _("Urgence « {niveau} » appliquée à {n} arbre(s).").format(
+                niveau=choice, n=len(idxs)))

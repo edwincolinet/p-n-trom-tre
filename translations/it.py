@@ -31,6 +31,17 @@ TRANSLATIONS = {
     "Renommer l'arbre courant…":           "Rinomina albero corrente…",
     "Supprimer l'arbre courant…":          "Elimina albero corrente…",
     "Prochain arbre à finir":              "Prossimo albero da completare",
+    "Urgence pour la sélection…":          "Urgenza per la selezione…",
+    "Urgence — sélection":                 "Urgenza — selezione",
+    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
+                                           "Livello di urgenza per {n} albero/i selezionato/i:",
+    "Urgence « {niveau} » appliquée à {n} arbre(s).":
+                                           "Urgenza « {niveau} » applicata a {n} albero/i.",
+    "Sélectionnez d'abord un ou plusieurs arbres dans la "
+    "liste (Ctrl+clic ou Maj+clic pour une sélection "
+    "multiple).":
+        "Selezionare prima uno o più alberi nell'elenco (Ctrl+clic o "
+        "Maiusc+clic per la selezione multipla).",
 
     # ── Menu Visualizza ───────────────────────────────────────────────
     "Affichage":                           "Visualizza",
@@ -65,6 +76,7 @@ TRANSLATIONS = {
     "Arbres de la mission":                "Alberi del progetto",
     "Risque":                              "Rischio",
     "Urgence":                             "Urgenza",
+    "Filtres avancés":                     "Filtri avanzati",
     "Tous":                                "Tutti",
     "Non fiable":                          "Non affidabile",
     "＋ Ajouter":                          "＋ Aggiungi",
@@ -241,6 +253,31 @@ TRANSLATIONS = {
     "── Suivi ──":                        "── Monitoraggio ──",
     "Validité":                           "Validità",
     "Contenu du suivi (texte libre)":    "Contenuto monitoraggio (testo libero)",
+
+    # Export tabella PRBS / sintesi missione / scheda PDF — intestazioni e
+    # diciture dei documenti consegnati (letti dal cliente, non solo l'UI).
+    "Grade (gr)":                         "Grado (gr)",
+    "PRBS bois sain (cm)":               "PRBS legno sano (cm)",
+    "Bois altéré (cm)":                  "Legno alterato (cm)",
+    "Classe verte":                       "Classe verde",
+    "Classe orange":                      "Classe arancione",
+    "Classe rouge":                       "Classe rossa",
+    "Hauteur sondage":                    "Altezza sondaggio",
+    "Hauteur arbre":                      "Altezza albero",
+    "Arbre n°{n}":                        "Albero n°{n}",
+    "Port {port}":                        "Portamento {port}",
+    "Port":                               "Portamento",
+    "t/R moyen (%)":                       "t/R medio (%)",
+    "Direction critique":                 "Direzione critica",
+    "t/R critique (%)":                    "t/R critico (%)",
+    "Validité suivi":                     "Validità monitoraggio",
+    "Échéance suivi":                     "Scadenza monitoraggio",
+    "Commentaire suivi":                  "Commento monitoraggio",
+    "Aucun sondage enregistré.":          "Nessun sondaggio rilevato.",
+    "Intervention":                       "Intervento",
+    "Suivi":                              "Monitoraggio",
+    "Validité :":                         "Validità:",
+    "Prochaine visite :":                 "Prossima visita:",
 
     # ── Sprint 3 — UI restante ────────────────────────────────────────
 

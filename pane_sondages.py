@@ -88,6 +88,7 @@ class SondagesPane(ttk.Frame):
         # "combo","com_entry","alt_lbl","inc","chk_inc"}.
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._entries_order: list[ttk.Entry] = []
+        self._com_entries_order: list[ttk.Entry] = []
         self._build()
 
     def _build(self) -> None:
@@ -196,6 +197,15 @@ class SondagesPane(ttk.Frame):
                 "write", lambda *a, gr=g: self._on_com_write(gr))
             com.bind("<FocusIn>", lambda e, gr=g: self._on_com_focus_in(gr))
             com.bind("<FocusOut>", lambda e, gr=g: self._on_com_focus_out(gr))
+            # Même navigation verticale que « Bois sain », dans la colonne
+            # Commentaire (cf. `pane_degradations` pour la même correction).
+            self._com_entries_order.append(com)
+            com.bind("<Return>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Down>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Up>",
+                     lambda e, i=row_idx: self._focus_com_entry(i - 1))
             # Détail (redirection de grade) via double-clic sur les
             # libellés non éditables — l'Entry garde le double-clic natif
             # (sélection de mot).
@@ -228,6 +238,14 @@ class SondagesPane(ttk.Frame):
         et sélectionne son contenu pour réécriture immédiate."""
         if 0 <= i < len(self._entries_order):
             e = self._entries_order[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
+
+    def _focus_com_entry(self, i: int) -> str:
+        """Même chose que `_focus_entry`, pour la colonne Commentaire."""
+        if 0 <= i < len(self._com_entries_order):
+            e = self._com_entries_order[i]
             e.focus_set()
             e.select_range(0, "end")
         return "break"

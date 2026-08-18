@@ -280,11 +280,31 @@ class LayoutMixin(_MixinBase):
         # Échap dans le champ = vider le filtre.
         ent_filter.bind("<Escape>", lambda e: self.var_filter.set(""))
 
-        # Filtre par classe de risque (complète la recherche texte ; les
-        # deux se cumulent). Sur une grosse mission, « ne montrer que les
-        # rouges » est le tri prioritaire de l'expert. Cf. _RISK_FILTER_*
-        # et `_arbre_matches_filter`.
-        rfilt = ttk.Frame(frame, style="Side.TFrame")
+        # Filtres « avancés » (risque / urgence / échéance / complétude des
+        # sondages) : repliés par défaut derrière un en-tête cliquable —
+        # même principe que `AideRepliable` (flèche ▸/▾, sans emoji : la
+        # Treeview évite déjà les emojis de couleur pour la même raison,
+        # rendu imprévisible selon la police système d'une plateforme à
+        # l'autre). Sur une mission de quelques arbres — l'échelle courante
+        # de l'outil — quatre comboboxes en permanence encombraient le
+        # panneau pour un usage occasionnel ; le compteur dans l'en-tête
+        # reste visible même replié, pour qu'un filtre actif ne soit
+        # jamais oublié « hors de vue » (cf. `_sync_filtres_avances`).
+        self._filtres_avances_expanded = False
+        adv_header = ttk.Frame(frame, style="Side.TFrame")
+        adv_header.pack(fill="x", pady=(0, 4))
+        self._lbl_filtres_toggle = ttk.Label(
+            adv_header, style="Side.TLabel", cursor="hand2")
+        self._lbl_filtres_toggle.pack(anchor="w")
+        self._lbl_filtres_toggle.bind(
+            "<Button-1>", lambda e: self._toggle_filtres_avances())
+
+        self._filtres_avances = ttk.Frame(frame, style="Side.TFrame")
+
+        # Filtre par classe de risque. Sur une grosse mission, « ne montrer
+        # que les rouges » est le tri prioritaire de l'expert. Cf.
+        # _RISK_FILTER_* et `_arbre_matches_filter`.
+        rfilt = ttk.Frame(self._filtres_avances, style="Side.TFrame")
         rfilt.pack(fill="x", pady=(0, 4))
         ttk.Label(rfilt, text=_("Risque"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
@@ -296,7 +316,7 @@ class LayoutMixin(_MixinBase):
         cmb_risk.bind("<<ComboboxSelected>>",
                       lambda e: self._refresh_tree_arbres())
 
-        ufilt = ttk.Frame(frame, style="Side.TFrame")
+        ufilt = ttk.Frame(self._filtres_avances, style="Side.TFrame")
         ufilt.pack(fill="x", pady=(0, 4))
         ttk.Label(ufilt, text=_("Urgence"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
@@ -309,7 +329,7 @@ class LayoutMixin(_MixinBase):
         self._cmb_urgence_filter.bind("<<ComboboxSelected>>",
                                       lambda e: self._refresh_tree_arbres())
 
-        efilt = ttk.Frame(frame, style="Side.TFrame")
+        efilt = ttk.Frame(self._filtres_avances, style="Side.TFrame")
         efilt.pack(fill="x", pady=(0, 4))
         ttk.Label(efilt, text=_("Échéance"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
@@ -322,7 +342,7 @@ class LayoutMixin(_MixinBase):
         cmb_ech.bind("<<ComboboxSelected>>",
                      lambda e: self._refresh_tree_arbres())
 
-        cfilt = ttk.Frame(frame, style="Side.TFrame")
+        cfilt = ttk.Frame(self._filtres_avances, style="Side.TFrame")
         cfilt.pack(fill="x", pady=(0, 6))
         ttk.Label(cfilt, text=_("Sondages"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
@@ -334,6 +354,8 @@ class LayoutMixin(_MixinBase):
         cmb_complet.pack(side="left", fill="x", expand=True)
         cmb_complet.bind("<<ComboboxSelected>>",
                          lambda e: self._refresh_tree_arbres())
+
+        self._sync_filtres_avances()  # pose le texte initial de l'en-tête
 
         # Bandeau "filtre actif" : apparaît sous les filtres quand au moins
         # un arbre est masqué. Propose un bouton de réinitialisation rapide
@@ -466,6 +488,45 @@ class LayoutMixin(_MixinBase):
         self.lbl_etat_footer.pack(side="bottom", anchor="w", pady=(6, 0))
 
         lst_frame.pack(fill="both", expand=True)
+
+    def _count_filtres_avances_actifs(self) -> int:
+        """Nombre de filtres « avancés » actifs (hors recherche texte,
+        toujours visible) — alimente le compteur de l'en-tête replié."""
+        n = 0
+        if self.var_risk_filter.get() != _RISK_FILTER_ALL:
+            n += 1
+        if self.var_urgence_filter.get() != _URGENCE_FILTER_ALL:
+            n += 1
+        if self.var_echeance_filter.get() != _ECHEANCE_FILTER_ALL:
+            n += 1
+        if self.var_complet_filter.get() != _COMPLET_FILTER_ALL:
+            n += 1
+        return n
+
+    def _toggle_filtres_avances(self) -> None:
+        """Replie/déplie le panneau des filtres avancés."""
+        self._filtres_avances_expanded = not self._filtres_avances_expanded
+        self._sync_filtres_avances()
+
+    def _sync_filtres_avances(self) -> None:
+        """Reflète l'état courant : flèche + compteur de l'en-tête,
+        visibilité du panneau. Appelé à chaque `_refresh_tree_arbres` pour
+        que le compteur reste juste même quand un filtre change sans
+        passer par le clic sur l'en-tête (combobox, réinitialisation)."""
+        n = self._count_filtres_avances_actifs()
+        fleche = "▾" if self._filtres_avances_expanded else "▸"
+        texte = _("Filtres avancés")
+        if n:
+            texte += f" ({n})"
+        self._lbl_filtres_toggle.configure(
+            text=f"{texte}  {fleche}",
+            foreground=COLOR_ACCENT if n else "")
+        if self._filtres_avances_expanded:
+            if not self._filtres_avances.winfo_ismapped():
+                self._filtres_avances.pack(fill="x", pady=(0, 0),
+                                           before=self._lst_frame)
+        else:
+            self._filtres_avances.pack_forget()
 
     def _build_center(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=12)

@@ -30,7 +30,6 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from app_arbres import _RISK_FILTER_ALL
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from app_settings import SettingsStore
@@ -81,14 +80,13 @@ class FichierMixin(_MixinBase):
         var_ch_client: tk.StringVar
         var_ch_ope: tk.StringVar
         var_ch_date: tk.StringVar
-        var_filter: tk.StringVar
-        var_risk_filter: tk.StringVar
         var_show_sondages: tk.BooleanVar
 
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
         def _load_arbre_to_ui(self) -> None: ...
         def _clear_filter_if_set(self) -> None: ...
+        def _reset_all_filters(self) -> None: ...
         def _update_title(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
@@ -119,8 +117,12 @@ class FichierMixin(_MixinBase):
             self.var_ch_ope.set(last_ope)
             self.var_ch_date.set(self.chantier.date_releve)
         self.chantier.operateur = last_ope
-        self.var_filter.set("")  # nouvelle mission → filtres remis à zéro
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        # Remet TOUS les filtres à zéro (pas seulement texte + risque) :
+        # sinon un filtre Urgence/Échéance/Sondages laissé actif par la
+        # mission précédente masquait l'arbre n°1 fraîchement créé — un
+        # utilisateur créant une mission vierge se retrouvait devant une
+        # liste vide, sans indice que l'arbre existait bel et bien.
+        self._reset_all_filters()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -296,7 +298,6 @@ class FichierMixin(_MixinBase):
                     parent=self):
                 return
 
-        from app_arbres import _RISK_FILTER_ALL
         self._undo_stack.clear()
         self._dirty = False
         clear_recovery(_RECOVERY_PATH)
@@ -330,8 +331,7 @@ class FichierMixin(_MixinBase):
             self.var_ch_date.set(self.chantier.date_releve)
         self.chantier.operateur = self.chantier.operateur
 
-        self.var_filter.set("")
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._reset_all_filters()  # cf. action_new
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -518,8 +518,7 @@ class FichierMixin(_MixinBase):
             self.var_ch_client.set(self.chantier.client)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
-        self.var_filter.set("")  # mission rechargée → filtres remis à zéro
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._reset_all_filters()  # mission rechargée → cf. action_new
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()

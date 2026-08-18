@@ -184,6 +184,53 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
     return result["val"]
 
 
+def ask_choice(parent: tk.Misc, title: str, prompt: str,
+               choices: "List[str]", initial: str = ""
+               ) -> Optional[str]:
+    """Dialogue de choix unique thémé (combobox readonly), même contrat
+    que `ask_string` : renvoie la valeur choisie si validé, `None` si
+    annulé/fermé (une chaîne vide validée, p. ex. « non renseignée »,
+    se distingue donc bien d'une annulation).
+
+    Sert aux actions groupées (p. ex. urgence appliquée à plusieurs
+    arbres sélectionnés) — un seul dialogue, pas un `askstring` brut.
+    """
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.resizable(False, False)
+    dlg.columnconfigure(0, weight=1)
+    result: dict[str, Optional[str]] = {"val": None}
+    var = tk.StringVar(value=initial if initial in choices else
+                       (choices[0] if choices else ""))
+
+    ttk.Label(dlg, text=prompt, background=COLOR_PANEL, justify="left",
+              wraplength=320).grid(row=0, column=0, sticky="w",
+                                   padx=12, pady=(12, 6))
+    cmb = ttk.Combobox(dlg, textvariable=var, values=choices,
+                       state="readonly", width=32)
+    cmb.grid(row=1, column=0, sticky="we", padx=12, pady=(0, 6))
+
+    def ok() -> None:
+        result["val"] = var.get()
+        dlg.destroy()
+
+    btns = ttk.Frame(dlg, style="Panel.TFrame")
+    btns.grid(row=2, column=0, sticky="e", padx=12, pady=(8, 12))
+    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
+               command=dlg.destroy).pack(side="right", padx=6)
+    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
+               command=ok).pack(side="right")
+
+    dlg.bind("<Return>", lambda e: ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    _make_modal(dlg, parent)
+    cmb.focus_set()
+    dlg.wait_window()
+    return result["val"]
+
+
 # ---------------------------------------------------------------------
 # Dialog : sélecteur de date (calendrier Tkinter pur, sans dépendance)
 # ---------------------------------------------------------------------

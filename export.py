@@ -267,22 +267,22 @@ def _value_or_dash(value: Any, unit: str = "") -> str:
 def _identity_line(arbre: ArbreLike) -> str:
     """Ligne d'identité de l'arbre, en toutes lettres (remplace l'ancienne
     bande méta fusionnée sur 7 colonnes)."""
-    parts = [f"Arbre n°{arbre.numero_arbre}"
-             if arbre.numero_arbre else "Arbre"]
+    parts = [_("Arbre n°{n}").format(n=arbre.numero_arbre)
+             if arbre.numero_arbre else _("Arbre")]
     if arbre.essence:
         parts.append(arbre.essence)
     if arbre.port_arbre:
-        parts.append(f"Port {arbre.port_arbre}")
+        parts.append(_("Port {port}").format(port=arbre.port_arbre))
     return "  ·  ".join(parts)
 
 
 def _dimension_line(arbre: ArbreLike) -> str:
     """Dimensions mesurées de l'arbre, en sous-titre lisible."""
     dims = [
-        ("Ø sous écorce",
+        (_("Ø sous écorce"),
          _value_or_dash(arbre.diametre_sous_ecorce_cm, "cm")),
-        ("Hauteur sondage", _value_or_dash(arbre.hauteur_sondage_cm, "cm")),
-        ("Hauteur arbre", _value_or_dash(arbre.hauteur_arbre_m, "m")),
+        (_("Hauteur sondage"), _value_or_dash(arbre.hauteur_sondage_cm, "cm")),
+        (_("Hauteur arbre"), _value_or_dash(arbre.hauteur_arbre_m, "m")),
     ]
     return "  ·  ".join(f"{k} {v}" for k, v in dims)
 
@@ -406,7 +406,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                        end_row=row, end_column=last)
 
     # --- Titre + sous-titre mission + identité arbre ---
-    _banner(1, f"Pénétromètre — {chantier.nom or 'Mission'}", TITLE_FONT)
+    _banner(1, f"Pénétromètre — {chantier.nom or _('Mission')}", TITLE_FONT)
     subtitle_parts = []
     if chantier.client:
         subtitle_parts.append(_("Client") + f" : {chantier.client}")
@@ -422,7 +422,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # --- En-tête tableau ---
     header_row = 6  # ligne 5 laissée vide
     for i, h in enumerate(_HEADERS, start=1):
-        c = ws.cell(row=header_row, column=i, value=h)
+        c = ws.cell(row=header_row, column=i, value=_(h))
         c.font = HEADER_FONT
         c.fill = HEADER_FILL
         c.alignment = CENTER
@@ -434,7 +434,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
     if not rows_data:
         c_empty = ws.cell(row=row, column=1,
-                          value="Aucun sondage enregistré.")
+                          value=_("Aucun sondage enregistré."))
         c_empty.font = Font(name="Calibri", size=10, italic=True,
                             color="6E7B73")
         c_empty.alignment = LEFT
@@ -510,7 +510,10 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # --- Légende des classes : un point coloré + libellé par classe ---
     col = 1
     for class_key, hex_ in couleur_classe.items():
-        label = _CLASSE_LEGENDE.get(class_key, f"Classe {class_key}")
+        if class_key in _CLASSE_LEGENDE:
+            label = _(_CLASSE_LEGENDE[class_key])
+        else:
+            label = f"Classe {class_key}"
         c = ws.cell(row=row, column=col, value=f"● {label}")
         c.font = Font(name="Calibri", size=11, bold=True,
                       color=hex_.lstrip("#"))
@@ -627,7 +630,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     le CSS est embarqué. Mise en page alignée sur l'export XLSX
     (`bareme_desc` compris — cf. `export_prbs_xlsx`)."""
     rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
-    title = (f"Pénétromètre — {chantier.nom or 'Mission'} — "
+    title = (f"Pénétromètre — {chantier.nom or _('Mission')} — "
              f"{arbre.numero_arbre or ''}")
 
     # En-tête mission
@@ -641,13 +644,13 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     meta_chunks.append(_("Relevé du") + f" {_h(chantier.date_releve or '—')}")
     meta_html = " • ".join(meta_chunks)
 
-    headers_html = "".join(f'<th>{_h(h)}</th>' for h in _HEADERS)
+    headers_html = "".join(f'<th>{_h(_(h))}</th>' for h in _HEADERS)
 
     # Données
     if not rows_data:
         body_html = (
             f'<tr class="empty-row"><td colspan="{_NCOLS}">'
-            'Aucun sondage enregistré.</td></tr>')
+            f'{_h(_("Aucun sondage enregistré."))}</td></tr>')
     else:
         body_rows = []
         for r in rows_data:
@@ -697,7 +700,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # comme dans le XLSX : une entrée par classe, texte coloré.
     classe_legend_html = "".join(
         f'<span class="classe-item" style="color:{couleur_classe.get(k, "#CCCCCC")}">'
-        f'● {_h(_CLASSE_LEGENDE.get(k, "Classe " + k))}</span>'
+        f'● {_h(_(_CLASSE_LEGENDE[k]) if k in _CLASSE_LEGENDE else "Classe " + k)}</span>'
         for k in couleur_classe)
 
     # Barème appliqué — même information que dans le XLSX (parité
@@ -713,7 +716,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 <style>{_HTML_CSS}</style>
 </head>
 <body>
-<h1>{_h('Pénétromètre — ' + (chantier.nom or 'Mission'))}</h1>
+<h1>{_h('Pénétromètre — ' + (chantier.nom or _('Mission')))}</h1>
 <div class="meta-mission">{meta_html}</div>
 <div class="identity">{_h(_identity_line(arbre))}</div>
 <div class="dimensions">{_h(_dimension_line(arbre))}</div>
@@ -774,7 +777,7 @@ def _synth_classe_text(row: "MissionSynthesisRow") -> str:
     if row.classe_globale is not None:
         return row.classe_globale
     if row.n_sondees > 0 and row.rayon_cm > 0:
-        return "Non fiable"
+        return _("Non fiable")
     return "—"
 
 
@@ -808,7 +811,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
         w = csv.writer(f, delimiter=";")
         if bareme_desc:
             w.writerow([f"# Barème appliqué : {bareme_desc}"])
-        w.writerow(_SYNTH_HEADERS)
+        w.writerow([_(h) for h in _SYNTH_HEADERS])
         for r in rows:
             # Sous-ligne de brin (cépée) : N° décalé « ↳ brin a », identité
             # genet laissée vide (déjà sur la ligne de tête).
@@ -890,7 +893,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     # --- En-tête tableau ---
     header_row = 4
     for i, h in enumerate(_SYNTH_HEADERS, start=1):
-        c = ws.cell(row=header_row, column=i, value=h)
+        c = ws.cell(row=header_row, column=i, value=_(h))
         c.font = HEADER_FONT
         c.fill = HEADER_FILL
         c.alignment = CENTER
