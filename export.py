@@ -233,6 +233,28 @@ def _compart_visual(value: str) -> Tuple[str, str]:
     return glyph, hexa.lstrip("#")
 
 
+
+# Caractères qui font qu'un tableur (Excel/LibreOffice) interprète une
+# cellule comme une formule à l'ouverture — pour un .xlsx natif, openpyxl
+# bascule lui-même `data_type='f'` dès qu'une valeur texte commence par
+# "=" ; pour un .csv, c'est Excel qui le fait à l'import. Un champ texte
+# libre de mission (essence, n° d'arbre — qui peut légalement commencer
+# par « =1 », préconisation, commentaire de suivi, adresse…) est une
+# entrée semi-fiable au même titre que les chemins de photo
+# (cf. CLAUDE.md `photo_paths.py`) : un confrère pourrait y glisser
+# `=WEBSERVICE(...)`. Neutralisé comme le ferait la case « Texte » d'un
+# tableur : préfixe d'une apostrophe, qui force le type texte.
+_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _defuse(value: Any) -> Any:
+    """Neutralise une valeur de cellule pouvant être interprétée comme une
+    formule par un tableur. No-op sur les valeurs non textuelles."""
+    if isinstance(value, str) and value.startswith(_FORMULA_TRIGGERS):
+        return "'" + value
+    return value
+
+
 def _value_or_dash(value: Any, unit: str = "") -> str:
     """Formate une valeur métier en remplaçant le vide/0 par « — »."""
     if value in (None, "", 0, 0.0):
@@ -377,7 +399,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     def _banner(row: int, value: str, font: Font,
                 align: Alignment = LEFT) -> None:
         """Cellule pleine largeur (fusion col 1 → dernière)."""
-        c = ws.cell(row=row, column=1, value=value)
+        c = ws.cell(row=row, column=1, value=_defuse(value))
         c.font = font
         c.alignment = align
         ws.merge_cells(start_row=row, start_column=1,
@@ -438,6 +460,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
             r["classe"],                   # colonne texte
             None,                          # Compart. rempli ci-dessous
         ]
+        values = [_defuse(v) for v in values]
         classe_hex = couleur_classe.get(r["classe"], "CCCCCC").lstrip("#")
         glyph, glyph_hex = _compart_visual(r["compartimentation"])
         use_alt = row_idx % 2 == 1
@@ -794,7 +817,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                 ess, port = "", ""
             else:
                 num, ess, port = r.numero, r.essence, r.port
-            w.writerow([
+            w.writerow([_defuse(v) for v in [
                 num, ess, port, r.n_sondees,
                 f"{r.rayon_cm:g}",
                 _synth_pct_text(r.tR_moyen_pct),
@@ -807,7 +830,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                 _synth_or_dash(r.suivi_validite),
                 _synth_or_dash(r.suivi_echeance),
                 _synth_or_dash(r.suivi_texte),
-            ])
+            ]])
 
 
 def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
@@ -849,7 +872,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
 
     # --- Titre + sous-titre mission ---
     ws.cell(row=1, column=1,
-            value=_("Pénétromètre — Synthèse mission « {nom} »").format(nom=chantier.nom or _("Mission"))
+            value=_defuse(_("Pénétromètre — Synthèse mission « {nom} »").format(nom=chantier.nom or _("Mission")))
             ).font = TITLE_FONT
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last)
     subtitle_parts = []
@@ -861,7 +884,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
         subtitle_parts.append(_("Opérateur") + f" : {chantier.operateur}")
     subtitle_parts.append(_("Relevé du") + f" {chantier.date_releve or '—'}")
     ws.cell(row=2, column=1,
-            value=" • ".join(subtitle_parts)).font = SUBTITLE_FONT
+            value=_defuse(" • ".join(subtitle_parts))).font = SUBTITLE_FONT
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last)
 
     # --- En-tête tableau ---
@@ -900,6 +923,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
             _synth_or_dash(row.suivi_echeance),
             _synth_or_dash(row.suivi_texte),
         ]
+        values = [_defuse(v) for v in values]
         urgence_col = 10
         preco_col = 12
         suivi_texte_col = 15

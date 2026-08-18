@@ -204,6 +204,26 @@ def save_recovery(chantier: Chantier, original_file: Union[str, None],
         raise
 
 
+def _json_load_borne(f: Any) -> Any:
+    """`json.load` avec un message clair sur un fichier hostile/corrompu
+    trop profondément imbriqué.
+
+    Un `.json` de mission est une entrée semi-fiable (il circule entre
+    confrères, cf. CLAUDE.md `photo_paths.py`) : un JSON imbriqué à
+    l'excès (générée à la main ou par un fichier corrompu) fait lever au
+    décodeur un `RecursionError` plutôt qu'un message exploitable. Les
+    appelants Tk l'auraient de toute façon rattrapé via leur `except
+    Exception` générique, mais avec la trace Python brute affichée à
+    l'opérateur — ce garde-fou la remplace par un message clair, cohérent
+    avec le traitement de `json.JSONDecodeError`."""
+    try:
+        return json.load(f)
+    except RecursionError as e:
+        raise ValueError(
+            "Fichier JSON trop profondément imbriqué (structure "
+            "invalide ou corrompue).") from e
+
+
 def load_recovery(
     path: Union[str, Path]
 ) -> "tuple[Chantier, Union[str, None], str]":
@@ -215,7 +235,7 @@ def load_recovery(
     (journaliser + ignorer l'autosave corrompu).
     """
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = _json_load_borne(f)
     chantier = chantier_from_dict(data["chantier"])
     original = data.get("original_file")
     saved_at = data.get("saved_at", "")
@@ -240,7 +260,7 @@ def load_chantier(path: Union[str, Path]) -> Chantier:
     et aux anciens libellés de port.
     """
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = _json_load_borne(f)
     return chantier_from_dict(data)
 
 
