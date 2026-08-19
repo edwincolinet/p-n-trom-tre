@@ -27,7 +27,8 @@ from bareme import (
     classer_prbs,
     set_seuils,
 )
-from geometry import catmull_rom_closed, ellipse_radius
+from geometry import GRADES, catmull_rom_closed
+from model import Brin
 
 # Gravité croissante d'une classe (Vert = sûr, Rouge = danger). Permet de
 # comparer deux classes ordinalement.
@@ -67,38 +68,57 @@ class ClasserPrbsProperties(unittest.TestCase):
         self.assertIn(classer_prbs(ratio, port), _GRAVITE)
 
 
-class EllipseRadiusProperties(unittest.TestCase):
-    """Invariants du rayon polaire d'une ellipse."""
+class RayonAGradeProperties(unittest.TestCase):
+    """Invariants du rayon local par direction (`Brin.rayon_a_grade`) :
+    diamètre général + diamètres locaux mesurés à certaines directions
+    (INDÉPENDANTS de tout sondage), interpolés en LISSANT (cosinus) entre
+    les directions mesurées voisines — borné comme un linéaire, mais sans
+    angle vif."""
 
-    _AXES = st.floats(min_value=0.1, max_value=500.0)
+    _RAYON = st.floats(min_value=0.1, max_value=500.0)
+    _DIAMS = st.lists(
+        st.one_of(st.just(0.0), st.floats(min_value=0.2, max_value=1000.0)),
+        min_size=16, max_size=16)
     _GRADE = st.floats(min_value=0.0, max_value=400.0)
 
-    @given(a=_AXES, b=_AXES, orient=_GRADE, grade=_GRADE)
-    def test_rayon_entre_les_deux_demi_axes(self, a: float, b: float,
-                                            orient: float,
-                                            grade: float) -> None:
-        r = ellipse_radius(a, b, orient, grade)
+    def _build(self, rayon: float, diams: list[float]) -> Brin:
+        b = Brin(rayon_tronc_cm=rayon)
+        for g, d in zip(GRADES, diams):
+            if d > 0:
+                b.diametres_locaux[g] = d
+        return b
+
+    @given(rayon=_RAYON, diams=_DIAMS)
+    def test_exact_aux_grades_canoniques(self, rayon: float,
+                                         diams: list[float]) -> None:
+        b = self._build(rayon, diams)
+        for g, d in zip(GRADES, diams):
+            attendu = d / 2.0 if d > 0 else rayon
+            self.assertAlmostEqual(b.rayon_a_grade(g), attendu, places=6)
+
+    @given(rayon=_RAYON, diams=_DIAMS, grade=_GRADE)
+    def test_borne_par_les_deux_directions_voisines(
+            self, rayon: float, diams: list[float], grade: float) -> None:
+        b = self._build(rayon, diams)
+        table = {g: (d / 2.0 if d > 0 else rayon)
+                for g, d in zip(GRADES, diams)}
+        g = grade % 400.0
+        g_lo = (int(g // 25) * 25) % 400
+        g_hi = (g_lo + 25) % 400
+        lo, hi = table[g_lo], table[g_hi]
+        r = b.rayon_a_grade(grade)
         eps = 1e-6
-        self.assertGreaterEqual(r, min(a, b) - eps)
-        self.assertLessEqual(r, max(a, b) + eps)
+        self.assertGreaterEqual(r, min(lo, hi) - eps)
+        self.assertLessEqual(r, max(lo, hi) + eps)
         self.assertTrue(math.isfinite(r))
 
-    @given(a=_AXES, b=_AXES, orient=_GRADE)
-    def test_rayon_egale_l_axe_visé(self, a: float, b: float,
-                                    orient: float) -> None:
-        # Sur le grand axe → a ; à 90° (100 gr) de là → b.
-        self.assertAlmostEqual(ellipse_radius(a, b, orient, orient), a,
-                               places=5)
-        self.assertAlmostEqual(ellipse_radius(a, b, orient, orient + 100), b,
-                               places=5)
-
-    @given(a=st.floats(min_value=-100.0, max_value=0.0), b=_AXES,
-           orient=_GRADE, grade=_GRADE)
-    def test_axe_degenere_pas_de_division_par_zero(
-            self, a: float, b: float, orient: float, grade: float) -> None:
-        # Axe nul/négatif : renvoie l'autre (cercle), jamais de crash.
-        self.assertEqual(ellipse_radius(a, b, orient, grade),
-                         max(a, b, 0.0))
+    @given(rayon=_RAYON, grade=_GRADE)
+    def test_sans_sondage_rayon_constant(self, rayon: float,
+                                         grade: float) -> None:
+        # Aucun diamètre local mesuré ⟹ rayon général partout (chemin
+        # historique, section circulaire).
+        b = Brin(rayon_tronc_cm=rayon)
+        self.assertAlmostEqual(b.rayon_a_grade(grade), rayon, places=6)
 
 
 class CatmullRomProperties(unittest.TestCase):

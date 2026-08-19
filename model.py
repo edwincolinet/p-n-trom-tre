@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from geometry import GRADES, ellipse_radius
+from geometry import GRADES
 
 # Niveaux d'urgence d'intervention (préconisation par arbre). Ordonnés du
 # plus urgent au moins urgent ; `""` (non listé) = non renseignée. Sert au
@@ -299,14 +299,6 @@ class Brin:
     pos_y_cm: float = 0.0            # (0, 0) pour un brin unique, centré)
     rotation_grades: int = 0        # rotation du repère local (réservé v2)
     rayon_tronc_cm: float = 20.0
-    # Section ovale (ellipse). `rayon_petit_axe_cm == 0` ⟹ section CIRCULAIRE
-    # (rayon = `rayon_tronc_cm` dans toutes les directions, comportement
-    # historique inchangé). Si `> 0`, le tronc est une ellipse :
-    # `rayon_tronc_cm` devient le **demi-grand-axe**, `rayon_petit_axe_cm` le
-    # **demi-petit-axe**, et `orientation_grade` le grade du grand axe. Le
-    # diagnostic calcule alors un t/R par direction avec le rayon LOCAL.
-    rayon_petit_axe_cm: float = 0.0
-    orientation_grade: int = 0
     diametre_sous_ecorce_cm: float = 0.0
     epaisseur_ecorce_cm: float = 0.0  # épaisseur radiale de l'écorce, ajoutée
     # vers l'extérieur du tronc — purement visuel, n'intervient pas dans la
@@ -315,24 +307,56 @@ class Brin:
     degradations_externes: List[DegradationExterne] = field(
         default_factory=list)
     contreforts: List[Contrefort] = field(default_factory=list)
+    # Diamètres locaux sous écorce mesurés à certaines directions (grade →
+    # diamètre cm), INDÉPENDANTS de tout sondage — une direction peut porter
+    # un diamètre local sans PRBS mesurée là (p. ex. mesuré au pied à
+    # coulisse pour capter un méplat entre deux sondages, sans multiplier
+    # les mesures au résistographe). Fixe le rayon local de sa direction ;
+    # une direction absente de la table retombe sur le rayon général
+    # `rayon_tronc_cm`. Permet d'approcher la vraie forme du tronc (jamais
+    # parfaitement cylindrique) sans ellipse globale — cf. `rayon_a_grade`.
+    diametres_locaux: Dict[int, float] = field(default_factory=dict)
+
+    def _rayon_locaux(self) -> Dict[int, float]:
+        """Rayon local (cm) aux 16 `GRADES` canoniques.
+
+        Un diamètre local renseigné (`diametres_locaux`) fixe le rayon de sa
+        direction ; sinon la direction retombe sur le rayon général
+        `rayon_tronc_cm`."""
+        table: Dict[int, float] = {}
+        for g in GRADES:
+            d = self.diametres_locaux.get(g, 0.0)
+            table[g] = d / 2.0 if d > 0 else self.rayon_tronc_cm
+        return table
 
     @property
-    def est_ovale(self) -> bool:
-        """Vrai si la section est une ellipse (petit axe renseigné et ≠ grand).
-
-        Un petit axe nul, ou égal au grand axe, vaut section circulaire."""
-        return (self.rayon_petit_axe_cm > 0
-                and abs(self.rayon_petit_axe_cm - self.rayon_tronc_cm) > 1e-9)
+    def a_rayon_variable(self) -> bool:
+        """Vrai si au moins une direction a un rayon local différent du rayon
+        général (un sondage y porte un diamètre mesuré propre)."""
+        return any(abs(r - self.rayon_tronc_cm) > 1e-9
+                   for r in self._rayon_locaux().values())
 
     def rayon_a_grade(self, grade: float) -> float:
         """Rayon extérieur du bois (cm) dans la direction `grade`.
 
-        Section circulaire → `rayon_tronc_cm` constant (chemin historique).
-        Section ovale → rayon de l'ellipse (cf. `geometry.ellipse_radius`)."""
-        if not self.est_ovale:
-            return self.rayon_tronc_cm
-        return ellipse_radius(self.rayon_tronc_cm, self.rayon_petit_axe_cm,
-                              self.orientation_grade, grade)
+        Lecture exacte dans la table des 16 rayons locaux si `grade` est un
+        grade canonique ; entre deux directions mesurées, **interpolation
+        lissée par cosinus** (raccord à dérivée nulle à chaque direction
+        mesurée — pas d'angle vif — tout en restant **strictement bornée**
+        entre les deux valeurs voisines, jamais de dépassement contrairement
+        à une spline) — utilisé pour le contour dessiné, échantillonné à des
+        grades quelconques (`geometry.contour_polygon`)."""
+        table = self._rayon_locaux()
+        g = grade % 400.0
+        g_int = round(g)
+        if abs(g - g_int) < 1e-9 and g_int % 25 == 0:
+            return table[g_int % 400]
+        g_lo = (int(g // 25) * 25) % 400
+        g_hi = (g_lo + 25) % 400
+        r_lo, r_hi = table[g_lo], table[g_hi]
+        t = (g - g_lo) / 25.0
+        t_lisse = (1.0 - math.cos(math.pi * t)) / 2.0
+        return r_lo + (r_hi - r_lo) * t_lisse
 
     def extent_cm(self) -> float:
         """Rayon d'encombrement (cm) : distance maximale du cœur du brin à sa
@@ -384,11 +408,11 @@ class Brin:
         """Réaligne le bois altéré (et la profondeur des dégradations) sur le
         rayon LOCAL de chaque direction, en **préservant la PRBS**.
 
-        Pour une section circulaire, le rayon local vaut `rayon_tronc_cm`
+        Sans diamètre local mesuré, le rayon local vaut `rayon_tronc_cm`
         partout → comportement strictement identique à l'ancien `set_rayon`.
-        Pour une section ovale, chaque sondage est borné par le rayon de SA
-        direction (`rayon_a_grade`). À appeler après tout changement de
-        forme (rayon, petit axe, orientation)."""
+        Avec un diamètre local sur certaines directions, chaque sondage est
+        borné par le rayon de SA direction (`rayon_a_grade`). À appeler après
+        tout changement de rayon (général ou local d'un sondage)."""
         for s in self.sondages:
             r_loc = self.rayon_a_grade(s.grade)
             s.bois_sain_cm = min(s.bois_sain_cm, r_loc)
@@ -402,22 +426,47 @@ class Brin:
                 r_max += max(0.0, self.epaisseur_ecorce_cm)
             deg.profondeur_cm = min(deg.profondeur_cm, r_max)
 
-    def set_forme_ovale(self, petit_axe_cm: float,
-                        orientation_grade: int) -> bool:
-        """Définit la section ovale (demi-petit-axe + orientation du grand
-        axe) et réaligne le bois altéré sur le rayon local (PRBS préservée).
+    def set_diametre_local(self, grade: int, diametre_cm: float) -> bool:
+        """Définit (ou efface) le diamètre local sous écorce mesuré à UNE
+        direction — **indépendant de tout sondage** : peut être renseigné
+        même sans PRBS mesurée à cette direction (p. ex. pour modéliser un
+        méplat entre deux sondages sans multiplier les mesures au
+        résistographe). Réaligne le bois altéré du sondage éventuellement
+        présent à cette direction — **sans jamais retoucher sa PRBS**
+        (`bois_sain_cm`) : contrairement à `set_rayon` (rayon général, réglé
+        une fois en amont de la saisie), le Ø local peut être ajusté après
+        coup, et reclamper la PRBS ici la ferait changer à CHAQUE
+        ajustement dans le cas courant (mesure locale plus étroite que le
+        rayon général) — la PRBS est une mesure physique du pénétromètre,
+        elle ne doit jamais bouger silencieusement. La profondeur des
+        dégradations de cette même direction est bornée par sécurité (même
+        principe que `_resync_sondages_local`, restreint à cette direction).
 
-        `petit_axe_cm <= 0` (ou == grand axe) ⟹ section circulaire. Renvoie
-        `True` si la forme a effectivement changé (l'UI rafraîchit alors les
-        tables dépendantes du rayon)."""
-        old = (self.rayon_petit_axe_cm, self.orientation_grade)
-        self.rayon_petit_axe_cm = max(0.0, petit_axe_cm)
-        self.orientation_grade = orientation_grade
-        if (abs(self.rayon_petit_axe_cm - old[0]) <= 1e-9
-                and self.orientation_grade == old[1]):
+        `diametre_cm <= 0` efface l'entrée ⟹ direction « non renseignée »,
+        retombe sur le rayon général. Renvoie `True` si la valeur a
+        effectivement changé (l'UI rafraîchit alors les tables dépendantes
+        du rayon)."""
+        diametre_cm = max(0.0, diametre_cm)
+        old = self.diametres_locaux.get(grade, 0.0)
+        if abs(diametre_cm - old) <= 1e-9:
             return False
+        if diametre_cm > 0:
+            self.diametres_locaux[grade] = diametre_cm
+        else:
+            self.diametres_locaux.pop(grade, None)
         if self.rayon_tronc_cm > 0:
-            self._resync_sondages_local()
+            r_loc = self.rayon_a_grade(grade)
+            sondage = next((s for s in self.sondages if s.grade == grade),
+                           None)
+            if sondage is not None:
+                sondage.bois_altere_cm = max(0.0, r_loc - sondage.bois_sain_cm)
+            for deg in self.degradations_externes:
+                if deg.grade_debut != grade:
+                    continue
+                r_max = r_loc
+                if deg.comprend_ecorce:
+                    r_max += max(0.0, self.epaisseur_ecorce_cm)
+                deg.profondeur_cm = min(deg.profondeur_cm, r_max)
         return True
 
     def renumeroter_sondages(self) -> None:
@@ -558,24 +607,8 @@ class Arbre:
         self.brin_courant.rayon_tronc_cm = value
 
     @property
-    def rayon_petit_axe_cm(self) -> float:
-        return self.brin_courant.rayon_petit_axe_cm
-
-    @rayon_petit_axe_cm.setter
-    def rayon_petit_axe_cm(self, value: float) -> None:
-        self.brin_courant.rayon_petit_axe_cm = value
-
-    @property
-    def orientation_grade(self) -> int:
-        return self.brin_courant.orientation_grade
-
-    @orientation_grade.setter
-    def orientation_grade(self, value: int) -> None:
-        self.brin_courant.orientation_grade = value
-
-    @property
-    def est_ovale(self) -> bool:
-        return self.brin_courant.est_ovale
+    def a_rayon_variable(self) -> bool:
+        return self.brin_courant.a_rayon_variable
 
     def rayon_a_grade(self, grade: float) -> float:
         return self.brin_courant.rayon_a_grade(grade)
@@ -624,12 +657,18 @@ class Arbre:
         """Relais : modifie le rayon du brin courant (cf. `Brin.set_rayon`)."""
         return self.brin_courant.set_rayon(new_R)
 
-    def set_forme_ovale(self, petit_axe_cm: float,
-                        orientation_grade: int) -> bool:
-        """Relais : définit la section ovale du brin courant
-        (cf. `Brin.set_forme_ovale`)."""
-        return self.brin_courant.set_forme_ovale(petit_axe_cm,
-                                                 orientation_grade)
+    @property
+    def diametres_locaux(self) -> Dict[int, float]:
+        return self.brin_courant.diametres_locaux
+
+    @diametres_locaux.setter
+    def diametres_locaux(self, value: Dict[int, float]) -> None:
+        self.brin_courant.diametres_locaux = value
+
+    def set_diametre_local(self, grade: int, diametre_cm: float) -> bool:
+        """Relais : définit le diamètre local d'une direction du brin
+        courant (cf. `Brin.set_diametre_local`)."""
+        return self.brin_courant.set_diametre_local(grade, diametre_cm)
 
     def renumeroter_sondages(self) -> None:
         self.brin_courant.renumeroter_sondages()
@@ -657,15 +696,14 @@ class Arbre:
         """Ajoute un brin à la cépée et le renvoie.
 
         Le nouveau brin **hérite de la forme** du brin le plus à l'Est
-        (rayon, ellipse, écorce, diamètre) mais PAS de ses mesures (sondages,
-        dégradations, contreforts — à relever sur la nouvelle tige). Il est
-        placé à l'**Est** de la cépée, sans recouvrement (`pos_x` au-delà du
-        bord droit + marge). Les labels sont remis à jour (a, b, c…)."""
+        (rayon, écorce, diamètre) mais PAS de ses mesures (sondages,
+        dégradations, contreforts — à relever sur la nouvelle tige, diamètres
+        locaux compris). Il est placé à l'**Est** de la cépée, sans
+        recouvrement (`pos_x` au-delà du bord droit + marge). Les labels sont
+        remis à jour (a, b, c…)."""
         ref = self.brins[-1] if self.brins else Brin()
         nouveau = Brin(
             rayon_tronc_cm=ref.rayon_tronc_cm,
-            rayon_petit_axe_cm=ref.rayon_petit_axe_cm,
-            orientation_grade=ref.orientation_grade,
             epaisseur_ecorce_cm=ref.epaisseur_ecorce_cm,
             diametre_sous_ecorce_cm=ref.diametre_sous_ecorce_cm,
         )

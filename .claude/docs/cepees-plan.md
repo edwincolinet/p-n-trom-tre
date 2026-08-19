@@ -23,21 +23,45 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
   une **classe globale = pire brin** (approche sécuritaire). La globale
   s'agrège sur les *classes* des brins, **jamais** sur un t/R moyen
   inter-brins (repères polaires distincts, ça n'a pas de sens physique).
-- **Forme singulière** : **ellipse paramétrique** (grand axe / petit axe /
-  orientation). FAIT (Étape 1). Pas de rayon-par-direction ni de spline libre.
+- **Forme singulière** : ~~ellipse paramétrique (grand axe / petit axe /
+  orientation), FAIT (Étape 1)~~ **SUPERSEDÉE** — remplacée par le
+  **diamètre local par direction** (`Brin.diametres_locaux: Dict[int, float]`,
+  jusqu'à 16 points mesurés au lieu de 2, interpolation **lissée par
+  cosinus** entre voisins mesurés — d'abord linéaire, changé après retour
+  d'Edwin sur le rendu trop « facetté »). Décision d'Edwin qui revient
+  explicitement sur le « pas de rayon-par-direction » ci-dessous — cf.
+  CLAUDE.md « Diamètre local par direction ». **Itération 2 (2026-08-19)** :
+  le diamètre local, d'abord porté par `Sondage.diametre_sous_ecorce_cm`, a
+  été promu au niveau du **brin** (`diametres_locaux`), **découplé de tout
+  sondage** — un point de forme (méplat, bourrelet…) peut être saisi sans
+  PRBS mesurée à cette direction (retour d'Edwin : des sondages espacés
+  laissaient les directions intermédiaires retomber sur le rayon général,
+  donnant un contour en « vagues » là où le terrain suggérait un méplat
+  continu). Migration automatique au chargement d'un fichier de la version
+  transitoire (`persistence._brin_from_dict`). L'éditeur avancé
+  `dialogs.ask_forme_tronc` et les champs
+  `Brin.rayon_petit_axe_cm`/`orientation_grade`/`est_ovale` sont **retirés**
+  du code (renommé `a_rayon_variable`) ; les fichiers de mission antérieurs
+  utilisant l'ellipse repassent en section circulaire au chargement (pas de
+  migration, contrairement au diamètre local).
 - **Position des brins** : **placement à la souris** (à affiner si besoin).
-- **UX** : tout ce qui touche formes/cépées vit dans un **éditeur avancé
-  dédié** (`dialogs.ask_forme_tronc`, à faire grandir), PAS en ligne dans le
-  formulaire — le cas par défaut (tronc circulaire mono-brin) reste simple.
+- **UX** : le diamètre local vit **en ligne** dans la grille Sondages
+  (colonne « Ø local (cm) »), pas dans un éditeur avancé séparé — le cas par
+  défaut (tronc circulaire mono-brin, aucune direction renseignée) reste
+  simple.
 
 ## 3. État d'avancement
 
 - [x] **Étape 0** — `Brin` (ramet) extrait d'`Arbre` (genet),
   `Arbre.brins: List[Brin]` ≥ 1, shims de compat (`brins[0]`), persistence
   v3 + migration. Invisible. (`e89ac60`)
-- [x] **Étape 1** — tronc **ovale** : modèle/diagnostic (t/R local),
+- [x] ~~**Étape 1** — tronc **ovale** : modèle/diagnostic (t/R local),
   rendu elliptique PIL+Tk (goldens préservés), éditeur avancé `ask_forme_tronc`.
-  (`059fed6` `7ede5bb` `d5c8515` `d6291e2`)
+  (`059fed6` `7ede5bb` `d5c8515` `d6291e2`)~~ **SUPERSEDÉE** par le diamètre
+  local par sondage (cf. § 2 ci-dessus) — le rayon variable par direction
+  reste `Brin.rayon_a_grade(grade)` (exact aux 16 grades, interpolé
+  linéairement entre voisins sinon), mais la saisie et le stockage ont
+  changé.
 - [x] **Étape 2** — rendu **multi-brins** (lecture seule) + saisie « ＋ Brin ».
   - [x] 2a — extraction `_draw_brin` (Tk + PIL) à comportement constant,
     goldens byte-identiques. (`e1f48fe`)
@@ -88,9 +112,9 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     brin neuf. Premiers shims `brins[0]` retirés des panes de saisie.
     +5 tests (`tests/test_app.py`).
   - [x] 4b — **éditeur souris** de la disposition : `dialogs.ask_cepee_layout`
-    (nouveau Toplevel, **pas** une extension de `ask_forme_tronc` qui édite
-    une seule forme). Canvas qui dessine chaque brin via `contour_polygon`
-    (cercle OU ellipse orientée, fidèle), cadrage figé à l'ouverture par
+    (nouveau Toplevel, dédié à la position/rotation — pas à la forme).
+    Canvas qui dessine chaque brin via `contour_polygon`
+    (cercle OU rayon variable par direction, fidèle), cadrage figé à l'ouverture par
     `geometry.brins_layout` (le dessin ne saute pas pendant le glissement).
     **Glisser-déposer** un brin pour fixer `pos_x_cm`/`pos_y_cm` ; le brin
     « a » est l'**ancre** du repère (fixe, non déplaçable) → invariant
@@ -104,22 +128,24 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome).
     `contrefort_zone_outline` / `degradation_externe_outline` /
     `diagnostic.sondage_render_data` reçoivent un `rotation_grades` (défaut 0.0)
     qui **décale l'angle de placement** (radius évalué au grade LOCAL) → forme
-    ovale, cavité, sondages, contreforts, dégradations pivotent ensemble ;
-    **boussole (ticks/cardinales) reste au Nord du monde**. Cercle = invariant
-    par rotation → primitive native conservée (goldens byte-identiques,
-    `rotation_grades=0` ⟹ `g+0.0==g`). `ask_cepee_layout` renvoie désormais des
-    **triplets** `(pos_x, pos_y, rotation_grades)`. Diagnostic (classes/t/R)
-    inchangé (rotation purement visuelle). Fixture golden `cepee_rotation`
-    (PIL + Tk). **280 tests**.
+    à rayon variable, cavité, sondages, contreforts, dégradations pivotent
+    ensemble ; **boussole (ticks/cardinales) reste au Nord du monde**. Cercle
+    = invariant par rotation → primitive native conservée (goldens
+    byte-identiques, `rotation_grades=0` ⟹ `g+0.0==g`). `ask_cepee_layout`
+    renvoie désormais des **triplets** `(pos_x, pos_y, rotation_grades)`.
+    Diagnostic (classes/t/R) inchangé (rotation purement visuelle). Fixture
+    golden `cepee_rotation` (PIL + Tk). **280 tests**.
     - *Reporté (révisable)* : édition de la **forme par brin** depuis cet
-      éditeur (déjà possible via le sélecteur de brin + « Forme du tronc… »).
+      éditeur (déjà possible via le sélecteur de brin + la grille Sondages,
+      colonne « Ø local »).
 
 ## 4. Modèle de données (déjà en place)
 
 `Brin` porte déjà tout le nécessaire (cf. `model.py`) :
-`rayon_tronc_cm` (demi-grand-axe), `rayon_petit_axe_cm`, `orientation_grade`,
-`epaisseur_ecorce_cm`, `diametre_sous_ecorce_cm`, `sondages`,
-`degradations_externes`, `contreforts`, et **`pos_x_cm`, `pos_y_cm`,
+`rayon_tronc_cm` (rayon général), `epaisseur_ecorce_cm`,
+`diametre_sous_ecorce_cm`, `sondages`, `diametres_locaux: Dict[int, float]`
+(grade → diamètre cm — le rayon variable par direction, **indépendant** des
+`sondages`), `degradations_externes`, `contreforts`, et **`pos_x_cm`, `pos_y_cm`,
 `rotation_grades`** (réservés, = 0 pour un brin unique centré).
 `label` (« a », « b », …).
 
@@ -173,14 +199,14 @@ en miroir) :
 brin dans le plan du genet, origine = cœur du brin[0] (ou centroïde — à
 trancher). x → Est, y → Sud (cohérent avec l'écran ; grade 0 = Nord = -y).
 
-**Tests** : fixture « cepee » (2-3 brins positionnés, dont un ovale) → goldens
+**Tests** : fixture « cepee » (2-3 brins positionnés, dont un à rayon variable) → goldens
 PIL + Tk. Vérifier que les 5 fixtures existantes restent byte-identiques
 (genet 1 brin). Test unitaire `extent_cm` + cadrage (bbox attendue).
 
 **⚠ Trouvaille technique (à ne pas redécouvrir)** : `_draw_brin` a besoin du
 **genet ET du brin**. Les couches de contour (bois/écorce/cernes/contreforts/
 dégradations) ne lisent que des attributs présents sur `Brin`
-(`est_ovale`, `rayon_a_grade`, `contreforts`, `epaisseur_ecorce_cm`,
+(`a_rayon_variable`, `rayon_a_grade`, `contreforts`, `epaisseur_ecorce_cm`,
 `rayon_tronc_cm`) → changer leur signature `arbre` → `brin` (duck-typing : un
 `Arbre` via shims ou un `Brin` natif marchent tous deux, donc mono-brin reste
 identique). **MAIS** `sondage_render_data` lit aussi `port_arbre` et `meche_cm`
@@ -212,14 +238,16 @@ goldens inchangés), PUIS ajouter le cadrage multi-brins et le « ＋ Brin ».
 
 ## 7. Étape 4 — Éditeur souris (le gros morceau UX)
 
-Faire grandir `ask_forme_tronc` (ou un nouveau Toplevel plus large) en
-**éditeur de cépée** :
+> Plan d'origine ; réalisé différemment (Étape 4b/4c) via un nouveau
+> Toplevel dédié à la position/rotation (`dialogs.ask_cepee_layout`), la
+> forme (diamètre local) restant éditée dans la grille Sondages plutôt que
+> dans cet éditeur — cf. § 3 ci-dessus.
 
 - Un **canvas d'édition** montrant les brins ; cliquer-glisser un brin le
   déplace (`pos_x/pos_y`) ; molette/poignée pour `rotation_grades` ; bouton
   « ＋ Brin » / « Supprimer brin » ; champ label.
-- Par brin sélectionné : ses paramètres de forme (rayon, ellipse) — réutilise
-  la logique Étape 1.
+- Par brin sélectionné : ses paramètres de forme (rayon, diamètre local par
+  sondage).
 - **Sélecteur de brin** pour la **grille de saisie 16 directions**
   (`pane_sondages`) : aujourd'hui elle édite `brins[0]` via shims. Ajouter un
   sélecteur (combobox/onglets « Brin a / b / c ») qui repointe la grille sur le
@@ -230,8 +258,9 @@ Faire grandir `ask_forme_tronc` (ou un nouveau Toplevel plus large) en
 
 ## 8. Invariants & garde-fous (à respecter à CHAQUE étape)
 
-- **Goldens** : genet mono-brin centré circulaire/ovale = rendu byte-identique.
-  Toute couche de rendu branche sur le cas simple AVANT le cas multi/ovale.
+- **Goldens** : genet mono-brin centré circulaire = rendu byte-identique.
+  Toute couche de rendu branche sur le cas simple AVANT le cas multi-brin/
+  rayon variable.
   Régénérer les goldens ne doit modifier AUCUNE fixture existante (seules les
   nouvelles s'ajoutent) — c'est le test de non-régression.
 - **Compat fichier** : champs additifs avec défaut = OK (pas de bump). Un bump

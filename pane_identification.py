@@ -33,7 +33,6 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from aide_repliable import AideRepliable
 from bareme import PORTS_ARBRE
-from dialogs import ask_forme_tronc
 from dialogs_shared import to_float, validate_numeric
 from i18n import _, translate_values, untranslate_value
 from model import Arbre, Brin
@@ -203,15 +202,7 @@ class IdentificationPane(ttk.Frame):
             w.bind("<FocusIn>", lambda e: self._on_rayon_field_focus_in())
             w.bind("<FocusOut>", lambda e: self._on_rayon_field_focus_out())
 
-        # Éditeur avancé de forme (section ovale) : volontairement hors du
-        # formulaire courant pour ne pas alourdir la saisie du cas par
-        # défaut (tronc circulaire). Bouton sous les champs du « Tronc ».
         if self._tronc_box is not None:
-            self.btn_forme = ttk.Button(
-                self._tronc_box, text=_("Forme du tronc (ovale)…"),
-                style="Ghost.TButton", command=self._open_forme_editor)
-            self.btn_forme.grid(row=99, column=0,
-                                columnspan=2, sticky="w", pady=(6, 0))
             # Cépée : ajouter / retirer un brin (ramet). Le formulaire ci-dessus
             # édite le 1er brin ; « ＋ Brin » crée une tige héritée placée à
             # l'Est (mesures à relever séparément — la saisie par brin arrivera
@@ -272,9 +263,9 @@ class IdentificationPane(ttk.Frame):
             _("Saisir le diamètre calcule le rayon (÷ 2). "
               "PRBS inchangée si rayon corrigé après sondages : "
               "le bois altéré seul est recalculé."),
-            _("Tronc ovale : bouton « Forme du tronc (ovale)… »"
-              " pour saisir le petit axe et l'orientation. Par défaut "
-              "la section est circulaire."),
+            _("Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
+              "diamètre local dans l'onglet Sondages, direction par "
+              "direction — vide = diamètre général ci-dessus."),
         ).grid(row=len(groupes) + 1, column=0, sticky="we", pady=(6, 0))
         content.columnconfigure(0, weight=1)
 
@@ -452,31 +443,6 @@ class IdentificationPane(ttk.Frame):
         b.rayon_tronc_cm = old_R
         self._host.push_undo()
         adjusted = b.set_rayon(new_R)
-        self._host.on_identification_changed(rayon_adjusted=adjusted)
-
-    def _open_forme_editor(self) -> None:
-        """Ouvre l'éditeur avancé de forme (section ovale) et applique le
-        résultat : push undo + `set_forme_ovale` (réaligne le bois altéré
-        sur le rayon local, PRBS préservée). Annulation ⟹ aucun effet."""
-        b = self._host._current_brin()
-        if not b:
-            return
-        # Flush d'une édition de rayon en cours avant d'ouvrir l'éditeur,
-        # pour que le grand axe affiché soit à jour.
-        self._commit_rayon()
-        res = ask_forme_tronc(
-            self.winfo_toplevel(),
-            grand_axe_cm=b.rayon_tronc_cm,
-            petit_axe_cm=b.rayon_petit_axe_cm,
-            orientation_grade=b.orientation_grade)
-        if res is None:
-            return
-        petit_v, orient_v = res
-        if (abs(petit_v - b.rayon_petit_axe_cm) <= 1e-9
-                and orient_v == b.orientation_grade):
-            return
-        self._host.push_undo()
-        adjusted = b.set_forme_ovale(petit_v, orient_v)
         self._host.on_identification_changed(rayon_adjusted=adjusted)
 
     def _sync_to_model(self) -> None:

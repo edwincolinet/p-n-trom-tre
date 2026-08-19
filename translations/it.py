@@ -109,7 +109,6 @@ TRANSLATIONS = {
     "Rayon (cm)":                          "Raggio (cm)",
     "Diamètre (cm)":                       "Diametro (cm)",
     "Épaisseur écorce (cm)":               "Spessore corteccia (cm)",
-    "Forme du tronc…":                     "Forma del tronco…",
     "＋ Brin":                             "＋ Fusto",
     "− Brin":                              "− Fusto",
     "Disposition…":                        "Disposizione…",
@@ -117,6 +116,7 @@ TRANSLATIONS = {
     # ── Scheda Sondaggi ───────────────────────────────────────────────
     "Direction":                           "Direzione",
     "Grade":                               "Grado",
+    "Ø local (cm)":                        "Ø locale (cm)",
     "Bois sain (cm)":                      "Legno sano (cm)",
     "Altéré (cm)":                         "Alterato (cm)",
     "Comp.":                               "Comp.",
@@ -219,7 +219,6 @@ TRANSLATIONS = {
     "Hauteur du sondage (cm)":            "Altezza sondaggio (cm)",
     "Notes":                              "Note",
     "Commentaire":                        "Commento",
-    "Forme du tronc (ovale)…":            "Forma del tronco (ovale)…",
     "Cépée : {n} brins":                 "Ceppaia: {n} fusti",
     "1 brin (tige unique)":              "1 fusto (tronco singolo)",
 
@@ -332,15 +331,8 @@ TRANSLATIONS = {
     "Aujourd'hui":                         "Oggi",
     "Effacer":                             "Cancella",
 
-    "Petit axe — rayon (cm)":             "Semiasse minore — raggio (cm)",
-    "Orientation grand axe (gr)":         "Orientazione asse maggiore (gr)",
-    "↺ Circulaire":                       "↺ Circolare",
-    "Efface le petit axe et l'orientation — "
-    "revient à une section circulaire.":
-        "Cancella il semiasse minore e l'orientazione — "
-        "torna a una sezione circolare.",
-
     "Direction (grade)":                   "Direzione (grado)",
+    "Ø local sous écorce (cm)":           "Ø locale sotto corteccia (cm)",
     "Épaisseur bois sain (cm)":           "Spessore legno sano (cm)",
     "Épaisseur bois altéré (cm)":         "Spessore legno alterato (cm)",
     "Compartimentation":                   "Compartimentazione",
@@ -388,8 +380,6 @@ TRANSLATIONS = {
     "La décision d'expertise : quoi faire, et quand.":
         "La decisione peritale: cosa fare e quando.",
 
-    "Laissez le petit axe vide pour une section circulaire.":
-        "Lasciare vuoto il semiasse minore per una sezione circolare.",
     "Longueur radiale (cm, vers l'extérieur)":
         "Lunghezza radiale (cm, verso l'esterno)",
 
@@ -434,18 +424,26 @@ TRANSLATIONS = {
         "PRBS invariata se il raggio viene corretto dopo i sondaggi: "
         "solo il legno alterato viene ricalcolato.",
 
-    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
-    " pour saisir le petit axe et l'orientation. Par défaut "
-    "la section est circulaire.":
-        "Tronco ovale: pulsante « Forma del tronco (ovale)… » "
-        "per il semiasse minore e l'orientazione. Sezione circolare per default.",
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
+    "diamètre local dans l'onglet Sondages, direction par "
+    "direction — vide = diamètre général ci-dessus.":
+        "Il tronco non è perfettamente cilindrico? Inserire un "
+        "diametro locale nella scheda Sondaggi, direzione per "
+        "direzione — vuoto = diametro generale sopra.",
 
     "Laissez vide une direction non sondée. Effacer supprime le sondage "
-    "(commentaire et compartimentation compris). "
+    "(commentaire, compartimentation et Ø local compris). "
     "Double-cliquez pour le détail.":
         "Lasciare vuoto per una direzione non sondeggiata. Cancellare rimuove il sondaggio "
-        "(inclusi commento e compartimentazione). "
+        "(inclusi commento, compartimentazione e Ø locale). "
         "Doppio clic per i dettagli.",
+
+    "Ø local : diamètre sous écorce mesuré à CETTE direction (un "
+    "tronc n'est jamais parfaitement cylindrique). Laissez vide "
+    "pour utiliser le diamètre général de l'onglet Identification.":
+        "Ø locale: diametro sotto corteccia misurato a QUESTA direzione "
+        "(un tronco non è mai perfettamente cilindrico). Lasciare vuoto "
+        "per usare il diametro generale della scheda Identificazione.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
         "Doppio clic per i dettagli (commento, grado)",
@@ -486,6 +484,10 @@ TRANSLATIONS = {
         "Sondaggio {dir} eliminato. Ctrl+Z per annullare.",
     "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
         "Legno sano limitato al raggio ({r:g} cm): la PRBS non può superare il raggio.",
+    "Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
+    "local inférieur au bois sain déjà saisi.":
+        "Ø locale alzato a {d:g} cm: non può dare un raggio locale "
+        "inferiore al legno sano già inserito.",
 
     "(réf. {r}  →  courant {c})":       "(rif. {r}  →  corrente {c})",
     "Référence — {r}":                   "Riferimento — {r}",

@@ -179,11 +179,13 @@ class LayoutMixin(_MixinBase):
         self.var_ch_date = tk.StringVar(value=self.chantier.date_releve)
         self._meta_snapshot: Optional[str] = None
         self._date_focus_in_value = ""
-        # Rangée 1 : identification mission
+        # Rangée unique : mission, adresse, client, opérateur, date — tout
+        # sur la même ligne (gain de place et de lisibilité par rapport aux
+        # deux rangées précédentes).
         row1 = ttk.Frame(meta, style="Panel.TFrame")
-        row1.pack(fill="x", pady=(0, 2))
-        for lbl, var, w in [(_("Mission"), self.var_ch_nom, 22),
-                             (_("Adresse"), self.var_ch_adr, 28)]:
+        row1.pack(fill="x")
+        for lbl, var, w in [(_("Mission"), self.var_ch_nom, 18),
+                             (_("Adresse"), self.var_ch_adr, 22)]:
             ttk.Label(row1, text=lbl).pack(side="left", padx=(0, 4))
             e = ttk.Entry(row1, textvariable=var, width=w)
             e.pack(side="left", padx=(0, 14))
@@ -193,23 +195,20 @@ class LayoutMixin(_MixinBase):
             if lbl == _("Mission"):
                 Tooltip(e, _("Nom de la mission — peut aussi porter une "
                              "référence ou un n° de commande."))
-        # Rangée 2 : client, opérateur, date
-        row2 = ttk.Frame(meta, style="Panel.TFrame")
-        row2.pack(fill="x")
-        for lbl, var, w in [(_("Client"), self.var_ch_client, 20),
-                             (_("Opérateur"), self.var_ch_ope, 18),
+        for lbl, var, w in [(_("Client"), self.var_ch_client, 16),
+                             (_("Opérateur"), self.var_ch_ope, 14),
                              (_("Date"), self.var_ch_date, 12)]:
-            ttk.Label(row2, text=lbl).pack(side="left", padx=(0, 4))
+            ttk.Label(row1, text=lbl).pack(side="left", padx=(0, 4))
             var.trace_add("write", lambda *a: self._sync_chantier_meta())
             if lbl == _("Client"):
-                e = ttk.Entry(row2, textvariable=var, width=w)
+                e = ttk.Entry(row1, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 14))
                 e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._meta_focus_out())
             elif lbl == _("Opérateur"):
                 # Combobox éditable : propose l'historique des opérateurs.
                 self._ope_cmb = ttk.Combobox(
-                    row2, textvariable=var, width=w, state="normal",
+                    row1, textvariable=var, width=w, state="normal",
                     values=self._settings.get_operateurs_history())
                 self._ope_cmb.pack(side="left", padx=(0, 14))
                 self._ope_cmb.bind("<FocusIn>",
@@ -219,19 +218,19 @@ class LayoutMixin(_MixinBase):
                 Tooltip(self._ope_cmb,
                         _("Nom de l'opérateur — mémorisé entre les sessions."))
             elif lbl == _("Date"):
-                e = ttk.Entry(row2, textvariable=var, width=w)
+                e = ttk.Entry(row1, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 2))
                 e.bind("<FocusIn>", lambda ev: self._date_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, "Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement).")
-                btn_cal = ttk.Button(row2, text="📅", width=3,
+                btn_cal = ttk.Button(row1, text="📅", width=3,
                                      style="Ghost.TButton",
                                      command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
                 Tooltip(btn_cal, "Choisir la date au calendrier")
             else:
-                e = ttk.Entry(row2, textvariable=var, width=w)
+                e = ttk.Entry(row1, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 14))
                 e.bind("<FocusIn>", lambda ev: self._meta_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._meta_focus_out())

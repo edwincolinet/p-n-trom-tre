@@ -902,9 +902,96 @@ class TestSaisieGardeFous(unittest.TestCase):
         self.assertEqual(pane._rows[0]["sain"].get(), "20")  # affichage recalé
         self.assertIn("limité au rayon", self.app.lbl_status.cget("text"))
 
+    # --- Ø local ne peut jamais être < bois sain déjà saisi -----------
+
+    def test_diametre_local_releve_au_minimum_valide_et_signale(self) -> None:
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("15")
+        pane._on_focus_out(0)
+        pane._on_diam_focus_in(0)
+        pane._rows[0]["diam"].set("10")           # r=5 < bois sain=15
+        s = pane._find_sondage(b, 0)
+        self.assertEqual(b.diametres_locaux.get(0), 30.0)  # relevé à 2×15
+        self.assertEqual(s.bois_sain_cm, 15.0)     # la PRBS n'a pas bougé
+        pane._on_diam_focus_out(0)
+        self.assertEqual(pane._rows[0]["diam"].get(), "30")  # affichage recalé
+        self.assertIn("relevé à 30", self.app.lbl_status.cget("text"))
+
+    def test_diametre_local_suffisant_n_est_pas_touche(self) -> None:
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("15")
+        pane._on_focus_out(0)
+        self.app.set_status("BASE")
+        pane._on_diam_focus_in(0)
+        pane._rows[0]["diam"].set("40")           # r=20 >= bois sain=15 : OK
+        pane._on_diam_focus_out(0)
+        self.assertEqual(b.diametres_locaux.get(0), 40.0)
+        self.assertEqual(self.app.lbl_status.cget("text"), "BASE")
+
+    def test_diametre_local_sans_sondage_est_accepte(self) -> None:
+        # Cœur de la fonctionnalité : le Ø local est utilisable même sur une
+        # ligne SANS bois sain saisi (méplat repéré sans mesure au
+        # résistographe à cette direction).
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        pane = self.app.pane_s
+        pane.refresh()
+        self.assertEqual(str(pane._rows[0]["diam_entry"].cget("state")),
+                         "normal")
+        pane._on_diam_focus_in(0)
+        pane._rows[0]["diam"].set("32")
+        pane._on_diam_focus_out(0)
+        self.assertEqual(b.diametres_locaux.get(0), 32.0)
+        self.assertIsNone(pane._find_sondage(b, 0))  # aucun sondage créé
+        self.assertAlmostEqual(b.rayon_a_grade(0), 16.0)
+
     # --- Effacement destructeur signalé + undo immédiat ---------------
 
-    def test_effacer_sondage_avec_meta_signale_et_undo_immediat(self) -> None:
+    def test_vider_le_champ_sans_quitter_ne_supprime_rien(self) -> None:
+        # Vider la case pendant la frappe (avant de quitter le champ) ne doit
+        # PAS supprimer le sondage : c'est souvent une étape transitoire
+        # avant de retaper une valeur corrigée.
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0,
+                                  commentaire="cavité humide"))
+        b.diametres_locaux[0] = 30.0
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("")
+        self.assertEqual(len(b.sondages), 1)
+        s = pane._find_sondage(b, 0)
+        self.assertEqual(s.commentaire, "cavité humide")
+        self.assertEqual(b.diametres_locaux.get(0), 30.0)
+
+    def test_supprimer_le_sondage_ne_touche_pas_le_diametre_local(self) -> None:
+        # Le Ø local vit indépendamment du sondage : le supprimer pour de
+        # bon (focus-out, champ resté vide) ne l'efface pas non plus.
+        b = self.app._current_brin()
+        b.set_rayon(20.0)
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0))
+        b.diametres_locaux[0] = 30.0
+        pane = self.app.pane_s
+        pane.refresh()
+        pane._on_focus_in(0)
+        pane._rows[0]["sain"].set("")
+        pane._on_focus_out(0)
+        self.assertEqual(len(b.sondages), 0)
+        self.assertEqual(b.diametres_locaux.get(0), 30.0)
+        self.assertEqual(pane._rows[0]["diam"].get(), "30")
+        self.assertEqual(str(pane._rows[0]["diam_entry"].cget("state")),
+                         "normal")
+
+    def test_effacer_sondage_avec_meta_signale_et_undo_au_focus_out(self) -> None:
         b = self.app._current_brin()
         b.set_rayon(20.0)
         b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0,
@@ -912,10 +999,10 @@ class TestSaisieGardeFous(unittest.TestCase):
         pane = self.app.pane_s
         pane.refresh()
         pane._on_focus_in(0)
-        pane._rows[0]["sain"].set("")            # efface => supprime l'objet
+        pane._rows[0]["sain"].set("")
+        pane._on_focus_out(0)   # champ toujours vide en quittant => suppression
         self.assertEqual(len(b.sondages), 0)
         self.assertIn("supprimé", self.app.lbl_status.cget("text"))
-        # Undo poussé TOUT DE SUITE (pas au focus-out) :
         self.assertTrue(self.app._undo_stack.can_undo)
         self.app._perform_undo()
         s = pane._find_sondage(self.app._current_brin(), 0)
@@ -931,6 +1018,7 @@ class TestSaisieGardeFous(unittest.TestCase):
         self.app.set_status("BASE")
         pane._on_focus_in(0)
         pane._rows[0]["sain"].set("")
+        pane._on_focus_out(0)
         self.assertEqual(self.app.lbl_status.cget("text"), "BASE")
 
     # --- Écho du brin courant (cépée) ---------------------------------

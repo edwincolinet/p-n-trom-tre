@@ -108,7 +108,6 @@ TRANSLATIONS = {
     "Rayon (cm)":                          "Radius (cm)",
     "Diamètre (cm)":                       "Diameter (cm)",
     "Épaisseur écorce (cm)":               "Bark thickness (cm)",
-    "Forme du tronc…":                     "Trunk shape…",
     "＋ Brin":                             "＋ Stem",
     "− Brin":                              "− Stem",
     "Disposition…":                        "Layout…",
@@ -116,6 +115,7 @@ TRANSLATIONS = {
     # ── Onglet Sondages ───────────────────────────────────────────────
     "Direction":                           "Direction",
     "Grade":                               "Grade",
+    "Ø local (cm)":                        "Local Ø (cm)",
     "Bois sain (cm)":                      "Sound wood (cm)",
     "Altéré (cm)":                         "Altered (cm)",
     "Comp.":                               "Comp.",
@@ -226,7 +226,6 @@ TRANSLATIONS = {
     "Hauteur du sondage (cm)":            "Sounding height (cm)",
     "Notes":                              "Notes",
     "Commentaire":                        "Comment",
-    "Forme du tronc (ovale)…":            "Trunk shape (oval)…",
     "Cépée : {n} brins":                 "Multi-stem: {n} stems",
     "1 brin (tige unique)":              "1 stem (single trunk)",
 
@@ -348,17 +347,9 @@ TRANSLATIONS = {
     "Aujourd'hui":                         "Today",
     "Effacer":                             "Clear",
 
-    # Forme du tronc
-    "Petit axe — rayon (cm)":             "Minor axis — radius (cm)",
-    "Orientation grand axe (gr)":         "Major axis orientation (gr)",
-    "↺ Circulaire":                       "↺ Circular",
-    "Efface le petit axe et l'orientation — "
-    "revient à une section circulaire.":
-        "Clears the minor axis and orientation — "
-        "reverts to a circular cross-section.",
-
     # Édition sondage
     "Direction (grade)":                   "Direction (grade)",
+    "Ø local sous écorce (cm)":           "Local Ø under bark (cm)",
     "Épaisseur bois sain (cm)":           "Sound wood thickness (cm)",
     "Épaisseur bois altéré (cm)":         "Altered wood thickness (cm)",
     "Compartimentation":                   "Compartmentalization",
@@ -411,8 +402,6 @@ TRANSLATIONS = {
         "The expert decision: what to do, and when.",
 
     # Dialogs misc
-    "Laissez le petit axe vide pour une section circulaire.":
-        "Leave the minor axis empty for a circular cross-section.",
     "Longueur radiale (cm, vers l'extérieur)":
         "Radial length (cm, outward)",
 
@@ -460,18 +449,26 @@ TRANSLATIONS = {
         "PRBS unchanged if radius corrected after soundings: "
         "only the altered wood is recalculated.",
 
-    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
-    " pour saisir le petit axe et l'orientation. Par défaut "
-    "la section est circulaire.":
-        "Oval trunk: use the « Trunk shape (oval)… » button "
-        "to set the minor axis and orientation. Circular by default.",
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
+    "diamètre local dans l'onglet Sondages, direction par "
+    "direction — vide = diamètre général ci-dessus.":
+        "Trunk not perfectly cylindrical? Enter a local diameter "
+        "in the Soundings tab, direction by direction — "
+        "empty = general diameter above.",
 
     "Laissez vide une direction non sondée. Effacer supprime le sondage "
-    "(commentaire et compartimentation compris). "
+    "(commentaire, compartimentation et Ø local compris). "
     "Double-cliquez pour le détail.":
         "Leave empty for an unsounded direction. Erasing removes the sounding "
-        "(including comment and compartmentalization). "
+        "(including comment, compartmentalization and local Ø). "
         "Double-click for details.",
+
+    "Ø local : diamètre sous écorce mesuré à CETTE direction (un "
+    "tronc n'est jamais parfaitement cylindrique). Laissez vide "
+    "pour utiliser le diamètre général de l'onglet Identification.":
+        "Local Ø: diameter under bark measured at THIS direction "
+        "(a trunk is never perfectly cylindrical). Leave empty "
+        "to use the general diameter from the Identification tab.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
         "Double-click for details (comment, grade)",
@@ -513,6 +510,10 @@ TRANSLATIONS = {
         "Sounding {dir} removed. Ctrl+Z to undo.",
     "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
         "Sound wood capped to radius ({r:g} cm): PRBS cannot exceed the radius.",
+    "Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
+    "local inférieur au bois sain déjà saisi.":
+        "Local Ø raised to {d:g} cm: it cannot give a local radius "
+        "smaller than the sound wood already entered.",
 
     # Comparaison window
     "(réf. {r}  →  courant {c})":       "(ref. {r}  →  current {c})",

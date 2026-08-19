@@ -72,7 +72,12 @@ from dialogs_shared import (
 from dialogs_shared import (
     validate_numeric as validate_numeric,
 )
-from geometry import DIRECTION_LABELS, brins_layout, contour_polygon
+from geometry import (
+    DIRECTION_LABELS,
+    brins_layout,
+    contour_polygon,
+    ring_polygon_points,
+)
 from i18n import _
 from model import (
     Arbre,
@@ -82,8 +87,16 @@ from model import (
     Sondage,
     degradations_chevauchements,
 )
-from palette import COLOR_ACCENT, COLOR_ACCENT_SOFT, COLOR_BG, COLOR_INK, COLOR_MUTED, COLOR_PANEL, COLOR_WOOD
-from tooltip import Tooltip
+from palette import (
+    COLOR_ACCENT,
+    COLOR_ACCENT_SOFT,
+    COLOR_BARK,
+    COLOR_BG,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_PANEL,
+    COLOR_WOOD,
+)
 from ui_fonts import font as ui_font
 
 # Les dialogues d'édition (sondage/dégradation/contrefort) ne lisent que de la
@@ -346,101 +359,6 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
 
 
 # ---------------------------------------------------------------------
-# Dialog : Forme du tronc (éditeur avancé — section ovale)
-# ---------------------------------------------------------------------
-
-def ask_forme_tronc(parent: tk.Misc, *, grand_axe_cm: float,
-                    petit_axe_cm: float, orientation_grade: int
-                    ) -> Optional[Tuple[float, int]]:
-    """Éditeur avancé de la forme de la section du tronc.
-
-    Volontairement séparé du formulaire Identification pour ne pas alourdir
-    la saisie courante (cas par défaut = section circulaire). Permet de
-    définir une section **ovale** (ellipse) : demi-petit-axe + orientation
-    du grand axe. Le grand axe (= rayon du tronc) est affiché en référence
-    et reste piloté par le formulaire — on ne l'édite pas ici pour garder
-    une source de vérité unique.
-
-    Renvoie `(petit_axe_cm, orientation_grade)` si validé, `None` si annulé.
-    Petit axe vide ou 0 ⟹ section circulaire. (Pensé comme point d'entrée
-    du futur éditeur de cépées / brins.)
-    """
-    dlg = tk.Toplevel(parent)
-    dlg.title("Forme du tronc")
-    dlg.configure(bg=COLOR_PANEL)
-    dlg.resizable(False, False)
-    dlg.columnconfigure(0, weight=1)
-    result: dict[str, Optional[Tuple[float, int]]] = {"val": None}
-
-    v_petit = tk.StringVar(value=f"{petit_axe_cm:g}" if petit_axe_cm else "")
-    v_orient = tk.StringVar(
-        value=f"{orientation_grade:g}" if petit_axe_cm else "")
-    vcmd = (dlg.register(validate_numeric), "%P")
-
-    ttk.Label(dlg, text=f"Grand axe (rayon du tronc) : {grand_axe_cm:g} cm",
-              background=COLOR_PANEL, justify="left").grid(
-        row=0, column=0, columnspan=2, sticky="w", padx=12, pady=(12, 8))
-
-    form = ttk.Frame(dlg, style="Panel.TFrame")
-    form.grid(row=1, column=0, sticky="we", padx=12)
-    form.columnconfigure(1, weight=1)
-    ttk.Label(form, text=_("Petit axe — rayon (cm)"),
-              style="Panel.TLabel").grid(row=0, column=0, sticky="w",
-                                         pady=4, padx=(0, 10))
-    e_petit = ttk.Entry(form, textvariable=v_petit, width=14,
-                        validate="key", validatecommand=vcmd)
-    e_petit.grid(row=0, column=1, sticky="we", pady=4)
-    ttk.Label(form, text=_("Orientation grand axe (gr)"),
-              style="Panel.TLabel").grid(row=1, column=0, sticky="w",
-                                         pady=4, padx=(0, 10))
-    ttk.Entry(form, textvariable=v_orient, width=14,
-              validate="key", validatecommand=vcmd).grid(
-        row=1, column=1, sticky="we", pady=4)
-
-    ttk.Label(dlg,
-              text=_("Laissez le petit axe vide pour une section circulaire.")
-                   + "\nSinon : ellipse de demi-grand-axe = rayon du tronc,\n"
-                   "orientée selon l'orientation (0 gr = Nord-Sud).",
-              background=COLOR_PANEL, foreground=COLOR_MUTED,
-              font=ui_font("Helvetica", 9, "italic"),
-              justify="left").grid(row=2, column=0, sticky="w",
-                                   padx=12, pady=(8, 6))
-
-    def ok() -> None:
-        rp = v_petit.get().strip()
-        ro = v_orient.get().strip()
-        petit = to_float(rp) if rp else 0.0
-        orient = to_float(ro) if ro else 0.0
-        result["val"] = (max(0.0, petit), int(round(orient)) % 400)
-        dlg.destroy()
-
-    def reset_circulaire() -> None:
-        v_petit.set("")
-        v_orient.set("")
-        e_petit.focus_set()
-
-    btns = ttk.Frame(dlg, style="Panel.TFrame")
-    btns.grid(row=3, column=0, sticky="we", padx=12, pady=(8, 12))
-    btn_reset = ttk.Button(btns, text=_("↺ Circulaire"),
-                           style="Ghost.TButton", command=reset_circulaire)
-    btn_reset.pack(side="left")
-    Tooltip(btn_reset, _("Efface le petit axe et l'orientation — "
-                         "revient à une section circulaire."))
-    ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
-               command=dlg.destroy).pack(side="right", padx=6)
-    ttk.Button(btns, text=_("Valider"), style="Accent.TButton",
-               command=ok).pack(side="right")
-
-    dlg.bind("<Return>", lambda e: ok())
-    dlg.bind("<Escape>", lambda e: dlg.destroy())
-
-    _make_modal(dlg, parent)
-    e_petit.focus_set()
-    dlg.wait_window()
-    return result["val"]
-
-
-# ---------------------------------------------------------------------
 # Dialog : Disposition d'une cépée (placement des brins à la souris)
 # ---------------------------------------------------------------------
 
@@ -449,9 +367,12 @@ def ask_cepee_layout(parent: tk.Misc,
                      ) -> Optional[List[Tuple[float, float, int]]]:
     """Éditeur de disposition d'une cépée : place et oriente les brins.
 
-    Affiche tous les brins du genet (contour fidèle — cercle ou ellipse
-    orientée) dans un canvas. On **glisse** un brin pour fixer sa position
-    `(pos_x_cm, pos_y_cm)` dans le plan du genet ; la **molette** (au-dessus
+    Affiche tous les brins du genet (contour fidèle — cercle ou rayon
+    variable par direction, **écorce comprise** si mesurée) dans un canvas
+    — sans l'anneau d'écorce, deux brins dont le bois seul ne se touche pas
+    peuvent en réalité se chevaucher une fois l'écorce comptée, ce qui
+    trompait l'opérateur pendant le placement. On **glisse** un brin pour fixer
+    sa position `(pos_x_cm, pos_y_cm)` dans le plan du genet ; la **molette** (au-dessus
     d'un brin) le fait **pivoter** par pas de 25 gr (`rotation_grades`). Le
     1er brin (« a ») est l'**ancre** du repère (origine en (0, 0)) : sa
     position reste fixe (il peut quand même pivoter), les autres se placent
@@ -500,13 +421,29 @@ def ask_cepee_layout(parent: tk.Misc,
         cv.delete("all")
         for i, b in enumerate(brins):
             cx, cy = to_px(positions[i][0], positions[i][1])
-            pts = contour_polygon(b.rayon_a_grade, cx, cy, scale,
-                                  rotation_grades=rotations[i])
-            flat = [c for p in pts for c in p]
+            ep = max(0.0, b.epaisseur_ecorce_cm)
+            inner = contour_polygon(b.rayon_a_grade, cx, cy, scale,
+                                    rotation_grades=rotations[i])
             anchor = (i == 0)
             fill = COLOR_ACCENT_SOFT if anchor else COLOR_WOOD
             outline = COLOR_ACCENT if i == state["drag"] else COLOR_INK
-            cv.create_polygon(*flat, fill=fill, outline=outline, width=2)
+            if ep > 0:
+                # Anneau d'écorce dessiné AUSSI ici : sans lui, deux brins
+                # dont l'écorce mesurée se touche/chevauche apparaissaient
+                # avec un écart (seul le bois était tracé) — trompeur pour
+                # juger le chevauchement pendant le placement.
+                def r_outer(g: float, b: "Brin" = b) -> float:
+                    return b.rayon_a_grade(g) + ep
+                outer = contour_polygon(r_outer, cx, cy, scale,
+                                        rotation_grades=rotations[i])
+                ring = ring_polygon_points(outer, inner)
+                cv.create_polygon(*[c for p in ring for c in p],
+                                  fill=COLOR_BARK, outline=outline, width=2)
+                cv.create_polygon(*[c for p in inner for c in p],
+                                  fill=fill, outline="")
+            else:
+                cv.create_polygon(*[c for p in inner for c in p],
+                                  fill=fill, outline=outline, width=2)
             label = b.label or chr(ord("a") + i)
             rot_txt = f" · {rotations[i]} gr" if rotations[i] else ""
             txt = (f"{label} · ancre{rot_txt}" if anchor
@@ -519,7 +456,9 @@ def ask_cepee_layout(parent: tk.Misc,
         # attraper celui « au-dessus » en cas de chevauchement.
         for i in reversed(range(len(brins))):
             cx, cy = to_px(positions[i][0], positions[i][1])
-            rr = max(brins[i].rayon_tronc_cm, 1.0) * scale
+            b = brins[i]
+            rr = max(b.rayon_tronc_cm + max(0.0, b.epaisseur_ecorce_cm),
+                     1.0) * scale
             if (px - cx) ** 2 + (py - cy) ** 2 <= rr * rr:
                 return i
         return None
@@ -616,7 +555,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     # provoquait un dialogue vide quand l'ouverture venait du canvas
     # interactif (clic sur pastille) sur Linux/X11.
 
-    R = arbre.rayon_tronc_cm if arbre else 0.0
+    R = arbre.rayon_a_grade(sondage.grade) if arbre else 0.0
 
     v_grade = tk.StringVar()
     v_sain = tk.StringVar(value=f"{sondage.bois_sain_cm:g}")
@@ -631,9 +570,11 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
     v_grade.set(find_grade_choice(choices, sondage.grade))
 
 
-    # Bandeau rappelant le rayon (référence pour le calcul auto)
+    # Bandeau rappelant le rayon LOCAL (référence pour le calcul auto) — le
+    # diamètre général, ajusté du Ø local de cette direction s'il est saisi
+    # dans la grille (indépendant du sondage, non éditable ici).
     if R > 0:
-        rappel = (f"Rayon du tronc de cet arbre : {R:g} cm\n"
+        rappel = (f"Rayon local de cette direction : {R:g} cm\n"
                   f"Règle : Bois sain + Bois altéré = Rayon.\n"
                   f"Modifier l'un recalcule l'autre automatiquement.")
     else:
@@ -728,6 +669,9 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
                             parent=dlg)
                         return
             sondage.grade = new_grade
+            # Bois sain/altéré restent clampés sur `R`, le rayon local
+            # affiché à l'ouverture du dialogue (le Ø local, indépendant du
+            # sondage, s'édite dans la grille — pas ici).
             sain = to_float(v_sain.get())
             alt = to_float(v_alt.get())
             if R > 0:

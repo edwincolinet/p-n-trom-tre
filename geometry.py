@@ -29,10 +29,11 @@ import math
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
 # Un rayon peut être donné soit comme un scalaire (section circulaire,
-# `rayon_tronc_cm`), soit comme une fonction `grade -> rayon_cm` (section
-# ovale, `Brin.rayon_a_grade`). Les primitives de rendu partagées acceptent
-# les deux : pour un scalaire le calcul est strictement identique à l'ancien
-# (aucun golden touché), pour une fonction le contour suit l'ellipse.
+# `rayon_tronc_cm`), soit comme une fonction `grade -> rayon_cm` (rayon
+# variable par direction, `Brin.rayon_a_grade`). Les primitives de rendu
+# partagées acceptent les deux : pour un scalaire le calcul est strictement
+# identique à l'ancien (aucun golden touché), pour une fonction le contour
+# suit le rayon local (mesuré aux sondages, interpolé entre eux).
 RadiusSpec = Union[float, Callable[[float], float]]
 
 
@@ -223,29 +224,6 @@ def polar_idx_to_xy(cx: float, cy: float, scale: float,
             cy + r_cm * scale * math.sin(a))
 
 
-def ellipse_radius(a: float, b: float,
-                   orientation_grade: float, grade: float) -> float:
-    """Rayon polaire (cm) d'une ellipse dans la direction `grade`.
-
-    `a` = demi-grand-axe, `b` = demi-petit-axe, `orientation_grade` = grade
-    du grand axe (0–400). Équation polaire de l'ellipse centrée, mesurée
-    depuis le centre : à `grade == orientation_grade` le rayon vaut `a`, à
-    90° de là il vaut `b`.
-
-    Robuste aux dégénérescences : si l'un des axes est nul/négatif, renvoie
-    l'autre (cercle) — jamais de division par zéro.
-    """
-    if a <= 0 or b <= 0:
-        return max(a, b, 0.0)
-    phi = math.radians((grade - orientation_grade) * 360.0 / 400.0)
-    ca = b * math.cos(phi)
-    sa = a * math.sin(phi)
-    denom = math.hypot(ca, sa)
-    if denom == 0:
-        return max(a, b)
-    return a * b / denom
-
-
 def contour_polygon(r_of: "RadiusSpec",
                     cx: float, cy: float, scale: float,
                     n_samples: int = 160,
@@ -253,16 +231,18 @@ def contour_polygon(r_of: "RadiusSpec",
                     ) -> List[Tuple[float, float]]:
     """Polygone fermé du contour du tronc, échantillonné finement.
 
-    `r_of` = rayon (cm) par direction (scalaire = cercle, fonction =
-    ellipse). Renvoie `n_samples` points répartis sur 400 gr ; le contour
-    est implicitement fermé par les API de dessin (PIL `polygon`, Tk
-    `create_polygon`). Utilisé pour le **remplissage** bois/écorce/cernes
-    d'une section OVALE — le cas circulaire continue d'utiliser la
-    primitive ellipse native des renderers (rendu lisse, goldens stables).
+    `r_of` = rayon (cm) par direction (scalaire = cercle, fonction = rayon
+    variable — p. ex. `Brin.rayon_a_grade`, qui interpole en LISSANT par
+    cosinus entre les directions mesurées). Renvoie `n_samples` points
+    répartis sur 400 gr ; le contour est implicitement fermé par les API de
+    dessin (PIL `polygon`, Tk `create_polygon`). Utilisé pour le
+    **remplissage** bois/écorce/cernes d'une section à RAYON VARIABLE — le
+    cas circulaire continue d'utiliser la primitive ellipse native des
+    renderers (rendu lisse, goldens stables).
 
     `rotation_grades` : rotation du brin (cépée). Le rayon est évalué au grade
     LOCAL `g` mais le point est **placé** à `g + rotation_grades` → la forme
-    (ellipse comprise) pivote. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique.
+    pivote. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique.
     """
     pts: List[Tuple[float, float]] = []
     for k in range(n_samples):
@@ -270,6 +250,26 @@ def contour_polygon(r_of: "RadiusSpec",
         pts.append(polar_to_xy(cx, cy, scale, _radius_at(r_of, g),
                                g + rotation_grades))
     return pts
+
+
+def ring_polygon_points(outer: List[Tuple[float, float]],
+                        inner: List[Tuple[float, float]]
+                        ) -> List[Tuple[float, float]]:
+    """Point unique fermé d'un anneau (contour externe − contour interne),
+    par la technique du « trou de serrure » (keyhole) : un seul polygone
+    simple, sans API de trou côté PIL/Tk.
+
+    **Piège** (bug corrigé le 2026-08-19, visible en rectangle blanc au Nord
+    quand la section a un rayon variable) : `outer + inner[::-1]` seul
+    referme le polygone via DEUX ponts à des angles LÉGÈREMENT différents
+    (le dernier échantillon d'`outer`, ~397.5 gr, et le premier
+    d'`inner`/`outer`, 0 gr — 2.5 gr d'écart) au lieu du même angle aller-
+    retour ⟹ fin coin non rempli à la jointure. En rebouclant explicitement
+    `outer` sur lui-même avant le pont vers `inner[0]`, les deux ponts
+    (aller `outer[0]→inner[0]`, retour implicite `inner[0]→outer[0]` en fin
+    de polygone) sont exactement le même segment parcouru dans les deux
+    sens → largeur nulle, aucun artefact."""
+    return outer + [outer[0], inner[0]] + inner[::-1]
 
 
 def cavity_polygon(alteration_par_grade: List[float],
@@ -520,8 +520,8 @@ def radial_ruler_data(cx: float, cy: float, scale: float,
         if 0 < mid < r_ext:
             inter = [(float(mid), f"{mid:g}")]
     radii.extend(inter)
-    # Étiquette terminale arrondie au mm : le rayon d'une ellipse évalué à
-    # l'angle d'esquive peut produire des décimales parasites (16.1275…).
+    # Étiquette terminale arrondie au mm : le rayon local évalué à l'angle
+    # d'esquive peut produire des décimales parasites (16.1275…).
     radii.append((r_ext, f"{round(r_ext, 1):g} cm"))
     for r, label in radii:
         px = cx + ux * r * scale
@@ -552,8 +552,8 @@ def tick_endpoints(cx: float, cy: float, scale: float,
     Renvoie `[(x1, y1, x2, y2, is_major), ...]` : segment du tick et
     si c'est un tick majeur (grade multiple de 50). Le renderer choisit
     couleur/épaisseur selon `is_major`. `R_ext` peut être un scalaire
-    (cercle) ou une fonction `grade->rayon` (ellipse) : les tirets se
-    posent alors sur le contour local.
+    (cercle) ou une fonction `grade->rayon` (rayon variable) : les tirets
+    se posent alors sur le contour local.
     """
     out: List[Tuple[float, float, float, float, bool]] = []
     for i, g in enumerate(GRADES):
@@ -571,7 +571,7 @@ def cardinal_label_positions(cx: float, cy: float, scale: float,
 
     Renvoie `[(x, y, label), ...]` : ne contient QUE les grades qui ont
     un libellé non vide (les inter-quadrants 25/75/125/… sont absents).
-    `R_ext` scalaire (cercle) ou fonction `grade->rayon` (ellipse).
+    `R_ext` scalaire (cercle) ou fonction `grade->rayon` (rayon variable).
     """
     out: List[Tuple[float, float, str]] = []
     for i, g in enumerate(GRADES):

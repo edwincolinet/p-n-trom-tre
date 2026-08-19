@@ -39,6 +39,7 @@ from geometry import (
     degradation_externe_outline,
     radial_ruler_data,
     radial_ruler_grade,
+    ring_polygon_points,
     tick_endpoints,
 )
 from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
@@ -700,8 +701,12 @@ class SectionCanvas(tk.Canvas):
         # La forme du brin est pivotée de `rotation_grades` : le rayon à la
         # direction MONDE `gw` est le rayon local à `gw - rotation`.
         R = brin.rayon_a_grade(gw - brin.rotation_grades)
-        if brin.est_ovale and R < brin.rayon_tronc_cm * 0.5:
-            gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
+        # Pour une direction dont le rayon local (mesuré à un sondage
+        # proche) est bien plus petit que le rayon général, R peut être très
+        # petit → étiquettes "0" et "N cm" quasi superposées. On bascule sur
+        # l'Est du monde avec le rayon général dans ce cas.
+        if brin.a_rayon_variable and R < brin.rayon_tronc_cm * 0.5:
+            gw = float(brin.rotation_grades % 400)
             R = brin.rayon_tronc_cm
         ep = max(0.0, brin.epaisseur_ecorce_cm)
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
@@ -783,7 +788,7 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_bois_sain(self, brin: "Brin", cx: float, cy: float,
                         R: float, scale: float) -> None:
-        if brin.est_ovale:
+        if brin.a_rayon_variable:
             flat = [c for p in contour_polygon(
                         brin.rayon_a_grade, cx, cy, scale,
                         rotation_grades=brin.rotation_grades)
@@ -799,7 +804,7 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_cernes(self, brin: "Brin", cx: float, cy: float,
                      R: float, scale: float) -> None:
-        if brin.est_ovale:
+        if brin.a_rayon_variable:
             for k in range(1, self.N_CERNES + 1):
                 frac = k / (self.N_CERNES + 1)
 
@@ -839,7 +844,7 @@ class SectionCanvas(tk.Canvas):
         # Si une épaisseur est renseignée, anneau brun épais entre R et
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
-        if brin.est_ovale:
+        if brin.a_rayon_variable:
             rot = brin.rotation_grades
             inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                     rotation_grades=rot)
@@ -849,7 +854,8 @@ class SectionCanvas(tk.Canvas):
 
                 outer = contour_polygon(r_outer, cx, cy, scale,
                                         rotation_grades=rot)
-                flat = [c for p in (outer + inner[::-1]) for c in p]
+                ring = ring_polygon_points(outer, inner)
+                flat = [c for p in ring for c in p]
                 self.create_polygon(*flat, fill=COLOR_BARK, outline="")
             else:
                 flat = [c for p in (inner + [inner[0]]) for c in p]

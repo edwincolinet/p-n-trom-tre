@@ -49,6 +49,7 @@ from geometry import (
     degradation_externe_outline,
     radial_ruler_data,
     radial_ruler_grade,
+    ring_polygon_points,
     tick_endpoints,
 )
 from palette import (
@@ -487,11 +488,12 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     # La forme du brin est pivotée de `rotation_grades` : le rayon à la
     # direction MONDE `gw` est le rayon local à `gw - rotation`.
     R = brin.rayon_a_grade(gw - brin.rotation_grades)
-    # Pour une section ovale dont le petit axe est proche de la direction
-    # d'esquive, R peut être très petit → étiquettes "0" et "N cm" quasi
-    # superposées. On bascule sur le grand axe (rayon maximal) dans ce cas.
-    if brin.est_ovale and R < brin.rayon_tronc_cm * 0.5:
-        gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
+    # Pour une direction dont le rayon local (mesuré à un sondage proche)
+    # est bien plus petit que le rayon général, R peut être très petit →
+    # étiquettes "0" et "N cm" quasi superposées. On bascule sur l'Est du
+    # monde avec le rayon général dans ce cas.
+    if brin.a_rayon_variable and R < brin.rayon_tronc_cm * 0.5:
+        gw = float(brin.rotation_grades % 400)
         R = brin.rayon_tronc_cm
     ep = max(0.0, brin.epaisseur_ecorce_cm)
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
@@ -579,7 +581,7 @@ def _pil_draw_placeholder(d: "ImageDraw.ImageDraw", f: FontFn,
 def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
                         cx: float, cy: float,
                         R: float, scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         d.polygon(contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                   rotation_grades=brin.rotation_grades),
                   fill=COLOR_WOOD)
@@ -594,7 +596,7 @@ def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
 def _pil_draw_cernes(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         # Cernes = contours homothétiques (k/(N+1) du rayon local).
         for k in range(1, N_CERNES + 1):
             frac = k / (N_CERNES + 1)
@@ -626,7 +628,7 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         rot = brin.rotation_grades
         inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                 rotation_grades=rot)
@@ -636,9 +638,11 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
 
             outer = contour_polygon(r_outer, cx, cy, scale,
                                     rotation_grades=rot)
-            # Anneau d'écorce : contour externe + contour interne inversé
-            # (même technique que la bande d'écorce des contreforts).
-            d.polygon(outer + inner[::-1], fill=COLOR_BARK)
+            # Anneau d'écorce : contour externe + contour interne inversé,
+            # technique du trou de serrure (cf. `geometry.ring_polygon_points`
+            # — un pont aller-retour au MÊME angle, sinon fin artefact non
+            # rempli à la jointure).
+            d.polygon(ring_polygon_points(outer, inner), fill=COLOR_BARK)
         else:
             d.line(inner + [inner[0]], fill=COLOR_BARK, width=4, joint="curve")
         return

@@ -331,12 +331,30 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         (compat descendante : un champ futur est ignoré silencieusement).
         """
         sondages = []
+        # Migration (2026-08) : le diamètre local vivait sur le `Sondage`
+        # avant d'être promu au niveau du brin (indépendant de tout
+        # sondage, pour modéliser un méplat même sans PRBS mesurée à cette
+        # direction). Une clé `diametre_sous_ecorce_cm` sur un sondage d'un
+        # fichier antérieur est reportée dans `diametres_locaux` avant
+        # d'être filtrée (elle n'est plus un champ de `Sondage`).
+        diametres_locaux: Dict[int, float] = {}
         for s in bd.get("sondages", []):
+            legacy_diam = s.get("diametre_sous_ecorce_cm")
             s = {k: v for k, v in s.items() if k in sondage_fields}
             # Migration libellé compartimentation : "-" → "non renseignée"
             if s.get("compartimentation") == "-":
                 s["compartimentation"] = "non renseignée"
-            sondages.append(Sondage(**s))
+            sondage = Sondage(**s)
+            sondages.append(sondage)
+            if legacy_diam and legacy_diam > 0:
+                diametres_locaux.setdefault(sondage.grade, float(legacy_diam))
+        for k, v in bd.get("diametres_locaux", {}).items():
+            try:
+                grade, diam = int(k), float(v)
+            except (TypeError, ValueError):
+                continue
+            if diam > 0:
+                diametres_locaux[grade] = diam
         degs = [DegradationExterne(**{k: v for k, v in dg.items()
                                       if k in deg_fields})
                 for dg in bd.get("degradations_externes", [])]
@@ -347,11 +365,12 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         geom = {k: v for k, v in bd.items()
                 if k in brin_fields
                 and k not in ("sondages", "degradations_externes",
-                              "contreforts")}
+                              "contreforts", "diametres_locaux")}
         brin = Brin(**geom)
         brin.sondages = sondages
         brin.degradations_externes = degs
         brin.contreforts = contreforts
+        brin.diametres_locaux = diametres_locaux
         return brin
 
     arbres = []
