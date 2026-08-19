@@ -78,6 +78,19 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   `brins[0]` : les sondages des brins b, c… disparaissaient du fichier sans
   le moindre signal. L'export itère les brins et ajoute une colonne
   « Brin » (vide en mono-caule).
+- **Rectangle blanc dans l'écorce à rayon variable** : peindre un anneau
+  (écorce, contreforts) comme un seul polygone « contour externe + interne
+  inversé » refermait la forme via deux jointures à des angles légèrement
+  différents au lieu du même angle aller-retour, laissant un fin coin non
+  rempli — toujours au Nord, visible dès qu'un diamètre local ou un
+  contrefort était modifié. Nouveau helper `geometry.ring_polygon_points`
+  (technique du trou de serrure correcte), utilisé dans les deux renderers
+  (Tk + PIL).
+- **Éditeur de disposition de cépée : le chevauchement réel est enfin
+  visible.** `dialogs.ask_cepee_layout` ne traçait que le contour du bois,
+  jamais l'écorce : deux brins qui se chevauchaient une fois l'écorce
+  comptée semblaient avoir un écart. L'éditeur trace maintenant l'anneau
+  d'écorce et le rayon de détection au clic/glisser en tient compte.
 
 ### Fonctionnel — Commercialisation & distribution
 
@@ -96,9 +109,18 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 - **Canal de support intégré** : **Aide → Contacter le support** → dialog
   avec email/Machine ID/version (boutons Copier), lien `mailto:` pré-rempli,
   accès direct au fichier de log. Contact : `e.colinet@silvavenir.fr`.
-- **Barème t/R configurable** : `bareme_store.py` + dialog in-app
-  (**Réglages → Barème…**) pour ajuster les seuils Vert/Orange/Rouge par
-  port. Persisté dans `~/.penetrometre/bareme.json`.
+- **Barème t/R configurable par groupes de ports librement composés** :
+  l'expert compose lui-même les groupes de ports partageant un seuil
+  Vert/Orange/Rouge — un port individuel, ou plusieurs regroupés, au choix
+  (`bareme.GroupeBareme`). Éditeur revu (**Réglages → Barème…**,
+  `dialogs_settings.ask_bareme_settings`) : liste de groupes éditables +
+  tableau d'assignation port → groupe où l'appartenance à un seul groupe
+  est garantie par construction (boutons radio partageant une variable par
+  port), jamais par validation a posteriori. La répartition d'origine
+  (libre/semi-libre/délaissé vs architecturé/traumatique) reste la valeur
+  par défaut. Persisté dans `~/.penetrometre/bareme.json` ; migration
+  silencieuse de l'ancien format à 2 groupes fixes (postes et missions
+  existants).
 - **Vérification des mises à jour** : `update_checker.py` interroge l'API
   GitHub Releases au démarrage (timeout 2 s, best-effort). Désactivable via
   **Aide → Vérification automatique au démarrage**.
@@ -145,6 +167,18 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   **Fichier → Ouvrir le dossier des sauvegardes…**.
 - **Infobulle de commentaire** au survol des sondages/dégradations/contreforts
   sur le canvas.
+- **Diamètre local par direction** : un tronc n'est jamais parfaitement
+  cylindrique. Colonne « Ø local (cm) » dans la grille Sondages,
+  **indépendante de tout sondage** (utilisable même sans PRBS mesurée à
+  cette direction — méplat repéré entre deux sondages sans mesure au
+  résistographe supplémentaire). Interpolation lissée par cosinus entre
+  directions mesurées voisines (contour naturel, jamais de dépassement des
+  valeurs mesurées). Un Ø local ne peut jamais donner un rayon inférieur au
+  bois sain déjà saisi sur la même ligne (relevé au minimum valide,
+  signalé). A remplacé le tronc ovale à 2 axes (jusqu'à 16 points mesurés
+  au lieu de 2).
+- **En-tête de mission compacté** : Client/Opérateur/Date remontés sur la
+  même ligne que Mission/Adresse (gain de place et de lisibilité).
 
 ### Interne / Architecture
 

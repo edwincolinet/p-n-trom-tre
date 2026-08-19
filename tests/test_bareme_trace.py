@@ -6,10 +6,12 @@ cause : une information présente dans le modèle mais absente du
 livrable.
 
 1. **Barème** — les seuils Vert/Orange/Rouge sont un réglage de POSTE
-   (`~/.penetrometre/bareme.json`). Sans trace dans le fichier de
-   mission ni dans les exports, deux opérateurs aux réglages différents
-   produisent des classes différentes à partir des mêmes mesures, et
-   rien ne permet de savoir laquelle a servi.
+   (`~/.penetrometre/bareme.json`), organisé en **groupes de ports
+   librement composés par l'expert** (`bareme.GroupeBareme` — un port
+   individuel n'est qu'un groupe à un seul port). Sans trace dans le
+   fichier de mission ni dans les exports, deux opérateurs aux réglages
+   différents produisent des classes différentes à partir des mêmes
+   mesures, et rien ne permet de savoir lequel a servi.
 2. **CSV des sondages** — `Arbre.sondages` est une propriété-relais vers
    `brins[0]` : boucler dessus perdait silencieusement les brins b, c…
    d'une cépée.
@@ -25,11 +27,17 @@ from unittest import mock
 
 import bareme
 from bareme import (
-    SEUILS_DEFAUT,
+    CLASSE_ORANGE,
+    CLASSE_VERT,
+    GROUPES_DEFAUT,
+    PORTS_ARBRE,
+    GroupeBareme,
+    classer_prbs,
     description_seuils,
     description_seuils_mission,
-    get_seuils,
-    set_seuils,
+    get_groupes,
+    groupes_vers_brut,
+    set_groupes,
     seuils_depuis_brut,
     seuils_personnalises,
 )
@@ -38,11 +46,26 @@ from model import Arbre, Brin, Chantier, Sondage
 from persistence import chantier_from_dict, chantier_to_dict
 
 
+def _groupes(vert_libre: float = 0.30, orange_libre: float = 0.15,
+            vert_strict: float = 0.20, orange_strict: float = 0.10
+            ) -> "list[GroupeBareme]":
+    """Partition à 2 groupes (mêmes ports que la partition par défaut),
+    seuils personnalisables — équivalent du `set_seuils(libre, strict)`
+    d'avant cette fonctionnalité, pour les tests qui n'ont besoin que de
+    seuils différents sans changer la composition des groupes."""
+    return [
+        GroupeBareme(GROUPES_DEFAUT[0].nom, GROUPES_DEFAUT[0].ports,
+                     vert_libre, orange_libre),
+        GroupeBareme(GROUPES_DEFAUT[1].nom, GROUPES_DEFAUT[1].ports,
+                     vert_strict, orange_strict),
+    ]
+
+
 class _SeuilsRestaures(unittest.TestCase):
-    """Remet les seuils par défaut après chaque test (état global)."""
+    """Remet les groupes par défaut après chaque test (état global)."""
 
     def tearDown(self) -> None:
-        set_seuils(SEUILS_DEFAUT["libre"], SEUILS_DEFAUT["strict"])
+        set_groupes(GROUPES_DEFAUT)
 
 
 class DescriptionSeuilsTests(_SeuilsRestaures):
@@ -54,7 +77,7 @@ class DescriptionSeuilsTests(_SeuilsRestaures):
         self.assertIn("10 %", d)
 
     def test_reflete_les_seuils_personnalises(self):
-        set_seuils((0.35, 0.18), (0.25, 0.12))
+        set_groupes(_groupes(0.35, 0.18, 0.25, 0.12))
         d = description_seuils()
         self.assertIn("35 %", d)
         self.assertIn("18 %", d)
@@ -62,49 +85,55 @@ class DescriptionSeuilsTests(_SeuilsRestaures):
 
     def test_detection_personnalisation(self):
         self.assertFalse(seuils_personnalises())
-        set_seuils((0.35, 0.18), (0.20, 0.10))
+        set_groupes(_groupes(0.35, 0.18, 0.20, 0.10))
         self.assertTrue(seuils_personnalises())
 
     def test_description_d_un_jeu_explicite(self):
-        d = description_seuils({"libre": (0.5, 0.25), "strict": (0.4, 0.2)})
+        d = description_seuils(_groupes(0.5, 0.25, 0.4, 0.2))
         self.assertIn("50 %", d)
         self.assertIn("25 %", d)
 
 
 class PersistanceBaremeTests(_SeuilsRestaures):
     def test_seuils_ecrits_dans_le_json(self):
-        set_seuils((0.35, 0.18), (0.25, 0.12))
+        set_groupes(_groupes(0.35, 0.18, 0.25, 0.12))
         d = chantier_to_dict(Chantier(nom="M"))
-        self.assertEqual(d["bareme_seuils"]["libre"], [0.35, 0.18])
-        self.assertEqual(d["bareme_seuils"]["strict"], [0.25, 0.12])
+        brut = {g["nom"]: g for g in d["bareme_seuils"]}
+        self.assertEqual(brut[GROUPES_DEFAUT[0].nom]["vert"], 0.35)
+        self.assertEqual(brut[GROUPES_DEFAUT[0].nom]["orange"], 0.18)
+        self.assertEqual(brut[GROUPES_DEFAUT[1].nom]["vert"], 0.25)
+        self.assertEqual(brut[GROUPES_DEFAUT[1].nom]["orange"], 0.12)
 
     def test_roundtrip(self):
-        set_seuils((0.35, 0.18), (0.25, 0.12))
+        set_groupes(_groupes(0.35, 0.18, 0.25, 0.12))
         c = chantier_from_dict(chantier_to_dict(Chantier(nom="M")))
-        self.assertEqual(c.bareme_seuils["libre"], (0.35, 0.18))
+        self.assertEqual(seuils_depuis_brut(c.bareme_seuils), get_groupes())
 
     def test_lecture_n_applique_pas_les_seuils(self):
         """Ouvrir une mission ne doit PAS reconfigurer le poste en douce."""
         d = chantier_to_dict(Chantier(nom="M"))
-        d["bareme_seuils"] = {"libre": [0.9, 0.8], "strict": [0.7, 0.6]}
+        d["bareme_seuils"] = [{"nom": "X", "ports": list(PORTS_ARBRE),
+                               "vert": 0.9, "orange": 0.8}]
         chantier_from_dict(d)
-        self.assertEqual(get_seuils(), SEUILS_DEFAUT)
+        self.assertEqual(get_groupes(), list(GROUPES_DEFAUT))
 
     def test_mission_ancienne_sans_bareme(self):
         """Absence de la clé = « inconnu », pas d'erreur ni de migration."""
         d = chantier_to_dict(Chantier(nom="M"))
         del d["bareme_seuils"]
         c = chantier_from_dict(d)
-        self.assertEqual(c.bareme_seuils, {})
+        self.assertEqual(c.bareme_seuils, [])
         # La description retombe alors sur les seuils du poste.
         self.assertEqual(description_seuils_mission(c), description_seuils())
 
-    def test_seuils_corrompus_tolerés(self):
-        for brut in (None, "x", {"libre": "nope"}, {"libre": [1]}, {}):
-            self.assertEqual(seuils_depuis_brut(brut)["libre"],
-                             SEUILS_DEFAUT["libre"])
+    def test_seuils_corrompus_toleres(self):
+        for brut in (None, "x", {"libre": "nope"}, {"libre": [1]}, {}, []):
+            with self.subTest(brut=brut):
+                self.assertEqual(seuils_depuis_brut(brut), list(GROUPES_DEFAUT))
 
     def test_description_mission_utilise_les_seuils_du_fichier(self):
+        # Ancien format mission (2 clés) : migré au vol par
+        # `description_seuils_mission` — vérifie aussi la migration.
         c = Chantier(nom="M")
         c.bareme_seuils = {"libre": (0.42, 0.21), "strict": (0.3, 0.15)}
         self.assertIn("42 %", description_seuils_mission(c))
@@ -115,8 +144,53 @@ class PersistanceBaremeTests(_SeuilsRestaures):
         c = Chantier(nom="M")
         c.bareme_seuils = {"libre": (0.9, 0.8), "strict": (0.7, 0.6)}
         d = chantier_to_dict(c)
-        self.assertEqual(d["bareme_seuils"]["libre"],
-                         list(SEUILS_DEFAUT["libre"]))
+        self.assertEqual(d["bareme_seuils"], groupes_vers_brut(GROUPES_DEFAUT))
+
+
+class GroupesPersonnalisesTests(_SeuilsRestaures):
+    """Composition libre des groupes (au-delà des 2 groupes par défaut) —
+    cœur de la fonctionnalité : un port individuel n'est qu'un groupe à un
+    seul port, sans distinction de code."""
+
+    def test_trois_groupes_dont_un_port_unique(self):
+        set_groupes([
+            GroupeBareme("Libre seul", ("libre",), 0.35, 0.20),
+            GroupeBareme("Reste souple", ("semi-libre", "délaissé"),
+                        0.30, 0.15),
+            GroupeBareme("Contraint", ("architecturé", "traumatique"),
+                        0.20, 0.10),
+        ])
+        # 0.32 < 0.35 (seuil du groupe "Libre seul") ⟹ Orange.
+        self.assertEqual(classer_prbs(0.32, "libre"), CLASSE_ORANGE)
+        # 0.32 > 0.30 (seuil du groupe "Reste souple") ⟹ Vert.
+        self.assertEqual(classer_prbs(0.32, "semi-libre"), CLASSE_VERT)
+        self.assertTrue(seuils_personnalises())
+
+    def test_seuils_personnalises_insensible_a_l_ordre_de_saisie(self):
+        # Même partition que le défaut, groupes déclarés dans l'ordre
+        # inverse : la canonisation doit neutraliser la différence.
+        set_groupes(list(reversed(_groupes())))
+        self.assertFalse(seuils_personnalises())
+
+    def test_port_manquant_dans_config_brute_recupere_un_secours(self):
+        # Config incomplète (un seul groupe déclaré, 4 ports orphelins) :
+        # jamais de port sans groupe, même sur un bareme.json altéré à la
+        # main.
+        brut = [{"nom": "Libre", "ports": ["libre"],
+                 "vert": 0.3, "orange": 0.15}]
+        groupes = seuils_depuis_brut(brut)
+        ports_couverts = {p for g in groupes for p in g.ports}
+        self.assertEqual(ports_couverts, set(PORTS_ARBRE))
+
+    def test_migration_ancien_format_poste(self):
+        # `bareme_store.load_bareme` tolère l'ancien fichier à 2 groupes
+        # fixes (tous les postes existants avant cette fonctionnalité).
+        legacy = {"libre": [0.35, 0.18], "strict": [0.25, 0.12]}
+        migre = seuils_depuis_brut(legacy)
+        self.assertEqual(migre[0].seuil_vert, 0.35)
+        self.assertEqual(migre[0].seuil_orange, 0.18)
+        self.assertEqual(migre[1].seuil_vert, 0.25)
+        self.assertEqual(migre[1].seuil_orange, 0.12)
 
 
 def _cepee(n_brins: int) -> Chantier:

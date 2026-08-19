@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from geometry import GRADES
 
@@ -750,7 +750,11 @@ class Chantier:
         default_factory=lambda: datetime.now().strftime("%d/%m/%Y"))
     arbres: List[Arbre] = field(default_factory=list)
     # Seuils du barème EFFECTIVEMENT utilisés pour cette mission, sous la
-    # forme {"libre": (vert, orange), "strict": (vert, orange)}.
+    # forme brute JSON `[{"nom":.., "ports":[...], "vert":.., "orange":..}, ...]`
+    # (un groupe par entrée — cf. `bareme.GroupeBareme`/`groupes_vers_brut`).
+    # Champ **duck-typé** (liste de dicts génériques) : `model.py` ne
+    # dépend pas de `bareme.py`, qui reste sous `model` dans le graphe de
+    # dépendances.
     #
     # Le barème est un réglage de POSTE (`~/.penetrometre/bareme.json`) :
     # sans cette trace, rien dans le fichier ni dans le livrable ne dit
@@ -759,5 +763,4 @@ class Chantier:
     # l'enregistrement par `persistence.chantier_to_dict` ; vide pour les
     # missions antérieures à cette trace (aucune migration : l'absence
     # signifie « inconnu », ce qui est l'information juste).
-    bareme_seuils: "Dict[str, Tuple[float, float]]" = field(
-        default_factory=dict)
+    bareme_seuils: "List[Dict[str, Any]]" = field(default_factory=list)

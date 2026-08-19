@@ -22,10 +22,10 @@ from bareme import (
     CLASSE_ORANGE,
     CLASSE_ROUGE,
     CLASSE_VERT,
+    GROUPES_DEFAUT,
     PORTS_ARBRE,
-    SEUILS_DEFAUT,
     classer_prbs,
-    set_seuils,
+    set_groupes,
 )
 from geometry import GRADES, catmull_rom_closed
 from model import Brin
@@ -40,10 +40,10 @@ class ClasserPrbsProperties(unittest.TestCase):
     """Invariants du barème `classer_prbs`."""
 
     def setUp(self) -> None:
-        # Les seuils sont un état de module GLOBAL (`set_seuils`). On repart
-        # des défauts pour que les propriétés soient déterministes même si
-        # un autre test a personnalisé les seuils avant.
-        set_seuils(SEUILS_DEFAUT["libre"], SEUILS_DEFAUT["strict"])
+        # Les groupes sont un état de module GLOBAL (`set_groupes`). On
+        # repart des défauts pour que les propriétés soient déterministes
+        # même si un autre test a personnalisé le barème avant.
+        set_groupes(GROUPES_DEFAUT)
 
     @given(ratio=st.floats(min_value=-1.0, max_value=2.0), port=_PORTS)
     def test_renvoie_toujours_une_classe_valide(self, ratio: float,

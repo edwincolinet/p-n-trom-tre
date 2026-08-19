@@ -7,10 +7,12 @@ sont appelés que depuis `penetrometre.py` (paramètres cabinet) et
 
 from __future__ import annotations
 
+import itertools
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
+from bareme import PORTS_ARBRE, GroupeBareme
 from dialogs import _make_modal
 from i18n import _
 from ui_fonts import font as ui_font
@@ -259,30 +261,48 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
     return result["value"]
 
 
+class _EditGroup:
+    """État d'édition d'UN groupe dans `ask_bareme_settings` (id stable,
+    indépendant de la position d'affichage — survit aux
+    ajouts/suppressions/réordonnancements d'autres groupes)."""
+
+    def __init__(self, gid: int, nom: str, seuil_vert_pct: float,
+                seuil_orange_pct: float) -> None:
+        self.gid = gid
+        self.nom = tk.StringVar(value=nom)
+        self.vert = tk.StringVar(value=f"{seuil_vert_pct:g}")
+        self.orange = tk.StringVar(value=f"{seuil_orange_pct:g}")
+
+
 def ask_bareme_settings(
         parent: tk.Misc,
-        seuils: "dict[str, dict[str, float]]",
-        defaults: "dict[str, dict[str, float]]",
-) -> "Optional[dict[str, dict[str, float]]]":
-    """Dialogue de paramétrage du barème t/R (seuils Vert/Orange/Rouge).
+        groupes: "List[GroupeBareme]",
+        defaults: "List[GroupeBareme]",
+) -> "Optional[List[GroupeBareme]]":
+    """Éditeur complet du barème t/R : seuils Vert/Orange **par groupe de
+    ports**, groupes librement composés par l'expert (jusqu'à un groupe
+    par port individuel).
 
-    `seuils`   — dict courant {'libre': {'vert': 0.30, 'orange': 0.15}, 'strict': …}
-    `defaults` — valeurs d'origine pour le bouton « Restaurer ».
-    Retourne le nouveau dict si validé, None si annulé.
+    `groupes`  — partition courante (`bareme.get_groupes()`).
+    `defaults` — partition d'origine pour le bouton « Restaurer »
+    (`bareme.GROUPES_DEFAUT`).
+    Retourne la nouvelle partition si validée, `None` si annulé.
 
-    Deux groupes de ports :
-      • Libre / semi-libre / délaissé (végétation non contrainte)
-      • Architecturé / traumatique    (végétation contrainte / taillée)
-
-    Pour chaque groupe : seuil t/R Vert (%) et seuil t/R Orange (%),
-    avec contrainte vert > orange > 0.
+    Chaque port de `bareme.PORTS_ARBRE` appartient à **exactement un**
+    groupe : garanti PAR CONSTRUCTION (pas par validation a posteriori) —
+    chaque port a une seule `tk.StringVar` (id du groupe propriétaire)
+    partagée par ses `Radiobutton` dans le tableau d'assignation ; changer
+    de colonne désélectionne automatiquement l'ancienne (exclusivité Tk
+    native), donc aucun port ne peut se retrouver sans groupe ou dans deux
+    groupes à la fois.
     """
     from dialogs_shared import validate_numeric
 
-    result: "Optional[dict[str, dict[str, float]]]" = None
+    result: "Optional[List[GroupeBareme]]" = None
+    counter = itertools.count()
 
     dlg = tk.Toplevel(parent)
-    dlg.title("Paramétrage du barème")
+    dlg.title(_("Paramétrage du barème"))
     dlg.resizable(False, False)
 
     content = ttk.Frame(dlg, padding=18)
@@ -295,79 +315,158 @@ def ask_bareme_settings(
     ttk.Label(content,
               text=_("Vert = paroi saine (t/R > seuil Vert) · ")
                    + "Orange = paroi fragilisée · Rouge = paroi critique (t/R < seuil Orange)",
-              wraplength=460, justify="left").pack(anchor="w", pady=(0, 12))
+              wraplength=520, justify="left").pack(anchor="w", pady=(0, 4))
+    ttk.Label(content,
+              text=_("Chaque port appartient à un seul groupe de seuils : "
+                     "composez vos propres groupes (même un port par "
+                     "groupe) ou gardez le découpage par défaut."),
+              foreground="#555", wraplength=520,
+              justify="left").pack(anchor="w", pady=(0, 12))
 
-    GROUPES = [
-        ("libre",  "Libre / Semi-libre / Délaissé",
-         "Végétation en développement libre ou naturel"),
-        ("strict", "Architecturé / Traumatique",
-         "Végétation taillée ou ayant subi un traumatisme"),
-    ]
+    groups: "List[_EditGroup]" = []
+    port_owner: "Dict[str, tk.StringVar]" = {}
+
+    def _populate_from(src: "List[GroupeBareme]") -> None:
+        for g in src:
+            eg = _EditGroup(next(counter), g.nom, g.seuil_vert * 100,
+                            g.seuil_orange * 100)
+            groups.append(eg)
+            for p in g.ports:
+                port_owner[p] = tk.StringVar(value=str(eg.gid))
+        # Ports absents de `src` (config incomplète) : rattachés au 1er
+        # groupe pour ne jamais laisser un port sans variable.
+        for p in PORTS_ARBRE:
+            if p not in port_owner:
+                port_owner[p] = tk.StringVar(value=str(groups[0].gid))
+
+    _populate_from(groupes)
+
+    groups_frame = ttk.Frame(content)
+    groups_frame.pack(fill="x")
+    ttk.Label(content, text="").pack(pady=(2, 2))  # espace fixe
+    add_row = ttk.Frame(content)
+    add_row.pack(fill="x", pady=(0, 10))
+
+    ttk.Separator(content, orient="horizontal").pack(fill="x", pady=(0, 10))
+    ttk.Label(content, text=_("Port de l'arbre → groupe"),
+              font=ui_font("Helvetica", 10, "bold")).pack(anchor="w",
+                                                          pady=(0, 6))
+    matrix_frame = ttk.Frame(content)
+    matrix_frame.pack(fill="x", pady=(0, 10))
 
     vcmd = (dlg.register(validate_numeric), "%P")
-    entries: "dict[str, dict[str, ttk.Entry]]" = {}
 
-    for grp_key, grp_label, grp_sub in GROUPES:
-        box = ttk.LabelFrame(content, text=f" {grp_label} ", padding=10)
-        box.pack(fill="x", pady=(0, 10))
-        ttk.Label(box, text=grp_sub,
-                  foreground="#555").pack(anchor="w", pady=(0, 8))
+    def _delete_group(gid: int) -> None:
+        if len(groups) <= 1:
+            return
+        idx = next(i for i, g in enumerate(groups) if g.gid == gid)
+        fallback = groups[0].gid if idx != 0 else groups[1].gid
+        for var in port_owner.values():
+            if var.get() == str(gid):
+                var.set(str(fallback))
+        del groups[idx]
+        _rebuild()
 
-        row = ttk.Frame(box)
-        row.pack(fill="x")
-        entries[grp_key] = {}
+    def _add_group() -> None:
+        groups.append(_EditGroup(next(counter),
+                                 _("Nouveau groupe"), 30.0, 15.0))
+        _rebuild()
 
-        for col, (field, label, color) in enumerate([
-            ("vert",   "Seuil Vert (%)",   "#1A6B2A"),
-            ("orange", "Seuil Orange (%)", "#B85C00"),
-        ]):
-            cell = ttk.Frame(row)
-            cell.grid(row=0, column=col, padx=(0, 20))
-            ttk.Label(cell, text=label,
-                      foreground=color,
-                      font=ui_font("Helvetica", 10, "bold")).pack(anchor="w")
-            val_pct = round(seuils[grp_key][field] * 100, 2)
-            var = tk.StringVar(value=f"{val_pct:g}")
-            e = ttk.Entry(cell, textvariable=var, width=8,
-                          validate="key", validatecommand=vcmd)
-            e.pack(anchor="w", pady=(2, 0))
-            entries[grp_key][field] = e
+    def _rebuild() -> None:
+        for w in groups_frame.winfo_children():
+            w.destroy()
+        for w in add_row.winfo_children():
+            w.destroy()
+        for w in matrix_frame.winfo_children():
+            w.destroy()
 
-            def _make_hint(k: str, f: str) -> str:
-                return f"  (défaut : {defaults[k][f]*100:g} %)"
-            ttk.Label(cell,
-                      text=_make_hint(grp_key, field),
-                      foreground="#888",
-                      font=ui_font("Helvetica", 8)).pack(anchor="w")
+        headers = [_("Nom du groupe"), _("Vert (%)"), _("Orange (%)"), ""]
+        for c, h in enumerate(headers):
+            ttk.Label(groups_frame, text=h,
+                      font=ui_font("Helvetica", 9, "bold")).grid(
+                row=0, column=c, sticky="w", padx=(0, 10), pady=(0, 4))
+        for r, eg in enumerate(groups, start=1):
+            ttk.Entry(groups_frame, textvariable=eg.nom, width=28).grid(
+                row=r, column=0, sticky="we", padx=(0, 10), pady=2)
+            ttk.Entry(groups_frame, textvariable=eg.vert, width=7,
+                     validate="key", validatecommand=vcmd).grid(
+                row=r, column=1, sticky="w", padx=(0, 10), pady=2)
+            ttk.Entry(groups_frame, textvariable=eg.orange, width=7,
+                     validate="key", validatecommand=vcmd).grid(
+                row=r, column=2, sticky="w", padx=(0, 10), pady=2)
+            btn = ttk.Button(groups_frame, text="✕", width=3,
+                             style="Ghost.TButton",
+                             command=lambda gid=eg.gid: _delete_group(gid))
+            if len(groups) <= 1:
+                btn.state(["disabled"])
+            btn.grid(row=r, column=3, sticky="w")
 
-    def _parse() -> "Optional[dict[str, dict[str, float]]]":
-        out: "dict[str, dict[str, float]]" = {}
-        for grp_key, _lbl, _sub in GROUPES:
+        ttk.Button(add_row, text=_("＋ Nouveau groupe"),
+                  style="Ghost.TButton", command=_add_group).pack(anchor="w")
+
+        for c, eg in enumerate(groups, start=1):
+            ttk.Label(matrix_frame, textvariable=eg.nom,
+                     font=ui_font("Helvetica", 9, "bold"),
+                     wraplength=140, justify="center").grid(
+                row=0, column=c, padx=8, pady=(0, 6))
+        for r, port in enumerate(PORTS_ARBRE, start=1):
+            ttk.Label(matrix_frame, text=port).grid(
+                row=r, column=0, sticky="w", padx=(0, 14), pady=2)
+            for c, eg in enumerate(groups, start=1):
+                ttk.Radiobutton(matrix_frame, variable=port_owner[port],
+                               value=str(eg.gid)).grid(
+                    row=r, column=c, pady=2)
+
+    _rebuild()
+
+    def _parse() -> "Optional[List[GroupeBareme]]":
+        ports_par_groupe: "Dict[int, List[str]]" = {g.gid: [] for g in groups}
+        for p, var in port_owner.items():
+            ports_par_groupe[int(var.get())].append(p)
+        out: "List[GroupeBareme]" = []
+        for g in groups:
+            nom = g.nom.get().strip()
+            if not nom:
+                messagebox.showerror(_("Nom manquant"),
+                                     _("Chaque groupe doit avoir un nom."),
+                                     parent=dlg)
+                return None
+            ports = ports_par_groupe[g.gid]
+            if not ports:
+                messagebox.showerror(
+                    _("Groupe vide"),
+                    _("Le groupe « {nom} » n'a aucun port assigné. "
+                      "Assignez-lui au moins un port (tableau ci-dessous) "
+                      "ou supprimez-le.").format(nom=nom),
+                    parent=dlg)
+                return None
             try:
-                vert   = float(entries[grp_key]["vert"].get().replace(",", ".")) / 100
-                orange = float(entries[grp_key]["orange"].get().replace(",", ".")) / 100
+                vert = float(g.vert.get().replace(",", ".")) / 100
+                orange = float(g.orange.get().replace(",", ".")) / 100
             except ValueError:
                 messagebox.showerror(_("Valeur invalide"),
-                                     "Saisissez des nombres (ex. 30, 15).",
+                                     _("Groupe « {nom} » : saisissez des "
+                                       "nombres (ex. 30, 15).").format(nom=nom),
                                      parent=dlg)
                 return None
             if not (0 < orange < vert <= 1):
                 messagebox.showerror(
                     _("Seuils incohérents"),
-                    f"Pour le groupe « {grp_key} » : le seuil Vert doit être "
-                    f"strictement supérieur au seuil Orange, et les deux entre "
-                    f"0 % et 100 %.\n\nEx. Vert = 30, Orange = 15.",
+                    _("Pour le groupe « {nom} » : le seuil Vert doit être "
+                      "strictement supérieur au seuil Orange, et les deux "
+                      "entre 0 % et 100 %.\n\nEx. Vert = 30, "
+                      "Orange = 15.").format(nom=nom),
                     parent=dlg)
                 return None
-            out[grp_key] = {"vert": round(vert, 4), "orange": round(orange, 4)}
+            out.append(GroupeBareme(nom, tuple(ports),
+                                    round(vert, 4), round(orange, 4)))
         return out
 
     def _restore_defaults() -> None:
-        for grp_key, _lbl, _sub in GROUPES:
-            for field in ("vert", "orange"):
-                v = defaults[grp_key][field] * 100
-                entries[grp_key][field].delete(0, "end")
-                entries[grp_key][field].insert(0, f"{v:g}")
+        groups.clear()
+        port_owner.clear()
+        _populate_from(defaults)
+        _rebuild()
 
     def _ok() -> None:
         nonlocal result
@@ -379,8 +478,7 @@ def ask_bareme_settings(
     def _cancel() -> None:
         dlg.destroy()
 
-    sep = ttk.Separator(content, orient="horizontal")
-    sep.pack(fill="x", pady=(8, 10))
+    ttk.Separator(content, orient="horizontal").pack(fill="x", pady=(4, 10))
 
     btns = ttk.Frame(content)
     btns.pack(fill="x")
@@ -394,7 +492,6 @@ def ask_bareme_settings(
                style="Accent.TButton",
                command=_ok).pack(side="right", padx=(0, 6))
 
-    dlg.bind("<Return>", lambda e: _ok())
     dlg.bind("<Escape>", lambda e: _cancel())
     _make_modal(dlg, parent)
     dlg.wait_window()

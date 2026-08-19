@@ -9,11 +9,24 @@ en bref en fin de document** (purpose + surface publique) avec renvoi à
 
 ## `bareme.py` — barème métier Pénétromètre (stdlib uniquement)
 
-- `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`.
+- `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`
+  selon le **groupe de barème courant** contenant ce port
+  (`groupe_pour_port`) ; repli sur le groupe de `GROUPES_DEFAUT` couvrant ce
+  port si aucun groupe courant ne le contient.
 - `normaliser_port(value) -> str` — vérifie l'appartenance à `PORTS_ARBRE`.
-- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
-  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
-- Le port `délaissé` est dans `PORTS_GROUPE_LIBRE` (mêmes seuils que `libre`).
+- `GroupeBareme` (dataclass : `nom`, `ports: Tuple[str,...]`, `seuil_vert`,
+  `seuil_orange`) — un groupe de ports partageant les mêmes seuils t/R ; un
+  port individuel n'est qu'un groupe à un seul port. `get_groupes()`/
+  `set_groupes()` (état module) ; `GROUPES_DEFAUT` = partition par défaut
+  (2 groupes, cf. `PORTS_GROUPE_LIBRE`/`PORTS_GROUPE_STRICT` ci-dessous) ;
+  `groupes_vers_brut`/`seuils_depuis_brut` = frontière JSON (ce dernier migre
+  l'ancien format à 2 groupes fixes et comble les ports manquants d'une
+  config incomplète). Cf. CLAUDE.md « Barème configurable par groupes de
+  ports » pour le détail (dont l'éditeur `dialogs_settings.ask_bareme_settings`).
+- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`
+  (définissent `GROUPES_DEFAUT`), `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+- Le port `délaissé` est dans `PORTS_GROUPE_LIBRE` (mêmes seuils que `libre`)
+  **par défaut** — reconfigurable par l'expert.
 
 ## `geometry.py` — fonctions pures (stdlib uniquement)
 

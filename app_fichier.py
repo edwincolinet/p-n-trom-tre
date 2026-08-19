@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from app_settings import SettingsStore
-from bareme import description_seuils, get_seuils
+from bareme import description_seuils, get_groupes, seuils_depuis_brut
 from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
@@ -539,15 +539,16 @@ class FichierMixin(_MixinBase):
         seuils_fichier = getattr(self.chantier, "bareme_seuils", None)
         if not seuils_fichier:
             return           # mission antérieure à cette trace : rien à dire
-        if seuils_fichier == get_seuils():
+        groupes_fichier = seuils_depuis_brut(seuils_fichier)
+        if groupes_fichier == get_groupes():
             return
         log.warning("Barème du fichier ≠ barème du poste (%s vs %s)",
-                    seuils_fichier, get_seuils())
+                    groupes_fichier, get_groupes())
         self.set_status(
             _("⚠ Cette mission a été classée avec un autre barème "
               "({b}). Les classes affichées sont recalculées avec "
               "le barème de ce poste.").format(
-                  b=description_seuils(seuils_fichier)))
+                  b=description_seuils(groupes_fichier)))
 
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise

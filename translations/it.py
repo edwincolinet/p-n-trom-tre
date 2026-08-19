@@ -198,6 +198,33 @@ TRANSLATIONS = {
     "Restaurer les valeurs par défaut":    "Ripristina valori predefiniti",
     "Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.":
                                            "Soglie aggiornate. Le diagnosi utilizzeranno i nuovi valori.",
+    "Chaque port appartient à un seul groupe de seuils : composez vos "
+    "propres groupes (même un port par groupe) ou gardez le découpage "
+    "par défaut.":
+        "Ogni portamento appartiene a un solo gruppo di soglie: componete "
+        "i vostri gruppi (anche un portamento per gruppo) o mantenete la "
+        "suddivisione predefinita.",
+    "Nom du groupe":                       "Nome del gruppo",
+    "Vert (%)":                            "Verde (%)",
+    "Orange (%)":                          "Arancione (%)",
+    "＋ Nouveau groupe":                   "＋ Nuovo gruppo",
+    "Nouveau groupe":                      "Nuovo gruppo",
+    "Port de l'arbre → groupe":            "Portamento → gruppo",
+    "Nom manquant":                        "Nome mancante",
+    "Chaque groupe doit avoir un nom.":    "Ogni gruppo deve avere un nome.",
+    "Groupe vide":                         "Gruppo vuoto",
+    "Le groupe « {nom} » n'a aucun port assigné. Assignez-lui au moins "
+    "un port (tableau ci-dessous) ou supprimez-le.":
+        "Il gruppo «{nom}» non ha alcun portamento assegnato. Assegnategli "
+        "almeno un portamento (tabella qui sotto) o eliminatelo.",
+    "Groupe « {nom} » : saisissez des nombres (ex. 30, 15).":
+        "Gruppo «{nom}»: inserire numeri (es. 30, 15).",
+    "Pour le groupe « {nom} » : le seuil Vert doit être strictement "
+    "supérieur au seuil Orange, et les deux entre 0 % et 100 %.\n\n"
+    "Ex. Vert = 30, Orange = 15.":
+        "Per il gruppo «{nom}»: la soglia Verde deve essere strettamente "
+        "superiore alla soglia Arancione, entrambe comprese tra 0% e "
+        "100%.\n\nEs. Verde = 30, Arancione = 15.",
 
     # ── Lingua ───────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":

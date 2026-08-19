@@ -57,6 +57,23 @@ vers l'extérieur (`geometry._BARK_SEAM_PX`, en px → converti en cm via
 ni la profondeur creusée ni le diagnostic. Vaut pour toute future forme
 abutée à une autre.
 
+### Anneau peint en UN polygone (« contour externe + interne inversé ») : jointure à deux angles
+Peindre un anneau (écorce à rayon variable, bande de contrefort) comme un
+seul polygone simple `outer + inner[::-1]` (pas d'API de trou côté PIL/Tk)
+referme la forme via **deux ponts d'angles légèrement différents** — le
+dernier échantillon d'`outer` (~397.5 gr) et le premier d'`inner`/`outer`
+(0 gr), soit l'écart d'échantillonnage (`contour_polygon`, 160 pts/400 gr) —
+au lieu du **même** angle aller-retour. Résultat : un fin coin non rempli à
+la jointure, systématiquement au grade 0 (le point de départ de
+l'échantillonnage) → **rectangle blanc au Nord**, visible dès que la section
+a un rayon variable (`a_rayon_variable`), donc invisible sur le cas
+circulaire (primitive native, pas de polygone). Corrigé une fois pour toutes
+par `geometry.ring_polygon_points(outer, inner)` : reboucle `outer` sur
+lui-même avant le pont vers `inner[0]`, si bien que les deux ponts sont
+l'aller-retour du **même** segment (largeur nulle). Toute nouvelle
+construction d'anneau par cette technique doit passer par ce helper —
+jamais un `outer + inner[::-1]` écrit à la main.
+
 ### Positions hors-tronc
 Lettres cardinales, pastilles de sondage, tirets de l'échelle radiale :
 en **pixels absolus** (pas en cm) pour rester constants quel que soit le

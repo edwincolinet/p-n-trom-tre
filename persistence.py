@@ -36,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from bareme import get_seuils, normaliser_port, seuils_depuis_brut
+from bareme import get_groupes, groupes_vers_brut, normaliser_port, seuils_depuis_brut
 from model import (
     Arbre,
     Brin,
@@ -76,13 +76,13 @@ def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
     # décrire comment ses classes ont été obtenues ; recopier une valeur
     # ancienne mentirait dès qu'on ré-enregistre après un changement de
     # réglage. Cf. `model.Chantier.bareme_seuils`.
-    seuils = get_seuils()
+    seuils = get_groupes()
     return {"format_version": FORMAT_VERSION,
             "nom": chantier.nom, "adresse": chantier.adresse,
             "client": chantier.client,
             "operateur": chantier.operateur,
             "date_releve": chantier.date_releve,
-            "bareme_seuils": {k: [v[0], v[1]] for k, v in seuils.items()},
+            "bareme_seuils": groupes_vers_brut(seuils),
             "arbres": [asdict(a) for a in chantier.arbres]}
 
 
@@ -420,8 +420,10 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
     # doit pas reconfigurer le poste en douce ; en revanche l'app peut
     # signaler l'écart (cf. `App._avertir_bareme_different`) et les
     # exports peuvent citer le barème réellement utilisé.
-    # Absent (missions antérieures) ⟹ dict vide = « inconnu ».
+    # Absent (missions antérieures) ⟹ liste vide = « inconnu ». Un ancien
+    # format mission (2 groupes fixes) est normalisé au passage.
     if "bareme_seuils" in d:
-        c.bareme_seuils = seuils_depuis_brut(d["bareme_seuils"])
+        c.bareme_seuils = groupes_vers_brut(
+            seuils_depuis_brut(d["bareme_seuils"]))
     c.arbres = arbres
     return c

@@ -205,6 +205,33 @@ TRANSLATIONS = {
     "Restaurer les valeurs par défaut":    "Restore defaults",
     "Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.":
                                            "Thresholds updated. Diagnoses now use the new values.",
+    "Chaque port appartient à un seul groupe de seuils : composez vos "
+    "propres groupes (même un port par groupe) ou gardez le découpage "
+    "par défaut.":
+        "Each growth habit belongs to a single threshold group: build "
+        "your own groups (even one growth habit per group) or keep the "
+        "default split.",
+    "Nom du groupe":                       "Group name",
+    "Vert (%)":                            "Green (%)",
+    "Orange (%)":                          "Orange (%)",
+    "＋ Nouveau groupe":                   "＋ New group",
+    "Nouveau groupe":                      "New group",
+    "Port de l'arbre → groupe":            "Growth habit → group",
+    "Nom manquant":                        "Missing name",
+    "Chaque groupe doit avoir un nom.":    "Every group must have a name.",
+    "Groupe vide":                         "Empty group",
+    "Le groupe « {nom} » n'a aucun port assigné. Assignez-lui au moins "
+    "un port (tableau ci-dessous) ou supprimez-le.":
+        "The group “{nom}” has no growth habit assigned. Assign it at "
+        "least one (table below) or delete it.",
+    "Groupe « {nom} » : saisissez des nombres (ex. 30, 15).":
+        "Group “{nom}”: enter numbers (e.g. 30, 15).",
+    "Pour le groupe « {nom} » : le seuil Vert doit être strictement "
+    "supérieur au seuil Orange, et les deux entre 0 % et 100 %.\n\n"
+    "Ex. Vert = 30, Orange = 15.":
+        "For group “{nom}”: the Green threshold must be strictly "
+        "greater than the Orange threshold, both between 0% and 100%.\n\n"
+        "E.g. Green = 30, Orange = 15.",
 
     # ── Langue ────────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":

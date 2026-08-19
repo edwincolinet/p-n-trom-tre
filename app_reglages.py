@@ -26,8 +26,14 @@ from typing import TYPE_CHECKING, Any, Optional
 # `_RECOVERY_PATH` : effacé avant un redémarrage (cf. `action_restart`).
 from app_recovery import _RECOVERY_PATH
 from app_style import apply_ttk_styles
-from bareme import set_seuils
-from bareme_store import get_defaults, load_bareme, save_bareme
+from bareme import (
+    GROUPES_DEFAUT,
+    get_groupes,
+    groupes_vers_brut,
+    set_groupes,
+    seuils_depuis_brut,
+)
+from bareme_store import load_bareme, save_bareme
 from i18n import _, get_language
 from persistence import clear_recovery
 from ui_fonts import set_ui_scale
@@ -190,30 +196,18 @@ class ReglagesMixin(_MixinBase):
 
     def _apply_bareme(self) -> None:
         """Charge le barème personnalisé depuis ~/.penetrometre/bareme.json
-        et l'injecte dans `bareme.set_seuils`. No-op si le fichier est absent
-        (les défauts codés dans bareme.py s'appliquent déjà)."""
-        data = load_bareme()
-        set_seuils(
-            libre=(data["libre"]["vert"],  data["libre"]["orange"]),
-            strict=(data["strict"]["vert"], data["strict"]["orange"]),
-        )
+        et l'injecte dans `bareme.set_groupes`. No-op si le fichier est
+        absent (les défauts codés dans bareme.py s'appliquent déjà)."""
+        set_groupes(seuils_depuis_brut(load_bareme()))
 
     def action_bareme_settings(self) -> None:
         """Ouvre le dialog de paramétrage du barème t/R (Affichage → Barème…)."""
-        from bareme import get_seuils
         from dialogs_settings import ask_bareme_settings
-        current = {
-            grp: {"vert": v, "orange": o}
-            for grp, (v, o) in get_seuils().items()
-        }
-        result = ask_bareme_settings(self, current, get_defaults())
+        result = ask_bareme_settings(self, get_groupes(), list(GROUPES_DEFAUT))
         if result is None:
             return
-        save_bareme(result)
-        set_seuils(
-            libre=(result["libre"]["vert"],  result["libre"]["orange"]),
-            strict=(result["strict"]["vert"], result["strict"]["orange"]),
-        )
+        save_bareme(groupes_vers_brut(result))
+        set_groupes(result)
         # Redessiner l'arbre courant (les pastilles et le diagnostic
         # peuvent avoir changé de classe avec les nouveaux seuils).
         self._redraw_all()

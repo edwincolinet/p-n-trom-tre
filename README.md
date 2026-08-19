@@ -142,7 +142,7 @@ mon-dossier/
 ├── comparaison.py              ← fenêtre de comparaison inter-missions
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,
-│                                  Contrefort, Forme du tronc, Cépée)
+│                                  Contrefort, Disposition de la cépée)
 ├── dialogs_license.py          ← fenêtre d'activation bloquante (licence)
 ├── dialogs_settings.py         ← dialogs préférences avancées (barème, logo)
 ├── dialogs_shared.py           ← helpers partagés entre dialogues
@@ -371,7 +371,8 @@ courant.
 
 ## Barème PRBS
 
-Application du barème selon le port de l'arbre :
+Application du barème selon le port de l'arbre — répartition par défaut
+(entièrement reconfigurable, cf. « Barème configurable » plus bas) :
 
 | Port de l'arbre                | Vert      | Orange  | Rouge  |
 | ------------------------------ | --------- | ------- | ------ |
@@ -413,10 +414,17 @@ nouvelle mission sans ressaisir les informations récurrentes.
 
 ### Barème configurable
 
-Le menu **Réglages → Barème…** permet d'ajuster les seuils t/R
-Vert / Orange / Rouge par port d'arbre, sans recompiler. Les valeurs
-sont persistées dans `~/.penetrometre/bareme.json` ; un bouton restaure
-les valeurs par défaut.
+Le menu **Réglages → Barème…** permet de composer soi-même les **groupes
+de ports** qui partagent un même seuil t/R Vert/Orange/Rouge : un seuil par
+port individuel, ou plusieurs ports regroupés — au choix, sans recompiler.
+Chaque port appartient toujours à un seul groupe (garanti par l'éditeur,
+pas seulement vérifié) ; la répartition par défaut ci-dessus reste la
+valeur d'origine et un bouton la restaure en un clic. Les groupes sont
+persistés dans `~/.penetrometre/bareme.json` (poste), et les seuils
+réellement appliqués à l'enregistrement sont tracés dans chaque mission et
+cités dans les livrables (fiche PDF, exports XLSX/HTML/CSV) — deux
+opérateurs aux réglages différents savent ainsi toujours avec quel barème
+une classe Vert/Orange/Rouge a été obtenue.
 
 ### Licence et mode essai
 

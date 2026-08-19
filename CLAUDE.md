@@ -291,20 +291,46 @@ penetrometre.py  (Tk + main) ← undo.py
   déduite de la profondeur des dégradations externes qui **comprennent l'écorce**
   (cf. ci-dessus) — l'écorce abîmée ne compte pas comme bois sain perdu.
 - **COLOR_BARK ≠ COLOR_ROT** : ne jamais unifier (contraste dégradation/écorce).
-- **Traçabilité du barème** : les seuils Vert/Orange/Rouge sont un réglage
-  de **poste** (`~/.penetrometre/bareme.json`). Deux opérateurs aux réglages
-  différents classent donc les mêmes mesures différemment. Pour que le
-  diagnostic reste reproductible, les seuils **en vigueur à l'enregistrement**
-  sont écrits dans la mission (`Chantier.bareme_seuils`, clé JSON
-  `bareme_seuils`) et **cités dans chaque livrable** : pied de la fiche PDF,
-  bannière des exports XLSX/HTML, ligne `# Barème appliqué` en tête des CSV.
-  Source unique des libellés : `bareme.description_seuils` /
-  `description_seuils_mission` (duck-typing sur le chantier pour que `bareme`
-  reste sous `model` dans le graphe). **Ouvrir une mission n'applique JAMAIS
-  son barème** (ce serait reconfigurer le poste en douce) : l'écart est
-  seulement signalé en barre d'état par `App._avertir_bareme_different`.
-  Absence de la clé = mission antérieure à cette trace ⟹ « inconnu », pas de
-  migration.
+- **Barème configurable par groupes de ports** : les seuils Vert/Orange/Rouge
+  sont un réglage de **poste** (`~/.penetrometre/bareme.json`), organisé en
+  **groupes de ports librement composés par l'expert** — `bareme.GroupeBareme`
+  (`nom`, `ports: Tuple[str,...]`, `seuil_vert`, `seuil_orange`), `_groupes`
+  (état module, remplace un ancien binôme figé « libre »/« strict »). Un
+  **port individuel** n'est qu'un groupe à un seul port : aucune distinction
+  de code entre « régler port par port » et « regrouper des ports » — c'est
+  la même mécanique. `GROUPES_DEFAUT` (2 groupes, mêmes seuils qu'avant cette
+  fonctionnalité) reste la **valeur par défaut** de tout nouveau poste et du
+  bouton « Restaurer » de l'éditeur. `classer_prbs(ratio, port)` cherche le
+  groupe courant contenant ce port (`groupe_pour_port`) ; si aucun (config
+  altérée à la main) retombe sur le groupe de `GROUPES_DEFAUT` couvrant ce
+  port — jamais de crash, jamais un classement arbitraire silencieux.
+  **Éditeur** (`Affichage → Barème…`, `dialogs_settings.ask_bareme_settings`) :
+  une ligne éditable par groupe (nom, seuils Vert/Orange, suppression) +
+  un **tableau d'assignation port → groupe** (une `tk.StringVar` par port,
+  partagée par ses `Radiobutton` dans chaque colonne-groupe) — l'exclusivité
+  Tk native **garantit par construction** qu'un port appartient à exactement
+  un groupe, jamais par validation a posteriori (même philosophie que la
+  grille Sondages). Supprimer un groupe réaffecte ses ports au groupe
+  précédent (jamais d'orphelin) ; un dernier groupe ne peut pas être
+  supprimé. Seule validation a posteriori : chaque groupe a ≥ 1 port et
+  `0 < orange < vert ≤ 1`.
+  **Traçabilité** (inchangée dans son principe) : deux opérateurs aux
+  réglages différents classent les mêmes mesures différemment. Les groupes
+  **en vigueur à l'enregistrement** sont écrits dans la mission
+  (`Chantier.bareme_seuils`, forme brute JSON — liste de
+  `{"nom":.., "ports":[...], "vert":.., "orange":..}`, un par groupe ; champ
+  **duck-typé**, `model.py` ne dépend pas de `bareme.py`) et **cités dans
+  chaque livrable** : pied de la fiche PDF, bannière des exports XLSX/HTML,
+  ligne `# Barème appliqué` en tête des CSV. Source unique des libellés :
+  `bareme.description_seuils` / `description_seuils_mission`. Frontière
+  JSON : `groupes_vers_brut`/`seuils_depuis_brut` (ce dernier **migre
+  silencieusement** l'ancien format à 2 groupes fixes — postes et missions
+  antérieurs à cette fonctionnalité — et comble tout port manquant d'une
+  config incomplète par un groupe de secours). **Ouvrir une mission
+  n'applique JAMAIS son barème** (ce serait reconfigurer le poste en douce) :
+  l'écart est seulement signalé en barre d'état par
+  `App._avertir_bareme_different`. Liste vide = mission antérieure à cette
+  trace ⟹ « inconnu », pas de migration.
 - **Unicité** : un seul sondage par direction, pas de dégradations qui se
   chevauchent (arcs mitoyens bout-à-bout autorisés), un seul contrefort par
   grade central. Sondages et contreforts : **garantie par construction**
