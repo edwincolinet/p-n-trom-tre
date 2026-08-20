@@ -38,13 +38,13 @@ from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
 from dialogs import edit_degradation
 from dialogs_shared import (
     ZONE_DEGRADEE_AIDE,
-    ZONE_DEGRADEE_CHOICES,
     find_grade_choice,
     grade_choices,
     message_chevauchement,
     parse_grade,
     to_float,
     validate_numeric,
+    zone_degradee_choices,
     zone_degradee_label,
     zone_degradee_to_bool,
 )
@@ -106,7 +106,7 @@ class DegradationsPane(ttk.Frame):
         # packé, montré par `refresh()` dès qu'une ligne existe (inutile sur
         # une liste vide). Remplace le tooltip de l'ancienne case nue.
         self._lbl_zone_aide = ttk.Label(
-            self, text=ZONE_DEGRADEE_AIDE, style="Muted.TLabel",
+            self, text=_(ZONE_DEGRADEE_AIDE), style="Muted.TLabel",
             wraplength=420, justify="left")
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
@@ -263,7 +263,7 @@ class DegradationsPane(ttk.Frame):
         # texte explicite remplace l'ancienne case nue, illisible sur le
         # terrain ; le sens détaillé reste dans le rappel sous le tableau.
         cmb_ec = ttk.Combobox(f, textvariable=var_ecorce,
-                              values=list(ZONE_DEGRADEE_CHOICES),
+                              values=list(zone_degradee_choices()),
                               state="readonly", width=12)
         cmb_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
         cmb_ec.bind("<<ComboboxSelected>>",
@@ -318,11 +318,11 @@ class DegradationsPane(ttk.Frame):
                              font=ui_font("Helvetica", 10, "bold"))
         lbl_warn.grid(row=r, column=8, sticky="w", pady=1)
         Tooltip(lbl_warn,
-                "Profondeur + altération centrale > rayon sur au moins "
+                _("Profondeur + altération centrale > rayon sur au moins "
                 "une direction couverte : les deux zones dégradées se "
                 "rejoignent, la PRBS y est écrêtée à 0.\n"
                 "Vérifiez la profondeur saisie (ou le bois sain du "
-                "sondage concerné).")
+                "sondage concerné)."))
 
     @staticmethod
     def _index_de(b: Brin, deg: DegradationExterne) -> Optional[int]:

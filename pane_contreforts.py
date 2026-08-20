@@ -92,8 +92,8 @@ class ContrefortsPane(ttk.Frame):
         grid = ttk.Frame(self, style="Panel.TFrame")
         grid.pack(fill="both", expand=True)
 
-        heads = ["Direction", "Grade", "Longueur (cm)", "Largeur (gr)",
-                 "Commentaire"]
+        heads = [_("Direction"), _("Grade"), _("Longueur (cm)"),
+                 _("Largeur (gr)"), _("Commentaire")]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
                       font=ui_font("Helvetica", 9, "bold")).grid(

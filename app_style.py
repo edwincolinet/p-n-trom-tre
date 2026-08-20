@@ -135,7 +135,17 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     # libellé hériterait du fond COLOR_BG et trancherait sur le panneau.
     s.configure("Panel.TCheckbutton", background=COLOR_PANEL,
                 foreground=ink)
-    s.map("Panel.TCheckbutton", background=[("active", COLOR_PANEL)])
+    # Affordance cliquable : sans ce `map`, le thème `clam` rend une case
+    # cochable (activée, vide) quasi indiscernable d'une case désactivée —
+    # même contour gris fin, même remplissage clair, aucun signal visuel
+    # de « ceci répond au clic ». Case activée = fond blanc net (comme un
+    # champ de saisie) ; désactivée = fond gris plat (comme les champs
+    # désactivés) ; cochée = coche à l'accent vert de l'appli (au lieu du
+    # gris par défaut, qui se distinguait mal du contour).
+    s.map("Panel.TCheckbutton",
+          background=[("active", COLOR_PANEL)],
+          indicatorbackground=[("disabled", COLOR_BG), ("!disabled", "white")],
+          indicatorforeground=[("selected", COLOR_ACCENT)])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=_f("Helvetica", 10, "bold"),

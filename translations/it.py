@@ -128,6 +128,16 @@ TRANSLATIONS = {
     "Largeur (gr)":                        "Larghezza (gr)",
     "Profondeur (cm)":                     "Profondità (cm)",
     "Zone dégradée":                       "Zona degradata",
+    "Écorce + bois":                       "Corteccia + legno",
+    "Bois seul":                           "Solo legno",
+    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
+    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
+    "bois sain perdu.":
+        "Zona degradata — « Corteccia + legno »: la zona parte dalla "
+        "superficie; lo spessore di corteccia attraversato non è "
+        "conteggiato come legno perso. « Solo legno »: la corteccia "
+        "resta intatta, tutta la profondità è legno sano perso.",
     "＋ Ajouter dégradation":              "＋ Aggiungi degrado",
 
     # ── Scheda Diagnosi ───────────────────────────────────────────────
@@ -312,8 +322,10 @@ TRANSLATIONS = {
     "Expertise arboricole au pénétromètre": "Perizia arboricola — resistografo",
     "Expertise arboricole":                 "Perizia arboricola",
 
+    "Nom":                                 "Nome",
     "État":                                "Stato",
     "✕ Réinitialiser":                     "✕ Reimposta",
+    "↺ Réinitialiser les filtres":         "↺ Reimposta filtri",
     "Brin :":                              "Fusto:",
     "Renommer…":                           "Rinomina…",
 
@@ -519,6 +531,8 @@ TRANSLATIONS = {
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Progetto di riferimento caricato — {nom} ({n} albero/i).",
     "· {n} à finir   ({t})":            "· {n} da completare   ({t})",
+    "{r} rouge · {o} orange · {v} vert ":
+        "{r} rosso · {o} arancione · {v} verde ",
     "Arbre n° {num} — {n} arbre(s) encore à finir.":
         "Albero n° {num} — {n} albero/i ancora da completare.",
     "{n} arbre(s) masqué(s) par le filtre":
@@ -631,6 +645,8 @@ TRANSLATIONS = {
     "Vérification avant export": "Verifica pre-esportazione",
 
     "Échéance":                           "Scadenza",
+    "Toutes":                              "Tutte",
+    "Non renseignée":                      "Non specificata",
     "Toutes échéances":                   "Tutte le scadenze",
     "Échéance dépassée":                  "Scadenza superata",
     "Dans 30 jours":                      "Entro 30 giorni",
@@ -737,4 +753,74 @@ TRANSLATIONS = {
     "Ouvrir le log": "Aprire il log",
     "Pour tout signalement, joignez le fichier de log à votre message.":
         "Per qualsiasi segnalazione, allegare il file di log al messaggio.",
+
+    # ── Tooltip varie (audit i18n del 2026-08-20) ────────────────────────
+    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+    "La nouvelle tige hérite la forme de la précédente et se "
+    "place à l'Est ; ses mesures sont à relever séparément.":
+        "Aggiunge un fusto alla ceppaia (più fusti).\n"
+        "Il nuovo fusto eredita la forma del precedente e si posiziona "
+        "a Est; le sue misure vanno rilevate separatamente.",
+    "Choisir l'échéance au calendrier":     "Scegli la scadenza dal calendario",
+    "Choisir la date au calendrier":        "Scegli la data dal calendario",
+    "Choisir la date de prochaine visite au calendrier":
+        "Scegli la data della prossima visita dal calendario",
+    "Cliquer pour configurer le logo et le nom du cabinet…":
+        "Clicca per configurare il logo e il nome dello studio…",
+    "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+    "Double-clic → renommer · Clic droit → menu contextuel":
+        "Ctrl+PgGiù / Ctrl+PgSu → albero successivo / precedente\n"
+        "Doppio clic → rinomina · Clic destro → menu contestuale",
+    "Date du relevé — format JJ/MM/AAAA (normalisée automatiquement).":
+        "Data del rilievo — formato GG/MM/AAAA (normalizzata automaticamente).",
+    "Enregistrer la mission":               "Salva il progetto",
+    "Exporter la fiche PDF de l'arbre courant "
+    "(dessin + tableau + diagnostic) — Ctrl+E":
+        "Esporta la scheda PDF dell'albero corrente "
+        "(disegno + tabella + diagnosi) — Ctrl+E",
+    "Exporter le dessin de la section en image PNG":
+        "Esporta il disegno della sezione come immagine PNG",
+    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+    "tous les sondages de la mission (CSV)":
+        "Esporta la tabella PRBS dell'albero (Excel / HTML) o "
+        "tutti i sondaggi del progetto (CSV)",
+    "Gérer les durées de suivi personnalisées":
+        "Gestisci le durate di monitoraggio personalizzate",
+    "Gérer les niveaux d'urgence personnalisés":
+        "Gestisci i livelli di urgenza personalizzati",
+    "Imprimer la fiche PDF directement "
+    "(sans dialogue de sauvegarde) — Ctrl+P":
+        "Stampa la scheda PDF direttamente "
+        "(senza finestra di salvataggio) — Ctrl+P",
+    "Longueur (cm)":                        "Lunghezza (cm)",
+    "Ouvrir la fenêtre de comparaison de l'arbre "
+    "courant avec la mission de référence.":
+        "Apri la finestra di confronto dell'albero corrente "
+        "con il progetto di riferimento.",
+    "Place les brins de la cépée à la souris (glisser-"
+    "déposer). Le brin « a » est l'ancre du repère.":
+        "Posiziona i fusti della ceppaia con il mouse (trascina e "
+        "rilascia). Il fusto « a » è l'ancora del sistema di riferimento.",
+    "Profondeur + altération centrale > rayon sur au moins "
+    "une direction couverte : les deux zones dégradées se "
+    "rejoignent, la PRBS y est écrêtée à 0.\n"
+    "Vérifiez la profondeur saisie (ou le bois sain du "
+    "sondage concerné).":
+        "Profondità + alterazione centrale > raggio su almeno una "
+        "direzione coperta: le due zone degradate si uniscono, la "
+        "PRBS lì è azzerata.\n"
+        "Verifica la profondità inserita (o il legno sano del "
+        "sondaggio interessato).",
+    "Repartir d'une mission antérieure comme base : on met à jour "
+    "diamètres et sondages au lieu de tout ressaisir, et elle sert "
+    "de référence.":
+        "Riparti da un progetto precedente come base: aggiorna "
+        "diametri e sondaggi invece di reinserire tutto, e funge "
+        "da riferimento.",
+    "Sélectionne le prochain arbre au diagnostic "
+    "non fiable (rayon manquant ou < 3 sondages), "
+    "en bouclant. Vide les filtres si besoin.":
+        "Seleziona il prossimo albero con diagnosi non affidabile "
+        "(raggio mancante o < 3 sondaggi), in modo ciclico. "
+        "Svuota i filtri se necessario.",
 }

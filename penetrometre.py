@@ -55,7 +55,7 @@ from dialogs import (
     normaliser_date,
 )
 from dialogs_license import show_activation_dialog
-from i18n import _, setup_language
+from i18n import _, setup_language, translate_values
 from license import (
     LicenseData,
     TrialInfo,
@@ -795,12 +795,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
     def _reset_all_filters(self) -> None:
         """Réinitialise tous les filtres de la liste d'arbres en une action."""
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
-        self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+        self.var_risk_filter.set(_(_RISK_FILTER_ALL))
+        self.var_urgence_filter.set(_(_URGENCE_FILTER_ALL))
         if hasattr(self, "var_echeance_filter"):
-            self.var_echeance_filter.set(_ECHEANCE_FILTER_ALL)
+            self.var_echeance_filter.set(_(_ECHEANCE_FILTER_ALL))
         if hasattr(self, "var_complet_filter"):
-            self.var_complet_filter.set(_COMPLET_FILTER_ALL)
+            self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
         self.var_filter.set("")  # la trace sur var_filter déclenche le refresh
 
     def essences_utilisees(self) -> list[str]:
@@ -881,10 +881,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
     def _urgence_filter_choices(self) -> "list[str]":
         """Choices du filtre urgence : Toutes + standards + personnalisés + Non renseignée."""
-        return ([_URGENCE_FILTER_ALL]
-                + list(URGENCE_NIVEAUX)
+        return ([_(_URGENCE_FILTER_ALL)]
+                + translate_values(list(URGENCE_NIVEAUX))
                 + self.get_urgences_custom()
-                + [_URGENCE_FILTER_NONE])
+                + [_(_URGENCE_FILTER_NONE)])
 
     def _refresh_urgence_filter_choices(self) -> None:
         """Met à jour les valeurs du combobox filtre urgence après un changement

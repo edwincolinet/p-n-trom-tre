@@ -42,6 +42,7 @@ from dialogs_shared import (
     grade_choices,
     message_chevauchement,
     parse_grade,
+    zone_degradee_choices,
     zone_degradee_label,
     zone_degradee_to_bool,
 )
@@ -787,10 +788,10 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
               background=COLOR_PANEL).grid(row=6, column=0,
                                            sticky="w", padx=10, pady=6)
     ttk.Combobox(dlg, textvariable=v_ecorce,
-                 values=list(ZONE_DEGRADEE_CHOICES),
+                 values=list(zone_degradee_choices()),
                  state="readonly", width=24
                  ).grid(row=6, column=1, sticky="we", padx=10, pady=6)
-    ttk.Label(dlg, text=ZONE_DEGRADEE_AIDE, background=COLOR_PANEL,
+    ttk.Label(dlg, text=_(ZONE_DEGRADEE_AIDE), background=COLOR_PANEL,
               foreground=COLOR_MUTED, wraplength=300, justify="left",
               font=ui_font("Helvetica", 9)
               ).grid(row=7, column=0, columnspan=2,

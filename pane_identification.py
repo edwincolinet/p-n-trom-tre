@@ -227,12 +227,12 @@ class IdentificationPane(ttk.Frame):
             self.lbl_brins = ttk.Label(brin_bar, text="", style="Muted.TLabel")
             self.lbl_brins.pack(side="left", padx=(10, 0))
             Tooltip(self.btn_layout,
-                    "Place les brins de la cépée à la souris (glisser-"
-                    "déposer). Le brin « a » est l'ancre du repère.")
+                    _("Place les brins de la cépée à la souris (glisser-"
+                    "déposer). Le brin « a » est l'ancre du repère."))
             Tooltip(self.btn_add_brin,
-                    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+                    _("Ajoute une tige à la cépée (genet à plusieurs brins).\n"
                     "La nouvelle tige hérite la forme de la précédente et se "
-                    "place à l'Est ; ses mesures sont à relever séparément.")
+                    "place à l'Est ; ses mesures sont à relever séparément."))
 
         for var in (self.var_meche, self.var_ep_ecorce,
                     self.var_h_s, self.var_h_arb):

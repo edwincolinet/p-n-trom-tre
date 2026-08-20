@@ -127,6 +127,16 @@ TRANSLATIONS = {
     "Largeur (gr)":                        "Width (gr)",
     "Profondeur (cm)":                     "Depth (cm)",
     "Zone dégradée":                       "Damaged area",
+    "Écorce + bois":                       "Bark + wood",
+    "Bois seul":                           "Wood only",
+    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
+    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
+    "bois sain perdu.":
+        "Damaged area — « Bark + wood »: the area starts at the surface; "
+        "the bark thickness crossed is not counted as lost wood. "
+        "« Wood only »: the bark stays intact, the whole depth is lost "
+        "sound wood.",
     "＋ Ajouter dégradation":              "＋ Add damage",
 
     # ── Onglet Diagnostic ─────────────────────────────────────────────
@@ -321,8 +331,10 @@ TRANSLATIONS = {
     "Expertise arboricole":                 "Tree expertise",
 
     # Panneau gauche — colonnes treeview
+    "Nom":                                 "Name",
     "État":                                "Status",
     "✕ Réinitialiser":                     "✕ Reset",
+    "↺ Réinitialiser les filtres":         "↺ Reset filters",
     "Brin :":                              "Stem:",
     "Renommer…":                           "Rename…",
 
@@ -545,6 +557,8 @@ TRANSLATIONS = {
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Reference project loaded — {nom} ({n} tree(s)).",
     "· {n} à finir   ({t})":            "· {n} to finish   ({t})",
+    "{r} rouge · {o} orange · {v} vert ":
+        "{r} red · {o} orange · {v} green ",
     "Arbre n° {num} — {n} arbre(s) encore à finir.":
         "Tree no. {num} — {n} tree(s) still to finish.",
     "{n} arbre(s) masqué(s) par le filtre":
@@ -660,6 +674,8 @@ TRANSLATIONS = {
     "Vérification avant export": "Pre-export check",
 
     "Échéance":                           "Deadline",
+    "Toutes":                              "All",
+    "Non renseignée":                      "Not specified",
     "Toutes échéances":                   "All deadlines",
     "Échéance dépassée":                  "Overdue",
     "Dans 30 jours":                      "Within 30 days",
@@ -756,4 +772,74 @@ TRANSLATIONS = {
     "Ouvrir le log": "Open log file",
     "Pour tout signalement, joignez le fichier de log à votre message.":
         "When reporting an issue, please attach the log file to your message.",
+
+    # ── Infobulles diverses (balayage i18n du 2026-08-20) ───────────────
+    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+    "La nouvelle tige hérite la forme de la précédente et se "
+    "place à l'Est ; ses mesures sont à relever séparément.":
+        "Adds a stem to the multi-stem tree (several stems).\n"
+        "The new stem inherits the shape of the previous one and is "
+        "placed to the East; its measurements must be taken separately.",
+    "Choisir l'échéance au calendrier":     "Pick the deadline from the calendar",
+    "Choisir la date au calendrier":        "Pick the date from the calendar",
+    "Choisir la date de prochaine visite au calendrier":
+        "Pick the next visit date from the calendar",
+    "Cliquer pour configurer le logo et le nom du cabinet…":
+        "Click to configure the office logo and name…",
+    "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+    "Double-clic → renommer · Clic droit → menu contextuel":
+        "Ctrl+PgDown / Ctrl+PgUp → next / previous tree\n"
+        "Double-click → rename · Right-click → context menu",
+    "Date du relevé — format JJ/MM/AAAA (normalisée automatiquement).":
+        "Survey date — DD/MM/YYYY format (normalized automatically).",
+    "Enregistrer la mission":               "Save the project",
+    "Exporter la fiche PDF de l'arbre courant "
+    "(dessin + tableau + diagnostic) — Ctrl+E":
+        "Export the current tree's PDF report "
+        "(drawing + table + diagnosis) — Ctrl+E",
+    "Exporter le dessin de la section en image PNG":
+        "Export the section drawing as a PNG image",
+    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+    "tous les sondages de la mission (CSV)":
+        "Export the tree's PRBS table (Excel / HTML) or "
+        "all soundings of the project (CSV)",
+    "Gérer les durées de suivi personnalisées":
+        "Manage custom follow-up durations",
+    "Gérer les niveaux d'urgence personnalisés":
+        "Manage custom priority levels",
+    "Imprimer la fiche PDF directement "
+    "(sans dialogue de sauvegarde) — Ctrl+P":
+        "Print the PDF report directly "
+        "(without a save dialog) — Ctrl+P",
+    "Longueur (cm)":                        "Length (cm)",
+    "Ouvrir la fenêtre de comparaison de l'arbre "
+    "courant avec la mission de référence.":
+        "Open the comparison window for the current tree "
+        "against the reference project.",
+    "Place les brins de la cépée à la souris (glisser-"
+    "déposer). Le brin « a » est l'ancre du repère.":
+        "Position the stems of the multi-stem tree with the mouse "
+        "(drag and drop). Stem « a » is the anchor of the reference frame.",
+    "Profondeur + altération centrale > rayon sur au moins "
+    "une direction couverte : les deux zones dégradées se "
+    "rejoignent, la PRBS y est écrêtée à 0.\n"
+    "Vérifiez la profondeur saisie (ou le bois sain du "
+    "sondage concerné).":
+        "Depth + central alteration > radius on at least one covered "
+        "direction: the two damaged zones merge, the PRBS is clamped "
+        "to 0 there.\n"
+        "Check the entered depth (or the sound wood of the sounding "
+        "concerned).",
+    "Repartir d'une mission antérieure comme base : on met à jour "
+    "diamètres et sondages au lieu de tout ressaisir, et elle sert "
+    "de référence.":
+        "Start over from a previous project as a base: update "
+        "diameters and soundings instead of re-entering everything, "
+        "and it serves as the reference.",
+    "Sélectionne le prochain arbre au diagnostic "
+    "non fiable (rayon manquant ou < 3 sondages), "
+    "en bouclant. Vide les filtres si besoin.":
+        "Selects the next tree with an unreliable diagnosis "
+        "(missing radius or < 3 soundings), looping around. "
+        "Clears the filters if needed.",
 }

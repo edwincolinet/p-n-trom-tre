@@ -152,12 +152,20 @@ SUIVI_VALIDITES = ("1 an", "2 ans", "3 ans", "4 ans", "5 ans")
 
 def zone_degradee_label(comprend_ecorce: bool) -> str:
     """Libellé affiché pour l'état `comprend_ecorce` d'une dégradation."""
-    return ZONE_ECORCE_BOIS if comprend_ecorce else ZONE_BOIS_SEUL
+    return _(ZONE_ECORCE_BOIS) if comprend_ecorce else _(ZONE_BOIS_SEUL)
+
+
+def zone_degradee_choices() -> "tuple[str, str]":
+    """Libellés traduits pour le combobox « Zone dégradée » — à appeler à
+    la construction du widget (pas au niveau module : la langue n'est
+    connue qu'après `i18n.setup_language()`, cf. `ZONE_DEGRADEE_CHOICES`
+    qui reste la forme française canonique pour toute comparaison)."""
+    return (zone_degradee_label(True), zone_degradee_label(False))
 
 
 def zone_degradee_to_bool(label: str) -> bool:
-    """Inverse de `zone_degradee_label` : libellé → `comprend_ecorce`."""
-    return label == ZONE_ECORCE_BOIS
+    """Inverse de `zone_degradee_label` : libellé (traduit) → `comprend_ecorce`."""
+    return label == _(ZONE_ECORCE_BOIS)
 
 
 def _round_to_25(v: int, *, min_v: int = 0, max_v: int = 375,

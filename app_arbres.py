@@ -47,36 +47,50 @@ _CLASSE_TAG = {
 # Filtre par classe de risque de la liste d'arbres (combobox du panneau
 # gauche). « Non fiable » = arbre dont le risque n'est pas publié (colonne
 # Risque = « — » : 0-2 sondages ou rayon nul). Cf. `_arbre_matches_filter`.
+# Constantes gardées en FRANÇAIS (identité interne, jamais persistée) ;
+# CLASSE_VERT/ORANGE/ROUGE restent elles-mêmes non traduites à dessein
+# (vocabulaire de domaine invariant, cf. colonne Risque de la liste et
+# tous les exports) — seuls les 2 libellés 100% UI ci-dessous sont
+# traduits, via `_risk_filter_choices()` (appelée à la construction du
+# combobox, jamais au niveau module : la langue n'est connue qu'après
+# `i18n.setup_language()`).
 _RISK_FILTER_ALL = "Tous"
 _RISK_FILTER_UNRELIABLE = "Non fiable"
-_RISK_FILTER_CHOICES = (_RISK_FILTER_ALL, CLASSE_VERT, CLASSE_ORANGE,
-                        CLASSE_ROUGE, _RISK_FILTER_UNRELIABLE)
+
+
+def _risk_filter_choices() -> "tuple[str, ...]":
+    return (_(_RISK_FILTER_ALL), CLASSE_VERT, CLASSE_ORANGE, CLASSE_ROUGE,
+            _(_RISK_FILTER_UNRELIABLE))
+
 
 # Filtre par urgence de préconisation. « Non renseignée » = urgence == "".
 _URGENCE_FILTER_ALL = "Toutes"
 _URGENCE_FILTER_NONE = "Non renseignée"
-_URGENCE_FILTER_CHOICES = (
-    (_URGENCE_FILTER_ALL,) + tuple(URGENCE_NIVEAUX) + (_URGENCE_FILTER_NONE,)
-)
 
-# Filtre par échéance de préconisation.
+# Filtre par échéance de préconisation. Purement UI (rien de persisté) :
+# les 5 libellés sont traduits sans contrainte, via `_echeance_filter_choices()`.
 _ECHEANCE_FILTER_ALL      = "Toutes échéances"
 _ECHEANCE_FILTER_OVERDUE  = "Échéance dépassée"
 _ECHEANCE_FILTER_30       = "Dans 30 jours"
 _ECHEANCE_FILTER_90       = "Dans 90 jours"
 _ECHEANCE_FILTER_NONE     = "Sans échéance"
-_ECHEANCE_FILTER_CHOICES  = (
-    _ECHEANCE_FILTER_ALL, _ECHEANCE_FILTER_OVERDUE,
-    _ECHEANCE_FILTER_30, _ECHEANCE_FILTER_90, _ECHEANCE_FILTER_NONE,
-)
 
-# Filtre par complétude des sondages.
+
+def _echeance_filter_choices() -> "tuple[str, ...]":
+    return (_(_ECHEANCE_FILTER_ALL), _(_ECHEANCE_FILTER_OVERDUE),
+            _(_ECHEANCE_FILTER_30), _(_ECHEANCE_FILTER_90),
+            _(_ECHEANCE_FILTER_NONE))
+
+
+# Filtre par complétude des sondages. Purement UI.
 _COMPLET_FILTER_ALL        = "Tous"
 _COMPLET_FILTER_COMPLETS   = "Complets (≥3 sondages)"
 _COMPLET_FILTER_INCOMPLETS = "Incomplets"
-_COMPLET_FILTER_CHOICES    = (
-    _COMPLET_FILTER_ALL, _COMPLET_FILTER_COMPLETS, _COMPLET_FILTER_INCOMPLETS,
-)
+
+
+def _complet_filter_choices() -> "tuple[str, ...]":
+    return (_(_COMPLET_FILTER_ALL), _(_COMPLET_FILTER_COMPLETS),
+            _(_COMPLET_FILTER_INCOMPLETS))
 
 
 class ArbreListMixin(_MixinBase):
@@ -142,7 +156,7 @@ class ArbreListMixin(_MixinBase):
         rf = getattr(self, "var_risk_filter", None)
         if rf is not None:
             choice = rf.get()
-            if choice and choice != _RISK_FILTER_ALL:
+            if choice and choice != _(_RISK_FILTER_ALL):
                 if etat is None:
                     # Repli sur le cache alimenté par `_refresh_tree_arbres`
                     # (même source que `_update_etat_footer`) avant de
@@ -152,7 +166,7 @@ class ArbreListMixin(_MixinBase):
                 if etat is None:
                     etat = self._arbre_etat(a)
                 risque = etat[1]  # « Vert/Orange/Rouge/— »
-                if choice == _RISK_FILTER_UNRELIABLE:
+                if choice == _(_RISK_FILTER_UNRELIABLE):
                     if risque != "—":
                         return False
                 elif risque != choice:
@@ -160,18 +174,20 @@ class ArbreListMixin(_MixinBase):
         uf = getattr(self, "var_urgence_filter", None)
         if uf is not None:
             choice = uf.get()
-            if choice and choice != _URGENCE_FILTER_ALL:
-                if choice == _URGENCE_FILTER_NONE:
+            if choice and choice != _(_URGENCE_FILTER_ALL):
+                if choice == _(_URGENCE_FILTER_NONE):
                     if a.urgence != "":
                         return False
-                elif a.urgence != choice:
-                    return False
+                else:
+                    all_urg = list(URGENCE_NIVEAUX) + self.get_urgences_custom()
+                    if a.urgence != untranslate_value(choice, all_urg):
+                        return False
         # Filtre par échéance
         ef = getattr(self, "var_echeance_filter", None)
         if ef is not None:
             choice = ef.get()
-            if choice and choice != _ECHEANCE_FILTER_ALL:
-                if choice == _ECHEANCE_FILTER_NONE:
+            if choice and choice != _(_ECHEANCE_FILTER_ALL):
+                if choice == _(_ECHEANCE_FILTER_NONE):
                     if a.echeance:
                         return False
                 else:
@@ -186,14 +202,14 @@ class ArbreListMixin(_MixinBase):
                             j, m, y = norm.split("/")
                             d_ech = _date(int(y), int(m), int(j))
                             today = _date.today()
-                            if choice == _ECHEANCE_FILTER_OVERDUE:
+                            if choice == _(_ECHEANCE_FILTER_OVERDUE):
                                 if d_ech >= today:
                                     return False
-                            elif choice == _ECHEANCE_FILTER_30:
+                            elif choice == _(_ECHEANCE_FILTER_30):
                                 from datetime import timedelta
                                 if not (today <= d_ech <= today + timedelta(days=30)):
                                     return False
-                            elif choice == _ECHEANCE_FILTER_90:
+                            elif choice == _(_ECHEANCE_FILTER_90):
                                 from datetime import timedelta
                                 if not (today <= d_ech <= today + timedelta(days=90)):
                                     return False
@@ -205,12 +221,12 @@ class ArbreListMixin(_MixinBase):
         cf = getattr(self, "var_complet_filter", None)
         if cf is not None:
             choice = cf.get()
-            if choice and choice != _COMPLET_FILTER_ALL:
+            if choice and choice != _(_COMPLET_FILTER_ALL):
                 n_sond = sum(len(b.sondages) for b in a.brins)
                 complet = (a.rayon_tronc_cm > 0 and n_sond >= 3)
-                if choice == _COMPLET_FILTER_COMPLETS and not complet:
+                if choice == _(_COMPLET_FILTER_COMPLETS) and not complet:
                     return False
-                if choice == _COMPLET_FILTER_INCOMPLETS and complet:
+                if choice == _(_COMPLET_FILTER_INCOMPLETS) and complet:
                     return False
         return True
 
@@ -284,7 +300,8 @@ class ArbreListMixin(_MixinBase):
             return
         n_total = len(self.chantier.arbres)
         self.lbl_etat_footer.configure(
-            text=(f"{n_rouge} rouge · {n_orange} orange · {n_vert} vert "
+            text=(_("{r} rouge · {o} orange · {v} vert ").format(
+                      r=n_rouge, o=n_orange, v=n_vert)
                   + _("· {n} à finir   ({t})").format(n=n_afinir, t=n_total)))
 
     def _update_etat_footer(self) -> None:
@@ -446,15 +463,15 @@ class ArbreListMixin(_MixinBase):
                 and self.var_filter.get()):
             self.var_filter.set("")
         if (getattr(self, "var_risk_filter", None) is not None
-                and self.var_risk_filter.get() != _RISK_FILTER_ALL):
-            self.var_risk_filter.set(_RISK_FILTER_ALL)
+                and self.var_risk_filter.get() != _(_RISK_FILTER_ALL)):
+            self.var_risk_filter.set(_(_RISK_FILTER_ALL))
         if (getattr(self, "var_urgence_filter", None) is not None
-                and self.var_urgence_filter.get() != _URGENCE_FILTER_ALL):
-            self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+                and self.var_urgence_filter.get() != _(_URGENCE_FILTER_ALL)):
+            self.var_urgence_filter.set(_(_URGENCE_FILTER_ALL))
         if getattr(self, "var_echeance_filter", None) is not None:
-            self.var_echeance_filter.set(_ECHEANCE_FILTER_ALL)
+            self.var_echeance_filter.set(_(_ECHEANCE_FILTER_ALL))
         if getattr(self, "var_complet_filter", None) is not None:
-            self.var_complet_filter.set(_COMPLET_FILTER_ALL)
+            self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
 
     def action_add_arbre_inherit(self) -> None:
         """Ajoute un arbre héritant des champs d'« identité » de l'arbre

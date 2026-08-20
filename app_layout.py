@@ -27,12 +27,12 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 from aide_repliable import AideRepliable
 from app_arbres import (
     _COMPLET_FILTER_ALL,
-    _COMPLET_FILTER_CHOICES,
     _ECHEANCE_FILTER_ALL,
-    _ECHEANCE_FILTER_CHOICES,
     _RISK_FILTER_ALL,
-    _RISK_FILTER_CHOICES,
     _URGENCE_FILTER_ALL,
+    _complet_filter_choices,
+    _echeance_filter_choices,
+    _risk_filter_choices,
 )
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from i18n import _
@@ -141,15 +141,15 @@ class LayoutMixin(_MixinBase):
             command=self.action_reinspection)
         btn_reinsp.pack(side="left")
         Tooltip(btn_reinsp,
-                "Repartir d'une mission antérieure comme base : on met à jour "
+                _("Repartir d'une mission antérieure comme base : on met à jour "
                 "diamètres et sondages au lieu de tout ressaisir, et elle sert "
-                "de référence.")
+                "de référence."))
         self._btn_compare = ttk.Button(
             comp, text=_("📊 Diagnostic de la comparaison…"), style="Ghost.TButton",
             command=self.action_compare_arbre, state="disabled")
         self._btn_compare.pack(side="left", padx=(6, 0))
-        Tooltip(self._btn_compare, "Ouvrir la fenêtre de comparaison de l'arbre "
-                                   "courant avec la mission de référence.")
+        Tooltip(self._btn_compare, _("Ouvrir la fenêtre de comparaison de l'arbre "
+                                   "courant avec la mission de référence."))
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
@@ -160,7 +160,7 @@ class LayoutMixin(_MixinBase):
         self._logo_frame.bind(
             "<Button-1>", lambda e: self.action_cabinet_settings())
         Tooltip(self._logo_frame,
-                "Cliquer pour configurer le logo et le nom du cabinet…")
+                _("Cliquer pour configurer le logo et le nom du cabinet…"))
         try:
             from PIL import Image as PILImage  # noqa: F401
         except ImportError as exc:
@@ -222,13 +222,13 @@ class LayoutMixin(_MixinBase):
                 e.pack(side="left", padx=(0, 2))
                 e.bind("<FocusIn>", lambda ev: self._date_focus_in())
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
-                Tooltip(e, "Date du relevé — format JJ/MM/AAAA "
-                           "(normalisée automatiquement).")
+                Tooltip(e, _("Date du relevé — format JJ/MM/AAAA "
+                           "(normalisée automatiquement)."))
                 btn_cal = ttk.Button(row1, text="📅", width=3,
                                      style="Ghost.TButton",
                                      command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
-                Tooltip(btn_cal, "Choisir la date au calendrier")
+                Tooltip(btn_cal, _("Choisir la date au calendrier"))
             else:
                 e = ttk.Entry(row1, textvariable=var, width=w)
                 e.pack(side="left", padx=(0, 14))
@@ -307,9 +307,9 @@ class LayoutMixin(_MixinBase):
         rfilt.pack(fill="x", pady=(0, 4))
         ttk.Label(rfilt, text=_("Risque"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
-        self.var_risk_filter = tk.StringVar(value=_RISK_FILTER_ALL)
+        self.var_risk_filter = tk.StringVar(value=_(_RISK_FILTER_ALL))
         cmb_risk = ttk.Combobox(rfilt, textvariable=self.var_risk_filter,
-                                values=list(_RISK_FILTER_CHOICES),
+                                values=list(_risk_filter_choices()),
                                 state="readonly", width=12)
         cmb_risk.pack(side="left", fill="x", expand=True)
         cmb_risk.bind("<<ComboboxSelected>>",
@@ -319,7 +319,7 @@ class LayoutMixin(_MixinBase):
         ufilt.pack(fill="x", pady=(0, 4))
         ttk.Label(ufilt, text=_("Urgence"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
-        self.var_urgence_filter = tk.StringVar(value=_URGENCE_FILTER_ALL)
+        self.var_urgence_filter = tk.StringVar(value=_(_URGENCE_FILTER_ALL))
         self._cmb_urgence_filter = ttk.Combobox(
             ufilt, textvariable=self.var_urgence_filter,
             values=self._urgence_filter_choices(),
@@ -332,10 +332,10 @@ class LayoutMixin(_MixinBase):
         efilt.pack(fill="x", pady=(0, 4))
         ttk.Label(efilt, text=_("Échéance"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
-        self.var_echeance_filter = tk.StringVar(value=_ECHEANCE_FILTER_ALL)
+        self.var_echeance_filter = tk.StringVar(value=_(_ECHEANCE_FILTER_ALL))
         cmb_ech = ttk.Combobox(
             efilt, textvariable=self.var_echeance_filter,
-            values=list(_ECHEANCE_FILTER_CHOICES),
+            values=list(_echeance_filter_choices()),
             state="readonly", width=12)
         cmb_ech.pack(side="left", fill="x", expand=True)
         cmb_ech.bind("<<ComboboxSelected>>",
@@ -345,14 +345,26 @@ class LayoutMixin(_MixinBase):
         cfilt.pack(fill="x", pady=(0, 6))
         ttk.Label(cfilt, text=_("Sondages"), style="Side.TLabel").pack(
             side="left", padx=(0, 4))
-        self.var_complet_filter = tk.StringVar(value=_COMPLET_FILTER_ALL)
+        self.var_complet_filter = tk.StringVar(value=_(_COMPLET_FILTER_ALL))
         cmb_complet = ttk.Combobox(
             cfilt, textvariable=self.var_complet_filter,
-            values=list(_COMPLET_FILTER_CHOICES),
+            values=list(_complet_filter_choices()),
             state="readonly", width=12)
         cmb_complet.pack(side="left", fill="x", expand=True)
         cmb_complet.bind("<<ComboboxSelected>>",
                          lambda e: self._refresh_tree_arbres())
+
+        # Réinitialisation directement dans le panneau (pas seulement via
+        # le bandeau « filtre actif » sous la liste, qui ne s'affiche que
+        # si au moins un arbre est masqué — un filtre actif qui ne masque
+        # rien pour l'instant, ex. Risque=Rouge sur une mission où tous
+        # les arbres sont déjà rouges, resterait sinon sans bouton visible
+        # tant que le panneau est ouvert). Réutilise `_reset_all_filters`.
+        ttk.Button(
+            self._filtres_avances, text=_("↺ Réinitialiser les filtres"),
+            style="Ghost.TButton",
+            command=self._reset_all_filters,
+        ).pack(fill="x", pady=(2, 0))
 
         self._sync_filtres_avances()  # pose le texte initial de l'en-tête
 
@@ -376,7 +388,7 @@ class LayoutMixin(_MixinBase):
         self.tree_arbres = ttk.Treeview(
             lst_frame, columns=("ess", "etat", "risque"),
             show="tree headings", height=20, style="Side.Treeview")
-        self.tree_arbres.heading("#0", text="Nom")
+        self.tree_arbres.heading("#0", text=_("Nom"))
         self.tree_arbres.heading("ess", text=_("Essence"))
         self.tree_arbres.heading("etat", text=_("État"))
         self.tree_arbres.heading("risque", text=_("Risque"))
@@ -435,8 +447,8 @@ class LayoutMixin(_MixinBase):
             lambda e: self._tree_arbres_ctx_menu.unpost())
         self.tree_arbres.bind("<Button-3>", self._on_tree_arbres_right_click)
         Tooltip(self.tree_arbres,
-                "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
-                "Double-clic → renommer · Clic droit → menu contextuel")
+                _("Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+                "Double-clic → renommer · Clic droit → menu contextuel"))
 
         # Éléments du bas packés en side="bottom" AVANT lst_frame (sinon
         # lst_frame avec expand=True les pousserait hors de l'écran quand le
@@ -474,9 +486,9 @@ class LayoutMixin(_MixinBase):
             frame, text=_("⏭ Prochain arbre à finir"), style="Ghost.TButton",
             command=self.action_next_a_finir)
         btn_afinir.pack(side="bottom", anchor="w", pady=(4, 0))
-        Tooltip(btn_afinir, "Sélectionne le prochain arbre au diagnostic "
+        Tooltip(btn_afinir, _("Sélectionne le prochain arbre au diagnostic "
                             "non fiable (rayon manquant ou < 3 sondages), "
-                            "en bouclant. Vide les filtres si besoin.")
+                            "en bouclant. Vide les filtres si besoin."))
 
         # Footer = vue de triage macro (répartition rouge/orange/vert/à
         # finir) — cf. `_update_etat_footer`. Wrap pour tenir dans le
@@ -492,13 +504,13 @@ class LayoutMixin(_MixinBase):
         """Nombre de filtres « avancés » actifs (hors recherche texte,
         toujours visible) — alimente le compteur de l'en-tête replié."""
         n = 0
-        if self.var_risk_filter.get() != _RISK_FILTER_ALL:
+        if self.var_risk_filter.get() != _(_RISK_FILTER_ALL):
             n += 1
-        if self.var_urgence_filter.get() != _URGENCE_FILTER_ALL:
+        if self.var_urgence_filter.get() != _(_URGENCE_FILTER_ALL):
             n += 1
-        if self.var_echeance_filter.get() != _ECHEANCE_FILTER_ALL:
+        if self.var_echeance_filter.get() != _(_ECHEANCE_FILTER_ALL):
             n += 1
-        if self.var_complet_filter.get() != _COMPLET_FILTER_ALL:
+        if self.var_complet_filter.get() != _(_COMPLET_FILTER_ALL):
             n += 1
         return n
 
@@ -768,7 +780,7 @@ class LayoutMixin(_MixinBase):
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)
-        Tooltip(self._btn_save, "Enregistrer la mission (Ctrl+S)")
+        Tooltip(self._btn_save, _("Enregistrer la mission") + " (Ctrl+S)")
         # Indicateur d'état d'enregistrement, mis à jour à chaque mutation
         # (le « • » du titre est trop discret, et masquable par le WM).
         self.lbl_save_state = ttk.Label(
