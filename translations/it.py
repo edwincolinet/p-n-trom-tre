@@ -263,6 +263,7 @@ TRANSLATIONS = {
     "Résumé de l'arbre courant":          "Riepilogo albero corrente",
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Parete Residua di Legno Sano per sondaggio",
+    "(suite)":                            "(continua)",
     "📄 Fiche PDF (arbre courant)":       "📄 Scheda PDF (albero corrente)",
     "🖨 Imprimer":                        "🖨 Stampa",
     "🖼 PNG du dessin":                   "🖼 PNG del disegno",

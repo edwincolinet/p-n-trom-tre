@@ -270,6 +270,7 @@ TRANSLATIONS = {
     "Résumé de l'arbre courant":          "Current tree summary",
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Residual Sound Wood by sounding",
+    "(suite)":                            "(cont'd)",
     "📄 Fiche PDF (arbre courant)":       "📄 PDF report (current tree)",
     "🖨 Imprimer":                        "🖨 Print",
     "🖼 PNG du dessin":                   "🖼 PNG drawing",

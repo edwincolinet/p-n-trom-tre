@@ -336,6 +336,23 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
     return h
 
 
+def _draw_footer(pg: _Page, chantier: "Chantier", cabinet_name: str,
+                 margin: int) -> None:
+    """Filet + ligne barème + ligne Pénétromètre/date, en bas de la page
+    courante. Factorisé pour être rejoué identique sur chaque page d'une
+    fiche qui déborde sur plusieurs pages (table PRBS d'une grosse cépée,
+    cf. `render_fiche_arbre`)."""
+    pg.line(margin, H - 60, W - margin, H - 60, COLOR_MUTED, width=1)
+    pg.text(W / 2, H - 44,
+            _("Barème appliqué") + " — " + description_seuils_mission(chantier),
+            12, "sans", COLOR_MUTED, anchor="mm")
+    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
+    pg.text(W / 2, H - 22,
+            f"Pénétromètre{cab_suffix}   •   " + _("Édité le")
+            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+            14, "sans", COLOR_MUTED, anchor="mm")
+
+
 def render_fiche_arbre(pdf: FPDF,
                        arbre: "Arbre",
                        chantier: "Chantier",
@@ -498,6 +515,13 @@ def render_fiche_arbre(pdf: FPDF,
         y += est_legend_h
 
     # --- Tableau PRBS ajustée par sondage (par brin pour une cépée) ---
+    # Ligne basse que le tableau ne franchit JAMAIS (mêmes 8 px de marge
+    # que `y_limit` de la préconisation, au-dessus du filet de pied de page
+    # tracé à H-60) : une cépée à beaucoup de sondages (plusieurs brins ×
+    # 16 directions) ne tient pas toujours sur une seule page — le tableau
+    # se poursuit alors sur une page suivante plutôt que de chevaucher le
+    # pied de page (cf. `_draw_footer`, rejoué identique sur chaque page).
+    table_y_limit = (H - 60) - 8
     if n_sond > 0:
         titre_tbl = ("Paroi Résiduelle de Bois Sain par sondage et par brin"
                      if multi_brins
@@ -514,15 +538,19 @@ def render_fiche_arbre(pdf: FPDF,
         right_align = {0, 3}            # N°, t/R (%)
         right_align_data = {0, 3}
         header_h_row = 44
-        pg.rect(cols_x[0], y, cols_x[-1], y + header_h_row, COLOR_ACCENT)
-        for i, h in enumerate(headers):
-            if i in right_align:
-                pg.text(cols_x[i + 1] - 12, y + header_h_row / 2, h,
-                        17, "sans_bold", "white", anchor="rm")
-            else:
-                pg.text(cols_x[i] + 12, y + header_h_row / 2, h,
-                        17, "sans_bold", "white", anchor="lm")
-        y += header_h_row
+
+        def _draw_table_head(y0: float) -> float:
+            pg.rect(cols_x[0], y0, cols_x[-1], y0 + header_h_row, COLOR_ACCENT)
+            for i, h in enumerate(headers):
+                if i in right_align:
+                    pg.text(cols_x[i + 1] - 12, y0 + header_h_row / 2, h,
+                            17, "sans_bold", "white", anchor="rm")
+                else:
+                    pg.text(cols_x[i] + 12, y0 + header_h_row / 2, h,
+                            17, "sans_bold", "white", anchor="lm")
+            return y0 + header_h_row
+
+        y = int(_draw_table_head(y))
         k = 0
         for b in arbre.brins:
             R_b = b.rayon_tronc_cm
@@ -530,6 +558,16 @@ def render_fiche_arbre(pdf: FPDF,
                 continue
             deg_ext_par_grade = degradation_externe_par_grade(b)
             for s in b.sondages:
+                if y + row_h > table_y_limit:
+                    _draw_footer(pg, chantier, cabinet_name, margin)
+                    pdf.add_page()
+                    pg = _Page(pdf)
+                    y = margin
+                    pg.text(margin, y, titre_tbl + " " + _("(suite)"),
+                            22, "serif_bold", COLOR_ACCENT)
+                    y += 36
+                    y = int(_draw_table_head(y))
+                    k = 0
                 dir_lbl = DIRECTION_LABELS.get(s.grade, "")
                 direction = f"{dir_lbl} ({s.grade} gr)" if dir_lbl \
                     else f"{s.grade} gr"
@@ -570,6 +608,17 @@ def render_fiche_arbre(pdf: FPDF,
                                 row_font_size, wt, col, anchor="lm")
                 y += row_h
         y += 18
+
+    # Le tableau (paginé ci-dessus si besoin) peut finir juste au-dessus du
+    # pied de page, sans plus assez de place pour le Diagnostic/la
+    # Préconisation : les reporter en haut d'une page neuve plutôt que les
+    # laisser chevaucher le pied de page (même logique que la pagination
+    # du tableau).
+    if y + est_section_h > table_y_limit:
+        _draw_footer(pg, chantier, cabinet_name, margin)
+        pdf.add_page()
+        pg = _Page(pdf)
+        y = margin
 
     # --- Diagnostic (col. gauche) + Préconisation (col. droite) ---
     has_preco = has_intervention or has_suivi
@@ -679,18 +728,10 @@ def render_fiche_arbre(pdf: FPDF,
     y = max(y_diag, y_preco) + 10
 
     # --- Pied de page ---
-    pg.line(margin, H - 60, W - margin, H - 60, COLOR_MUTED, width=1)
     # Barème effectivement appliqué : sans cette ligne, la classe
     # Vert/Orange/Rouge du document n'est pas reproductible (les seuils
     # sont un réglage de poste). Cf. `bareme.description_seuils`.
-    pg.text(W / 2, H - 44,
-            _("Barème appliqué") + " — " + description_seuils_mission(chantier),
-            12, "sans", COLOR_MUTED, anchor="mm")
-    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
-    pg.text(W / 2, H - 22,
-            f"Pénétromètre{cab_suffix}   •   " + _("Édité le")
-            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-            14, "sans", COLOR_MUTED, anchor="mm")
+    _draw_footer(pg, chantier, cabinet_name, margin)
 
     # --- Page photos (si photos associées) ---
     # Confinement identique à la galerie (cf. `photo_paths`) : une
