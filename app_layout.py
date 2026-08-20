@@ -369,19 +369,16 @@ class LayoutMixin(_MixinBase):
         self._sync_filtres_avances()  # pose le texte initial de l'en-tête
 
         # Bandeau "filtre actif" : apparaît sous les filtres quand au moins
-        # un arbre est masqué. Propose un bouton de réinitialisation rapide
-        # — évite de devoir remettre chaque combobox à la main.
+        # un arbre est masqué. Purement informatif — le bouton de
+        # réinitialisation vit uniquement dans le panneau Filtres avancés
+        # ci-dessus (un seul bouton reset, pas deux : un doublon a été
+        # remonté quand les deux étaient visibles en même temps).
         self._filtre_actif_frame = ttk.Frame(frame, style="Side.TFrame")
         self._lbl_filtre_actif = ttk.Label(
             self._filtre_actif_frame, text="",
             style="Side.TLabel", foreground=COLOR_ACCENT,
             font=ui_font("Helvetica", 9, "italic"))
         self._lbl_filtre_actif.pack(side="left", padx=(0, 6))
-        ttk.Button(
-            self._filtre_actif_frame, text=_("✕ Réinitialiser"),
-            style="Ghost.TButton",
-            command=self._reset_all_filters,
-        ).pack(side="left")
 
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         self._lst_frame = lst_frame

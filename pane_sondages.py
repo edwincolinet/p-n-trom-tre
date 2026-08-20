@@ -467,6 +467,8 @@ class SondagesPane(ttk.Frame):
             row["combo"].configure(state="readonly")
         if str(row["com_entry"].cget("state")) == "disabled":
             row["com_entry"].configure(state="normal")
+        if str(row["chk_inc"].cget("state")) == "disabled":
+            row["chk_inc"].configure(state="normal")
         self._host.on_sondages_changed()
 
     def _on_focus_in(self, g: int) -> None:
