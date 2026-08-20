@@ -473,6 +473,24 @@ TRANSLATIONS = {
         "(un tronco non è mai perfettamente cilindrico). Lasciare vuoto "
         "per usare il diametro generale della scheda Identificazione.",
 
+    "Sondage incertain (angle de mèche, pression, accès difficile…). "
+    "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+    "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+    "fiable.":
+        "Sondaggio incerto (angolo di sonda, pressione, accesso "
+        "difficile…). Resta conteggiato nella diagnosi, ma preceduto da "
+        "« ~ » negli export (PDF, XLSX, CSV) per segnalare la misura come "
+        "meno affidabile.",
+
+    "Case « ~ » : marque un sondage incertain (angle de mèche, "
+    "pression, accès difficile…). La valeur reste comptée dans le "
+    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "Casella « ~ »: segna un sondaggio come incerto (angolo di "
+        "sonda, pressione, accesso difficile…). Il valore resta "
+        "conteggiato nella diagnosi, ma è preceduto da « ~ » negli "
+        "export (PDF, XLSX, CSV) per segnalarlo.",
+
     "Double-cliquez pour le détail (commentaire, grade)":
         "Doppio clic per i dettagli (commento, grado)",
 

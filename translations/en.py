@@ -498,6 +498,24 @@ TRANSLATIONS = {
         "(a trunk is never perfectly cylindrical). Leave empty "
         "to use the general diameter from the Identification tab.",
 
+    "Sondage incertain (angle de mèche, pression, accès difficile…). "
+    "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+    "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+    "fiable.":
+        "Uncertain sounding (drill angle, pressure, difficult access…). "
+        "Still counted in the diagnosis, but prefixed with « ~ » in "
+        "exports (PDF, XLSX, CSV) to flag the measurement as less "
+        "reliable.",
+
+    "Case « ~ » : marque un sondage incertain (angle de mèche, "
+    "pression, accès difficile…). La valeur reste comptée dans le "
+    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "« ~ » checkbox: marks a sounding as uncertain (drill angle, "
+        "pressure, difficult access…). The value stays counted in the "
+        "diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
+        "CSV) to flag it.",
+
     "Double-cliquez pour le détail (commentaire, grade)":
         "Double-click for details (comment, grade)",
 

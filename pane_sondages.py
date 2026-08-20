@@ -141,10 +141,18 @@ class SondagesPane(ttk.Frame):
         heads = [_("Direction"), _("Grade"), _("Ø local (cm)"),
                  _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
                  _("Commentaire"), _("~")]
+        # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
+        _tip_incertain = _(
+            "Sondage incertain (angle de mèche, pression, accès difficile…). "
+            "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+            "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+            "fiable.")
         for c, h in enumerate(heads):
-            ttk.Label(grid, text=h, style="Panel.TLabel",
-                      font=ui_font("Helvetica", 9, "bold")).grid(
-                row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            lbl_head = ttk.Label(grid, text=h, style="Panel.TLabel",
+                                 font=ui_font("Helvetica", 9, "bold"))
+            lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            if h == "~":
+                Tooltip(lbl_head, _tip_incertain)
 
         vcmd = (self.register(validate_numeric), "%P")
         for r, g in enumerate(GRADES, start=1):
@@ -188,11 +196,16 @@ class SondagesPane(ttk.Frame):
             com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
 
             var_inc = tk.BooleanVar(value=False)
-            chk_inc = ttk.Checkbutton(grid, textvariable=var_inc,
-                                      variable=var_inc,
+            # `textvariable` (et non `variable` seul) affichait la valeur du
+            # BooleanVar comme LIBELLÉ de la case (« 0 »/« 1 » visible à
+            # côté du carré) — la case avait donc l'air d'une étiquette
+            # figée plutôt que d'un contrôle cliquable. Seul `variable`
+            # pilote l'état coché/décoché ; pas de texte affiché.
+            chk_inc = ttk.Checkbutton(grid, variable=var_inc,
                                       style="Panel.TCheckbutton")
             chk_inc.grid(row=r, column=7, sticky="w", padx=2, pady=1)
             chk_inc.configure(state="disabled")
+            Tooltip(chk_inc, _tip_incertain)
             var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
 
             self._rows[g] = {"sain": var_sain, "alt": var_alt,
@@ -263,6 +276,10 @@ class SondagesPane(ttk.Frame):
             _("Ø local : diamètre sous écorce mesuré à CETTE direction (un "
               "tronc n'est jamais parfaitement cylindrique). Laissez vide "
               "pour utiliser le diamètre général de l'onglet Identification."),
+            _("Case « ~ » : marque un sondage incertain (angle de mèche, "
+              "pression, accès difficile…). La valeur reste comptée dans le "
+              "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+              "XLSX, CSV) pour signaler la mesure comme moins fiable."),
             wraplength=420,
         )
         self._aide.pack(anchor="w", pady=(8, 0))
