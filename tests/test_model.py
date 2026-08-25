@@ -24,12 +24,9 @@ from __future__ import annotations
 import unittest
 
 from diagnostic import (
-    arbre_compare_summary,
-    comparaison_detaillee,
     compute_alteration_par_grade,
     degradation_externe_par_grade,
     diagnostic_summary_lines,
-    evolution_classe,
     extrapolation_summary,
     genet_diagnostic,
     genet_summary_lines,
@@ -40,6 +37,11 @@ from diagnostic import (
     rayon_par_grade,
     repartition_classes,
     repartition_classes_brin,
+)
+from diagnostic_comparaison import (
+    arbre_compare_summary,
+    comparaison_detaillee,
+    evolution_classe,
 )
 from geometry import GRADES
 from model import (
@@ -1142,7 +1144,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         # Réf : cépée à 1 brin (a). Courant : cépée à 2 brins (a, b).
         # Le brin b courant n'a pas d'homologue de référence → comparé à
         # None (jamais d'appariement décalé silencieux).
-        from diagnostic import comparaison_par_brin
+        from diagnostic_comparaison import comparaison_par_brin
         ref = Arbre(numero_arbre="1", port_arbre="libre")
         ref.brins[0].set_rayon(20.0)
         cur = Arbre(numero_arbre="1", port_arbre="libre")
@@ -1186,7 +1188,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertAlmostEqual(det.rayon_cur, 20.0)
 
     def test_comparaison_rayon_ref_none_si_pas_dhomologue(self):
-        from diagnostic import _comparaison_core, arbre_compare_summary
+        from diagnostic_comparaison import _comparaison_core, arbre_compare_summary
         cur = Arbre(numero_arbre="1", rayon_tronc_cm=20.0)
         det = _comparaison_core(None, cur.brins[0], 1.0,
                                 arbre_compare_summary(Arbre()),
