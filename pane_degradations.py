@@ -38,13 +38,13 @@ from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
 from dialogs import edit_degradation
 from dialogs_shared import (
     ZONE_DEGRADEE_AIDE,
-    ZONE_DEGRADEE_CHOICES,
     find_grade_choice,
     grade_choices,
     message_chevauchement,
     parse_grade,
     to_float,
     validate_numeric,
+    zone_degradee_choices,
     zone_degradee_label,
     zone_degradee_to_bool,
 )
@@ -76,6 +76,11 @@ class DegradationsPane(ttk.Frame):
         self._grade_choices = grade_choices()
         # Vars de chaque ligne, dans l'ordre du tableau (cf. _build_row).
         self._row_refs: list[Dict[str, Any]] = []
+        # Entrées Profondeur/Commentaire dans l'ordre des lignes — pour la
+        # navigation verticale rapide (cf. `_focus_col_entry`), même
+        # principe que Sondages/Contreforts (Entrée/↓/↑ = ligne suivante).
+        self._prof_entries: list[ttk.Entry] = []
+        self._com_entries: list[ttk.Entry] = []
         self._build()
 
     def _build(self) -> None:
@@ -101,7 +106,7 @@ class DegradationsPane(ttk.Frame):
         # packé, montré par `refresh()` dès qu'une ligne existe (inutile sur
         # une liste vide). Remplace le tooltip de l'ancienne case nue.
         self._lbl_zone_aide = ttk.Label(
-            self, text=ZONE_DEGRADEE_AIDE, style="Muted.TLabel",
+            self, text=_(ZONE_DEGRADEE_AIDE), style="Muted.TLabel",
             wraplength=420, justify="left")
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
@@ -131,6 +136,8 @@ class DegradationsPane(ttk.Frame):
         for w in self._rows_frame.winfo_children():
             w.destroy()
         self._row_refs = []
+        self._prof_entries = []
+        self._com_entries = []
         b = self._host._current_brin()
         # Écho du brin courant (cépée seulement) — avant les retours
         # anticipés : on est peut-être sur le brin b sans dégradation encore.
@@ -247,6 +254,7 @@ class DegradationsPane(ttk.Frame):
         ent_prof.grid(row=r, column=4, sticky="w", padx=6, pady=1)
         var_prof.trace_add(
             "write", lambda *a: self._on_prof_write(deg, row))
+        self._prof_entries.append(ent_prof)
 
         # « Zone dégradée » : « Écorce + bois » = la dégradation comprend
         # l'écorce (part de la surface extérieure ; l'écorce dégradée n'est
@@ -255,7 +263,7 @@ class DegradationsPane(ttk.Frame):
         # texte explicite remplace l'ancienne case nue, illisible sur le
         # terrain ; le sens détaillé reste dans le rappel sous le tableau.
         cmb_ec = ttk.Combobox(f, textvariable=var_ecorce,
-                              values=list(ZONE_DEGRADEE_CHOICES),
+                              values=list(zone_degradee_choices()),
                               state="readonly", width=12)
         cmb_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
         cmb_ec.bind("<<ComboboxSelected>>",
@@ -265,6 +273,7 @@ class DegradationsPane(ttk.Frame):
         ent_com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
         var_com.trace_add(
             "write", lambda *a: self._on_com_write(deg, row))
+        self._com_entries.append(ent_com)
 
         for w, field in ((ent_prof, "prof"), (ent_com, "com")):
             w.bind("<FocusIn>",
@@ -272,6 +281,28 @@ class DegradationsPane(ttk.Frame):
             w.bind("<FocusOut>",
                    lambda e, d=deg, rw=row, fl=field:
                    self._on_focus_out(d, rw, fl))
+        # Navigation verticale rapide (saisie au kilomètre) — même
+        # convention que Sondages/Contreforts : Entrée/↓ ligne suivante,
+        # ↑ ligne précédente, dans la même colonne.
+        row_idx = r - 1
+        ent_prof.bind("<Return>",
+                      lambda e, i=row_idx: self._focus_col_entry(
+                          self._prof_entries, i + 1))
+        ent_prof.bind("<Down>",
+                      lambda e, i=row_idx: self._focus_col_entry(
+                          self._prof_entries, i + 1))
+        ent_prof.bind("<Up>",
+                      lambda e, i=row_idx: self._focus_col_entry(
+                          self._prof_entries, i - 1))
+        ent_com.bind("<Return>",
+                     lambda e, i=row_idx: self._focus_col_entry(
+                         self._com_entries, i + 1))
+        ent_com.bind("<Down>",
+                     lambda e, i=row_idx: self._focus_col_entry(
+                         self._com_entries, i + 1))
+        ent_com.bind("<Up>",
+                     lambda e, i=row_idx: self._focus_col_entry(
+                         self._com_entries, i - 1))
 
         ttk.Button(f, text="✕", style="Ghost.TButton", width=2,
                    command=lambda: self._on_del(deg)
@@ -287,11 +318,11 @@ class DegradationsPane(ttk.Frame):
                              font=ui_font("Helvetica", 10, "bold"))
         lbl_warn.grid(row=r, column=8, sticky="w", pady=1)
         Tooltip(lbl_warn,
-                "Profondeur + altération centrale > rayon sur au moins "
+                _("Profondeur + altération centrale > rayon sur au moins "
                 "une direction couverte : les deux zones dégradées se "
                 "rejoignent, la PRBS y est écrêtée à 0.\n"
                 "Vérifiez la profondeur saisie (ou le bois sain du "
-                "sondage concerné).")
+                "sondage concerné)."))
 
     @staticmethod
     def _index_de(b: Brin, deg: DegradationExterne) -> Optional[int]:
@@ -311,6 +342,18 @@ class DegradationsPane(ttk.Frame):
         if R > 0:
             txt += f" · {deg.largeur_cm(R):.1f} cm"
         row["larg"].set(txt)
+
+    # --- Navigation -----------------------------------------------------
+
+    def _focus_col_entry(self, entries: "list[ttk.Entry]", i: int) -> str:
+        """Place le focus sur l'entrée d'indice `i` (bornée) de la colonne
+        `entries` (Profondeur ou Commentaire) et sélectionne son contenu —
+        même comportement que `SondagesPane._focus_entry`."""
+        if 0 <= i < len(entries):
+            e = entries[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
 
     # --- Saisie live --------------------------------------------------
 

@@ -27,6 +27,7 @@ chaque fonction).
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -48,6 +49,7 @@ from geometry import (
     degradation_externe_outline,
     radial_ruler_data,
     radial_ruler_grade,
+    ring_polygon_points,
     tick_endpoints,
 )
 from palette import (
@@ -122,19 +124,15 @@ def _margin_top_titre(height: int, ds: float) -> int:
     return title_bottom + int(10 * ds) + CARDINALES_OFFSET_PX + int(22 * ds)
 
 
-def _pil_load_fonts() -> FontFn:
-    """Charge un jeu de polices cohérent, avec fallback sur le défaut PIL.
+@lru_cache(maxsize=1)
+def _pil_font_paths() -> Dict[str, Optional[str]]:
+    """Chemin retenu pour chaque variante de police (sondé une seule fois).
 
-    Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
-    licence permissive). Garantit un rendu PDF/PNG identique sur toute
-    machine, indépendamment des polices système installées.
-    Priorité 2 : polices système connues (Linux/Windows/macOS), pour
-    rester compatible avec une installation où `assets/fonts/` aurait
-    été retiré.
-
-    Appelé uniquement depuis les fonctions `render_*` qui importent
-    `PIL.Image` en premier — si Pillow n'est pas installé, l'import
-    aura déjà levé `ImportError` avant qu'on n'arrive ici.
+    La détection ouvre jusqu'à 11 fichiers de police pour trouver le
+    premier disponible par variante. C'est un coût de découverte, pas de
+    rendu : il n'a aucune raison d'être payé à chaque image. Le cache est
+    volontairement au niveau module — les polices installées ne changent
+    pas pendant la vie du processus.
     """
     from PIL import ImageFont
     embedded = Path(__file__).parent / "assets" / "fonts"
@@ -166,14 +164,54 @@ def _pil_load_fonts() -> FontFn:
             paths[variant] = filepath
         except Exception:
             continue
+    return paths
 
+
+@lru_cache(maxsize=64)
+def _pil_font(size: int, variant: str) -> Any:
+    """Objet police PIL pour `(taille, variante)`, **mémorisé**.
+
+    Sans ce cache, chaque `d.text(...)` reconstruisait un `FreeTypeFont`
+    — donc rouvrait le .ttf ET repartait d'un cache de glyphes vide. Le
+    halo blanc des lettres cardinales tire 24 tracés par lettre : une
+    seule fiche PDF déclenchait ~240 chargements de police, soit
+    l'essentiel du temps d'export (profil : 1,4 s sur 2,9 s pour 20
+    arbres).
+
+    Réutiliser l'objet police ne change rien au rendu (même fichier,
+    même taille, même moteur FreeType) : les golden-tests PIL le
+    verrouillent.
+
+    Non thread-safe au sens strict (les objets PIL partagent un cache de
+    glyphes) : l'app ne rend jamais deux images en parallèle — l'export
+    long tourne dans un worker unique, l'UI étant bloquée par sa fenêtre
+    de progression.
+    """
+    from PIL import ImageFont
+    paths = _pil_font_paths()
+    path = paths.get(variant) or paths.get("sans") or paths.get("serif_bold")
+    try:
+        return ImageFont.truetype(path, size) if path \
+            else ImageFont.load_default()
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _pil_load_fonts() -> FontFn:
+    """Fabrique de polices `f(size, variant)` — API historique conservée.
+
+    Priorité 1 : polices embarquées dans `assets/fonts/` (DejaVu sous
+    licence permissive). Garantit un rendu PDF/PNG identique sur toute
+    machine, indépendamment des polices système installées.
+    Priorité 2 : polices système connues (Linux/Windows/macOS), pour
+    rester compatible avec une installation où `assets/fonts/` aurait
+    été retiré.
+
+    N'est plus qu'un adaptateur vers `_pil_font` (mémorisé) : les
+    appelants gardent leur signature, le coût disparaît.
+    """
     def f(size: int, variant: str = "sans") -> Any:
-        path = paths.get(variant) or paths.get("sans") or paths.get("serif_bold")
-        try:
-            return ImageFont.truetype(path, size) if path \
-                else ImageFont.load_default()
-        except Exception:
-            return ImageFont.load_default()
+        return _pil_font(size, variant)
     return f
 
 
@@ -450,11 +488,12 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     # La forme du brin est pivotée de `rotation_grades` : le rayon à la
     # direction MONDE `gw` est le rayon local à `gw - rotation`.
     R = brin.rayon_a_grade(gw - brin.rotation_grades)
-    # Pour une section ovale dont le petit axe est proche de la direction
-    # d'esquive, R peut être très petit → étiquettes "0" et "N cm" quasi
-    # superposées. On bascule sur le grand axe (rayon maximal) dans ce cas.
-    if brin.est_ovale and R < brin.rayon_tronc_cm * 0.5:
-        gw = float((brin.orientation_grade + brin.rotation_grades) % 400)
+    # Pour une direction dont le rayon local (mesuré à un sondage proche)
+    # est bien plus petit que le rayon général, R peut être très petit →
+    # étiquettes "0" et "N cm" quasi superposées. On bascule sur l'Est du
+    # monde avec le rayon général dans ce cas.
+    if brin.a_rayon_variable and R < brin.rayon_tronc_cm * 0.5:
+        gw = float(brin.rotation_grades % 400)
         R = brin.rayon_tronc_cm
     ep = max(0.0, brin.epaisseur_ecorce_cm)
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
@@ -542,7 +581,7 @@ def _pil_draw_placeholder(d: "ImageDraw.ImageDraw", f: FontFn,
 def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
                         cx: float, cy: float,
                         R: float, scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         d.polygon(contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                   rotation_grades=brin.rotation_grades),
                   fill=COLOR_WOOD)
@@ -557,7 +596,7 @@ def _pil_draw_bois_sain(d: "ImageDraw.ImageDraw", brin: "Brin",
 def _pil_draw_cernes(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         # Cernes = contours homothétiques (k/(N+1) du rayon local).
         for k in range(1, N_CERNES + 1):
             frac = k / (N_CERNES + 1)
@@ -589,7 +628,7 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
-    if brin.est_ovale:
+    if brin.a_rayon_variable:
         rot = brin.rotation_grades
         inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                 rotation_grades=rot)
@@ -599,9 +638,11 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
 
             outer = contour_polygon(r_outer, cx, cy, scale,
                                     rotation_grades=rot)
-            # Anneau d'écorce : contour externe + contour interne inversé
-            # (même technique que la bande d'écorce des contreforts).
-            d.polygon(outer + inner[::-1], fill=COLOR_BARK)
+            # Anneau d'écorce : contour externe + contour interne inversé,
+            # technique du trou de serrure (cf. `geometry.ring_polygon_points`
+            # — un pont aller-retour au MÊME angle, sinon fin artefact non
+            # rempli à la jointure).
+            d.polygon(ring_polygon_points(outer, inner), fill=COLOR_BARK)
         else:
             d.line(inner + [inner[0]], fill=COLOR_BARK, width=4, joint="curve")
         return
@@ -675,15 +716,17 @@ def _pil_draw_cardinales(d: "ImageDraw.ImageDraw", f: FontFn,
                          R_ext: "RadiusSpec", scale: float) -> None:
     # Lettres cardinales à `CARDINALES_OFFSET_PX` hors écorce, halo blanc.
     offset_cm = CARDINALES_OFFSET_PX / scale
+    # Police résolue UNE fois : le halo tire 24 tracés par lettre, la
+    # rechercher à chaque itération était le point chaud du rendu.
+    font = f(44, "serif_bold")
     for lx, ly, lbl in cardinal_label_positions(
             cx, cy, scale, R_ext, offset_cm):
         for dx in (-4, -3, 0, 3, 4):
             for dy in (-4, -3, 0, 3, 4):
                 if dx or dy:
-                    d.text((lx+dx, ly+dy), lbl, font=f(44, "serif_bold"),
+                    d.text((lx+dx, ly+dy), lbl, font=font,
                            fill="white", anchor="mm")
-        d.text((lx, ly), lbl, font=f(44, "serif_bold"),
-               fill=COLOR_INK, anchor="mm")
+        d.text((lx, ly), lbl, font=font, fill=COLOR_INK, anchor="mm")
 
 
 def _pil_draw_sondages(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",

@@ -10,8 +10,17 @@ descendre d'une ligne (Entrée / flèche bas).
 Sémantique de la grille :
 - **Case « Bois sain » vide** = direction non sondée (aucun `Sondage`).
 - **Une valeur saisie** (y compris 0) = sondage existant à cette direction.
-- **Effacer la valeur** supprime le `Sondage` de cette direction.
-- **Altéré** = rayon − bois sain (lecture seule, recalculé en direct).
+- **Quitter la case en la laissant vide** supprime le `Sondage` de cette
+  direction (décidé au focus-out, pas à la frappe — vider la case sans en
+  sortir, pour retaper une valeur, ne supprime rien).
+- **Altéré** = rayon LOCAL − bois sain (lecture seule, recalculé en direct).
+- **Ø local** = diamètre sous écorce mesuré à cette direction, optionnel,
+  **indépendant du sondage** de la ligne (utilisable même sans bois sain
+  saisi — p. ex. pour capter un méplat entre deux sondages sans multiplier
+  les mesures au résistographe) ; vide = la direction retombe sur le
+  diamètre général de l'onglet Identification (approche la vraie forme du
+  tronc, jamais parfaitement cylindrique, sans passer par une ellipse
+  globale).
 - **Compartimentation** = liste déroulante, active uniquement quand un
   sondage existe sur la ligne.
 - **Double-clic sur la direction/grade** ouvre le dialogue détaillé
@@ -84,10 +93,15 @@ class SondagesPane(ttk.Frame):
         # « bois sain » pour ne pas brouiller son aller-retour de focus).
         self._com_undo_snap: Optional[dict] = None
         self._com_focus_in_value = ""
-        # Par grade : {"sain","alt","comp","com": StringVar ; "entry",
-        # "combo","com_entry","alt_lbl","inc","chk_inc"}.
+        # Idem pour le champ Ø local.
+        self._diam_undo_snap: Optional[dict] = None
+        self._diam_focus_in_value = ""
+        # Par grade : {"sain","alt","comp","com","diam": StringVar ;
+        # "entry","combo","com_entry","diam_entry","alt_lbl","inc","chk_inc"}.
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._entries_order: list[ttk.Entry] = []
+        self._com_entries_order: list[ttk.Entry] = []
+        self._diam_entries_order: list[ttk.Entry] = []
         self._build()
 
     def _build(self) -> None:
@@ -124,15 +138,25 @@ class SondagesPane(ttk.Frame):
         grid.pack(fill="both", expand=True)
         self._grid = grid
 
-        heads = [_("Direction"), _("Grade"), _("Bois sain (cm)"),
-                 _("Altéré (cm)"), _("Compart."), _("Commentaire"), _("~")]
+        heads = [_("Direction"), _("Grade"), _("Ø local (cm)"),
+                 _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
+                 _("Commentaire"), _("~")]
+        # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
+        _tip_incertain = _(
+            "Sondage incertain (angle de mèche, pression, accès difficile…). "
+            "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+            "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+            "fiable.")
         for c, h in enumerate(heads):
-            ttk.Label(grid, text=h, style="Panel.TLabel",
-                      font=ui_font("Helvetica", 9, "bold")).grid(
-                row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            lbl_head = ttk.Label(grid, text=h, style="Panel.TLabel",
+                                 font=ui_font("Helvetica", 9, "bold"))
+            lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            if h == "~":
+                Tooltip(lbl_head, _tip_incertain)
 
         vcmd = (self.register(validate_numeric), "%P")
         for r, g in enumerate(GRADES, start=1):
+            var_diam = tk.StringVar()
             var_sain = tk.StringVar()
             var_alt = tk.StringVar(value="—")
             var_comp = tk.StringVar(value=compart_label(COMPART_NR))
@@ -147,38 +171,49 @@ class SondagesPane(ttk.Frame):
                                width=7, cursor="hand2")
             lbl_gr.grid(row=r, column=1, sticky="w", padx=6, pady=1)
 
+            ent_diam = ttk.Entry(grid, textvariable=var_diam, width=9,
+                                 validate="key", validatecommand=vcmd,
+                                 justify="center")
+            ent_diam.grid(row=r, column=2, sticky="w", padx=6, pady=1)
+
             ent = ttk.Entry(grid, textvariable=var_sain, width=10,
                             validate="key", validatecommand=vcmd,
                             justify="center")
-            ent.grid(row=r, column=2, sticky="w", padx=6, pady=1)
+            ent.grid(row=r, column=3, sticky="w", padx=6, pady=1)
 
             lbl_alt = ttk.Label(grid, textvariable=var_alt,
                                 style="Panel.TLabel", width=9,
                                 anchor="center")
-            lbl_alt.grid(row=r, column=3, sticky="w", padx=6, pady=1)
+            lbl_alt.grid(row=r, column=4, sticky="w", padx=6, pady=1)
 
             cmb = ttk.Combobox(grid, textvariable=var_comp,
                                values=_COMPART_VALUES, state="disabled",
                                width=14)
-            cmb.grid(row=r, column=4, sticky="w", padx=6, pady=1)
+            cmb.grid(row=r, column=5, sticky="w", padx=6, pady=1)
 
             com = ttk.Entry(grid, textvariable=var_com, width=18,
                             state="disabled")
-            com.grid(row=r, column=5, sticky="we", padx=6, pady=1)
+            com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
 
             var_inc = tk.BooleanVar(value=False)
-            chk_inc = ttk.Checkbutton(grid, textvariable=var_inc,
-                                      variable=var_inc,
+            # `textvariable` (et non `variable` seul) affichait la valeur du
+            # BooleanVar comme LIBELLÉ de la case (« 0 »/« 1 » visible à
+            # côté du carré) — la case avait donc l'air d'une étiquette
+            # figée plutôt que d'un contrôle cliquable. Seul `variable`
+            # pilote l'état coché/décoché ; pas de texte affiché.
+            chk_inc = ttk.Checkbutton(grid, variable=var_inc,
                                       style="Panel.TCheckbutton")
-            chk_inc.grid(row=r, column=6, sticky="w", padx=2, pady=1)
+            chk_inc.grid(row=r, column=7, sticky="w", padx=2, pady=1)
             chk_inc.configure(state="disabled")
+            Tooltip(chk_inc, _tip_incertain)
             var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
 
             self._rows[g] = {"sain": var_sain, "alt": var_alt,
                              "comp": var_comp, "entry": ent, "combo": cmb,
                              "alt_lbl": lbl_alt, "inc": var_inc,
                              "chk_inc": chk_inc, "com": var_com,
-                             "com_entry": com}
+                             "com_entry": com, "diam": var_diam,
+                             "diam_entry": ent_diam}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -196,6 +231,27 @@ class SondagesPane(ttk.Frame):
                 "write", lambda *a, gr=g: self._on_com_write(gr))
             com.bind("<FocusIn>", lambda e, gr=g: self._on_com_focus_in(gr))
             com.bind("<FocusOut>", lambda e, gr=g: self._on_com_focus_out(gr))
+            # Même navigation verticale que « Bois sain », dans la colonne
+            # Commentaire (cf. `pane_degradations` pour la même correction).
+            self._com_entries_order.append(com)
+            com.bind("<Return>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Down>",
+                     lambda e, i=row_idx: self._focus_com_entry(i + 1))
+            com.bind("<Up>",
+                     lambda e, i=row_idx: self._focus_com_entry(i - 1))
+            var_diam.trace_add(
+                "write", lambda *a, gr=g: self._on_diam_write(gr))
+            ent_diam.bind("<FocusIn>", lambda e, gr=g: self._on_diam_focus_in(gr))
+            ent_diam.bind("<FocusOut>", lambda e, gr=g: self._on_diam_focus_out(gr))
+            # Même navigation verticale, dans la colonne Ø local.
+            self._diam_entries_order.append(ent_diam)
+            ent_diam.bind("<Return>",
+                          lambda e, i=row_idx: self._focus_diam_entry(i + 1))
+            ent_diam.bind("<Down>",
+                          lambda e, i=row_idx: self._focus_diam_entry(i + 1))
+            ent_diam.bind("<Up>",
+                          lambda e, i=row_idx: self._focus_diam_entry(i - 1))
             # Détail (redirection de grade) via double-clic sur les
             # libellés non éditables — l'Entry garde le double-clic natif
             # (sélection de mot).
@@ -204,7 +260,7 @@ class SondagesPane(ttk.Frame):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
                 Tooltip(w, _tip)
 
-        grid.columnconfigure(5, weight=1)  # la colonne Commentaire s'étire
+        grid.columnconfigure(6, weight=1)  # la colonne Commentaire s'étire
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une direction est écrêtée.
@@ -215,8 +271,15 @@ class SondagesPane(ttk.Frame):
         self._aide = AideRepliable(
             self,
             _("Laissez vide une direction non sondée. Effacer supprime le sondage "
-              "(commentaire et compartimentation compris). "
+              "(commentaire, compartimentation et Ø local compris). "
               "Double-cliquez pour le détail."),
+            _("Ø local : diamètre sous écorce mesuré à CETTE direction (un "
+              "tronc n'est jamais parfaitement cylindrique). Laissez vide "
+              "pour utiliser le diamètre général de l'onglet Identification."),
+            _("Case « ~ » : marque un sondage incertain (angle de mèche, "
+              "pression, accès difficile…). La valeur reste comptée dans le "
+              "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+              "XLSX, CSV) pour signaler la mesure comme moins fiable."),
             wraplength=420,
         )
         self._aide.pack(anchor="w", pady=(8, 0))
@@ -228,6 +291,22 @@ class SondagesPane(ttk.Frame):
         et sélectionne son contenu pour réécriture immédiate."""
         if 0 <= i < len(self._entries_order):
             e = self._entries_order[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
+
+    def _focus_com_entry(self, i: int) -> str:
+        """Même chose que `_focus_entry`, pour la colonne Commentaire."""
+        if 0 <= i < len(self._com_entries_order):
+            e = self._com_entries_order[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
+
+    def _focus_diam_entry(self, i: int) -> str:
+        """Même chose que `_focus_entry`, pour la colonne Ø local."""
+        if 0 <= i < len(self._diam_entries_order):
+            e = self._diam_entries_order[i]
             e.focus_set()
             e.select_range(0, "end")
         return "break"
@@ -263,6 +342,9 @@ class SondagesPane(ttk.Frame):
         try:
             for g, row in self._rows.items():
                 s: Optional[Sondage] = by_grade.get(g)
+                # Ø local : indépendant du sondage, toujours actif.
+                d = b.diametres_locaux.get(g, 0.0) if b else 0.0
+                row["diam"].set(f"{d:g}" if d else "")
                 if s is None:
                     row["sain"].set("")
                     row["alt"].set("—")
@@ -358,48 +440,35 @@ class SondagesPane(ttk.Frame):
         R = b.rayon_tronc_cm
 
         if raw == "":
-            # Effacer supprime TOUT l'objet Sondage — bois sain, mais aussi
-            # commentaire et compartimentation. Si la ligne en portait, la
-            # perte serait muette : on la signale, et on pousse l'undo TOUT
-            # DE SUITE (au lieu d'attendre le focus-out) pour que le « Ctrl+Z »
-            # promis fonctionne même sans changer de focus au préalable.
-            removed = self._find_sondage(b, g)
-            had_meta = removed is not None and (
-                removed.commentaire.strip() != ""
-                or removed.compartimentation != COMPART_NR)
-            self._remove_sondage(b, g)
-            row["alt"].set("—")
-            row["comp"].set(compart_label(COMPART_NR))
-            row["combo"].configure(state="disabled")
-            row["com"].set("")
-            row["com_entry"].configure(state="disabled")
-            row["inc"].set(False)
-            row["chk_inc"].configure(state="disabled")
-            self._host.on_sondages_changed()
-            if had_meta:
-                if self._undo_snap is not None:
-                    self._host.push_undo_snapshot(self._undo_snap)
-                    self._undo_snap = None
-                self._host.set_status(
-                    f"Sondage {WIND_LABELS[g]} supprimé (avec son "
-                    "commentaire / sa compartimentation) — Ctrl+Z pour "
-                    "annuler.")
+            # NE PAS supprimer le sondage ici : un champ vidé pendant la
+            # frappe est souvent une étape transitoire (l'opérateur efface
+            # pour retaper une valeur corrigée), pas une intention de
+            # supprimer la direction. La suppression réelle (bois sain,
+            # commentaire, compartimentation — le Ø local n'est PAS
+            # concerné, il vit indépendamment du sondage) n'est décidée
+            # qu'à la sortie du champ si celui-ci est TOUJOURS vide
+            # (`_on_focus_out`).
             return
 
         try:
             sain = to_float(raw)
         except ValueError:
             return
-        sain = max(0.0, min(sain, R)) if R > 0 else max(0.0, sain)
+        # Rayon LOCAL de la direction : celui du diamètre mesuré à cette
+        # ligne s'il existe, sinon le rayon général du brin.
+        r_loc = b.rayon_a_grade(g) if R > 0 else 0.0
+        sain = max(0.0, min(sain, r_loc)) if R > 0 else max(0.0, sain)
 
         s = self._get_or_create_sondage(b, g)
         s.bois_sain_cm = sain
-        s.bois_altere_cm = max(0.0, R - sain) if R > 0 else 0.0
+        s.bois_altere_cm = max(0.0, r_loc - sain) if R > 0 else 0.0
         row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
         if str(row["combo"].cget("state")) == "disabled":
             row["combo"].configure(state="readonly")
         if str(row["com_entry"].cget("state")) == "disabled":
             row["com_entry"].configure(state="normal")
+        if str(row["chk_inc"].cget("state")) == "disabled":
+            row["chk_inc"].configure(state="normal")
         self._host.on_sondages_changed()
 
     def _on_focus_in(self, g: int) -> None:
@@ -412,6 +481,37 @@ class SondagesPane(ttk.Frame):
     def _on_focus_out(self, g: int) -> None:
         b = self._host._current_brin()
         capped_to: Optional[float] = None
+        row = self._rows[g]
+        if b is not None and row["sain"].get().strip() == "":
+            # Le champ est resté vide jusqu'à la sortie de la case (pas
+            # juste une étape de retype, cf. `_on_sain_write`) : c'est ici
+            # que la suppression de la direction est réellement décidée et
+            # appliquée — bois sain, commentaire, compartimentation (le Ø
+            # local n'est PAS concerné, il vit indépendamment du sondage :
+            # cf. `_on_diam_write`). Si la ligne portait l'un de ces
+            # éléments, la perte serait muette : on la signale.
+            removed = self._find_sondage(b, g)
+            if removed is not None:
+                had_meta = (removed.commentaire.strip() != ""
+                           or removed.compartimentation != COMPART_NR)
+                self._remove_sondage(b, g)
+                row["alt"].set("—")
+                row["comp"].set(compart_label(COMPART_NR))
+                row["combo"].configure(state="disabled")
+                row["com"].set("")
+                row["com_entry"].configure(state="disabled")
+                row["inc"].set(False)
+                row["chk_inc"].configure(state="disabled")
+                self._host.on_sondages_changed()
+                if self._undo_snap is not None:
+                    self._host.push_undo_snapshot(self._undo_snap)
+                if had_meta:
+                    self._host.set_status(
+                        f"Sondage {WIND_LABELS[g]} supprimé (avec son "
+                        "commentaire / sa compartimentation) — "
+                        "Ctrl+Z pour annuler.")
+            self._undo_snap = None
+            return
         # Normalise l'affichage à la valeur réellement stockée (clamp à R,
         # mise au format `:g`) — ex. "99" sur R=20 redevient "20". Le clamp
         # est appliqué dès la frappe (`_on_sain_write`) ; ici on détecte
@@ -420,11 +520,12 @@ class SondagesPane(ttk.Frame):
             s = self._find_sondage(b, g)
             if s is not None:
                 R = b.rayon_tronc_cm
+                r_loc = b.rayon_a_grade(g) if R > 0 else 0.0
                 typed = self._rows[g]["sain"].get().strip()
                 if R > 0 and typed:
                     try:
-                        if to_float(typed) > R:
-                            capped_to = R
+                        if to_float(typed) > r_loc:
+                            capped_to = r_loc
                     except ValueError:
                         pass
                 self._suspend = True
@@ -505,6 +606,85 @@ class SondagesPane(ttk.Frame):
         if self._com_undo_snap is not None and cur != self._com_focus_in_value:
             self._host.push_undo_snapshot(self._com_undo_snap)
         self._com_undo_snap = None
+
+    def _on_diam_write(self, g: int) -> None:
+        """Frappe dans le champ Ø local : diamètre sous écorce mesuré à
+        CETTE direction, **indépendant de tout sondage** — utilisable même
+        sans bois sain saisi sur la ligne (p. ex. pour capter un méplat
+        entre deux sondages sans multiplier les mesures au résistographe).
+        Vide = non renseigné, retombe sur le diamètre général du brin
+        (`Brin.rayon_a_grade`).
+
+        Réaligne le bois altéré du sondage éventuellement présent sur la
+        ligne via `set_diametre_local` — **sans jamais retoucher sa PRBS**
+        (`Bois sain`). Empêche en revanche un diamètre local trop petit
+        QUAND un sondage existe sur la ligne : il ne peut jamais donner un
+        rayon local inférieur à la PRBS déjà saisie (physiquement
+        impossible) — la valeur appliquée au modèle est relevée au minimum
+        valide (2 × bois sain), même principe que le plafonnement de
+        « Bois sain » au rayon. Sans sondage sur la ligne, aucune
+        contrainte (rien à violer). Le champ affiché n'est normalisé qu'au
+        focus-out (`_on_diam_focus_out`), pour ne pas gêner la frappe d'un
+        nombre à plusieurs chiffres."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b:
+            return
+        row = self._rows[g]
+        raw = row["diam"].get().strip()
+        try:
+            diam = to_float(raw) if raw else 0.0
+        except ValueError:
+            return
+        R = b.rayon_tronc_cm
+        s = self._find_sondage(b, g)
+        if diam > 0 and R > 0 and s is not None:
+            diam = max(diam, s.bois_sain_cm * 2.0)
+        b.set_diametre_local(g, diam)
+        if s is not None:
+            self._suspend = True
+            try:
+                row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
+            finally:
+                self._suspend = False
+        self._host.on_sondages_changed()
+
+    def _on_diam_focus_in(self, g: int) -> None:
+        # Même mécanique que `_on_com_focus_in`, snapshot dédié.
+        self._diam_undo_snap = self._host.capture_undo_snapshot()
+        self._diam_focus_in_value = self._rows[g]["diam"].get()
+
+    def _on_diam_focus_out(self, g: int) -> None:
+        b = self._host._current_brin()
+        raised_to: Optional[float] = None
+        # Normalise l'affichage à la valeur réellement stockée — ex. un Ø
+        # local trop petit a été relevé au minimum valide dès la frappe
+        # (`_on_diam_write`) ; ici on détecte que ça a joué pour le
+        # SIGNALER (sinon le relèvement est muet), comme pour « Bois sain ».
+        if b is not None:
+            stored = b.diametres_locaux.get(g, 0.0)
+            typed = self._rows[g]["diam"].get().strip()
+            if typed:
+                try:
+                    if to_float(typed) < stored:
+                        raised_to = stored
+                except ValueError:
+                    pass
+            self._suspend = True
+            try:
+                self._rows[g]["diam"].set(f"{stored:g}" if stored else "")
+            finally:
+                self._suspend = False
+        cur = self._rows[g]["diam"].get()
+        if self._diam_undo_snap is not None and cur != self._diam_focus_in_value:
+            self._host.push_undo_snapshot(self._diam_undo_snap)
+        self._diam_undo_snap = None
+        if raised_to is not None:
+            self._host.set_status(
+                _("Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
+                  "local inférieur au bois sain déjà saisi.")
+                .format(d=raised_to))
 
     # --- Détail (dialogue) --------------------------------------------
 

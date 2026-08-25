@@ -30,10 +30,10 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from app_arbres import _RISK_FILTER_ALL
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from app_settings import SettingsStore
+from bareme import description_seuils, get_groupes, seuils_depuis_brut
 from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
@@ -80,14 +80,13 @@ class FichierMixin(_MixinBase):
         var_ch_client: tk.StringVar
         var_ch_ope: tk.StringVar
         var_ch_date: tk.StringVar
-        var_filter: tk.StringVar
-        var_risk_filter: tk.StringVar
         var_show_sondages: tk.BooleanVar
 
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
         def _load_arbre_to_ui(self) -> None: ...
         def _clear_filter_if_set(self) -> None: ...
+        def _reset_all_filters(self) -> None: ...
         def _update_title(self) -> None: ...
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
@@ -118,8 +117,12 @@ class FichierMixin(_MixinBase):
             self.var_ch_ope.set(last_ope)
             self.var_ch_date.set(self.chantier.date_releve)
         self.chantier.operateur = last_ope
-        self.var_filter.set("")  # nouvelle mission → filtres remis à zéro
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        # Remet TOUS les filtres à zéro (pas seulement texte + risque) :
+        # sinon un filtre Urgence/Échéance/Sondages laissé actif par la
+        # mission précédente masquait l'arbre n°1 fraîchement créé — un
+        # utilisateur créant une mission vierge se retrouvait devant une
+        # liste vide, sans indice que l'arbre existait bel et bien.
+        self._reset_all_filters()
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -157,7 +160,9 @@ class FichierMixin(_MixinBase):
         data = template_from_chantier(self.chantier)
         p = save_template(nom, data)
         self.set_status(_("Modèle « {nom} » enregistré.").format(nom=nom))
-        log.info("Modèle enregistré : %s", p)
+        # Nom de fichier seul : le journal est destiné au support, le
+        # chemin complet n'ajoute rien et expose l'arborescence du poste.
+        log.info("Modèle enregistré : %s", p.name)
 
     def action_new_from_template(self) -> None:
         """Crée une nouvelle mission en choisissant un modèle existant."""
@@ -293,7 +298,6 @@ class FichierMixin(_MixinBase):
                     parent=self):
                 return
 
-        from app_arbres import _RISK_FILTER_ALL
         self._undo_stack.clear()
         self._dirty = False
         clear_recovery(_RECOVERY_PATH)
@@ -327,8 +331,7 @@ class FichierMixin(_MixinBase):
             self.var_ch_date.set(self.chantier.date_releve)
         self.chantier.operateur = self.chantier.operateur
 
-        self.var_filter.set("")
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._reset_all_filters()  # cf. action_new
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
@@ -515,11 +518,37 @@ class FichierMixin(_MixinBase):
             self.var_ch_client.set(self.chantier.client)
             self.var_ch_ope.set(self.chantier.operateur)
             self.var_ch_date.set(self.chantier.date_releve)
-        self.var_filter.set("")  # mission rechargée → filtres remis à zéro
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
+        self._reset_all_filters()  # mission rechargée → cf. action_new
         self._refresh_tree_arbres()
         self._load_arbre_to_ui()
         self._update_title()
+        self._avertir_bareme_different()
+
+    def _avertir_bareme_different(self) -> None:
+        """Signale que la mission ouverte a été classée avec d'autres seuils.
+
+        Le barème est un réglage de POSTE : rouvrir une mission relevée
+        avec d'autres seuils **reclasse** silencieusement les arbres
+        (un Orange peut devenir Vert). On ne réapplique pas les seuils du
+        fichier — ouvrir une mission ne doit pas reconfigurer le poste —
+        mais l'écart doit être visible, sinon l'opérateur compare deux
+        campagnes sur des bases différentes sans le savoir.
+
+        Non bloquant : message de barre d'état, pas de modale.
+        """
+        seuils_fichier = getattr(self.chantier, "bareme_seuils", None)
+        if not seuils_fichier:
+            return           # mission antérieure à cette trace : rien à dire
+        groupes_fichier = seuils_depuis_brut(seuils_fichier)
+        if groupes_fichier == get_groupes():
+            return
+        log.warning("Barème du fichier ≠ barème du poste (%s vs %s)",
+                    groupes_fichier, get_groupes())
+        self.set_status(
+            _("⚠ Cette mission a été classée avec un autre barème "
+              "({b}). Les classes affichées sont recalculées avec "
+              "le barème de ce poste.").format(
+                  b=description_seuils(groupes_fichier)))
 
     def _open_path(self, p: str) -> None:
         """Ouvre un fichier de mission par son chemin (factorise

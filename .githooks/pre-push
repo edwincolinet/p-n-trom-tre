@@ -13,6 +13,20 @@
 # Ici on couvre le plus rentable et le plus rapide : lint + suite de tests.
 set -euo pipefail
 
+# Garde-fou secret : la clé privée de licence ne doit JAMAIS partir sur
+# le remote. `.gitignore` ne protège pas d'un `git add -f`, et une fuite
+# est irréversible (la clé publique est figée dans tous les binaires déjà
+# distribués). On vérifie donc ce qui est réellement SUIVI.
+echo "→ aucun secret suivi par git"
+if git ls-files --error-unmatch private.key >/dev/null 2>&1 \
+   || git ls-files | grep -Eq '(^|/)private\.key$|\.pem$|\.p12$|\.pfx$'; then
+    echo "✗ ABANDON : un fichier de clé est suivi par git." >&2
+    git ls-files | grep -E '(^|/)private\.key$|\.pem$|\.p12$|\.pfx$' >&2 || true
+    echo "  Retirez-le de l'index :  git rm --cached <fichier>" >&2
+    echo "  (et considérez la clé comme compromise si elle a été poussée)" >&2
+    exit 1
+fi
+
 echo "→ ruff check ."
 ruff check .
 

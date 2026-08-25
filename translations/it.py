@@ -31,6 +31,17 @@ TRANSLATIONS = {
     "Renommer l'arbre courant…":           "Rinomina albero corrente…",
     "Supprimer l'arbre courant…":          "Elimina albero corrente…",
     "Prochain arbre à finir":              "Prossimo albero da completare",
+    "Urgence pour la sélection…":          "Urgenza per la selezione…",
+    "Urgence — sélection":                 "Urgenza — selezione",
+    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
+                                           "Livello di urgenza per {n} albero/i selezionato/i:",
+    "Urgence « {niveau} » appliquée à {n} arbre(s).":
+                                           "Urgenza « {niveau} » applicata a {n} albero/i.",
+    "Sélectionnez d'abord un ou plusieurs arbres dans la "
+    "liste (Ctrl+clic ou Maj+clic pour une sélection "
+    "multiple).":
+        "Selezionare prima uno o più alberi nell'elenco (Ctrl+clic o "
+        "Maiusc+clic per la selezione multipla).",
 
     # ── Menu Visualizza ───────────────────────────────────────────────
     "Affichage":                           "Visualizza",
@@ -65,6 +76,7 @@ TRANSLATIONS = {
     "Arbres de la mission":                "Alberi del progetto",
     "Risque":                              "Rischio",
     "Urgence":                             "Urgenza",
+    "Filtres avancés":                     "Filtri avanzati",
     "Tous":                                "Tutti",
     "Non fiable":                          "Non affidabile",
     "＋ Ajouter":                          "＋ Aggiungi",
@@ -97,7 +109,6 @@ TRANSLATIONS = {
     "Rayon (cm)":                          "Raggio (cm)",
     "Diamètre (cm)":                       "Diametro (cm)",
     "Épaisseur écorce (cm)":               "Spessore corteccia (cm)",
-    "Forme du tronc…":                     "Forma del tronco…",
     "＋ Brin":                             "＋ Fusto",
     "− Brin":                              "− Fusto",
     "Disposition…":                        "Disposizione…",
@@ -105,6 +116,7 @@ TRANSLATIONS = {
     # ── Scheda Sondaggi ───────────────────────────────────────────────
     "Direction":                           "Direzione",
     "Grade":                               "Grado",
+    "Ø local (cm)":                        "Ø locale (cm)",
     "Bois sain (cm)":                      "Legno sano (cm)",
     "Altéré (cm)":                         "Alterato (cm)",
     "Comp.":                               "Comp.",
@@ -116,6 +128,16 @@ TRANSLATIONS = {
     "Largeur (gr)":                        "Larghezza (gr)",
     "Profondeur (cm)":                     "Profondità (cm)",
     "Zone dégradée":                       "Zona degradata",
+    "Écorce + bois":                       "Corteccia + legno",
+    "Bois seul":                           "Solo legno",
+    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
+    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
+    "bois sain perdu.":
+        "Zona degradata — « Corteccia + legno »: la zona parte dalla "
+        "superficie; lo spessore di corteccia attraversato non è "
+        "conteggiato come legno perso. « Solo legno »: la corteccia "
+        "resta intatta, tutta la profondità è legno sano perso.",
     "＋ Ajouter dégradation":              "＋ Aggiungi degrado",
 
     # ── Scheda Diagnosi ───────────────────────────────────────────────
@@ -186,6 +208,33 @@ TRANSLATIONS = {
     "Restaurer les valeurs par défaut":    "Ripristina valori predefiniti",
     "Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.":
                                            "Soglie aggiornate. Le diagnosi utilizzeranno i nuovi valori.",
+    "Chaque port appartient à un seul groupe de seuils : composez vos "
+    "propres groupes (même un port par groupe) ou gardez le découpage "
+    "par défaut.":
+        "Ogni portamento appartiene a un solo gruppo di soglie: componete "
+        "i vostri gruppi (anche un portamento per gruppo) o mantenete la "
+        "suddivisione predefinita.",
+    "Nom du groupe":                       "Nome del gruppo",
+    "Vert (%)":                            "Verde (%)",
+    "Orange (%)":                          "Arancione (%)",
+    "＋ Nouveau groupe":                   "＋ Nuovo gruppo",
+    "Nouveau groupe":                      "Nuovo gruppo",
+    "Port de l'arbre → groupe":            "Portamento → gruppo",
+    "Nom manquant":                        "Nome mancante",
+    "Chaque groupe doit avoir un nom.":    "Ogni gruppo deve avere un nome.",
+    "Groupe vide":                         "Gruppo vuoto",
+    "Le groupe « {nom} » n'a aucun port assigné. Assignez-lui au moins "
+    "un port (tableau ci-dessous) ou supprimez-le.":
+        "Il gruppo «{nom}» non ha alcun portamento assegnato. Assegnategli "
+        "almeno un portamento (tabella qui sotto) o eliminatelo.",
+    "Groupe « {nom} » : saisissez des nombres (ex. 30, 15).":
+        "Gruppo «{nom}»: inserire numeri (es. 30, 15).",
+    "Pour le groupe « {nom} » : le seuil Vert doit être strictement "
+    "supérieur au seuil Orange, et les deux entre 0 % et 100 %.\n\n"
+    "Ex. Vert = 30, Orange = 15.":
+        "Per il gruppo «{nom}»: la soglia Verde deve essere strettamente "
+        "superiore alla soglia Arancione, entrambe comprese tra 0% e "
+        "100%.\n\nEs. Verde = 30, Arancione = 15.",
 
     # ── Lingua ───────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":
@@ -207,7 +256,6 @@ TRANSLATIONS = {
     "Hauteur du sondage (cm)":            "Altezza sondaggio (cm)",
     "Notes":                              "Note",
     "Commentaire":                        "Commento",
-    "Forme du tronc (ovale)…":            "Forma del tronco (ovale)…",
     "Cépée : {n} brins":                 "Ceppaia: {n} fusti",
     "1 brin (tige unique)":              "1 fusto (tronco singolo)",
 
@@ -225,6 +273,7 @@ TRANSLATIONS = {
     "Résumé de l'arbre courant":          "Riepilogo albero corrente",
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Parete Residua di Legno Sano per sondaggio",
+    "(suite)":                            "(continua)",
     "📄 Fiche PDF (arbre courant)":       "📄 Scheda PDF (albero corrente)",
     "🖨 Imprimer":                        "🖨 Stampa",
     "🖼 PNG du dessin":                   "🖼 PNG del disegno",
@@ -242,14 +291,41 @@ TRANSLATIONS = {
     "Validité":                           "Validità",
     "Contenu du suivi (texte libre)":    "Contenuto monitoraggio (testo libero)",
 
+    # Export tabella PRBS / sintesi missione / scheda PDF — intestazioni e
+    # diciture dei documenti consegnati (letti dal cliente, non solo l'UI).
+    "Grade (gr)":                         "Grado (gr)",
+    "PRBS bois sain (cm)":               "PRBS legno sano (cm)",
+    "Bois altéré (cm)":                  "Legno alterato (cm)",
+    "Classe verte":                       "Classe verde",
+    "Classe orange":                      "Classe arancione",
+    "Classe rouge":                       "Classe rossa",
+    "Hauteur sondage":                    "Altezza sondaggio",
+    "Hauteur arbre":                      "Altezza albero",
+    "Arbre n°{n}":                        "Albero n°{n}",
+    "Port {port}":                        "Portamento {port}",
+    "Port":                               "Portamento",
+    "t/R moyen (%)":                       "t/R medio (%)",
+    "Direction critique":                 "Direzione critica",
+    "t/R critique (%)":                    "t/R critico (%)",
+    "Validité suivi":                     "Validità monitoraggio",
+    "Échéance suivi":                     "Scadenza monitoraggio",
+    "Commentaire suivi":                  "Commento monitoraggio",
+    "Aucun sondage enregistré.":          "Nessun sondaggio rilevato.",
+    "Intervention":                       "Intervento",
+    "Suivi":                              "Monitoraggio",
+    "Validité :":                         "Validità:",
+    "Prochaine visite :":                 "Prossima visita:",
+
     # ── Sprint 3 — UI restante ────────────────────────────────────────
 
     "+ Logo cabinet":                       "+ Logo studio",
     "Expertise arboricole au pénétromètre": "Perizia arboricola — resistografo",
     "Expertise arboricole":                 "Perizia arboricola",
 
+    "Nom":                                 "Nome",
     "État":                                "Stato",
     "✕ Réinitialiser":                     "✕ Reimposta",
+    "↺ Réinitialiser les filtres":         "↺ Reimposta filtri",
     "Brin :":                              "Fusto:",
     "Renommer…":                           "Rinomina…",
 
@@ -295,15 +371,8 @@ TRANSLATIONS = {
     "Aujourd'hui":                         "Oggi",
     "Effacer":                             "Cancella",
 
-    "Petit axe — rayon (cm)":             "Semiasse minore — raggio (cm)",
-    "Orientation grand axe (gr)":         "Orientazione asse maggiore (gr)",
-    "↺ Circulaire":                       "↺ Circolare",
-    "Efface le petit axe et l'orientation — "
-    "revient à une section circulaire.":
-        "Cancella il semiasse minore e l'orientazione — "
-        "torna a una sezione circolare.",
-
     "Direction (grade)":                   "Direzione (grado)",
+    "Ø local sous écorce (cm)":           "Ø locale sotto corteccia (cm)",
     "Épaisseur bois sain (cm)":           "Spessore legno sano (cm)",
     "Épaisseur bois altéré (cm)":         "Spessore legno alterato (cm)",
     "Compartimentation":                   "Compartimentazione",
@@ -351,8 +420,6 @@ TRANSLATIONS = {
     "La décision d'expertise : quoi faire, et quand.":
         "La decisione peritale: cosa fare e quando.",
 
-    "Laissez le petit axe vide pour une section circulaire.":
-        "Lasciare vuoto il semiasse minore per una sezione circolare.",
     "Longueur radiale (cm, vers l'extérieur)":
         "Lunghezza radiale (cm, verso l'esterno)",
 
@@ -397,18 +464,44 @@ TRANSLATIONS = {
         "PRBS invariata se il raggio viene corretto dopo i sondaggi: "
         "solo il legno alterato viene ricalcolato.",
 
-    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
-    " pour saisir le petit axe et l'orientation. Par défaut "
-    "la section est circulaire.":
-        "Tronco ovale: pulsante « Forma del tronco (ovale)… » "
-        "per il semiasse minore e l'orientazione. Sezione circolare per default.",
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
+    "diamètre local dans l'onglet Sondages, direction par "
+    "direction — vide = diamètre général ci-dessus.":
+        "Il tronco non è perfettamente cilindrico? Inserire un "
+        "diametro locale nella scheda Sondaggi, direzione per "
+        "direzione — vuoto = diametro generale sopra.",
 
     "Laissez vide une direction non sondée. Effacer supprime le sondage "
-    "(commentaire et compartimentation compris). "
+    "(commentaire, compartimentation et Ø local compris). "
     "Double-cliquez pour le détail.":
         "Lasciare vuoto per una direzione non sondeggiata. Cancellare rimuove il sondaggio "
-        "(inclusi commento e compartimentazione). "
+        "(inclusi commento, compartimentazione e Ø locale). "
         "Doppio clic per i dettagli.",
+
+    "Ø local : diamètre sous écorce mesuré à CETTE direction (un "
+    "tronc n'est jamais parfaitement cylindrique). Laissez vide "
+    "pour utiliser le diamètre général de l'onglet Identification.":
+        "Ø locale: diametro sotto corteccia misurato a QUESTA direzione "
+        "(un tronco non è mai perfettamente cilindrico). Lasciare vuoto "
+        "per usare il diametro generale della scheda Identificazione.",
+
+    "Sondage incertain (angle de mèche, pression, accès difficile…). "
+    "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+    "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+    "fiable.":
+        "Sondaggio incerto (angolo di sonda, pressione, accesso "
+        "difficile…). Resta conteggiato nella diagnosi, ma preceduto da "
+        "« ~ » negli export (PDF, XLSX, CSV) per segnalare la misura come "
+        "meno affidabile.",
+
+    "Case « ~ » : marque un sondage incertain (angle de mèche, "
+    "pression, accès difficile…). La valeur reste comptée dans le "
+    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "Casella « ~ »: segna un sondaggio come incerto (angolo di "
+        "sonda, pressione, accesso difficile…). Il valore resta "
+        "conteggiato nella diagnosi, ma è preceduto da « ~ » negli "
+        "export (PDF, XLSX, CSV) per segnalarlo.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
         "Doppio clic per i dettagli (commento, grado)",
@@ -438,6 +531,8 @@ TRANSLATIONS = {
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Progetto di riferimento caricato — {nom} ({n} albero/i).",
     "· {n} à finir   ({t})":            "· {n} da completare   ({t})",
+    "{r} rouge · {o} orange · {v} vert ":
+        "{r} rosso · {o} arancione · {v} verde ",
     "Arbre n° {num} — {n} arbre(s) encore à finir.":
         "Albero n° {num} — {n} albero/i ancora da completare.",
     "{n} arbre(s) masqué(s) par le filtre":
@@ -449,6 +544,10 @@ TRANSLATIONS = {
         "Sondaggio {dir} eliminato. Ctrl+Z per annullare.",
     "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
         "Legno sano limitato al raggio ({r:g} cm): la PRBS non può superare il raggio.",
+    "Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
+    "local inférieur au bois sain déjà saisi.":
+        "Ø locale alzato a {d:g} cm: non può dare un raggio locale "
+        "inferiore al legno sano già inserito.",
 
     "(réf. {r}  →  courant {c})":       "(rif. {r}  →  corrente {c})",
     "Référence — {r}":                   "Riferimento — {r}",
@@ -546,6 +645,8 @@ TRANSLATIONS = {
     "Vérification avant export": "Verifica pre-esportazione",
 
     "Échéance":                           "Scadenza",
+    "Toutes":                              "Tutte",
+    "Non renseignée":                      "Non specificata",
     "Toutes échéances":                   "Tutte le scadenze",
     "Échéance dépassée":                  "Scadenza superata",
     "Dans 30 jours":                      "Entro 30 giorni",
@@ -560,6 +661,18 @@ TRANSLATIONS = {
     "Ajouter des photos":                 "Aggiungi foto",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
                                           "Salva prima il progetto (Ctrl+S) per poter aggiungere foto.",
+    # Export long en arrière-plan (progression + annulation).
+    "Annulation en cours…":                  "Annullamento in corso…",
+    "⚠ Cette mission a été classée avec un autre barème ({b}). "
+    "Les classes affichées sont recalculées avec le barème de ce poste.":
+        "⚠ Questo progetto è stato classificato con altre soglie ({b}). "
+        "Le classi mostrate sono ricalcolate con le soglie di questo computer.",
+    "Barème appliqué":                       "Soglie applicate",
+    "Écriture du fichier…":                  "Scrittura del file…",
+    'Export PDF de la mission':             'Esportazione PDF del progetto',
+    'Génération des fiches…':               'Generazione delle schede…',
+    'Arbre n°{num}':                        'Albero n. {num}',
+    'Export PDF annulé — aucun fichier écrit.': 'Esportazione PDF annullata — nessun file scritto.',
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 
     "~":                                  "~",
@@ -573,6 +686,21 @@ TRANSLATIONS = {
     "Aucun modèle":                       "Nessun modello",
     "Choisissez un modèle :": "Scegliere un modello:",
     "Nouvelle mission depuis un modèle":  "Nuovo progetto da modello",
+    # Garde-fous de confinement des photos (cf. photo_paths).
+    "Fichier non affichable":             "File non visualizzabile",
+    "Ce fichier n'est pas une image lisible — ouverture annulée par sécurité.":
+                                          "Questo file non è un'immagine leggibile — "
+                                          "apertura annullata per sicurezza.",
+    "Format non pris en charge":          "Formato non supportato",
+    "Ces fichiers ne sont pas des images reconnues :":
+                                          "Questi file non sono immagini riconosciute:",
+    "⚠ hors dossier mission":             "⚠ fuori dalla cartella del progetto",
+    # Motivi di rifiuto restituiti da photo_paths.resolve_photo — tradotti
+    # via `_(res.motif)`, quindi invisibili allo scan AST del test i18n.
+    "extension non autorisée":            "estensione non consentita",
+    "hors du dossier de la mission":      "fuori dalla cartella del progetto",
+    "mission non enregistrée":            "progetto non salvato",
+    "fichier introuvable":                "file non trovato",
     "Supprimer le modèle":                "Elimina modello",
     "Supprimer « {nom} » ?": "Eliminare « {nom} »?",
     "Créer la mission":                   "Crea progetto",
@@ -625,4 +753,74 @@ TRANSLATIONS = {
     "Ouvrir le log": "Aprire il log",
     "Pour tout signalement, joignez le fichier de log à votre message.":
         "Per qualsiasi segnalazione, allegare il file di log al messaggio.",
+
+    # ── Tooltip varie (audit i18n del 2026-08-20) ────────────────────────
+    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+    "La nouvelle tige hérite la forme de la précédente et se "
+    "place à l'Est ; ses mesures sont à relever séparément.":
+        "Aggiunge un fusto alla ceppaia (più fusti).\n"
+        "Il nuovo fusto eredita la forma del precedente e si posiziona "
+        "a Est; le sue misure vanno rilevate separatamente.",
+    "Choisir l'échéance au calendrier":     "Scegli la scadenza dal calendario",
+    "Choisir la date au calendrier":        "Scegli la data dal calendario",
+    "Choisir la date de prochaine visite au calendrier":
+        "Scegli la data della prossima visita dal calendario",
+    "Cliquer pour configurer le logo et le nom du cabinet…":
+        "Clicca per configurare il logo e il nome dello studio…",
+    "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+    "Double-clic → renommer · Clic droit → menu contextuel":
+        "Ctrl+PgGiù / Ctrl+PgSu → albero successivo / precedente\n"
+        "Doppio clic → rinomina · Clic destro → menu contestuale",
+    "Date du relevé — format JJ/MM/AAAA (normalisée automatiquement).":
+        "Data del rilievo — formato GG/MM/AAAA (normalizzata automaticamente).",
+    "Enregistrer la mission":               "Salva il progetto",
+    "Exporter la fiche PDF de l'arbre courant "
+    "(dessin + tableau + diagnostic) — Ctrl+E":
+        "Esporta la scheda PDF dell'albero corrente "
+        "(disegno + tabella + diagnosi) — Ctrl+E",
+    "Exporter le dessin de la section en image PNG":
+        "Esporta il disegno della sezione come immagine PNG",
+    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+    "tous les sondages de la mission (CSV)":
+        "Esporta la tabella PRBS dell'albero (Excel / HTML) o "
+        "tutti i sondaggi del progetto (CSV)",
+    "Gérer les durées de suivi personnalisées":
+        "Gestisci le durate di monitoraggio personalizzate",
+    "Gérer les niveaux d'urgence personnalisés":
+        "Gestisci i livelli di urgenza personalizzati",
+    "Imprimer la fiche PDF directement "
+    "(sans dialogue de sauvegarde) — Ctrl+P":
+        "Stampa la scheda PDF direttamente "
+        "(senza finestra di salvataggio) — Ctrl+P",
+    "Longueur (cm)":                        "Lunghezza (cm)",
+    "Ouvrir la fenêtre de comparaison de l'arbre "
+    "courant avec la mission de référence.":
+        "Apri la finestra di confronto dell'albero corrente "
+        "con il progetto di riferimento.",
+    "Place les brins de la cépée à la souris (glisser-"
+    "déposer). Le brin « a » est l'ancre du repère.":
+        "Posiziona i fusti della ceppaia con il mouse (trascina e "
+        "rilascia). Il fusto « a » è l'ancora del sistema di riferimento.",
+    "Profondeur + altération centrale > rayon sur au moins "
+    "une direction couverte : les deux zones dégradées se "
+    "rejoignent, la PRBS y est écrêtée à 0.\n"
+    "Vérifiez la profondeur saisie (ou le bois sain du "
+    "sondage concerné).":
+        "Profondità + alterazione centrale > raggio su almeno una "
+        "direzione coperta: le due zone degradate si uniscono, la "
+        "PRBS lì è azzerata.\n"
+        "Verifica la profondità inserita (o il legno sano del "
+        "sondaggio interessato).",
+    "Repartir d'une mission antérieure comme base : on met à jour "
+    "diamètres et sondages au lieu de tout ressaisir, et elle sert "
+    "de référence.":
+        "Riparti da un progetto precedente come base: aggiorna "
+        "diametri e sondaggi invece di reinserire tutto, e funge "
+        "da riferimento.",
+    "Sélectionne le prochain arbre au diagnostic "
+    "non fiable (rayon manquant ou < 3 sondages), "
+    "en bouclant. Vide les filtres si besoin.":
+        "Seleziona il prossimo albero con diagnosi non affidabile "
+        "(raggio mancante o < 3 sondaggi), in modo ciclico. "
+        "Svuota i filtri se necessario.",
 }

@@ -10,6 +10,11 @@ Les photos sont copiées dans un dossier compagnon `<mission>_photos/`
 Cela rend la mission portable : déplacer le JSON + le dossier _photos
 suffit à tout conserver.
 
+**Sécurité** : les références lues dans le JSON sont résolues par
+`photo_paths.resolve_photo` (confinement au dossier de la mission +
+extensions autorisées) et le contenu est vérifié comme image avant tout
+passage à la visionneuse système — cf. `_view_photo`.
+
 Aucune dépendance vers App/penetrometre : le widget reçoit des callbacks.
 """
 
@@ -24,15 +29,27 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any, Callable, List, Optional
 
 from i18n import _
+from photo_paths import (
+    MOTIF_INTROUVABLE,
+    MOTIF_SANS_MISSION,
+    PHOTO_SUFFIXES,
+    PhotoResolue,
+    resolve_photo,
+    suffixe_autorise,
+)
 from ui_fonts import font as ui_font
 
 log = logging.getLogger("penetrometre")
 
 _THUMB_W = 80
 _THUMB_H = 80
+# Filtre du sélecteur de fichiers — dérivé de la whitelist partagée pour
+# qu'on ne puisse pas ajouter via l'UI un type que la résolution refusera
+# ensuite au rechargement. Pas d'entrée « Tous » : elle laissait choisir
+# un fichier que `resolve_photo` rejette, donc une photo qui « disparaît »
+# à la réouverture de la mission.
 _ACCEPTED = (
-    ("Images", "*.jpg *.jpeg *.png *.gif *.bmp *.tiff *.tif *.webp"),
-    ("Tous", "*.*"),
+    ("Images", " ".join(f"*{s}" for s in sorted(PHOTO_SUFFIXES))),
 )
 
 
@@ -64,21 +81,24 @@ class PhotoGallery(ttk.Frame):
             return None
         return mf.parent / f"{mf.stem}_photos"
 
-    def _resolve(self, stored: str) -> Optional[Path]:
-        """Résout un chemin stocké (relatif ou absolu) en chemin absolu.
+    def _resolve_ref(self, stored: str) -> "PhotoResolue":
+        """Résout une référence photo en appliquant le confinement.
 
-        - Absolu → utilisé tel quel (compat anciens fichiers).
-        - Relatif → résolu depuis le dossier du fichier JSON courant.
-        Renvoie None si le fichier n'existe pas.
+        Délègue à `photo_paths.resolve_photo` (règles et justification
+        dans l'en-tête de ce module-là). Renvoie le résultat complet —
+        chemin **et** motif de refus — pour que la vignette puisse dire
+        *pourquoi* une photo n'est pas affichée.
         """
-        p = Path(stored)
-        if p.is_absolute():
-            return p if p.exists() else None
         mf = self._get_mission_file()
-        if mf is None:
-            return None
-        resolved = mf.parent / p
-        return resolved if resolved.exists() else None
+        res = resolve_photo(stored, mf.parent if mf is not None else None)
+        if res.path is None and res.motif not in ("", MOTIF_INTROUVABLE,
+                                                  MOTIF_SANS_MISSION):
+            log.warning("Référence photo refusée (%s) : %s", res.motif, stored)
+        return res
+
+    def _resolve(self, stored: str) -> Optional[Path]:
+        """Chemin utilisable, ou None si refusé/introuvable."""
+        return self._resolve_ref(stored).path
 
     # ------------------------------------------------------------------
     # Construction UI
@@ -118,7 +138,8 @@ class PhotoGallery(ttk.Frame):
 
     def _make_thumb(self, cell: ttk.Frame, stored: str, idx: int) -> None:
         """Crée la vignette + bouton ✕ pour une photo."""
-        resolved = self._resolve(stored)
+        res = self._resolve_ref(stored)
+        resolved = res.path
         name = Path(stored).name
 
         if resolved is not None:
@@ -138,15 +159,24 @@ class PhotoGallery(ttk.Frame):
                 self._make_thumb_fallback(cell, stored)
                 return
         else:
-            # Fichier introuvable
+            # Photo indisponible : on affiche le MOTIF plutôt qu'un
+            # « introuvable » générique — une référence refusée par le
+            # confinement n'est pas un fichier déplacé, et confondre les
+            # deux ferait passer un garde-fou pour un bug.
             lbl_txt = ttk.Label(cell,
-                                text=f"📷\n{name[:12]}\n⚠ introuvable",
+                                text=f"📷\n{name[:12]}\n⚠ {_(res.motif)}",
                                 style="Muted.TLabel",
                                 justify="center")
             lbl_txt.pack()
 
         ttk.Label(cell, text=name[:14], style="Muted.TLabel",
                   font=ui_font("Helvetica", 7)).pack()
+        if res.hors_mission and resolved is not None:
+            # Chemin absolu hérité (première version de la galerie) :
+            # utilisable mais hors du dossier portable de la mission.
+            ttk.Label(cell, text=_("⚠ hors dossier mission"),
+                      style="Muted.TLabel",
+                      font=ui_font("Helvetica", 7)).pack()
         ttk.Button(cell, text="✕", style="Ghost.TButton", width=2,
                    command=lambda i=idx: self._remove_photo(i)).pack()
 
@@ -194,8 +224,16 @@ class PhotoGallery(ttk.Frame):
 
         self._on_before_change()
         added = 0
+        refuses: list[str] = []
         for src in paths:
             src_path = Path(src)
+            # Le filtre du filedialog est indicatif (l'utilisateur peut
+            # taper un nom) : on revalide avec la même whitelist que la
+            # résolution, sinon on stockerait une référence que la
+            # relecture de la mission rejetterait.
+            if not suffixe_autorise(src_path.name):
+                refuses.append(src_path.name)
+                continue
             dst = cdir / src_path.name
             # Déduplication de nom
             if dst.exists() and dst != src_path:
@@ -214,6 +252,12 @@ class PhotoGallery(ttk.Frame):
             except Exception:
                 log.exception("Échec copie photo %s", src)
 
+        if refuses:
+            messagebox.showwarning(
+                _("Format non pris en charge"),
+                _("Ces fichiers ne sont pas des images reconnues :")
+                + "\n\n" + "\n".join(refuses[:5]),
+                parent=self)
         if added:
             self._refresh()
             self._on_change()
@@ -225,12 +269,43 @@ class PhotoGallery(ttk.Frame):
             self._refresh()
             self._on_change()
 
+    @staticmethod
+    def _est_image_lisible(path: str) -> bool:
+        """Vrai si le fichier est réellement décodable comme image.
+
+        Garde-fou de contenu, indispensable AVANT de passer le chemin à
+        la visionneuse système : celle-ci choisit le programme à lancer
+        d'après le type MIME, qui se déduit en partie du **contenu**. Un
+        `.desktop` ou un script renommé `photo.png` passerait la
+        whitelist d'extension mais serait exécuté par `xdg-open`. On
+        exige donc que Pillow reconnaisse une image avant de déléguer.
+
+        Pillow absent → on renvoie False : sans moyen de vérifier, on ne
+        délègue pas (le repli Toplevel affiche un message propre).
+        """
+        try:
+            from PIL import Image as PILImage
+            with PILImage.open(path) as img:
+                img.verify()   # lève si l'entête n'est pas une image
+            return True
+        except Exception:
+            return False
+
     def _view_photo(self, path: str) -> None:
         """Ouvre la photo — viewer système ou Toplevel PIL."""
         if not Path(path).exists():
             messagebox.showwarning(
                 _("Fichier introuvable"),
                 f"{path}\n\n{_('Le fichier a été déplacé ou supprimé.')}",
+                parent=self)
+            return
+        if not suffixe_autorise(path) or not self._est_image_lisible(path):
+            log.warning("Ouverture refusée — pas une image lisible : %s", path)
+            messagebox.showwarning(
+                _("Fichier non affichable"),
+                f"{Path(path).name}\n\n"
+                + _("Ce fichier n'est pas une image lisible — ouverture "
+                    "annulée par sécurité."),
                 parent=self)
             return
         try:

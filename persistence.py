@@ -36,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from bareme import normaliser_port
+from bareme import get_groupes, groupes_vers_brut, normaliser_port, seuils_depuis_brut
 from model import (
     Arbre,
     Brin,
@@ -71,11 +71,18 @@ def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
     `chantier_from_dict` (qui tolère son absence) garantit qu'un round-
     trip save → load reproduit fidèlement la mission.
     """
+    # Barème : on écrit les seuils EN VIGUEUR au moment de l'enregistrement,
+    # pas ceux éventuellement chargés depuis le fichier. Le fichier doit
+    # décrire comment ses classes ont été obtenues ; recopier une valeur
+    # ancienne mentirait dès qu'on ré-enregistre après un changement de
+    # réglage. Cf. `model.Chantier.bareme_seuils`.
+    seuils = get_groupes()
     return {"format_version": FORMAT_VERSION,
             "nom": chantier.nom, "adresse": chantier.adresse,
             "client": chantier.client,
             "operateur": chantier.operateur,
             "date_releve": chantier.date_releve,
+            "bareme_seuils": groupes_vers_brut(seuils),
             "arbres": [asdict(a) for a in chantier.arbres]}
 
 
@@ -197,6 +204,26 @@ def save_recovery(chantier: Chantier, original_file: Union[str, None],
         raise
 
 
+def _json_load_borne(f: Any) -> Any:
+    """`json.load` avec un message clair sur un fichier hostile/corrompu
+    trop profondément imbriqué.
+
+    Un `.json` de mission est une entrée semi-fiable (il circule entre
+    confrères, cf. CLAUDE.md `photo_paths.py`) : un JSON imbriqué à
+    l'excès (générée à la main ou par un fichier corrompu) fait lever au
+    décodeur un `RecursionError` plutôt qu'un message exploitable. Les
+    appelants Tk l'auraient de toute façon rattrapé via leur `except
+    Exception` générique, mais avec la trace Python brute affichée à
+    l'opérateur — ce garde-fou la remplace par un message clair, cohérent
+    avec le traitement de `json.JSONDecodeError`."""
+    try:
+        return json.load(f)
+    except RecursionError as e:
+        raise ValueError(
+            "Fichier JSON trop profondément imbriqué (structure "
+            "invalide ou corrompue).") from e
+
+
 def load_recovery(
     path: Union[str, Path]
 ) -> "tuple[Chantier, Union[str, None], str]":
@@ -208,7 +235,7 @@ def load_recovery(
     (journaliser + ignorer l'autosave corrompu).
     """
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = _json_load_borne(f)
     chantier = chantier_from_dict(data["chantier"])
     original = data.get("original_file")
     saved_at = data.get("saved_at", "")
@@ -233,7 +260,7 @@ def load_chantier(path: Union[str, Path]) -> Chantier:
     et aux anciens libellés de port.
     """
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = _json_load_borne(f)
     return chantier_from_dict(data)
 
 
@@ -304,12 +331,30 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         (compat descendante : un champ futur est ignoré silencieusement).
         """
         sondages = []
+        # Migration (2026-08) : le diamètre local vivait sur le `Sondage`
+        # avant d'être promu au niveau du brin (indépendant de tout
+        # sondage, pour modéliser un méplat même sans PRBS mesurée à cette
+        # direction). Une clé `diametre_sous_ecorce_cm` sur un sondage d'un
+        # fichier antérieur est reportée dans `diametres_locaux` avant
+        # d'être filtrée (elle n'est plus un champ de `Sondage`).
+        diametres_locaux: Dict[int, float] = {}
         for s in bd.get("sondages", []):
+            legacy_diam = s.get("diametre_sous_ecorce_cm")
             s = {k: v for k, v in s.items() if k in sondage_fields}
             # Migration libellé compartimentation : "-" → "non renseignée"
             if s.get("compartimentation") == "-":
                 s["compartimentation"] = "non renseignée"
-            sondages.append(Sondage(**s))
+            sondage = Sondage(**s)
+            sondages.append(sondage)
+            if legacy_diam and legacy_diam > 0:
+                diametres_locaux.setdefault(sondage.grade, float(legacy_diam))
+        for k, v in bd.get("diametres_locaux", {}).items():
+            try:
+                grade, diam = int(k), float(v)
+            except (TypeError, ValueError):
+                continue
+            if diam > 0:
+                diametres_locaux[grade] = diam
         degs = [DegradationExterne(**{k: v for k, v in dg.items()
                                       if k in deg_fields})
                 for dg in bd.get("degradations_externes", [])]
@@ -320,11 +365,12 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         geom = {k: v for k, v in bd.items()
                 if k in brin_fields
                 and k not in ("sondages", "degradations_externes",
-                              "contreforts")}
+                              "contreforts", "diametres_locaux")}
         brin = Brin(**geom)
         brin.sondages = sondages
         brin.degradations_externes = degs
         brin.contreforts = contreforts
+        brin.diametres_locaux = diametres_locaux
         return brin
 
     arbres = []
@@ -370,5 +416,14 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                   client=d.get("client", ""),
                   operateur=d.get("operateur", ""),
                   date_releve=d.get("date_releve", ""))
+    # Barème d'origine : **relu mais pas appliqué**. Ouvrir une mission ne
+    # doit pas reconfigurer le poste en douce ; en revanche l'app peut
+    # signaler l'écart (cf. `App._avertir_bareme_different`) et les
+    # exports peuvent citer le barème réellement utilisé.
+    # Absent (missions antérieures) ⟹ liste vide = « inconnu ». Un ancien
+    # format mission (2 groupes fixes) est normalisé au passage.
+    if "bareme_seuils" in d:
+        c.bareme_seuils = groupes_vers_brut(
+            seuils_depuis_brut(d["bareme_seuils"]))
     c.arbres = arbres
     return c

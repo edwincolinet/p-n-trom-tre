@@ -128,19 +128,19 @@ class DiagnosticPane(ttk.Frame):
                              style="Accent.TButton",
                              command=self._host.action_export_pdf_arbre)
         btn_pdf.pack(side="left", padx=(0, 6))
-        Tooltip(btn_pdf, "Exporter la fiche PDF de l'arbre courant "
-                         "(dessin + tableau + diagnostic) — Ctrl+E")
+        Tooltip(btn_pdf, _("Exporter la fiche PDF de l'arbre courant "
+                         "(dessin + tableau + diagnostic) — Ctrl+E"))
         btn_print = ttk.Button(btn_exp, text=_("🖨 Imprimer"),
                                style="Ghost.TButton",
                                command=self._host.action_print_arbre)
         btn_print.pack(side="left", padx=(0, 6))
-        Tooltip(btn_print, "Imprimer la fiche PDF directement "
-                           "(sans dialogue de sauvegarde) — Ctrl+P")
+        Tooltip(btn_print, _("Imprimer la fiche PDF directement "
+                           "(sans dialogue de sauvegarde) — Ctrl+P"))
         btn_png = ttk.Button(btn_exp, text=_("🖼 PNG du dessin"),
                              style="Ghost.TButton",
                              command=self._host.action_export_png)
         btn_png.pack(side="left", padx=(0, 6))
-        Tooltip(btn_png, "Exporter le dessin de la section en image PNG")
+        Tooltip(btn_png, _("Exporter le dessin de la section en image PNG"))
 
         mb_table = ttk.Menubutton(btn_exp, text=_("📊 Exporter le tableau"),
                                   style="Ghost.TMenubutton", direction="below")
@@ -158,8 +158,8 @@ class DiagnosticPane(ttk.Frame):
         mb_table["menu"] = table_menu
         mb_table.pack(side="left")
         Tooltip(mb_table,
-                "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-                "tous les sondages de la mission (CSV)")
+                _("Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+                "tous les sondages de la mission (CSV)"))
 
         # --- Bloc résumé haut ---
         ttk.Label(parent, text=_("Résumé de l'arbre courant"),
@@ -282,7 +282,7 @@ class DiagnosticPane(ttk.Frame):
                                   width=3,
                                   command=self._edit_urgences_custom)
         btn_edit_urg.pack(side="left", padx=(0, 12))
-        Tooltip(btn_edit_urg, "Gérer les niveaux d'urgence personnalisés")
+        Tooltip(btn_edit_urg, _("Gérer les niveaux d'urgence personnalisés"))
 
         ttk.Label(line, text=_("Échéance"), style="Panel.TLabel").pack(
             side="left", padx=(0, 4))
@@ -294,7 +294,7 @@ class DiagnosticPane(ttk.Frame):
         btn_cal = ttk.Button(line, text="📅", style="Ghost.TButton", width=3,
                              command=self._pick_echeance)
         btn_cal.pack(side="left")
-        Tooltip(btn_cal, "Choisir l'échéance au calendrier")
+        Tooltip(btn_cal, _("Choisir l'échéance au calendrier"))
         ttk.Label(line, text=_("(facultatif)"), style="Muted.TLabel",
                   foreground=COLOR_MUTED).pack(side="left", padx=(6, 0))
 
@@ -327,7 +327,7 @@ class DiagnosticPane(ttk.Frame):
                                     width=3,
                                     command=self._edit_suivi_custom)
         btn_edit_suivi.pack(side="left")
-        Tooltip(btn_edit_suivi, "Gérer les durées de suivi personnalisées")
+        Tooltip(btn_edit_suivi, _("Gérer les durées de suivi personnalisées"))
 
         ttk.Label(suivi_line, text=_("Échéance"), style="Panel.TLabel").pack(
             side="left", padx=(12, 4))
@@ -341,7 +341,7 @@ class DiagnosticPane(ttk.Frame):
         btn_scal = ttk.Button(suivi_line, text="📅", style="Ghost.TButton",
                               width=3, command=self._pick_suivi_echeance)
         btn_scal.pack(side="left")
-        Tooltip(btn_scal, "Choisir la date de prochaine visite au calendrier")
+        Tooltip(btn_scal, _("Choisir la date de prochaine visite au calendrier"))
         ttk.Label(suivi_line, text=_("(facultatif)"), style="Muted.TLabel",
                   foreground=COLOR_MUTED).pack(side="left", padx=(6, 0))
 
@@ -396,13 +396,13 @@ class DiagnosticPane(ttk.Frame):
         try:
             all_urg = list(URGENCE_NIVEAUX) + self._host.get_urgences_custom()
             urg = a.urgence if a and a.urgence in all_urg else ""
-            self.var_urgence.set(urg or _URGENCE_VIDE)
+            self.var_urgence.set(_(urg) if urg else _(_URGENCE_VIDE))
             self.var_echeance.set(a.echeance if a else "")
             self.txt_preco.delete("1.0", "end")
             self.txt_preco.insert("1.0", a.preconisation if a else "")
             all_suivi = list(SUIVI_VALIDITES) + self._host.get_suivi_custom()
             sv = a.suivi_validite if a and a.suivi_validite in all_suivi else ""
-            self.var_suivi_validite.set(sv or _SUIVI_VIDE)
+            self.var_suivi_validite.set(_(sv) if sv else _(_SUIVI_VIDE))
             self.var_suivi_echeance.set(a.suivi_echeance if a else "")
             self.txt_suivi.delete("1.0", "end")
             self.txt_suivi.insert("1.0", a.suivi_texte if a else "")
@@ -424,7 +424,11 @@ class DiagnosticPane(ttk.Frame):
         if a is None:
             return
         choice = self.var_urgence.get()
-        new = "" if choice == _URGENCE_VIDE else choice
+        if choice == _(_URGENCE_VIDE):
+            new = ""
+        else:
+            all_urg = list(URGENCE_NIVEAUX) + self._host.get_urgences_custom()
+            new = untranslate_value(choice, all_urg)
         if new == a.urgence:
             return
         self._host.push_undo()
@@ -476,11 +480,15 @@ class DiagnosticPane(ttk.Frame):
         if a is None:
             return
         choice = self.var_suivi_validite.get()
-        new = "" if choice == _SUIVI_VIDE else choice
+        if choice == _(_SUIVI_VIDE):
+            new = ""
+        else:
+            all_suivi = list(SUIVI_VALIDITES) + self._host.get_suivi_custom()
+            new = untranslate_value(choice, all_suivi)
         if new == a.suivi_validite:
             return
         self._host.push_undo()
-        a.suivi_validite = untranslate_value(new, list(SUIVI_VALIDITES))
+        a.suivi_validite = new
         self._host.on_preconisation_changed()
 
     def _on_suivi_echeance_focus_out(self) -> None:

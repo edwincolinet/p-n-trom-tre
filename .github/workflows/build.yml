@@ -27,6 +27,13 @@ on:
 # avertissement SmartScreen / blocage Gatekeeper).
 # ──────────────────────────────────────────────────────────────────────
 
+# Moindre privilège par défaut ; seul le job `release` remonte à
+# `contents: write` (il crée la release GitHub). Les jobs de build, qui
+# manipulent les secrets de signature, n'ont aucun droit d'écriture sur
+# le dépôt.
+permissions:
+  contents: read
+
 jobs:
 
   # ──────────────────────────────────────────────
@@ -41,9 +48,9 @@ jobs:
     env:
       HAS_WIN_SIGNING: ${{ secrets.CODESIGN_P12_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
           cache: pip
@@ -134,7 +141,7 @@ jobs:
 
           Remove-Item $certPath
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-installer
           path: dist/installer/Penetrometre-*-Setup.exe
@@ -151,12 +158,12 @@ jobs:
       HAS_MAC_SIGNING: ${{ secrets.APPLE_CERT_BASE64 != '' }}
       HAS_MAC_NOTARY:  ${{ secrets.APPLE_ID != '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Installer Tk (requis par Tkinter)
         run: brew install python-tk@3.13
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
           cache: pip
@@ -252,7 +259,7 @@ jobs:
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-dmg
           # Le nom du fichier inclut l'architecture (arm64 ou x86_64)
@@ -264,14 +271,14 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Installer les dépendances système
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb python3-tk
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
           cache: pip
@@ -299,7 +306,7 @@ jobs:
       - name: Créer l'AppImage
         run: bash build/create_appimage.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-appimage
           path: dist/Penetrometre-*-linux-x86_64.AppImage
@@ -313,13 +320,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           merge-multiple: true
           path: artifacts
 
       - name: Créer la release GitHub
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: artifacts/**
           generate_release_notes: true

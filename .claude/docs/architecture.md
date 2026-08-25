@@ -9,11 +9,24 @@ en bref en fin de document** (purpose + surface publique) avec renvoi à
 
 ## `bareme.py` — barème métier Pénétromètre (stdlib uniquement)
 
-- `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`.
+- `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`
+  selon le **groupe de barème courant** contenant ce port
+  (`groupe_pour_port`) ; repli sur le groupe de `GROUPES_DEFAUT` couvrant ce
+  port si aucun groupe courant ne le contient.
 - `normaliser_port(value) -> str` — vérifie l'appartenance à `PORTS_ARBRE`.
-- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`,
-  `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
-- Le port `délaissé` est dans `PORTS_GROUPE_LIBRE` (mêmes seuils que `libre`).
+- `GroupeBareme` (dataclass : `nom`, `ports: Tuple[str,...]`, `seuil_vert`,
+  `seuil_orange`) — un groupe de ports partageant les mêmes seuils t/R ; un
+  port individuel n'est qu'un groupe à un seul port. `get_groupes()`/
+  `set_groupes()` (état module) ; `GROUPES_DEFAUT` = partition par défaut
+  (2 groupes, cf. `PORTS_GROUPE_LIBRE`/`PORTS_GROUPE_STRICT` ci-dessous) ;
+  `groupes_vers_brut`/`seuils_depuis_brut` = frontière JSON (ce dernier migre
+  l'ancien format à 2 groupes fixes et comble les ports manquants d'une
+  config incomplète). Cf. CLAUDE.md « Barème configurable par groupes de
+  ports » pour le détail (dont l'éditeur `dialogs_settings.ask_bareme_settings`).
+- Constantes : `PORTS_ARBRE`, `PORTS_GROUPE_LIBRE`, `PORTS_GROUPE_STRICT`
+  (définissent `GROUPES_DEFAUT`), `CLASSE_VERT`, `CLASSE_ORANGE`, `CLASSE_ROUGE`.
+- Le port `délaissé` est dans `PORTS_GROUPE_LIBRE` (mêmes seuils que `libre`)
+  **par défaut** — reconfigurable par l'expert.
 
 ## `geometry.py` — fonctions pures (stdlib uniquement)
 
@@ -21,14 +34,13 @@ en bref en fin de document** (purpose + surface publique) avec renvoi à
 - `catmull_rom_closed` — spline fermée Catmull-Rom.
 - `bell_max_at_grade(grade, contreforts)` — hauteur max de cloche cosinus².
 - `contrefort_zones(contreforts)` — fusion des arcs qui se chevauchent.
-- `ellipse_radius(a, b, orientation_grade, grade)` — rayon polaire d'une
-  ellipse (demi-grand-axe `a`, demi-petit-axe `b`) dans une direction.
-  Robuste aux axes nuls (jamais de division par zéro).
 
 **Rayon scalaire ou par direction (`RadiusSpec`)** : `RadiusSpec = Union[float,
 Callable[[float], float]]`. Les primitives de contour ci-dessous acceptent un
 rayon **scalaire** (section circulaire — calcul strictement identique à l'ancien)
-**ou une fonction `grade→rayon`** (section ovale, p. ex. `Brin.rayon_a_grade`).
+**ou une fonction `grade→rayon`** (rayon variable par direction, p. ex.
+`Brin.rayon_a_grade` — diamètre local par sondage, interpolé en LISSANT
+(cosinus, borné, sans angle vif) entre les directions mesurées voisines).
 Helper interne `_radius_at(R, grade)`.
 
 **Primitives de rendu partagées Tk ↔ PIL** (points `(x, y)` en coord. écran) :
@@ -36,10 +48,16 @@ Helper interne `_radius_at(R, grade)`.
 - `cavity_polygon(alteration_par_grade, cx, cy, scale, …, rotation_grades=0.0)`
   — polygone lissé cavité.
 - `contour_polygon(r_of, cx, cy, scale, n_samples=160, rotation_grades=0.0)` —
-  contour fermé échantillonné finement (cercle ou ellipse) ; sert au
-  **remplissage** ovale (bois/écorce/cernes). Le cas circulaire garde la
-  primitive native des renderers (`d.ellipse` / `create_oval`) → goldens
-  byte-identiques.
+  contour fermé échantillonné finement (cercle ou rayon variable) ; sert au
+  **remplissage** à rayon variable (bois/écorce/cernes). Le cas circulaire
+  garde la primitive native des renderers (`d.ellipse` / `create_oval`) →
+  goldens byte-identiques.
+- `ring_polygon_points(outer, inner)` — point unique fermé d'un anneau
+  (écorce à rayon variable) par la technique du trou de serrure, SANS le
+  piège de `outer + inner[::-1]` à la main (deux ponts à des angles
+  différents ⟹ fin coin non rempli à la jointure, cf. CLAUDE.md « Piège
+  corrigé — anneau d'écorce à rayon variable »). Utilisé par
+  `_draw_ecorce`/`_pil_draw_ecorce` et `dialogs.ask_cepee_layout`.
 - `contrefort_zone_outline(zone, contreforts, R, ep_cm, cx, cy, scale, R_inner=None, rotation_grades=0.0)`
   — dict `{wood_outer, base, bark_outer?, bark_inner?}`. `R` (et `R_inner`) =
   `RadiusSpec`.
@@ -51,11 +69,12 @@ Helper interne `_radius_at(R, grade)`.
 **`rotation_grades` (cépée)** : commun aux 4 helpers ci-dessus (+
 `diagnostic.sondage_render_data`). Décale l'**angle de placement** des points
 (`polar_to_xy(..., g + rotation_grades)`) tout en évaluant le rayon/cloche au
-grade **local** `g` → la forme (ovale comprise) et les mesures du brin pivotent
-ensemble. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique (cavité/sondages
-gardent en plus le chemin `polar_idx_to_xy` exact quand `rotation_grades`
-falsy). Les ticks/cardinales (boussole monde) n'ont PAS de rotation. Un cercle
-étant invariant par rotation, seul le chemin ovale est pivoté côté contour.
+grade **local** `g` → la forme (rayon variable comprise) et les mesures du
+brin pivotent ensemble. Défaut 0.0 ⟹ `g + 0.0 == g`, rendu byte-identique
+(cavité/sondages gardent en plus le chemin `polar_idx_to_xy` exact quand
+`rotation_grades` falsy). Les ticks/cardinales (boussole monde) n'ont PAS de
+rotation. Un cercle étant invariant par rotation, seul le chemin à rayon
+variable est pivoté côté contour.
 - `adaptive_ruler_step_cm(scale_px_per_cm, min_gap_px)` — pas de graduation.
 - `radial_ruler_grade(sondage_grades, rotation_grades)` — grade MONDE de
   l'échelle radiale d'un brin : Est (100) par défaut, direction libre la plus
@@ -82,30 +101,38 @@ inventorié) ; `Brin` = **ramet** (tige physique autonome). Un arbre mono-caule
 = un genet à brin unique ; une **cépée** = plusieurs brins. Voir CLAUDE.md
 « Genet / brin » et la mémoire `project_cepees-formes`.
 
-- `Sondage` — `.prbs_cm` (alias), `.ratio_tR_brut(R)` (CSV uniquement).
+- `Sondage` — `.prbs_cm` (alias), `.ratio_tR_brut(R)` (CSV uniquement). Ne
+  porte PAS de diamètre local (cf. `Brin.diametres_locaux` ci-dessous — un
+  diamètre local est indépendant de tout sondage).
 - `DegradationExterne` — `.largeur_grades()`, `.couvre_grade(grade)`,
   `.profondeur_bois_cm(ep)` (profondeur consommant du bois ; déduit l'écorce si
   `comprend_ecorce`), champ `comprend_ecorce: bool = True`.
 - `Contrefort` — `.grade_debut()`, `.grade_fin()`, `.largeur_cm(R)`.
 - `Brin` (= ramet) — porte la **géométrie et les mesures propres à la tige** :
-  `rayon_tronc_cm` (= demi-grand-axe si ovale), `rayon_petit_axe_cm`
-  (0 = circulaire, sentinelle), `orientation_grade`, `diametre_sous_ecorce_cm`,
+  `rayon_tronc_cm` (rayon général), `diametre_sous_ecorce_cm`,
   `epaisseur_ecorce_cm`, `sondages`, `degradations_externes`, `contreforts`,
-  position `pos_x_cm/pos_y_cm` + `rotation_grades` (cépées) : tous trois édités
-  par l'éditeur de disposition (`dialogs.ask_cepee_layout`) ; `rotation_grades`
-  est appliqué au rendu (cf. § geometry `rotation_grades`).
-  Propriété `est_ovale` ; `rayon_a_grade(grade)` (rayon LOCAL — constant si
-  circulaire, ellipse sinon) ; `extent_cm()` = rayon d'**encombrement** (rayon
-  max + écorce + plus longue saillie de contrefort), pour le cadrage cépée.
-  `label` (« a »/« b »/… ; "" si brin unique). Mutateurs : `set_rayon(new_R)` et
-  `set_forme_ovale(petit_axe, orientation)` (tous deux → `_resync_sondages_local()`
-  qui réaligne le bois altéré sur le rayon local **en préservant la PRBS**) ;
+  `diametres_locaux: Dict[int, float]` (grade → diamètre cm, **indépendant de
+  tout sondage** — permet un point de forme sans PRBS mesurée là, p. ex. un
+  méplat entre deux sondages), position `pos_x_cm/pos_y_cm` +
+  `rotation_grades` (cépées) : tous trois édités par l'éditeur de disposition
+  (`dialogs.ask_cepee_layout`) ; `rotation_grades` est appliqué au rendu
+  (cf. § geometry `rotation_grades`).
+  Propriété `a_rayon_variable` (un rayon local diffère du général) ;
+  `rayon_a_grade(grade)` (rayon LOCAL — exact aux 16 grades canoniques via
+  `_rayon_locaux()`, interpolé en LISSANT par cosinus entre voisins mesurés
+  sinon — borné, sans angle vif) ; `extent_cm()` = rayon d'**encombrement**
+  (rayon local max + écorce + plus longue saillie de contrefort), pour le
+  cadrage cépée. `label` (« a »/« b »/… ; "" si brin unique). Mutateurs :
+  `set_rayon(new_R)` et `set_diametre_local(grade, diametre_cm)` — ce
+  dernier réaligne le bois altéré du sondage éventuellement présent à cette
+  direction **sans jamais retoucher sa PRBS** (contrairement à `set_rayon`,
+  qui reclampe la PRBS de tous les sondages via `_resync_sondages_local()`) ;
   `renumeroter_sondages/degradations/contreforts()`.
 - `Arbre` (= genet) — identité partagée (`numero_arbre`, `essence`,
   `hauteur_sondage_cm`, `hauteur_arbre_m`, `port_arbre`, `meche_cm`,
   `commentaire`) + `brins: List[Brin]` (≥ 1). **Propriétés-relais et méthodes-relais**
-  (`rayon_tronc_cm`, `sondages`, `set_rayon`, `set_forme_ovale`, `rayon_a_grade`,
-  …) délèguent au **brin courant** (`brins[0]`) pour que le code écrit avant les
+  (`rayon_tronc_cm`, `sondages`, `diametres_locaux`, `set_rayon`,
+  `set_diametre_local`, `rayon_a_grade`, …) délèguent au **brin courant** (`brins[0]`) pour que le code écrit avant les
   cépées (≈140 accès) tourne inchangé. Constructeur **rétro-compatible** : les
   kwargs de géométrie/mesures sont routés vers `brins[0]`. Prop : `display_name`,
   `brin_courant`. **Gestion de cépée** : `ajouter_brin()` (nouveau brin héritant
@@ -129,9 +156,10 @@ genet-level étant passé explicitement quand il intervient.
 - `degradation_externe_par_grade(section)` — profondeur **consommant du bois**
   max par direction (déduit l'écorce des dégradations qui la comprennent).
 - `rayon_par_grade(section)` — 16 rayons extérieurs (constant = `rayon_tronc_cm`
-  si circulaire, ellipse sinon via `section.rayon_a_grade`).
+  si circulaire, rayon local sinon via `section.rayon_a_grade`).
 - `prbs_par_grade(section)`, `ratio_tR_par_grade(section)` — composent les
-  trois ; dénominateur t/R = **rayon LOCAL** de chaque direction (apport ovale).
+  trois ; dénominateur t/R = **rayon LOCAL** de chaque direction (apport du
+  diamètre local par sondage).
   `sondage_render_data(section, port, meche, …)` calcule pastille + t/R au rayon
   local du grade sondé.
 - `repartition_classes_brin(section, port)` → `DiagnosticSnapshot` (self-contained :
@@ -187,11 +215,10 @@ revert au focus-out en filet de sécurité, et le `_commit_rayon` différé
 (set_rayon uniquement au focus-out, pas pendant la frappe — protège les
 PRBS des valeurs intermédiaires). Form groupé en 4 `ttk.LabelFrame`
 (Arbre / Tronc / Sondage / Notes) pour clarifier les unités (m vs cm).
-La **forme ovale** n'est PAS en ligne (pour ne pas alourdir le cas
-circulaire courant) : un bouton « Forme du tronc (ovale)… » dans le groupe
-Tronc ouvre l'éditeur avancé `dialogs.ask_forme_tronc` ; `_open_forme_editor`
-applique le résultat via `push_undo` + `set_forme_ovale`. Sous ce bouton,
-les actions **« ＋ Brin » / « − Brin »** (`App.add_brin` / `remove_last_brin`,
+Le **diamètre local par sondage** (rayon variable par direction) se saisit
+**en ligne** dans la grille Sondages (colonne « Ø local (cm) », pas dans
+l'onglet Identification — a remplacé l'ancien éditeur avancé de tronc ovale).
+Sous les champs Tronc, les actions **« ＋ Brin » / « − Brin »** (`App.add_brin` / `remove_last_brin`,
 via `Arbre.ajouter_brin` / `supprimer_brin`) construisent une cépée + un
 compteur de brins (« − Brin » désactivé en mono-caule), et **« Disposition… »**
 ouvre l'éditeur de placement des brins à la souris (`dialogs.ask_cepee_layout`,
@@ -270,11 +297,11 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   sans affecter les petits dessins (vignette PDF ~600 px, `_ds = 1.0`).
 - Helpers exposés : `_pil_load_fonts()`, `_draw_horizontal_legend_pil()`.
 - `HAS_PIL` : False si Pillow absent.
-- **Section ovale** : chaque couche de contour (bois/cernes/écorce) **branche
-  sur `brin.est_ovale`** — circulaire → primitive native `d.ellipse` (rendu
-  inchangé, goldens stables) ; ovale → polygone via `contour_polygon`. Les
-  contreforts/dégradations/ticks/cardinales reçoivent `brin.rayon_a_grade`
-  (constant si circulaire → byte-identique).
+- **Rayon variable** : chaque couche de contour (bois/cernes/écorce) **branche
+  sur `brin.a_rayon_variable`** — circulaire → primitive native `d.ellipse`
+  (rendu inchangé, goldens stables) ; rayon variable → polygone via
+  `contour_polygon`. Les contreforts/dégradations/ticks/cardinales reçoivent
+  `brin.rayon_a_grade` (constant si circulaire → byte-identique).
 - **Échelle radiale** : `_pil_draw_echelle_radiale` (appelée en DERNIER dans
   `_pil_draw_brin` → premier plan, halo blanc) — axe gradué centre→bois +
   segment écorce le long de `radial_ruler_grade` (Est, esquive des sondages).
@@ -342,8 +369,8 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 `SectionCanvas(tk.Canvas)` : `redraw()` orchestre les `_draw_*` (ordre =
 superposition). Pendant Tk de `pil_render` — géométrie partagée, visuels
 spécifiques (polices, outline+width, smooth, flèches). Même gestion de la
-**section ovale** que PIL (branche `est_ovale` : `create_oval` natif si
-circulaire, `contour_polygon` via `create_polygon` si ellipse ;
+**rayon variable** que PIL (branche `a_rayon_variable` : `create_oval` natif
+si circulaire, `contour_polygon` via `create_polygon` sinon ;
 `rayon_a_grade` passé aux helpers de contour). **Cépée** : `_draw_brin(brin,
 port, meche, …)` pour une section ; `redraw` dérive vers `_draw_cepee` dès
 qu'il y a plusieurs brins / un brin décentré (mono-brin centré = verbatim,
@@ -413,18 +440,19 @@ saisie texte thémé (look ttk Pénétromètre) qui remplace
 `strip`) si validé — `""` validé ≠ `None`. Utilisé par
 `App.action_rename_arbre`.
 
-`ask_forme_tronc(parent, *, grand_axe_cm, petit_axe_cm, orientation_grade)` :
-**éditeur avancé de la forme de section** (tronc ovale). Affiche le grand axe
-(= rayon du tronc) en référence et édite demi-petit-axe + orientation. Renvoie
-`(petit_axe_cm, orientation_grade)` si validé, `None` si annulé ; petit axe
-vide/0 ⟹ section circulaire. Volontairement séparé du formulaire pour ne pas
-alourdir le cas circulaire courant ; appelé par `IdentificationPane`.
+Le diamètre local par direction (rayon variable, `Brin.diametres_locaux`,
+cf. `model.py` ci-dessus) n'a pas de dialogue dédié : saisi en ligne dans la
+grille Sondages (colonne « Ø local (cm) », toujours active — indépendante
+d'un sondage sur la ligne).
 
 `ask_cepee_layout(parent, arbre) -> Optional[List[Tuple[float, float, int]]]` :
 **éditeur de disposition d'une cépée** (Étape 4b/4c). Canvas qui dessine chaque
-brin (contour fidèle via `geometry.contour_polygon` — cercle ou ellipse
-orientée, **rotation incluse**), cadrage **figé à l'ouverture** par
-`geometry.brins_layout` (le dessin ne saute pas pendant le glissement).
+brin (contour fidèle via `geometry.contour_polygon` — cercle ou rayon
+variable par direction, **écorce comprise** si mesurée via
+`geometry.ring_polygon_points` — sans elle deux brins qui se chevauchent une
+fois l'écorce comptée semblaient avoir un écart ; le rayon de détection au
+clic/glisser compte aussi l'écorce ; **rotation incluse**), cadrage **figé
+à l'ouverture** par `geometry.brins_layout` (le dessin ne saute pas pendant le glissement).
 Glisser-déposer un brin fixe sa position `(pos_x_cm, pos_y_cm)` ; la **molette**
 au-dessus d'un brin le fait pivoter par pas de 25 gr (`rotation_grades`). Le
 brin « a » est l'**ancre** (position fixe en (0,0) ; il peut pivoter). Travaille

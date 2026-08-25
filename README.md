@@ -34,7 +34,7 @@ Sur Linux : `sudo apt install python3-tk`.
 ## Lancement
 
 ```bash
-python penetrometre.py
+python3 penetrometre.py
 ```
 
 Sur Windows, tu peux double-cliquer sur `Lancer_Penetrometre.bat`.
@@ -48,7 +48,7 @@ pytest tests
 xvfb-run -a pytest tests
 ```
 
-Les tests sont des `unittest.TestCase` : `python -m unittest discover tests`
+Les tests sont des `unittest.TestCase` : `python3 -m unittest discover tests`
 reste fonctionnel si pytest n'est pas installé.
 
 Un hook `pre-push` versionné (`.githooks/pre-push`) rejoue lint + tests
@@ -85,21 +85,21 @@ rendu :
 
 ```bash
 # Côté PIL (PNG)
-python -m tests.test_render --update
+python3 -m tests.test_render --update
 
 # Côté Tk (JSON) — DISPLAY requis, utiliser xvfb-run en CI
-python -m tests.test_section_canvas --update
+python3 -m tests.test_section_canvas --update
 ```
 
 ## Build / Distribution
 
-Le lancement quotidien ne nécessite **aucun build** (`python penetrometre.py`).
+Le lancement quotidien ne nécessite **aucun build** (`python3 penetrometre.py`).
 Pour produire des exécutables distribuables, deux options :
 
 **PyInstaller** (référence) — dossier autonome + installeurs natifs :
 
 ```bash
-python build/build_icons.py     # génère les icônes
+python3 build/build_icons.py     # génère les icônes
 pyinstaller penetrometre.spec   # → dist/Penetrometre/
 ```
 
@@ -114,7 +114,7 @@ difficile à décompiler qu'un bundle PyInstaller, en complément de la licence
 Ed25519) :
 
 ```bash
-python build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
+python3 build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
 ```
 
 ## Fichiers à conserver ensemble
@@ -142,7 +142,7 @@ mon-dossier/
 ├── comparaison.py              ← fenêtre de comparaison inter-missions
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,
-│                                  Contrefort, Forme du tronc, Cépée)
+│                                  Contrefort, Disposition de la cépée)
 ├── dialogs_license.py          ← fenêtre d'activation bloquante (licence)
 ├── dialogs_settings.py         ← dialogs préférences avancées (barème, logo)
 ├── dialogs_shared.py           ← helpers partagés entre dialogues
@@ -371,7 +371,8 @@ courant.
 
 ## Barème PRBS
 
-Application du barème selon le port de l'arbre :
+Application du barème selon le port de l'arbre — répartition par défaut
+(entièrement reconfigurable, cf. « Barème configurable » plus bas) :
 
 | Port de l'arbre                | Vert      | Orange  | Rouge  |
 | ------------------------------ | --------- | ------- | ------ |
@@ -413,10 +414,17 @@ nouvelle mission sans ressaisir les informations récurrentes.
 
 ### Barème configurable
 
-Le menu **Réglages → Barème…** permet d'ajuster les seuils t/R
-Vert / Orange / Rouge par port d'arbre, sans recompiler. Les valeurs
-sont persistées dans `~/.penetrometre/bareme.json` ; un bouton restaure
-les valeurs par défaut.
+Le menu **Réglages → Barème…** permet de composer soi-même les **groupes
+de ports** qui partagent un même seuil t/R Vert/Orange/Rouge : un seuil par
+port individuel, ou plusieurs ports regroupés — au choix, sans recompiler.
+Chaque port appartient toujours à un seul groupe (garanti par l'éditeur,
+pas seulement vérifié) ; la répartition par défaut ci-dessus reste la
+valeur d'origine et un bouton la restaure en un clic. Les groupes sont
+persistés dans `~/.penetrometre/bareme.json` (poste), et les seuils
+réellement appliqués à l'enregistrement sont tracés dans chaque mission et
+cités dans les livrables (fiche PDF, exports XLSX/HTML/CSV) — deux
+opérateurs aux réglages différents savent ainsi toujours avec quel barème
+une classe Vert/Orange/Rouge a été obtenue.
 
 ### Licence et mode essai
 

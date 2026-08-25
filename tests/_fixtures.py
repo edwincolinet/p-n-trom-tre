@@ -69,30 +69,34 @@ def build_arbre(scenario: str) -> Arbre:
         return a
 
     if scenario == "ovale":
-        # Section elliptique : grand axe N-S (demi = 30), petit axe E-O
-        # (demi = 18). Exerce les chemins ovales de TOUTES les couches :
-        # bois, écorce, cernes, ticks, cardinales, contrefort sur ellipse,
-        # pastilles de sondage rapportées au rayon local.
+        # Section à rayon variable par sondage : diamètre local mesuré à
+        # l'E et à l'O (r=18) contre un rayon général de 30 ailleurs.
+        # Exerce les chemins « a_rayon_variable » de TOUTES les couches :
+        # bois, écorce, cernes, ticks, cardinales, contrefort, pastilles de
+        # sondage rapportées au rayon local.
         a = Arbre(numero_arbre="5", essence="Peuplier", port_arbre="libre")
         a.rayon_tronc_cm = 30.0
-        a.rayon_petit_axe_cm = 18.0
-        a.orientation_grade = 0
         a.epaisseur_ecorce_cm = 1.0
+        # Diamètres locaux indépendants des sondages (grade → cm).
+        a.diametres_locaux = {100: 36.0, 300: 36.0}
         # PRBS cohérente avec le rayon LOCAL (altéré = R_local − sain) :
         a.sondages.append(Sondage(numero=1, grade=0,
                                     bois_sain_cm=22.0, bois_altere_cm=8.0))
         a.sondages.append(Sondage(numero=2, grade=100,
+                                    bois_sain_cm=10.0, bois_altere_cm=8.0))
+        a.sondages.append(Sondage(numero=3, grade=300,
                                     bois_sain_cm=10.0, bois_altere_cm=8.0))
         a.contreforts.append(Contrefort(numero=1, grade_centre=200,
                                           largeur_grades=75, longueur_cm=8.0))
         return a
 
     if scenario == "cepee":
-        # Cépée à 2 brins : « a » circulaire centré, « b » ovale décalé à
-        # l'Est. Exerce le cadrage multi-brins (`brins_layout`), la boussole
-        # globale, les labels de brin, et un brin ovale + contrefort hors
-        # centre. La géométrie/mesures vivent sur chaque `Brin` ; le port et
-        # la mèche restent genet-level (partagés).
+        # Cépée à 2 brins : « a » circulaire centré, « b » à rayon variable
+        # (diamètre local au sondage) décalé à l'Est. Exerce le cadrage
+        # multi-brins (`brins_layout`), la boussole globale, les labels de
+        # brin, et un brin à rayon variable + contrefort hors centre. La
+        # géométrie/mesures vivent sur chaque `Brin` ; le port et la mèche
+        # restent genet-level (partagés).
         return Arbre(
             numero_arbre="6", essence="Charme", port_arbre="libre",
             meche_cm=40.0,
@@ -104,8 +108,8 @@ def build_arbre(scenario: str) -> Arbre:
                          Sondage(numero=2, grade=200,
                                  bois_sain_cm=9.0, bois_altere_cm=7.0)]),
                 Brin(label="b", pos_x_cm=48.0, pos_y_cm=0.0,
-                     rayon_tronc_cm=18.0, rayon_petit_axe_cm=11.0,
-                     orientation_grade=100, epaisseur_ecorce_cm=1.0,
+                     rayon_tronc_cm=18.0, epaisseur_ecorce_cm=1.0,
+                     diametres_locaux={100: 22.0},
                      sondages=[
                          Sondage(numero=1, grade=100,
                                  bois_sain_cm=8.0, bois_altere_cm=3.0)],
@@ -117,9 +121,9 @@ def build_arbre(scenario: str) -> Arbre:
     if scenario == "cepee_rotation":
         # Cépée à 2 brins avec ROTATION (`rotation_grades`) : « a » circulaire
         # pivoté de 50 gr (le cercle est invariant, mais cavité/sondages
-        # pivotent), « b » ovale pivoté de 100 gr (la forme, le sondage et le
-        # contrefort pivotent ensemble). Verrouille le rendu des brins pivotés
-        # (Étape 4 — reliquat rotation).
+        # pivotent), « b » à rayon variable pivoté de 100 gr (la forme, le
+        # sondage et le contrefort pivotent ensemble). Verrouille le rendu
+        # des brins pivotés (Étape 4 — reliquat rotation).
         return Arbre(
             numero_arbre="7", essence="Frêne", port_arbre="libre",
             meche_cm=40.0,
@@ -132,9 +136,9 @@ def build_arbre(scenario: str) -> Arbre:
                          Sondage(numero=2, grade=200,
                                  bois_sain_cm=9.0, bois_altere_cm=7.0)]),
                 Brin(label="b", pos_x_cm=48.0, pos_y_cm=0.0,
-                     rayon_tronc_cm=18.0, rayon_petit_axe_cm=11.0,
-                     orientation_grade=100, epaisseur_ecorce_cm=1.0,
+                     rayon_tronc_cm=18.0, epaisseur_ecorce_cm=1.0,
                      rotation_grades=100,
+                     diametres_locaux={100: 22.0},
                      sondages=[
                          Sondage(numero=1, grade=100,
                                  bois_sain_cm=8.0, bois_altere_cm=3.0)],

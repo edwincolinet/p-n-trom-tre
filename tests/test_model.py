@@ -437,64 +437,91 @@ class PrbsParGradeTests(unittest.TestCase):
         self.assertFalse(hasattr(Arbre, "recompute_alteration_from_sondages"))
 
 
-class SectionOvaleTests(unittest.TestCase):
-    """Section ovale (ellipse) — Étape 1 : rayon et t/R par direction."""
+class RayonLocalParSondageTests(unittest.TestCase):
+    """Diamètre local par direction : rayon et t/R, indépendant de tout
+    sondage (peut être renseigné même sans PRBS mesurée à la direction)."""
 
     def test_section_circulaire_par_defaut(self):
-        # rayon_petit_axe_cm == 0 ⟹ circulaire : rayon constant partout.
+        # Aucun diamètre local ⟹ circulaire : rayon constant.
         a = Arbre(rayon_tronc_cm=30.0)
-        self.assertFalse(a.est_ovale)
+        self.assertFalse(a.a_rayon_variable)
         self.assertEqual(rayon_par_grade(a), [30.0] * 16)
 
-    def test_petit_axe_egal_grand_reste_circulaire(self):
+    def test_diametre_local_sans_aucun_sondage(self):
+        # Cœur de la fonctionnalité : un diamètre local peut être posé sur
+        # une direction qui n'a JAMAIS été sondée (méplat repéré au pied à
+        # coulisse, sans mesure au résistographe) — aucun `Sondage` requis.
         a = Arbre(rayon_tronc_cm=30.0)
-        a.rayon_petit_axe_cm = 30.0
-        self.assertFalse(a.est_ovale)
+        changed = a.set_diametre_local(100, 36.0)
+        self.assertTrue(changed)
+        self.assertEqual(a.sondages, [])          # aucun sondage créé
+        self.assertTrue(a.a_rayon_variable)
+        self.assertAlmostEqual(a.rayon_a_grade(100), 18.0)
+
+    def test_diametre_local_egal_au_general_reste_circulaire(self):
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.set_diametre_local(100, 60.0)
+        self.assertFalse(a.a_rayon_variable)
         self.assertEqual(rayon_par_grade(a), [30.0] * 16)
 
-    def test_rayon_par_grade_suit_l_ellipse(self):
-        # Grand axe 30 (N-S, orientation 0), petit axe 18 (E-O).
+    def test_rayon_par_grade_suit_le_diametre_local(self):
+        # Diamètre local 36 (rayon 18) à l'E (grade 100), reste à 30 ailleurs.
         a = Arbre(rayon_tronc_cm=30.0)
-        a.rayon_petit_axe_cm = 18.0
-        self.assertTrue(a.est_ovale)
+        a.set_diametre_local(100, 36.0)
+        self.assertTrue(a.a_rayon_variable)
         rayons = rayon_par_grade(a)
-        self.assertAlmostEqual(rayons[0], 30.0)   # N (grand axe)
-        self.assertAlmostEqual(rayons[8], 30.0)   # S (grand axe)
-        self.assertAlmostEqual(rayons[4], 18.0)   # E (petit axe)
-        self.assertAlmostEqual(rayons[12], 18.0)  # O (petit axe)
+        self.assertAlmostEqual(rayons[0], 30.0)   # N (non renseigné)
+        self.assertAlmostEqual(rayons[8], 30.0)   # S (non renseigné)
+        self.assertAlmostEqual(rayons[4], 18.0)   # E (diamètre local)
 
-    def test_tR_local_par_direction_sur_ovale(self):
-        # À PRBS identique (10 cm) sur grand et petit axe, le t/R est PLUS
-        # FAVORABLE sur le petit axe (rayon plus court) — apport métier
-        # de l'Étape 1 : chaque direction rapportée à son propre rayon.
+    def test_rayon_a_grade_interpole_en_lissant_entre_voisins(self):
+        # Entre deux directions mesurées, interpolation lissée par cosinus
+        # (pas d'angle vif) — le milieu exact reste identique à une
+        # interpolation linéaire (symétrie du cosinus), mais un point
+        # hors-milieu s'en écarte : la courbe démarre/finit à dérivée nulle.
         a = Arbre(rayon_tronc_cm=30.0)
-        a.rayon_petit_axe_cm = 18.0
-        # bois_altere tel que PRBS = rayon_local - alteration = 10 partout
-        # N (grand axe, R=30) : altération 20 → PRBS 10 → t/R = 10/30
+        a.set_diametre_local(75, 40.0)    # r=20
+        a.set_diametre_local(100, 36.0)   # r=18
+        r_mid = a.rayon_a_grade(87.5)
+        self.assertAlmostEqual(r_mid, 19.0)  # exact milieu de 20 et 18
+        r_quart = a.rayon_a_grade(81.25)     # t=0.25
+        lineaire_quart = 20.0 + (18.0 - 20.0) * 0.25
+        self.assertNotAlmostEqual(r_quart, lineaire_quart, places=2)
+        self.assertLess(18.0, r_quart)
+        self.assertLess(r_quart, 20.0)       # toujours borné, pas de dépassement
+
+    def test_tR_local_par_direction(self):
+        # À PRBS identique (10 cm) sur une direction non mesurée et une
+        # direction à diamètre local plus petit, le t/R est PLUS FAVORABLE
+        # sur la direction au rayon local plus court — chaque direction est
+        # rapportée à son propre rayon.
+        a = Arbre(rayon_tronc_cm=30.0)
+        a.set_diametre_local(100, 36.0)  # r=18
+        # N (non renseigné, R=30) : altération 20 → PRBS 10 → t/R = 10/30
         a.sondages.append(Sondage(grade=0, bois_altere_cm=20.0))
-        # E (petit axe, R=18) : altération 8 → PRBS 10 → t/R = 10/18
+        # E (diamètre local, R=18) : altération 8 → PRBS 10 → t/R = 10/18
         a.sondages.append(Sondage(grade=100, bois_altere_cm=8.0))
-        a.sondages.append(Sondage(grade=200, bois_altere_cm=20.0))
         ratios = ratio_tR_par_grade(a)
         self.assertAlmostEqual(ratios[0], 10.0 / 30.0, places=4)
         self.assertAlmostEqual(ratios[4], 10.0 / 18.0, places=4)
         self.assertGreater(ratios[4], ratios[0])
 
-    def test_rayon_tronc_reste_le_demi_grand_axe(self):
-        # Compat : rayon_tronc_cm garde son sens (= le plus grand rayon),
-        # ce que lisent les exports/synthèse comme « rayon représentatif ».
+    def test_rayon_general_independant_du_diametre_local(self):
+        # Le rayon général (`rayon_tronc_cm`) n'est pas affecté par un
+        # diamètre local — ce que lisent les exports/synthèse comme
+        # « rayon représentatif ».
         a = Arbre(rayon_tronc_cm=30.0)
-        a.rayon_petit_axe_cm = 18.0
+        a.set_diametre_local(100, 36.0)
         self.assertEqual(a.rayon_tronc_cm, 30.0)
         self.assertEqual(max(rayon_par_grade(a)), 30.0)
 
-    def test_set_forme_ovale_realigne_altere_et_preserve_prbs(self):
+    def test_set_diametre_local_realigne_altere_et_preserve_prbs(self):
         # Tronc circulaire R=30 avec un sondage à l'E (grade 100) :
-        # PRBS=10, altéré=20. On passe en ovale petit axe 18 à l'E.
+        # PRBS=10, altéré=20. On lui donne un diamètre local 36 (rayon 18).
         a = Arbre(rayon_tronc_cm=30.0)
         a.sondages.append(Sondage(grade=100, bois_sain_cm=10.0,
                                    bois_altere_cm=20.0))
-        changed = a.set_forme_ovale(18.0, 0)
+        changed = a.set_diametre_local(100, 36.0)
         self.assertTrue(changed)
         s = a.sondages[0]
         # PRBS (mesure physique) inchangée…
@@ -502,27 +529,32 @@ class SectionOvaleTests(unittest.TestCase):
         # …mais l'altéré se réaligne sur le rayon LOCAL (18 à l'E) : 18-10=8.
         self.assertAlmostEqual(s.bois_altere_cm, 8.0)
 
-    def test_set_forme_ovale_clampe_prbs_au_rayon_local(self):
-        # Si la PRBS dépasse le petit axe, elle est bornée au rayon local.
+    def test_set_diametre_local_ne_retouche_jamais_la_prbs(self):
+        # Si la PRBS dépasse le nouveau rayon local, elle N'EST PAS bornée
+        # silencieusement (contrairement au rayon général) : c'est signalé
+        # côté UI, pas corrigé dans le modèle. Seul l'altéré (dérivé) reflète
+        # le nouveau rayon local, borné à 0.
         a = Arbre(rayon_tronc_cm=30.0)
         a.sondages.append(Sondage(grade=100, bois_sain_cm=25.0,
                                    bois_altere_cm=5.0))
-        a.set_forme_ovale(18.0, 0)
+        a.set_diametre_local(100, 36.0)   # rayon local E = 18
         s = a.sondages[0]
-        self.assertAlmostEqual(s.bois_sain_cm, 18.0)   # borné au rayon E
-        self.assertAlmostEqual(s.bois_altere_cm, 0.0)
+        self.assertAlmostEqual(s.bois_sain_cm, 25.0)   # PRBS inchangée
+        self.assertAlmostEqual(s.bois_altere_cm, 0.0)  # max(0, 18-25)
 
-    def test_set_forme_ovale_inchange_renvoie_false(self):
+    def test_set_diametre_local_inchange_renvoie_false(self):
         a = Arbre(rayon_tronc_cm=30.0)
-        a.set_forme_ovale(18.0, 0)
-        self.assertFalse(a.set_forme_ovale(18.0, 0))
+        a.set_diametre_local(100, 36.0)
+        self.assertFalse(a.set_diametre_local(100, 36.0))
 
-    def test_set_forme_ovale_zero_revient_circulaire(self):
+    def test_set_diametre_local_zero_revient_au_general(self):
         a = Arbre(rayon_tronc_cm=30.0)
-        a.set_forme_ovale(18.0, 0)
-        self.assertTrue(a.est_ovale)
-        a.set_forme_ovale(0.0, 0)
-        self.assertFalse(a.est_ovale)
+        a.set_diametre_local(100, 36.0)
+        self.assertTrue(a.a_rayon_variable)
+        self.assertIn(100, a.diametres_locaux)
+        a.set_diametre_local(100, 0.0)
+        self.assertFalse(a.a_rayon_variable)
+        self.assertNotIn(100, a.diametres_locaux)
         self.assertEqual(rayon_par_grade(a), [30.0] * 16)
 
 
@@ -880,11 +912,12 @@ class BrinExtentTests(unittest.TestCase):
         # rayon + écorce + max(saillies) = 20 + 1 + 8
         self.assertAlmostEqual(b.extent_cm(), 29.0)
 
-    def test_ovale_utilise_le_grand_axe(self):
-        # Le demi-grand-axe (rayon_tronc_cm) est le rayon maximal.
-        b = Brin(rayon_tronc_cm=20.0, rayon_petit_axe_cm=12.0,
-                 orientation_grade=0)
-        self.assertAlmostEqual(b.extent_cm(), 20.0)
+    def test_rayon_local_plus_grand_est_pris_en_compte(self):
+        # Un diamètre local plus grand que le rayon général (bourrelet
+        # mesuré, sans sondage requis) doit dominer extent_cm.
+        b = Brin(rayon_tronc_cm=20.0)
+        b.set_diametre_local(100, 50.0)
+        self.assertAlmostEqual(b.extent_cm(), 25.0)
 
 
 class CepeeManagementTests(unittest.TestCase):
@@ -897,20 +930,19 @@ class CepeeManagementTests(unittest.TestCase):
 
     def test_ajouter_brin_herite_la_forme_pas_les_mesures(self):
         a = Arbre(rayon_tronc_cm=18.0, epaisseur_ecorce_cm=1.5)
-        a.brins[0].rayon_petit_axe_cm = 12.0
-        a.brins[0].orientation_grade = 100
         a.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=10.0,
                                    bois_altere_cm=8.0))
+        a.set_diametre_local(0, 40.0)
         nouveau = a.ajouter_brin()
         # Forme héritée
         self.assertAlmostEqual(nouveau.rayon_tronc_cm, 18.0)
-        self.assertAlmostEqual(nouveau.rayon_petit_axe_cm, 12.0)
-        self.assertEqual(nouveau.orientation_grade, 100)
         self.assertAlmostEqual(nouveau.epaisseur_ecorce_cm, 1.5)
-        # Mesures NON héritées
+        # Mesures NON héritées — diamètres locaux compris : chaque tige
+        # d'une cépée a sa propre irrégularité physique.
         self.assertEqual(nouveau.sondages, [])
         self.assertEqual(nouveau.degradations_externes, [])
         self.assertEqual(nouveau.contreforts, [])
+        self.assertEqual(nouveau.diametres_locaux, {})
 
     def test_ajouter_brin_place_a_l_est_sans_recouvrement(self):
         a = Arbre(rayon_tronc_cm=16.0)

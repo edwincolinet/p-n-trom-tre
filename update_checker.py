@@ -35,6 +35,29 @@ _API_URL      = (f"https://api.github.com/repos/"
                  f"{_GITHUB_OWNER}/{_GITHUB_REPO}/releases/latest")
 _RELEASES_URL = (f"https://github.com/"
                  f"{_GITHUB_OWNER}/{_GITHUB_REPO}/releases/latest")
+# Toute URL ouverte dans le navigateur doit commencer par ce préfixe
+# (schéma + hôte + dépôt figés) — cf. `url_de_release_sure`.
+_PREFIXE_SUR = f"https://github.com/{_GITHUB_OWNER}/{_GITHUB_REPO}/"
+
+
+def url_de_release_sure(url: object) -> str:
+    """Filtre l'URL renvoyée par l'API avant de l'ouvrir dans un navigateur.
+
+    `html_url` vient d'une réponse HTTP distante : on ne l'ouvre qu'après
+    avoir vérifié qu'elle pointe bien vers le dépôt de releases, en HTTPS.
+    Sans ce filtre, une réponse détournée (proxy d'entreprise mal
+    configuré, DNS empoisonné, compromission côté service) suffirait à
+    faire ouvrir une URL arbitraire — y compris un schéma non-HTTP que
+    le navigateur ou le bureau interprète.
+
+    Renvoie l'URL si elle est acceptable, sinon la page de releases
+    officielle (repli sûr, jamais une chaîne vide).
+    """
+    if isinstance(url, str) and url.startswith(_PREFIXE_SUR):
+        return url
+    if url:
+        log.warning("URL de release inattendue, ignorée : %r", url)
+    return _RELEASES_URL
 
 
 def _parse_version(tag: str) -> Optional[Tuple[int, ...]]:
@@ -88,5 +111,4 @@ def check_for_update(
     if latest is None or latest <= current:
         return None
 
-    html_url = data.get("html_url", _RELEASES_URL)
-    return tag, html_url
+    return tag, url_de_release_sure(data.get("html_url"))

@@ -28,12 +28,13 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Optional
 
-from bareme import classer_prbs
+from bareme import classer_prbs, description_seuils_mission
 from diagnostic import (
     degradation_externe_par_grade,
     mission_completeness_warnings,
     mission_synthesis_rows,
 )
+from dialogs import ProgressDialog
 from export import (
     HAS_OPENPYXL,
     export_prbs_html,
@@ -44,7 +45,7 @@ from export import (
 from fiche_pdf import HAS_FPDF, _new_pdf, render_fiche_arbre
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
-from model import Arbre, Chantier
+from model import Arbre, Chantier, label_brin
 from palette import COULEUR_CLASSE
 from pil_render import HAS_PIL, render_arbre_to_pil_image
 
@@ -250,29 +251,62 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         filetypes=[("Document PDF", "*.pdf")])
     if not p:
         return
+    # ~60 ms par fiche : produire le PDF d'une traite gèle la fenêtre (300
+    # arbres ⟹ ~20 s, l'OS la marque « ne répond pas »). On boucle donc en
+    # rendant la main à Tk entre chaque fiche — voir `ProgressDialog` pour
+    # les raisons de NE PAS passer par un thread.
+    cabinet_name, logo_path = _get_cabinet_info(parent)
+    prog = ProgressDialog(
+        parent, _("Export PDF de la mission"), len(arbres),
+        message=_("Génération des fiches…"))
+    annule = False
     try:
-        cabinet_name, logo_path = _get_cabinet_info(parent)
         pdf = _new_pdf()
-        for a in arbres:
+        for i, a in enumerate(arbres, start=1):
+            # `avancer` repeint ET traite les événements en attente :
+            # c'est ce qui garde le bouton Annuler réactif.
+            prog.avancer(i - 1, _("Arbre n°{num}").format(
+                num=a.numero_arbre or "?"))
+            if prog.demande_annulation():
+                annule = True
+                break
             render_fiche_arbre(
                 pdf, a, chantier,
                 show_sondages=show_sondages,
                 logo_path=logo_path,
                 cabinet_name=cabinet_name,
                 mission_file=mission_file)
-        pdf.output(p)
-        _notify_export(
-            parent, p,
-            f"PDF mission enregistré ({len(arbres)} fiche(s))")
+        if not annule:
+            prog.avancer(len(arbres), _("Écriture du fichier…"))
+            # L'écriture n'a lieu qu'une fois TOUTES les fiches produites :
+            # un PDF de mission tronqué serait pris pour un export complet.
+            pdf.output(p)
     except Exception as e:
+        prog.fermer()
         log.exception("Échec export PDF mission")
         messagebox.showerror("Erreur d'export PDF", str(e))
+        return
+    prog.fermer()
+
+    if annule:
+        set_status = getattr(parent, "set_status", None)
+        if set_status:
+            set_status(_("Export PDF annulé — aucun fichier écrit."))
+        return
+    _notify_export(parent, p,
+                   f"PDF mission enregistré ({len(arbres)} fiche(s))")
 
 
 def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
     """CSV de tous les sondages de la mission. Séparateur `;`,
     encodage UTF-8 avec BOM (compatible Excel). Colonnes ajustées
     uniquement (PRBS et t/R tiennent compte des dégradations externes).
+
+    **Itère les brins**, pas les propriétés-relais du genet. `Arbre.sondages`
+    et `Arbre.rayon_tronc_cm` renvoient vers `brins[0]` (compat mono-caule) :
+    boucler dessus faisait disparaître du CSV, en silence, tous les sondages
+    des brins b, c… d'une cépée. La colonne « Brin » n'est renseignée que
+    pour les cépées, pour ne pas alourdir le cas courant.
     """
     p = filedialog.asksaveasfilename(
         defaultextension=".csv",
@@ -282,7 +316,9 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
     try:
         with open(p, "w", newline="", encoding="utf-8-sig") as f:
             w = csv.writer(f, delimiter=";")
-            w.writerow(["N° arbre", "Essence", "Rayon (cm)",
+            w.writerow([f"# Barème appliqué : "
+                        f"{description_seuils_mission(chantier)}"])
+            w.writerow(["N° arbre", "Brin", "Essence", "Rayon (cm)",
                         "Port",
                         "N° sondage", "Grade (gr)", "Direction",
                         "PRBS (cm)", "Bois altéré (cm)",
@@ -290,25 +326,33 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                         "Classe",
                         "Compartimentation", "Commentaire"])
             for a in chantier.arbres:
-                R = a.rayon_tronc_cm
-                deg_ext_par_grade = degradation_externe_par_grade(a)
-                for s in a.sondages:
-                    d = DIRECTION_LABELS.get(s.grade, "")
-                    idx_g = (GRADES.index(s.grade)
-                             if s.grade in GRADES else 0)
-                    deg_ext = deg_ext_par_grade[idx_g]
-                    prbs_adj = max(0.0, s.prbs_cm - deg_ext)
-                    ratio_adj = prbs_adj / R if R > 0 else 0.0
-                    tR_pct = f"{100*ratio_adj:.1f}"
-                    classe = classer_prbs(ratio_adj, a.port_arbre)
-                    w.writerow([a.numero_arbre, a.essence,
-                                a.rayon_tronc_cm, a.port_arbre,
-                                s.numero,
-                                s.grade, d,
-                                prbs_adj, s.bois_altere_cm + deg_ext,
-                                tR_pct,
-                                classe,
-                                s.compartimentation, s.commentaire])
+                brins = list(a.brins) or []
+                multi = len(brins) > 1
+                for i, b in enumerate(brins):
+                    R = b.rayon_tronc_cm
+                    # Rayon ET dégradations externes sont propres au brin.
+                    deg_ext_par_grade = degradation_externe_par_grade(b)
+                    # Repli sur l'indice si `label` est vide (cf.
+                    # `model.label_brin`).
+                    label = (b.label or label_brin(i)) if multi else ""
+                    for s in b.sondages:
+                        d = DIRECTION_LABELS.get(s.grade, "")
+                        idx_g = (GRADES.index(s.grade)
+                                 if s.grade in GRADES else 0)
+                        deg_ext = deg_ext_par_grade[idx_g]
+                        prbs_adj = max(0.0, s.prbs_cm - deg_ext)
+                        ratio_adj = prbs_adj / R if R > 0 else 0.0
+                        tR_pct = f"{100*ratio_adj:.1f}"
+                        # Le port reste une donnée du genet.
+                        classe = classer_prbs(ratio_adj, a.port_arbre)
+                        w.writerow([a.numero_arbre, label, a.essence,
+                                    R, a.port_arbre,
+                                    s.numero,
+                                    s.grade, d,
+                                    prbs_adj, s.bois_altere_cm + deg_ext,
+                                    tR_pct,
+                                    classe,
+                                    s.compartimentation, s.commentaire])
         _notify_export(parent, p, "CSV mission enregistré")
     except Exception as e:
         log.exception("Échec export CSV")
@@ -334,7 +378,8 @@ def export_synthesis_csv_mission(parent: tk.Misc,
         return
     try:
         export_synthesis_csv(
-            mission_synthesis_rows(chantier, trier_par_urgence=True), p)
+            mission_synthesis_rows(chantier, trier_par_urgence=True), p,
+            bareme_desc=description_seuils_mission(chantier))
         _notify_export(parent, p, _("Synthèse mission CSV enregistrée"))
     except Exception as e:
         log.exception("Échec export synthèse CSV")
@@ -363,8 +408,10 @@ def export_synthesis_xlsx_mission(parent: tk.Misc,
         return
     try:
         export_synthesis_xlsx(
-            mission_synthesis_rows(chantier, trier_par_urgence=True), chantier, p,
-                              couleur_classe=COULEUR_CLASSE)
+            mission_synthesis_rows(chantier, trier_par_urgence=True),
+            chantier, p,
+            couleur_classe=COULEUR_CLASSE,
+            bareme_desc=description_seuils_mission(chantier))
         _notify_export(parent, p, _("Synthèse mission XLSX enregistrée"))
     except Exception as e:
         log.exception("Échec export synthèse XLSX")
@@ -401,7 +448,8 @@ def export_xlsx_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         export_prbs_xlsx(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs,
-                         cabinet_name=cabinet_name)
+                         cabinet_name=cabinet_name,
+                         bareme_desc=description_seuils_mission(chantier))
         _notify_export(parent, p, "Tableau XLSX enregistré")
     except Exception as e:
         log.exception("Échec export XLSX")
@@ -430,7 +478,8 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         export_prbs_html(arbre, chantier, p,
                          couleur_classe=COULEUR_CLASSE,
                          classer_prbs=classer_prbs,
-                         cabinet_name=cabinet_name)
+                         cabinet_name=cabinet_name,
+                         bareme_desc=description_seuils_mission(chantier))
         _notify_export(parent, p, "Tableau HTML enregistré")
     except Exception as e:
         log.exception("Échec export HTML")

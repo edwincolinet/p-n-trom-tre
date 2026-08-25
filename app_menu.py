@@ -67,6 +67,7 @@ class AppLike(Protocol):
     def action_dup_arbre(self) -> None: ...
     def action_rename_arbre(self) -> None: ...
     def action_del_arbre(self) -> None: ...
+    def action_bulk_set_urgence(self) -> None: ...
 
     # Affichage
     def action_set_ui_scale(self, scale: float) -> None: ...
@@ -169,6 +170,8 @@ def build_menu(app: AppLike) -> None:
                   command=app.action_prev_arbre)
     a.add_command(label=_("Prochain arbre à finir"),
                   command=app.action_next_a_finir)
+    a.add_command(label=_("Urgence pour la sélection…"),
+                  command=app.action_bulk_set_urgence)
     a.add_separator()
     a.add_command(label=_("Dupliquer l'arbre courant"),
                   command=app.action_dup_arbre)

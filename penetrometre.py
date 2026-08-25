@@ -55,8 +55,16 @@ from dialogs import (
     normaliser_date,
 )
 from dialogs_license import show_activation_dialog
-from i18n import _, setup_language
-from license import LicenseData, TrialInfo, get_trial_info, is_bundled, load_license
+from i18n import _, setup_language, translate_values
+from license import (
+    LicenseData,
+    TrialInfo,
+    durcir_config_existante,
+    get_trial_info,
+    is_bundled,
+    load_license,
+    masquer_email,
+)
 from model import (
     URGENCE_NIVEAUX,
     Arbre,
@@ -176,7 +184,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.deiconify()
             self._license = _lic
             if _lic is not None:
-                log.info("Licence valide — %s <%s>", _lic.name, _lic.email)
+                # Email masqué : le journal est destiné au support (cf.
+                # `license.masquer_email`).
+                log.info("Licence valide — %s <%s>", _lic.name,
+                         masquer_email(_lic.email))
             elif self._trial is not None:
                 log.info("Mode essai — %d jours restants", self._trial.days_remaining)
 
@@ -268,7 +279,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             if hasattr(self, "_trial_banner"):
                 self._trial_banner.pack_forget()
             log.info("Licence activée depuis mode essai — %s <%s>",
-                     result.name, result.email)
+                     result.name, masquer_email(result.email))
             self.set_status(f"✓ Licence activée — {result.name}")
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
@@ -784,12 +795,12 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
     def _reset_all_filters(self) -> None:
         """Réinitialise tous les filtres de la liste d'arbres en une action."""
-        self.var_risk_filter.set(_RISK_FILTER_ALL)
-        self.var_urgence_filter.set(_URGENCE_FILTER_ALL)
+        self.var_risk_filter.set(_(_RISK_FILTER_ALL))
+        self.var_urgence_filter.set(_(_URGENCE_FILTER_ALL))
         if hasattr(self, "var_echeance_filter"):
-            self.var_echeance_filter.set(_ECHEANCE_FILTER_ALL)
+            self.var_echeance_filter.set(_(_ECHEANCE_FILTER_ALL))
         if hasattr(self, "var_complet_filter"):
-            self.var_complet_filter.set(_COMPLET_FILTER_ALL)
+            self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
         self.var_filter.set("")  # la trace sur var_filter déclenche le refresh
 
     def essences_utilisees(self) -> list[str]:
@@ -870,10 +881,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
     def _urgence_filter_choices(self) -> "list[str]":
         """Choices du filtre urgence : Toutes + standards + personnalisés + Non renseignée."""
-        return ([_URGENCE_FILTER_ALL]
-                + list(URGENCE_NIVEAUX)
+        return ([_(_URGENCE_FILTER_ALL)]
+                + translate_values(list(URGENCE_NIVEAUX))
                 + self.get_urgences_custom()
-                + [_URGENCE_FILTER_NONE])
+                + [_(_URGENCE_FILTER_NONE)])
 
     def _refresh_urgence_filter_choices(self) -> None:
         """Met à jour les valeurs du combobox filtre urgence après un changement
@@ -1382,6 +1393,11 @@ def main() -> None:
     log_path = _setup_logging()
     log = logging.getLogger("penetrometre")
     log.info("Démarrage Pénétromètre v%s", __version__)
+    # Rattrape les installations antérieures au durcissement : dossier de
+    # config en 0700, licence/essai/repère en 0600. Ici plutôt que dans la
+    # branche licence, pour que le parc se corrige à TOUS les lancements —
+    # y compris en mode essai et en développement.
+    durcir_config_existante()
     try:
         App().mainloop()
     except Exception:

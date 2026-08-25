@@ -31,6 +31,16 @@ TRANSLATIONS = {
     "Renommer l'arbre courant…":           "Rename current tree…",
     "Supprimer l'arbre courant…":          "Delete current tree…",
     "Prochain arbre à finir":              "Next unfinished tree",
+    "Urgence pour la sélection…":          "Priority for selection…",
+    "Urgence — sélection":                 "Priority — selection",
+    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
+                                           "Priority level for the {n} selected tree(s):",
+    "Urgence « {niveau} » appliquée à {n} arbre(s).":
+                                           "Priority « {niveau} » applied to {n} tree(s).",
+    "Sélectionnez d'abord un ou plusieurs arbres dans la liste "
+    "(Ctrl+clic ou Maj+clic pour une sélection multiple).":
+        "First select one or more trees in the list (Ctrl+click or "
+        "Shift+click for multiple selection).",
 
     # ── Menu Affichage ────────────────────────────────────────────────
     "Affichage":                           "View",
@@ -65,6 +75,7 @@ TRANSLATIONS = {
     "Arbres de la mission":                "Project trees",
     "Risque":                              "Risk",
     "Urgence":                             "Priority",
+    "Filtres avancés":                     "Advanced filters",
     "Tous":                                "All",
     "Non fiable":                          "Unreliable",
     "＋ Ajouter":                          "＋ Add",
@@ -97,7 +108,6 @@ TRANSLATIONS = {
     "Rayon (cm)":                          "Radius (cm)",
     "Diamètre (cm)":                       "Diameter (cm)",
     "Épaisseur écorce (cm)":               "Bark thickness (cm)",
-    "Forme du tronc…":                     "Trunk shape…",
     "＋ Brin":                             "＋ Stem",
     "− Brin":                              "− Stem",
     "Disposition…":                        "Layout…",
@@ -105,6 +115,7 @@ TRANSLATIONS = {
     # ── Onglet Sondages ───────────────────────────────────────────────
     "Direction":                           "Direction",
     "Grade":                               "Grade",
+    "Ø local (cm)":                        "Local Ø (cm)",
     "Bois sain (cm)":                      "Sound wood (cm)",
     "Altéré (cm)":                         "Altered (cm)",
     "Comp.":                               "Comp.",
@@ -116,6 +127,16 @@ TRANSLATIONS = {
     "Largeur (gr)":                        "Width (gr)",
     "Profondeur (cm)":                     "Depth (cm)",
     "Zone dégradée":                       "Damaged area",
+    "Écorce + bois":                       "Bark + wood",
+    "Bois seul":                           "Wood only",
+    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
+    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
+    "bois sain perdu.":
+        "Damaged area — « Bark + wood »: the area starts at the surface; "
+        "the bark thickness crossed is not counted as lost wood. "
+        "« Wood only »: the bark stays intact, the whole depth is lost "
+        "sound wood.",
     "＋ Ajouter dégradation":              "＋ Add damage",
 
     # ── Onglet Diagnostic ─────────────────────────────────────────────
@@ -194,6 +215,33 @@ TRANSLATIONS = {
     "Restaurer les valeurs par défaut":    "Restore defaults",
     "Barème mis à jour. Les diagnostics utilisent les nouveaux seuils.":
                                            "Thresholds updated. Diagnoses now use the new values.",
+    "Chaque port appartient à un seul groupe de seuils : composez vos "
+    "propres groupes (même un port par groupe) ou gardez le découpage "
+    "par défaut.":
+        "Each growth habit belongs to a single threshold group: build "
+        "your own groups (even one growth habit per group) or keep the "
+        "default split.",
+    "Nom du groupe":                       "Group name",
+    "Vert (%)":                            "Green (%)",
+    "Orange (%)":                          "Orange (%)",
+    "＋ Nouveau groupe":                   "＋ New group",
+    "Nouveau groupe":                      "New group",
+    "Port de l'arbre → groupe":            "Growth habit → group",
+    "Nom manquant":                        "Missing name",
+    "Chaque groupe doit avoir un nom.":    "Every group must have a name.",
+    "Groupe vide":                         "Empty group",
+    "Le groupe « {nom} » n'a aucun port assigné. Assignez-lui au moins "
+    "un port (tableau ci-dessous) ou supprimez-le.":
+        "The group “{nom}” has no growth habit assigned. Assign it at "
+        "least one (table below) or delete it.",
+    "Groupe « {nom} » : saisissez des nombres (ex. 30, 15).":
+        "Group “{nom}”: enter numbers (e.g. 30, 15).",
+    "Pour le groupe « {nom} » : le seuil Vert doit être strictement "
+    "supérieur au seuil Orange, et les deux entre 0 % et 100 %.\n\n"
+    "Ex. Vert = 30, Orange = 15.":
+        "For group “{nom}”: the Green threshold must be strictly "
+        "greater than the Orange threshold, both between 0% and 100%.\n\n"
+        "E.g. Green = 30, Orange = 15.",
 
     # ── Langue ────────────────────────────────────────────────────────
     "Langue modifiée. Relancez l'application pour appliquer.":
@@ -215,7 +263,6 @@ TRANSLATIONS = {
     "Hauteur du sondage (cm)":            "Sounding height (cm)",
     "Notes":                              "Notes",
     "Commentaire":                        "Comment",
-    "Forme du tronc (ovale)…":            "Trunk shape (oval)…",
     "Cépée : {n} brins":                 "Multi-stem: {n} stems",
     "1 brin (tige unique)":              "1 stem (single trunk)",
 
@@ -233,6 +280,7 @@ TRANSLATIONS = {
     "Résumé de l'arbre courant":          "Current tree summary",
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Residual Sound Wood by sounding",
+    "(suite)":                            "(cont'd)",
     "📄 Fiche PDF (arbre courant)":       "📄 PDF report (current tree)",
     "🖨 Imprimer":                        "🖨 Print",
     "🖼 PNG du dessin":                   "🖼 PNG drawing",
@@ -250,6 +298,31 @@ TRANSLATIONS = {
     "Validité":                           "Validity",
     "Contenu du suivi (texte libre)":    "Follow-up content (free text)",
 
+    # Export tableau PRBS / synthèse mission / fiche PDF — en-têtes et
+    # libellés des livrables (le client lit ceux-là, pas seulement l'UI).
+    "Grade (gr)":                         "Grade (gr)",
+    "PRBS bois sain (cm)":               "Sound wood PRBS (cm)",
+    "Bois altéré (cm)":                  "Altered wood (cm)",
+    "Classe verte":                       "Green class",
+    "Classe orange":                      "Orange class",
+    "Classe rouge":                       "Red class",
+    "Hauteur sondage":                    "Sounding height",
+    "Hauteur arbre":                      "Tree height",
+    "Arbre n°{n}":                        "Tree #{n}",
+    "Port {port}":                        "Growth habit {port}",
+    "Port":                               "Growth habit",
+    "t/R moyen (%)":                       "Average t/R (%)",
+    "Direction critique":                 "Critical direction",
+    "t/R critique (%)":                    "Critical t/R (%)",
+    "Validité suivi":                     "Follow-up validity",
+    "Échéance suivi":                     "Follow-up deadline",
+    "Commentaire suivi":                  "Follow-up comment",
+    "Aucun sondage enregistré.":          "No sounding recorded.",
+    "Intervention":                       "Action",
+    "Suivi":                              "Follow-up",
+    "Validité :":                         "Validity:",
+    "Prochaine visite :":                 "Next visit:",
+
     # ── Sprint 3 — UI restante ────────────────────────────────────────
 
     # En-tête principal — boutons comparaison
@@ -258,8 +331,10 @@ TRANSLATIONS = {
     "Expertise arboricole":                 "Tree expertise",
 
     # Panneau gauche — colonnes treeview
+    "Nom":                                 "Name",
     "État":                                "Status",
     "✕ Réinitialiser":                     "✕ Reset",
+    "↺ Réinitialiser les filtres":         "↺ Reset filters",
     "Brin :":                              "Stem:",
     "Renommer…":                           "Rename…",
 
@@ -312,17 +387,9 @@ TRANSLATIONS = {
     "Aujourd'hui":                         "Today",
     "Effacer":                             "Clear",
 
-    # Forme du tronc
-    "Petit axe — rayon (cm)":             "Minor axis — radius (cm)",
-    "Orientation grand axe (gr)":         "Major axis orientation (gr)",
-    "↺ Circulaire":                       "↺ Circular",
-    "Efface le petit axe et l'orientation — "
-    "revient à une section circulaire.":
-        "Clears the minor axis and orientation — "
-        "reverts to a circular cross-section.",
-
     # Édition sondage
     "Direction (grade)":                   "Direction (grade)",
+    "Ø local sous écorce (cm)":           "Local Ø under bark (cm)",
     "Épaisseur bois sain (cm)":           "Sound wood thickness (cm)",
     "Épaisseur bois altéré (cm)":         "Altered wood thickness (cm)",
     "Compartimentation":                   "Compartmentalization",
@@ -375,8 +442,6 @@ TRANSLATIONS = {
         "The expert decision: what to do, and when.",
 
     # Dialogs misc
-    "Laissez le petit axe vide pour une section circulaire.":
-        "Leave the minor axis empty for a circular cross-section.",
     "Longueur radiale (cm, vers l'extérieur)":
         "Radial length (cm, outward)",
 
@@ -424,18 +489,44 @@ TRANSLATIONS = {
         "PRBS unchanged if radius corrected after soundings: "
         "only the altered wood is recalculated.",
 
-    "Tronc ovale : bouton « Forme du tronc (ovale)… »"
-    " pour saisir le petit axe et l'orientation. Par défaut "
-    "la section est circulaire.":
-        "Oval trunk: use the « Trunk shape (oval)… » button "
-        "to set the minor axis and orientation. Circular by default.",
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
+    "diamètre local dans l'onglet Sondages, direction par "
+    "direction — vide = diamètre général ci-dessus.":
+        "Trunk not perfectly cylindrical? Enter a local diameter "
+        "in the Soundings tab, direction by direction — "
+        "empty = general diameter above.",
 
     "Laissez vide une direction non sondée. Effacer supprime le sondage "
-    "(commentaire et compartimentation compris). "
+    "(commentaire, compartimentation et Ø local compris). "
     "Double-cliquez pour le détail.":
         "Leave empty for an unsounded direction. Erasing removes the sounding "
-        "(including comment and compartmentalization). "
+        "(including comment, compartmentalization and local Ø). "
         "Double-click for details.",
+
+    "Ø local : diamètre sous écorce mesuré à CETTE direction (un "
+    "tronc n'est jamais parfaitement cylindrique). Laissez vide "
+    "pour utiliser le diamètre général de l'onglet Identification.":
+        "Local Ø: diameter under bark measured at THIS direction "
+        "(a trunk is never perfectly cylindrical). Leave empty "
+        "to use the general diameter from the Identification tab.",
+
+    "Sondage incertain (angle de mèche, pression, accès difficile…). "
+    "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
+    "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
+    "fiable.":
+        "Uncertain sounding (drill angle, pressure, difficult access…). "
+        "Still counted in the diagnosis, but prefixed with « ~ » in "
+        "exports (PDF, XLSX, CSV) to flag the measurement as less "
+        "reliable.",
+
+    "Case « ~ » : marque un sondage incertain (angle de mèche, "
+    "pression, accès difficile…). La valeur reste comptée dans le "
+    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
+    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "« ~ » checkbox: marks a sounding as uncertain (drill angle, "
+        "pressure, difficult access…). The value stays counted in the "
+        "diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
+        "CSV) to flag it.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
         "Double-click for details (comment, grade)",
@@ -466,6 +557,8 @@ TRANSLATIONS = {
     "Mission de référence chargée — {nom} ({n} arbre(s)).":
         "Reference project loaded — {nom} ({n} tree(s)).",
     "· {n} à finir   ({t})":            "· {n} to finish   ({t})",
+    "{r} rouge · {o} orange · {v} vert ":
+        "{r} red · {o} orange · {v} green ",
     "Arbre n° {num} — {n} arbre(s) encore à finir.":
         "Tree no. {num} — {n} tree(s) still to finish.",
     "{n} arbre(s) masqué(s) par le filtre":
@@ -477,6 +570,10 @@ TRANSLATIONS = {
         "Sounding {dir} removed. Ctrl+Z to undo.",
     "Bois sain limité au rayon ({r:g} cm) : la PRBS ne peut pas dépasser le rayon.":
         "Sound wood capped to radius ({r:g} cm): PRBS cannot exceed the radius.",
+    "Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
+    "local inférieur au bois sain déjà saisi.":
+        "Local Ø raised to {d:g} cm: it cannot give a local radius "
+        "smaller than the sound wood already entered.",
 
     # Comparaison window
     "(réf. {r}  →  courant {c})":       "(ref. {r}  →  current {c})",
@@ -577,6 +674,8 @@ TRANSLATIONS = {
     "Vérification avant export": "Pre-export check",
 
     "Échéance":                           "Deadline",
+    "Toutes":                              "All",
+    "Non renseignée":                      "Not specified",
     "Toutes échéances":                   "All deadlines",
     "Échéance dépassée":                  "Overdue",
     "Dans 30 jours":                      "Within 30 days",
@@ -591,6 +690,18 @@ TRANSLATIONS = {
     "Ajouter des photos":                 "Add photos",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
                                           "Save the project first (Ctrl+S) before adding photos.",
+    # Export long en arrière-plan (progression + annulation).
+    "Annulation en cours…":                  "Cancelling…",
+    "⚠ Cette mission a été classée avec un autre barème ({b}). "
+    "Les classes affichées sont recalculées avec le barème de ce poste.":
+        "⚠ This project was classified with different thresholds ({b}). "
+        "The classes shown are recomputed with this computer's thresholds.",
+    "Barème appliqué":                       "Applied thresholds",
+    "Écriture du fichier…":                  "Writing the file…",
+    'Export PDF de la mission':             'Project PDF export',
+    'Génération des fiches…':               'Generating sheets…',
+    'Arbre n°{num}':                        'Tree no. {num}',
+    'Export PDF annulé — aucun fichier écrit.': 'PDF export cancelled — no file written.',
     "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 
     "~":                                  "~",
@@ -604,6 +715,21 @@ TRANSLATIONS = {
     "Aucun modèle":                       "No templates",
     "Choisissez un modèle :": "Choose a template:",
     "Nouvelle mission depuis un modèle":  "New project from template",
+    # Garde-fous de confinement des photos (cf. photo_paths).
+    "Fichier non affichable":             "File cannot be displayed",
+    "Ce fichier n'est pas une image lisible — ouverture annulée par sécurité.":
+                                          "This file is not a readable image — "
+                                          "opening cancelled for safety.",
+    "Format non pris en charge":          "Unsupported format",
+    "Ces fichiers ne sont pas des images reconnues :":
+                                          "These files are not recognised images:",
+    "⚠ hors dossier mission":             "⚠ outside project folder",
+    # Motifs de refus renvoyés par photo_paths.resolve_photo — traduits
+    # via `_(res.motif)`, donc invisibles au scan AST du test i18n.
+    "extension non autorisée":            "file type not allowed",
+    "hors du dossier de la mission":      "outside the project folder",
+    "mission non enregistrée":            "project not saved",
+    "fichier introuvable":                "file not found",
     "Supprimer le modèle":                "Delete template",
     "Supprimer « {nom} » ?": "Delete « {nom} »?",
     "Créer la mission":                   "Create project",
@@ -646,4 +772,74 @@ TRANSLATIONS = {
     "Ouvrir le log": "Open log file",
     "Pour tout signalement, joignez le fichier de log à votre message.":
         "When reporting an issue, please attach the log file to your message.",
+
+    # ── Infobulles diverses (balayage i18n du 2026-08-20) ───────────────
+    "Ajoute une tige à la cépée (genet à plusieurs brins).\n"
+    "La nouvelle tige hérite la forme de la précédente et se "
+    "place à l'Est ; ses mesures sont à relever séparément.":
+        "Adds a stem to the multi-stem tree (several stems).\n"
+        "The new stem inherits the shape of the previous one and is "
+        "placed to the East; its measurements must be taken separately.",
+    "Choisir l'échéance au calendrier":     "Pick the deadline from the calendar",
+    "Choisir la date au calendrier":        "Pick the date from the calendar",
+    "Choisir la date de prochaine visite au calendrier":
+        "Pick the next visit date from the calendar",
+    "Cliquer pour configurer le logo et le nom du cabinet…":
+        "Click to configure the office logo and name…",
+    "Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
+    "Double-clic → renommer · Clic droit → menu contextuel":
+        "Ctrl+PgDown / Ctrl+PgUp → next / previous tree\n"
+        "Double-click → rename · Right-click → context menu",
+    "Date du relevé — format JJ/MM/AAAA (normalisée automatiquement).":
+        "Survey date — DD/MM/YYYY format (normalized automatically).",
+    "Enregistrer la mission":               "Save the project",
+    "Exporter la fiche PDF de l'arbre courant "
+    "(dessin + tableau + diagnostic) — Ctrl+E":
+        "Export the current tree's PDF report "
+        "(drawing + table + diagnosis) — Ctrl+E",
+    "Exporter le dessin de la section en image PNG":
+        "Export the section drawing as a PNG image",
+    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
+    "tous les sondages de la mission (CSV)":
+        "Export the tree's PRBS table (Excel / HTML) or "
+        "all soundings of the project (CSV)",
+    "Gérer les durées de suivi personnalisées":
+        "Manage custom follow-up durations",
+    "Gérer les niveaux d'urgence personnalisés":
+        "Manage custom priority levels",
+    "Imprimer la fiche PDF directement "
+    "(sans dialogue de sauvegarde) — Ctrl+P":
+        "Print the PDF report directly "
+        "(without a save dialog) — Ctrl+P",
+    "Longueur (cm)":                        "Length (cm)",
+    "Ouvrir la fenêtre de comparaison de l'arbre "
+    "courant avec la mission de référence.":
+        "Open the comparison window for the current tree "
+        "against the reference project.",
+    "Place les brins de la cépée à la souris (glisser-"
+    "déposer). Le brin « a » est l'ancre du repère.":
+        "Position the stems of the multi-stem tree with the mouse "
+        "(drag and drop). Stem « a » is the anchor of the reference frame.",
+    "Profondeur + altération centrale > rayon sur au moins "
+    "une direction couverte : les deux zones dégradées se "
+    "rejoignent, la PRBS y est écrêtée à 0.\n"
+    "Vérifiez la profondeur saisie (ou le bois sain du "
+    "sondage concerné).":
+        "Depth + central alteration > radius on at least one covered "
+        "direction: the two damaged zones merge, the PRBS is clamped "
+        "to 0 there.\n"
+        "Check the entered depth (or the sound wood of the sounding "
+        "concerned).",
+    "Repartir d'une mission antérieure comme base : on met à jour "
+    "diamètres et sondages au lieu de tout ressaisir, et elle sert "
+    "de référence.":
+        "Start over from a previous project as a base: update "
+        "diameters and soundings instead of re-entering everything, "
+        "and it serves as the reference.",
+    "Sélectionne le prochain arbre au diagnostic "
+    "non fiable (rayon manquant ou < 3 sondages), "
+    "en bouclant. Vide les filtres si besoin.":
+        "Selects the next tree with an unreliable diagnosis "
+        "(missing radius or < 3 soundings), looping around. "
+        "Clears the filters if needed.",
 }

@@ -156,7 +156,7 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     # --- Couches, du fond vers le premier plan ---
     # Écorce + bois sain : cercle = ellipse native (nette), ovale = contour
     # lissé — exactement comme `_pil_draw_bois_sain` / `_pil_draw_ecorce`.
-    if cur_b.est_ovale:
+    if cur_b.a_rayon_variable:
         if ep > 0:
             d.polygon(contour_polygon(lambda g: R_of(g) + ep, cx, cy, scale,
                                       rotation_grades=rot), fill=COLOR_BARK)
