@@ -45,7 +45,9 @@ comparaison_render.py  ← rendu PIL de la comparaison (section d'évolution + p
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
-dialogs.py             ← dialogues Tk (Sondage, Dégradation, Contrefort, Forme du tronc)
+dialogs.py             ← primitives Tk génériques (ask_string/choice/date, ProgressDialog) + _make_modal
+dialogs_saisie.py      ← dialogues d'édition détaillée (Sondage, Dégradation, Contrefort)
+dialogs_cepee.py       ← éditeur de disposition d'une cépée (ask_cepee_layout, souris)
 model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
 persistence.py         ← I/O JSON (save/load + migration ; v3 = brins)
@@ -121,6 +123,8 @@ model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_set
 diagnostic.py
    ↑
 export.py + pil_render.py + persistence.py + dialogs.py
+   ↑
+dialogs_cepee.py + dialogs_saisie.py (dépendent aussi de dialogs.py, même palier)
    ↑
 fiche_pdf.py + comparaison_render.py
    ↑
@@ -464,7 +468,7 @@ python3 -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
-  pane_contreforts.py pane_diagnostic.py dialogs.py section_canvas.py \
+  pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
@@ -524,7 +528,9 @@ fichier de clé suivi par git.
    - Diagnostic (calculs purs) → `diagnostic.py`
    - Rendu PNG section → `pil_render.py` ; fiche PDF A4 vectorielle (fpdf2) → `fiche_pdf.py`
    - Couleurs → `palette.py` ; exports tableau → `export.py`
-   - Dialogues Tk → `dialogs.py` ; onglet UI → `pane_*.py`
+   - Dialogues Tk génériques (ask_string/choice/date, progression) → `dialogs.py` ;
+     édition Sondage/Dégradation/Contrefort → `dialogs_saisie.py` ; disposition
+     d'une cépée → `dialogs_cepee.py` ; onglet UI → `pane_*.py`
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
    - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`

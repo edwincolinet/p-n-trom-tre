@@ -35,7 +35,7 @@ from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
-from dialogs import edit_degradation
+from dialogs_saisie import edit_degradation
 from dialogs_shared import (
     ZONE_DEGRADEE_AIDE,
     find_grade_choice,
