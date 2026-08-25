@@ -61,6 +61,9 @@ mimeinfo.cache
 # Dossier de travail (captures/échanges, non versionné)
 Communication/
 
+# Notes personnelles hors dépôt (sujet licence — jamais à committer)
+/rappel commande license.odt
+
 # Clé privée de licence — NE JAMAIS COMMITTER
 private.key
 

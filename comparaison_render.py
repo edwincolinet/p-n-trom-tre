@@ -8,7 +8,7 @@ Rendu PIL de la comparaison inter-missions (ré-inspection) :
   sections + la heatmap, tableau chiffré, verdict) — exportable en PNG et
   en PDF (cf. `app_exports`).
 
-Module sans Tk (PIL pur). Les calculs viennent de `diagnostic`
+Module sans Tk (PIL pur). Les calculs viennent de `diagnostic_comparaison`
 (`ComparaisonDetail`, `verdict_evolution`).
 """
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
-from diagnostic import (
+from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
     evolution_classe,
@@ -49,7 +49,7 @@ from pil_render import (
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
-    from diagnostic import ComparaisonDetail
+    from diagnostic_comparaison import ComparaisonDetail
     from model import Arbre, Brin
 
 # Grade → angle écran (radians, 0 à 3 h, sens horaire). 360/400 = 0.9 ; le

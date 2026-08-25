@@ -18,7 +18,7 @@ Design (choix métier, cf. mémoire) :
   index/label ; un brin courant sans homologue de référence est comparé à
   None. Le tout **exportable** PNG/PDF (une page par brin pour une cépée).
 
-Le calcul est délégué à `diagnostic` (`comparaison_detaillee`,
+Le calcul est délégué à `diagnostic_comparaison` (`comparaison_detaillee`,
 `verdict_evolution`) et le rendu PIL à `comparaison_render` (sans Tk).
 """
 
@@ -36,7 +36,7 @@ from comparaison_render import (
     render_comparison_pages,
     render_evolution_section_brin,
 )
-from diagnostic import (
+from diagnostic_comparaison import (
     comparaison_par_brin,
     evolution_classe,
     verdict_evolution,

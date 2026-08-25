@@ -544,7 +544,7 @@ class SynthesisExportSmokeTests(unittest.TestCase):
         import tempfile
 
         from diagnostic import mission_synthesis_rows
-        from export import export_synthesis_csv
+        from export_synthesis import export_synthesis_csv
         c = self._chantier()
         fd, path = tempfile.mkstemp(suffix=".csv")
         os.close(fd)
@@ -570,7 +570,7 @@ class SynthesisExportSmokeTests(unittest.TestCase):
         import tempfile
 
         from diagnostic import mission_synthesis_rows
-        from export import export_synthesis_xlsx
+        from export_synthesis import export_synthesis_xlsx
         from palette import COULEUR_CLASSE
         c = self._chantier()
         fd, path = tempfile.mkstemp(suffix=".xlsx")

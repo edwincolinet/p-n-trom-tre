@@ -46,15 +46,13 @@ from app_recovery import (
 from app_reglages import ReglagesMixin
 from app_settings import SettingsStore
 from dialogs import (
-    ask_cepee_layout,
     ask_date,
-    edit_contrefort,
-    edit_degradation,
-    edit_sondage,
-    message_chevauchement,
     normaliser_date,
 )
+from dialogs_cepee import ask_cepee_layout
 from dialogs_license import show_activation_dialog
+from dialogs_saisie import edit_contrefort, edit_degradation, edit_sondage
+from dialogs_shared import message_chevauchement
 from i18n import _, setup_language, translate_values
 from license import (
     LicenseData,

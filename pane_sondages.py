@@ -49,7 +49,7 @@ from typing import Any, Dict, Optional, Protocol
 
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
-from dialogs import edit_sondage
+from dialogs_saisie import edit_sondage
 from dialogs_shared import (
     COMPART_FR as _COMPART_FR,
 )

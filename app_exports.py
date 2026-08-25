@@ -35,13 +35,8 @@ from diagnostic import (
     mission_synthesis_rows,
 )
 from dialogs import ProgressDialog
-from export import (
-    HAS_OPENPYXL,
-    export_prbs_html,
-    export_prbs_xlsx,
-    export_synthesis_csv,
-    export_synthesis_xlsx,
-)
+from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
+from export_synthesis import export_synthesis_csv, export_synthesis_xlsx
 from fiche_pdf import HAS_FPDF, _new_pdf, render_fiche_arbre
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _

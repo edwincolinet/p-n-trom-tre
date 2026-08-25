@@ -264,7 +264,7 @@ class ExportsCitentLeBaremeTests(_SeuilsRestaures):
 
     def test_synthese_csv_contient_le_bareme(self):
         from diagnostic import mission_synthesis_rows
-        from export import export_synthesis_csv
+        from export_synthesis import export_synthesis_csv
         c = _cepee(2)
         out = os.path.join(tempfile.mkdtemp(), "s.csv")
         export_synthesis_csv(mission_synthesis_rows(c), out,
