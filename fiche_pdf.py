@@ -63,10 +63,10 @@ from dialogs_shared import compart_color, compart_glyph
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
 from palette import (
-    COLOR_ACCENT,
     COLOR_BG,
     COLOR_INK,
     COLOR_MUTED,
+    COLOR_RENDER_ACCENT,
     COULEUR_CLASSE,
 )
 from photo_paths import resolve_photo
@@ -385,7 +385,7 @@ def render_fiche_arbre(pdf: FPDF,
 
     # --- En-tête mission avec logo cabinet ---
     header_h = 116
-    pg.rect(margin, y, W - margin, y + header_h, COLOR_ACCENT)
+    pg.rect(margin, y, W - margin, y + header_h, COLOR_RENDER_ACCENT)
     # Logo à droite (fond blanc pour le détacher du vert)
     logo_w = 0
     try:
@@ -526,7 +526,7 @@ def render_fiche_arbre(pdf: FPDF,
         titre_tbl = ("Paroi Résiduelle de Bois Sain par sondage et par brin"
                      if multi_brins
                      else "Paroi Résiduelle de Bois Sain par sondage")
-        pg.text(margin, y, titre_tbl, 22, "serif_bold", COLOR_ACCENT)
+        pg.text(margin, y, titre_tbl, 22, "serif_bold", COLOR_RENDER_ACCENT)
         y += 36
         # Total = 70 + 220 + 270 + 130 + 160 + 270 = 1120 = W - 2*margin.
         col_widths = [70, 220, 270, 130, 160, 270]
@@ -540,7 +540,7 @@ def render_fiche_arbre(pdf: FPDF,
         header_h_row = 44
 
         def _draw_table_head(y0: float) -> float:
-            pg.rect(cols_x[0], y0, cols_x[-1], y0 + header_h_row, COLOR_ACCENT)
+            pg.rect(cols_x[0], y0, cols_x[-1], y0 + header_h_row, COLOR_RENDER_ACCENT)
             for i, h in enumerate(headers):
                 if i in right_align:
                     pg.text(cols_x[i + 1] - 12, y0 + header_h_row / 2, h,
@@ -564,7 +564,7 @@ def render_fiche_arbre(pdf: FPDF,
                     pg = _Page(pdf)
                     y = margin
                     pg.text(margin, y, titre_tbl + " " + _("(suite)"),
-                            22, "serif_bold", COLOR_ACCENT)
+                            22, "serif_bold", COLOR_RENDER_ACCENT)
                     y += 36
                     y = int(_draw_table_head(y))
                     k = 0
@@ -629,7 +629,7 @@ def render_fiche_arbre(pdf: FPDF,
 
     y_section = y
     pg.text(col_diag_left, y_section, _("Diagnostic"),
-            22, "serif_bold", COLOR_ACCENT)
+            22, "serif_bold", COLOR_RENDER_ACCENT)
     y_diag = y_section + 36
     if multi_brins:
         y_diag = int(_draw_cepee_diagnostic(
@@ -645,7 +645,7 @@ def render_fiche_arbre(pdf: FPDF,
         txt_w = col_preco_right - pad - txt_x
 
         pg.text(col_preco_left, y_preco, _("Préconisation"),
-                22, "serif_bold", COLOR_ACCENT)
+                22, "serif_bold", COLOR_RENDER_ACCENT)
         y_preco = y_section + 36
 
         # Ligne basse que le rendu ne franchit JAMAIS (8 px au-dessus du
@@ -656,7 +656,7 @@ def render_fiche_arbre(pdf: FPDF,
         def _preco_header(title: str, y0: int) -> int:
             bar_h = 32
             pg.rect(col_preco_left, y0, col_preco_right, y0 + bar_h,
-                    COLOR_ACCENT)
+                    COLOR_RENDER_ACCENT)
             pg.text(col_preco_left + pad, y0 + bar_h / 2, title,
                     16, "sans_bold", "white", anchor="lm")
             return y0 + bar_h + 12
@@ -938,7 +938,7 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
     y = margin
 
     header_h = 80
-    pg.rect(margin, y, W - margin, y + header_h, COLOR_ACCENT)
+    pg.rect(margin, y, W - margin, y + header_h, COLOR_RENDER_ACCENT)
     pg.text(margin + 20, y + header_h // 2,
             _("Photos") + f"   —   {arbre.display_name}",
             28, "serif_bold", "white", anchor="lm")

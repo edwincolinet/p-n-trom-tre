@@ -69,11 +69,11 @@ TRANSLATIONS = {
     "Adresse":                             "Luogo",
     "Opérateur":                           "Operatore",
     "Date":                                "Data",
-    "🔍 Faire une comparaison…":           "🔍 Avvia confronto…",
-    "📊 Diagnostic de la comparaison…":    "📊 Diagnosi del confronto…",
+    "Faire une comparaison…":              "Avvia confronto…",
 
     # ── Pannello sinistro — elenco alberi ─────────────────────────────
     "Arbres de la mission":                "Alberi del progetto",
+    "Filtrer":                             "Filtra",
     "Risque":                              "Rischio",
     "Urgence":                             "Urgenza",
     "Filtres avancés":                     "Filtri avanzati",
@@ -148,7 +148,6 @@ TRANSLATIONS = {
     "Suivi :":                             "Follow-up:",
 
     # ── Barra di stato ────────────────────────────────────────────────
-    "💾 Enregistrer":                      "💾 Salva",
     "Ouvrir le fichier":                   "Apri file",
     "Ouvrir le dossier":                   "Apri cartella",
     "Prêt.":                               "Pronto.",
@@ -274,10 +273,10 @@ TRANSLATIONS = {
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Parete Residua di Legno Sano per sondaggio",
     "(suite)":                            "(continua)",
-    "📄 Fiche PDF (arbre courant)":       "📄 Scheda PDF (albero corrente)",
-    "🖨 Imprimer":                        "🖨 Stampa",
-    "🖼 PNG du dessin":                   "🖼 PNG del disegno",
-    "📊 Exporter le tableau":             "📊 Esporta tabella",
+    "Fiche PDF (arbre courant)":          "Scheda PDF (albero corrente)",
+    "Imprimer":                           "Stampa",
+    "PNG du dessin":                      "PNG del disegno",
+    "Exporter le tableau":                "Esporta tabella",
     "Tableau PRBS — Excel (XLSX)…":      "Tabella PRBS — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "Tabella PRBS — pagina HTML…",
     "Sondages de la mission (CSV)…":     "Sondaggi del progetto (CSV)…",
@@ -339,8 +338,8 @@ TRANSLATIONS = {
 
     "Arbre courant :":                     "Albero corrente:",
     "comparé à (référence) :":             "confrontato con (riferimento):",
-    "🖼 PNG…":                             "🖼 PNG…",
-    "📄 PDF…":                             "📄 PDF…",
+    "PNG…":                                "PNG…",
+    "PDF…":                                "PDF…",
     "(pas de brin de référence)":          "(nessun fusto di riferimento)",
     "La mission courante ou de référence ne contient aucun arbre.":
                                            "Il progetto corrente o di riferimento non contiene alberi.",

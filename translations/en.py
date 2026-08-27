@@ -68,11 +68,11 @@ TRANSLATIONS = {
     "Adresse":                             "Location",
     "Opérateur":                           "Operator",
     "Date":                                "Date",
-    "🔍 Faire une comparaison…":           "🔍 Start comparison…",
-    "📊 Diagnostic de la comparaison…":    "📊 Comparison report…",
+    "Faire une comparaison…":              "Start comparison…",
 
     # ── Panneau gauche — liste d'arbres ───────────────────────────────
     "Arbres de la mission":                "Project trees",
+    "Filtrer":                             "Filter",
     "Risque":                              "Risk",
     "Urgence":                             "Priority",
     "Filtres avancés":                     "Advanced filters",
@@ -147,7 +147,6 @@ TRANSLATIONS = {
     "Suivi :":                             "Follow-up:",
 
     # ── Barre d'état ─────────────────────────────────────────────────
-    "💾 Enregistrer":                      "💾 Save",
     "Ouvrir le fichier":                   "Open file",
     "Ouvrir le dossier":                   "Open folder",
     "Prêt.":                               "Ready.",
@@ -281,10 +280,10 @@ TRANSLATIONS = {
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Residual Sound Wood by sounding",
     "(suite)":                            "(cont'd)",
-    "📄 Fiche PDF (arbre courant)":       "📄 PDF report (current tree)",
-    "🖨 Imprimer":                        "🖨 Print",
-    "🖼 PNG du dessin":                   "🖼 PNG drawing",
-    "📊 Exporter le tableau":             "📊 Export table",
+    "Fiche PDF (arbre courant)":          "PDF report (current tree)",
+    "Imprimer":                           "Print",
+    "PNG du dessin":                      "PNG drawing",
+    "Exporter le tableau":                "Export table",
     "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
     "Sondages de la mission (CSV)…":     "Mission soundings (CSV)…",
@@ -350,8 +349,8 @@ TRANSLATIONS = {
     # Fenêtre de comparaison
     "Arbre courant :":                     "Current tree:",
     "comparé à (référence) :":             "compared to (reference):",
-    "🖼 PNG…":                             "🖼 PNG…",
-    "📄 PDF…":                             "📄 PDF…",
+    "PNG…":                                "PNG…",
+    "PDF…":                                "PDF…",
     "(pas de brin de référence)":          "(no reference stem)",
     "La mission courante ou de référence ne contient aucun arbre.":
                                            "The current or reference project contains no trees.",

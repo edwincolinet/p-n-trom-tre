@@ -189,17 +189,17 @@ class FichierMixin(_MixinBase):
         dlg.resizable(False, False)
         dlg.configure(bg="#F5F7F5")
 
-        from ui_fonts import font as _font
+        from ui_fonts import font_body, font_subheading
         frm = ttk.Frame(dlg, padding=16)
         frm.pack(fill="both", expand=True)
         ttk.Label(frm, text=_("Choisissez un modèle :"),
-                  font=_font("Helvetica", 11, "bold")).pack(anchor="w",
-                                                             pady=(0, 8))
+                  font=font_subheading()).pack(anchor="w",
+                                                pady=(0, 8))
 
         lb_frame = ttk.Frame(frm)
         lb_frame.pack(fill="both", expand=True)
         lb = tk.Listbox(lb_frame, height=8, width=40,
-                        font=_font("Helvetica", 10), selectmode="single")
+                        font=font_body(), selectmode="single")
         sb = ttk.Scrollbar(lb_frame, orient="vertical", command=lb.yview)
         lb.configure(yscrollcommand=sb.set)
         lb.pack(side="left", fill="both", expand=True)

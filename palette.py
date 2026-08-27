@@ -42,13 +42,33 @@ COLOR_INK        = "#1A2E22"
 # partagée Tk ↔ PIL → les exports PNG/PDF en bénéficient aussi.
 COLOR_MUTED      = "#55605A"
 
-# `COLOR_ACCENT` est la couleur de marque utilisée pour les boutons,
-# titres et chrome UI. Elle vaut actuellement le même hex que
-# `COULEUR_CLASSE[CLASSE_VERT]` ci-dessous : si on décide un
-# jour de différencier le vert chrome du vert classe, c'est ici qu'il
-# faudra dissocier.
-COLOR_ACCENT     = "#2D7A3E"
-COLOR_ACCENT_SOFT= "#C9E4CE"
+# `COLOR_ACCENT` est la couleur de marque du CHROME Tk interactif
+# (boutons, titres de fenêtre, onglets actifs, sélections). Bleu cobalt
+# volontairement DISTINCT de `COULEUR_CLASSE[CLASSE_VERT]` (contraste vs
+# blanc = 5.17:1, AA — mieux que l'ancien vert à 5.30:1 tout en restant
+# net) : avant ce design system, `COLOR_ACCENT` valait EXACTEMENT le même
+# hex que la classe de risque « Vert » — un arbre en bon état et un
+# bouton actif partageaient le même signal visuel, ce qui diluait le sens
+# du vert dans les pastilles de risque (le canal le plus important de
+# l'app). Un premier essai en bleu pétrole désaturé (#1E5F6B) a été jugé
+# trop terne (« gris », « triste ») — ce cobalt franc corrige le tir tout
+# en gardant le contraste. cf. `COLOR_RENDER_ACCENT` ci-dessous pour la
+# couleur (inchangée) des rendus golden-testés.
+COLOR_ACCENT     = "#2563EB"
+COLOR_ACCENT_SOFT= "#CBDAFA"
+
+# Couleur d'accent des RENDUS golden-testés (dessin de section Tk/PIL,
+# fiche PDF, comparaison inter-missions) — figée à l'ANCIENNE valeur de
+# `COLOR_ACCENT` (avant ce design system) pour ne jamais faire dévier un
+# pixel des golden-tests (`tests/test_render.py`,
+# `tests/test_section_canvas.py`) au passage du chrome UI à sa nouvelle
+# teinte. Un heureux side-effect : ces documents (destinés au client)
+# restent dans le vert historique de l'app, cohérent avec le vocabulaire
+# visuel Vert/Orange/Rouge du diagnostic qu'ils exposent — voir
+# `.claude/docs/design-system.md`. Ne JAMAIS remplacer par `COLOR_ACCENT`
+# dans `section_canvas.py`/`pil_render.py`/`comparaison_render.py`/
+# `fiche_pdf.py`.
+COLOR_RENDER_ACCENT = "#2D7A3E"
 
 # Avertissement non bloquant (garde-fou de saisie : fusion écrêtée des
 # dégradations, données à vérifier). Même ambre saturé que la pastille
@@ -85,6 +105,12 @@ COLOR_SOND       = "#1F3A8A"
 # elle vit ici, pas dans la logique métier. Les exports (XLSX, HTML)
 # reçoivent ce dict en paramètre, ce qui leur évite d'importer
 # l'application.
+#
+# RÈGLE : ces couleurs sont réservées à l'affichage du DIAGNOSTIC DE
+# RISQUE d'un arbre (pastille de liste, cellule de tableau, légende).
+# Ne jamais les réutiliser comme couleur de chrome générique (bouton,
+# onglet, sélection, focus) — ce mélange est précisément ce que ce
+# design system corrige pour `COLOR_ACCENT` ci-dessus.
 
 COULEUR_CLASSE = {
     CLASSE_VERT:   "#2D7A3E",

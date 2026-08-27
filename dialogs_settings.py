@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from bareme import PORTS_ARBRE, GroupeBareme
 from dialogs import _make_modal
 from i18n import _
-from ui_fonts import font as ui_font
+from ui_fonts import font_body, font_body_bold, font_small_bold, font_subheading
 
 
 def ask_cabinet_settings(parent: tk.Misc,
@@ -191,7 +191,7 @@ def ask_list_custom(parent: tk.Misc, title: str, description: str,
     list_frame.pack(fill="both", padx=16, pady=(0, 8))
 
     lb = tk.Listbox(list_frame, height=6, width=32,
-                    font=ui_font("Helvetica", 10),
+                    font=font_body(),
                     selectmode="single", activestyle="none")
     sb = ttk.Scrollbar(list_frame, orient="vertical", command=lb.yview)
     lb.configure(yscrollcommand=sb.set)
@@ -310,7 +310,7 @@ def ask_bareme_settings(
 
     ttk.Label(content,
               text=_("Seuils de classification t/R par groupe de port"),
-              font=ui_font("Helvetica", 11, "bold")).pack(anchor="w",
+              font=font_subheading()).pack(anchor="w",
                                                           pady=(0, 4))
     ttk.Label(content,
               text=_("Vert = paroi saine (t/R > seuil Vert) · ")
@@ -349,7 +349,7 @@ def ask_bareme_settings(
 
     ttk.Separator(content, orient="horizontal").pack(fill="x", pady=(0, 10))
     ttk.Label(content, text=_("Port de l'arbre → groupe"),
-              font=ui_font("Helvetica", 10, "bold")).pack(anchor="w",
+              font=font_body_bold()).pack(anchor="w",
                                                           pady=(0, 6))
     matrix_frame = ttk.Frame(content)
     matrix_frame.pack(fill="x", pady=(0, 10))
@@ -383,7 +383,7 @@ def ask_bareme_settings(
         headers = [_("Nom du groupe"), _("Vert (%)"), _("Orange (%)"), ""]
         for c, h in enumerate(headers):
             ttk.Label(groups_frame, text=h,
-                      font=ui_font("Helvetica", 9, "bold")).grid(
+                      font=font_small_bold()).grid(
                 row=0, column=c, sticky="w", padx=(0, 10), pady=(0, 4))
         for r, eg in enumerate(groups, start=1):
             ttk.Entry(groups_frame, textvariable=eg.nom, width=28).grid(
@@ -406,7 +406,7 @@ def ask_bareme_settings(
 
         for c, eg in enumerate(groups, start=1):
             ttk.Label(matrix_frame, textvariable=eg.nom,
-                     font=ui_font("Helvetica", 9, "bold"),
+                     font=font_small_bold(),
                      wraplength=140, justify="center").grid(
                 row=0, column=c, padx=8, pady=(0, 6))
         for r, port in enumerate(PORTS_ARBRE, start=1):

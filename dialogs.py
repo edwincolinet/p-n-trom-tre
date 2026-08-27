@@ -59,7 +59,7 @@ from dialogs_shared import (
 from i18n import _
 from model import Arbre, Brin
 from palette import COLOR_MUTED, COLOR_PANEL
-from ui_fonts import font as ui_font
+from ui_fonts import font_small_italic, font_subheading
 
 Section = Union[Arbre, Brin]
 
@@ -129,7 +129,7 @@ def ask_string(parent: tk.Misc, title: str, prompt: str,
     if info:
         ttk.Label(dlg, text=info, background=COLOR_PANEL,
                   foreground=COLOR_MUTED,
-                  font=ui_font("Helvetica", 9, "italic"),
+                  font=font_small_italic(),
                   wraplength=320, justify="left"
                   ).grid(row=2, column=0, sticky="w", padx=12, pady=(0, 6))
 
@@ -239,7 +239,7 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
     header = ttk.Frame(dlg, style="Panel.TFrame")
     header.grid(row=0, column=0, padx=10, pady=(10, 2), sticky="we")
     lbl_title = ttk.Label(header, style="Panel.TLabel", anchor="center",
-                          font=ui_font("Helvetica", 11, "bold"))
+                          font=font_subheading())
 
     grid_frame = ttk.Frame(dlg, style="Panel.TFrame")
     grid_frame.grid(row=1, column=0, padx=10, pady=2)

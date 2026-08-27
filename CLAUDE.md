@@ -32,7 +32,8 @@ app_layout.py          ← LayoutMixin (construction de l'UI : header, méta mis
 app_reglages.py        ← ReglagesMixin (préférences : langue, barème, taille texte, contraste, logo/cabinet + mises à jour/bannières)
 app_recent.py          ← RecentFilesStore (historique fichiers récents, pur)
 app_settings.py        ← SettingsStore (réglages UI persistés : ui_scale, pur)
-ui_fonts.py            ← échelle des polices (facteur global + helper font(), pur)
+ui_fonts.py            ← échelle des polices + typographie/espacements nommés (design system, pur)
+icons.py               ← glyphes d'icônes du chrome Tk, monochromes (design system, pur)
 photo_paths.py         ← résolution CONFINÉE des chemins de photos (jail mission + whitelist, pur)
 section_canvas.py      ← SectionCanvas (rendu Tk section)
 pane_identification.py ← onglet Identification
@@ -120,7 +121,7 @@ documentent la surface de couplage (greppable) mais ne l'encapsulent pas**
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + photo_paths.py
+model.py + palette.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + photo_paths.py
    ↑
 diagnostic.py
    ↑
@@ -475,7 +476,7 @@ python3 -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
-  template_store.py update_checker.py photo_paths.py
+  template_store.py update_checker.py photo_paths.py icons.py
 ```
 
 > NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy
@@ -558,3 +559,10 @@ Pour les détails d'architecture, de rendu et les pièges, voir :
 - `.claude/docs/cepees-plan.md` — **chantier cépées/formes** : plan
   d'implémentation par étape (0-3 faites, 4 à venir), décisions métier,
   garde-fous. À lire/mettre à jour avant de toucher au rendu multi-brins.
+- `.claude/docs/design-system.md` — **design system du chrome Tk** :
+  tokens couleur (`palette.py`), typographie/espacements (`ui_fonts.py`),
+  icônes (`icons.py`). `COLOR_ACCENT` (chrome) est volontairement
+  **distinct** de `COLOR_RENDER_ACCENT` (dessin/PDF/comparaison,
+  golden-testés, jamais retouchés) et de `COULEUR_CLASSE` (diagnostic de
+  risque) — ne jamais les confondre. Aucun emoji couleur dans le chrome :
+  glyphes Unicode monochromes (`icons.py`) ou texte seul.

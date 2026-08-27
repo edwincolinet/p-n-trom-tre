@@ -66,7 +66,7 @@ from i18n import _
 from model import Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_WARN
 from tooltip import Tooltip
-from ui_fonts import font as ui_font
+from ui_fonts import font_body_bold, font_small_bold, font_subheading
 
 _COMPART_VALUES = compart_choices(_COMPART_FR)
 
@@ -112,7 +112,7 @@ class SondagesPane(ttk.Frame):
         # cet écho évite de saisir 16 PRBS sur le mauvais brin. Maj `refresh`.
         self._brin_title = ttk.Label(
             self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 11, "bold"))
+            font=font_subheading())
 
         self._intro = ttk.Label(
             self,
@@ -149,7 +149,7 @@ class SondagesPane(ttk.Frame):
             "fiable.")
         for c, h in enumerate(heads):
             lbl_head = ttk.Label(grid, text=h, style="Panel.TLabel",
-                                 font=ui_font("Helvetica", 9, "bold"))
+                                 font=font_small_bold())
             lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
             if h == "~":
                 Tooltip(lbl_head, _tip_incertain)
@@ -165,7 +165,7 @@ class SondagesPane(ttk.Frame):
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
                                 cursor="hand2",
-                                font=ui_font("Helvetica", 10, "bold"))
+                                font=font_body_bold())
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
                                width=7, cursor="hand2")

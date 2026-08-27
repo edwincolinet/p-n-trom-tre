@@ -36,6 +36,7 @@ from app_arbres import (
 )
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from i18n import _
+from icons import ICON_DELETE, ICON_PICKER
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,
@@ -51,6 +52,12 @@ from pane_sondages import SondagesPane
 from section_canvas import SectionCanvas
 from tooltip import Tooltip
 from ui_fonts import font as ui_font
+from ui_fonts import (
+    font_heading,
+    font_small,
+    font_small_bold,
+    font_small_italic,
+)
 
 log = logging.getLogger("penetrometre")
 
@@ -137,7 +144,7 @@ class LayoutMixin(_MixinBase):
         comp = ttk.Frame(header)
         comp.pack(side="left", padx=(28, 0))
         btn_reinsp = ttk.Button(
-            comp, text=_("🔍 Faire une comparaison…"), style="Accent.TButton",
+            comp, text=_("Faire une comparaison…"), style="Accent.TButton",
             command=self.action_reinspection)
         btn_reinsp.pack(side="left")
         Tooltip(btn_reinsp,
@@ -145,7 +152,7 @@ class LayoutMixin(_MixinBase):
                 "diamètres et sondages au lieu de tout ressaisir, et elle sert "
                 "de référence."))
         self._btn_compare = ttk.Button(
-            comp, text=_("📊 Diagnostic de la comparaison…"), style="Ghost.TButton",
+            comp, text=_("Diagnostic de la comparaison…"), style="Ghost.TButton",
             command=self.action_compare_arbre, state="disabled")
         self._btn_compare.pack(side="left", padx=(6, 0))
         Tooltip(self._btn_compare, _("Ouvrir la fenêtre de comparaison de l'arbre "
@@ -224,7 +231,7 @@ class LayoutMixin(_MixinBase):
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, _("Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement)."))
-                btn_cal = ttk.Button(row1, text="📅", width=3,
+                btn_cal = ttk.Button(row1, text=ICON_PICKER, width=3,
                                      style="Ghost.TButton",
                                      command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
@@ -259,7 +266,7 @@ class LayoutMixin(_MixinBase):
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
         parent.add(frame, minsize=280, width=340, stretch="never")
         ttk.Label(frame, text=_("Arbres de la mission"), style="Side.TLabel",
-                  font=ui_font("Georgia", 12, "bold")).pack(anchor="w", pady=(0, 8))
+                  font=font_heading()).pack(anchor="w", pady=(0, 8))
 
         # Filtre de la liste (par n°, essence ou commentaire) — utile dès que la
         # mission compte beaucoup d'arbres. N'altère PAS le modèle : ne
@@ -267,10 +274,14 @@ class LayoutMixin(_MixinBase):
         # restent indexés sur la position réelle dans `chantier.arbres`,
         # cf. `_on_select_arbre`). `var_filter` est lue par
         # `_refresh_tree_arbres` (tolérante si appelée avant ce build).
+        # Libellé texte (pas d'icône loupe) : aligné sur les 4 filtres
+        # avancés ci-dessous, qui utilisent tous un libellé texte plutôt
+        # qu'un pictogramme — cohérence + évite un glyphe sans bon
+        # équivalent monochrome (cf. design system, `icons.py`).
         filt = ttk.Frame(frame, style="Side.TFrame")
         filt.pack(fill="x", pady=(0, 4))
-        ttk.Label(filt, text="🔎", style="Side.TLabel").pack(side="left",
-                                                             padx=(0, 4))
+        ttk.Label(filt, text=_("Filtrer"), style="Side.TLabel").pack(
+            side="left", padx=(0, 4))
         self.var_filter = tk.StringVar()
         ent_filter = ttk.Entry(filt, textvariable=self.var_filter)
         ent_filter.pack(side="left", fill="x", expand=True)
@@ -377,7 +388,7 @@ class LayoutMixin(_MixinBase):
         self._lbl_filtre_actif = ttk.Label(
             self._filtre_actif_frame, text="",
             style="Side.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 9, "italic"))
+            font=font_small_italic())
         self._lbl_filtre_actif.pack(side="left", padx=(0, 6))
 
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
@@ -492,7 +503,7 @@ class LayoutMixin(_MixinBase):
         # panneau gauche étroit.
         self.lbl_etat_footer = ttk.Label(
             frame, text="", style="Side.TLabel", wraplength=250,
-            justify="left", font=ui_font("Helvetica", 9, "italic"))
+            justify="left", font=font_small_italic())
         self.lbl_etat_footer.pack(side="bottom", anchor="w", pady=(6, 0))
 
         lst_frame.pack(fill="both", expand=True)
@@ -718,7 +729,7 @@ class LayoutMixin(_MixinBase):
         self._update_banner_lbl = ttk.Label(
             self._update_banner, text="",
             style="Side.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 9, "bold"))
+            font=font_small_bold())
         self._update_banner_lbl.pack(side="left")
         self._update_banner_url = ""
         ttk.Button(
@@ -726,7 +737,7 @@ class LayoutMixin(_MixinBase):
             command=self._open_update_url,
         ).pack(side="left", padx=(10, 0))
         ttk.Button(
-            self._update_banner, text="✕", style="Ghost.TButton",
+            self._update_banner, text=ICON_DELETE, style="Ghost.TButton",
             command=self._dismiss_update_banner,
         ).pack(side="right")
 
@@ -743,13 +754,13 @@ class LayoutMixin(_MixinBase):
             self._restart_banner,
             text=_("⟳ Redémarrez pour appliquer entièrement les changements."),
             style="Side.TLabel", foreground=COLOR_WARN,
-            font=ui_font("Helvetica", 9, "bold")).pack(side="left")
+            font=font_small_bold()).pack(side="left")
         ttk.Button(
             self._restart_banner, text=_("Redémarrer maintenant"),
             style="Accent.TButton", command=self.action_restart,
         ).pack(side="left", padx=(10, 0))
         ttk.Button(
-            self._restart_banner, text="✕", style="Ghost.TButton",
+            self._restart_banner, text=ICON_DELETE, style="Ghost.TButton",
             command=self._dismiss_restart_banner,
         ).pack(side="right")
 
@@ -761,7 +772,7 @@ class LayoutMixin(_MixinBase):
         self._trial_banner_lbl = ttk.Label(
             self._trial_banner, text="",
             style="Side.TLabel", foreground=COLOR_WARN,
-            font=ui_font("Helvetica", 9, "bold"))
+            font=font_small_bold())
         self._trial_banner_lbl.pack(side="left")
         ttk.Button(
             self._trial_banner, text=_("Activer une licence"),
@@ -773,7 +784,7 @@ class LayoutMixin(_MixinBase):
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        self._btn_save = ttk.Button(bar, text=_("💾 Enregistrer"),
+        self._btn_save = ttk.Button(bar, text=_("Enregistrer"),
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)
@@ -782,10 +793,10 @@ class LayoutMixin(_MixinBase):
         # (le « • » du titre est trop discret, et masquable par le WM).
         self.lbl_save_state = ttk.Label(
             bar, text="", style="Side.TLabel",
-            font=ui_font("Helvetica", 9, "bold"))
+            font=font_small_bold())
         self.lbl_save_state.pack(side="left", padx=(0, 14), pady=3)
         self.lbl_status = ttk.Label(bar, text=_("Prêt."), style="Side.TLabel",
-                                    font=ui_font("Helvetica", 9))
+                                    font=font_small())
         self.lbl_status.pack(side="left", padx=(0, 12), pady=3)
         self._btn_open_folder = ttk.Button(
             bar, text=_("Ouvrir le dossier"), style="Ghost.TButton",

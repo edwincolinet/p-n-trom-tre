@@ -30,10 +30,10 @@ from geometry import (
 )
 from i18n import _
 from palette import (
-    COLOR_ACCENT,
     COLOR_BARK,
     COLOR_INK,
     COLOR_MUTED,
+    COLOR_RENDER_ACCENT,
     COLOR_ROT,
     COLOR_WOOD,
 )
@@ -333,7 +333,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
     d = ImageDraw.Draw(page)
 
     # En-tête vert.
-    d.rectangle([0, 0, W, 92], fill=COLOR_ACCENT)
+    d.rectangle([0, 0, W, 92], fill=COLOR_RENDER_ACCENT)
     d.text((margin, 20), titre, font=f(30, "serif_bold"), fill="white")
     d.text((margin, 62),
            f"Mission « {mission_nom or 'Mission'} »   •   "
@@ -358,7 +358,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
              margin + 520 + 250 + 250]
     headers = ("Indicateur", "Référence", "Courant", "Évolution")
     head_h = 38
-    d.rectangle([margin, y, W - margin, y + head_h], fill=COLOR_ACCENT)
+    d.rectangle([margin, y, W - margin, y + head_h], fill=COLOR_RENDER_ACCENT)
     for cx0, h in zip(col_x, headers):
         d.text((cx0 + 10, y + head_h / 2), h, font=f(16, "sans_bold"),
                fill="white", anchor="lm")
@@ -515,7 +515,7 @@ def _compose_comparison_card(titre: str, sous_titre: str, ref_label: str,
     d = ImageDraw.Draw(card)
 
     # Filet d'accent vertical à gauche (rappel du langage visuel des fiches).
-    d.rectangle([0, 0, 6, total_h], fill=COLOR_ACCENT)
+    d.rectangle([0, 0, 6, total_h], fill=COLOR_RENDER_ACCENT)
 
     y = margin
     d.text((margin, y), titre, font=title_font, fill=COLOR_INK)

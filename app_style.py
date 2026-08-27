@@ -30,8 +30,15 @@ from palette import (
     COLOR_SIDE_PANEL,
     COLOR_WOOD_DARK,
 )
-from ui_fonts import font as _f
-from ui_fonts import get_ui_scale
+from ui_fonts import (
+    font_body,
+    font_body_bold,
+    font_heading,
+    font_small,
+    font_subtitle,
+    font_title,
+    get_ui_scale,
+)
 
 
 def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
@@ -61,7 +68,7 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     except tk.TclError:
         pass
     s.configure(".", background=COLOR_BG, foreground=ink,
-                font=_f("Helvetica", 10))
+                font=font_body())
     s.configure("TFrame", background=COLOR_BG)
     s.configure("Panel.TFrame", background=COLOR_PANEL)
     s.configure("Side.TFrame", background=COLOR_SIDE_PANEL)
@@ -72,19 +79,19 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                 foreground=ink)
     s.configure("Title.TLabel", background=COLOR_BG,
                 foreground=COLOR_ACCENT,
-                font=_f("Georgia", 18, "bold"))
+                font=font_title())
     s.configure("Sub.TLabel", background=COLOR_BG, foreground=muted,
-                font=_f("Helvetica", 10, "italic"))
+                font=font_subtitle())
     s.configure("H.TLabel", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT,
-                font=_f("Georgia", 12, "bold"))
+                font=font_heading())
     s.configure("Muted.TLabel", background=COLOR_PANEL,
                 foreground=muted,
-                font=_f("Helvetica", 9))
+                font=font_small())
     s.configure("TButton", padding=6)
     s.configure("Accent.TButton", background=COLOR_ACCENT,
                 foreground="white", padding=(12, 7),
-                font=_f("Helvetica", 10, "bold"), borderwidth=0)
+                font=font_body_bold(), borderwidth=0)
     s.map("Accent.TButton",
           background=[("active", COLOR_WOOD_DARK),
                       ("pressed", COLOR_WOOD_DARK)])
@@ -93,13 +100,13 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     # Menubutton.
     s.configure("Accent.TMenubutton", background=COLOR_ACCENT,
                 foreground="white", padding=(12, 7),
-                font=_f("Helvetica", 10, "bold"), borderwidth=0)
+                font=font_body_bold(), borderwidth=0)
     s.map("Accent.TMenubutton",
           background=[("active", COLOR_WOOD_DARK),
                       ("pressed", COLOR_WOOD_DARK)])
     s.configure("Ghost.TButton", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT, padding=(10, 6),
-                font=_f("Helvetica", 10), borderwidth=1)
+                font=font_body(), borderwidth=1)
     s.map("Ghost.TButton",
           background=[("active", COLOR_ACCENT_SOFT)])
     # Menu déroulant d'export (`pane_diagnostic`) : même look que
@@ -107,7 +114,7 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     # s'applique pas tel quel à un Menubutton).
     s.configure("Ghost.TMenubutton", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT, padding=(10, 6),
-                font=_f("Helvetica", 10), borderwidth=1)
+                font=font_body(), borderwidth=1)
     s.map("Ghost.TMenubutton",
           background=[("active", COLOR_ACCENT_SOFT)])
     # Sélecteur de brin (cépées) : barre et boutons-onglets.
@@ -115,13 +122,13 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     s.configure("BrinBar.TFrame", background=_brin_bg)
     s.configure("BrinBar.TLabel",
                 background=_brin_bg, foreground=muted,
-                font=_f("Helvetica", 9))
+                font=font_small())
     # Brin.Toolbutton hérite du layout Toolbutton (pas d'indicateur radio) ;
     # selected = fond accent vert ; active = fond accent doux ; normal = blanc.
     s.configure("Brin.Toolbutton",
                 background=COLOR_PANEL, foreground=ink,
                 padding=(12, 5),
-                font=_f("Helvetica", 10, "bold"))
+                font=font_body_bold())
     s.map("Brin.Toolbutton",
           background=[("selected", COLOR_ACCENT),
                       ("pressed",  COLOR_ACCENT),
@@ -148,7 +155,7 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
           indicatorforeground=[("selected", COLOR_ACCENT)])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
-                font=_f("Helvetica", 10, "bold"),
+                font=font_body_bold(),
                 background="#E7E2D4", foreground=muted)
     s.map("TNotebook.Tab",
           background=[("selected", COLOR_PANEL)],
@@ -158,7 +165,7 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                 rowheight=round(26 * get_ui_scale()), borderwidth=0)
     s.configure("Treeview.Heading",
                 background=COLOR_ACCENT, foreground="white",
-                font=_f("Helvetica", 10, "bold"), borderwidth=0)
+                font=font_body_bold(), borderwidth=0)
     s.map("Treeview",
           background=[("selected", COLOR_ACCENT_SOFT)],
           foreground=[("selected", ink)])

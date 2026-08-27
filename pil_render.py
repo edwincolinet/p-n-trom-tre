@@ -53,13 +53,13 @@ from geometry import (
     tick_endpoints,
 )
 from palette import (
-    COLOR_ACCENT,
     COLOR_BARK,
     COLOR_BARK_LIGHT,
     COLOR_CERNE,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_PANEL,
+    COLOR_RENDER_ACCENT,
     COLOR_ROT,
     COLOR_SOND,
     COLOR_WOOD,
@@ -369,7 +369,7 @@ def _pil_draw_brin_label(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
                 d.text((cx + dx, y + dy), brin.label,
                        font=f(size, "serif_bold"), fill="white", anchor="mm")
     d.text((cx, y), brin.label, font=f(size, "serif_bold"),
-           fill=COLOR_ACCENT, anchor="mm")
+           fill=COLOR_RENDER_ACCENT, anchor="mm")
 
 
 def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
@@ -770,7 +770,7 @@ def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
                     R: float, width: int, height: int) -> None:
     title_y = _titre_y(height)
     d.text((width/2, title_y), arbre.display_name,
-           font=f(54, "serif_bold"), fill=COLOR_ACCENT, anchor="mm")
+           font=f(54, "serif_bold"), fill=COLOR_RENDER_ACCENT, anchor="mm")
 
 
 def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",

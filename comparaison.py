@@ -180,10 +180,10 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     lbl_msg.pack(side="left", fill="x", expand=True)
     ttk.Button(foot, text=_("Fermer"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right")
-    ttk.Button(foot, text=_("🖼 PNG…"), style="Ghost.TButton",
+    ttk.Button(foot, text=_("PNG…"), style="Ghost.TButton",
                command=lambda: export_cb("png", _page_builder(state, "png"), dlg)
                ).pack(side="right", padx=6)
-    ttk.Button(foot, text=_("📄 PDF…"), style="Accent.TButton",
+    ttk.Button(foot, text=_("PDF…"), style="Accent.TButton",
                command=lambda: export_cb("pdf", _page_builder(state, "pdf"), dlg)
                ).pack(side="right")
 

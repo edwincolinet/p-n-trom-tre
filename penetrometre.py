@@ -91,6 +91,7 @@ from persistence import (
     clear_recovery,
 )
 from ui_fonts import font as ui_font
+from ui_fonts import font_small_bold
 from undo import UndoStack
 
 __version__ = "3.6.0"
@@ -1193,7 +1194,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         def _render_section(parent: tk.Misc, titre: str,
                             lignes: list) -> None:
             ttk.Label(parent, text=titre.upper(),
-                      font=ui_font("Helvetica", 9, "bold"),
+                      font=font_small_bold(),
                       foreground=COLOR_ACCENT).grid(
                           sticky="w", pady=(10, 4), columnspan=2)
             grille = ttk.Frame(parent)
