@@ -135,13 +135,18 @@ class LayoutMixin(_MixinBase):
         # dans son propre parcel (haut/bas déterminés par sa police), et
         # le sous-titre (petite police) flotte visuellement plus haut que
         # la ligne de base du titre (grande police) au lieu de s'aligner
-        # dessus — aligner les deux sur le bas des parcels rapproche les
-        # lignes de base.
+        # dessus. Aligner les deux sur le bas des parcels ne suffit pas
+        # tout à fait : Georgia 18 gras (titre) a un « descent » (espace
+        # sous la ligne de base) de 2px de plus qu'Helvetica 10 italique
+        # (sous-titre), donc un simple `anchor="s"` fait déborder le
+        # sous-titre 2px SOUS la ligne de base du titre. `pady=(0, 2)`
+        # compense cet écart mesuré (vérifié pixel à pixel sur une
+        # capture d'écran) pour aligner les deux lignes de base.
         ttk.Label(left, text=_("Pénétromètre"),
                   style="Title.TLabel").pack(side="left", anchor="s")
         ttk.Label(left, text=_("  Expertise arboricole"),
                   style="Sub.TLabel").pack(side="left", anchor="s",
-                                           padx=(8, 0))
+                                           padx=(8, 0), pady=(0, 2))
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
