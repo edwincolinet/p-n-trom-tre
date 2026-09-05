@@ -133,18 +133,26 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
                     *, default_arbre: Arbre, cur_date: str,
                     couleur_classe: Mapping[str, str],
                     on_save: Callable[[], None],
+                    on_export_pdf: Callable[[], None],
+                    on_export_png: Callable[[], None],
                     show_sondages: bool = True) -> None:
     """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
     avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
     se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
     = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
     `on_save` est appelé par le bouton « 💾 Enregistrer » (= `App.action_save`,
-    la mission reste enregistrable sans fermer la fenêtre). L'export PDF/PNG
-    ne vit plus ici : il se déclenche depuis le menu Export de la fenêtre
-    principale via `export_active_comparison`. `show_sondages` reprend la
-    case « Afficher sondages ». Une seule fenêtre de comparaison à la fois
-    (singleton) : ré-ouvrir ferme la précédente et ouvre une nouvelle avec
-    la sélection courante."""
+    la mission reste enregistrable sans fermer la fenêtre).
+
+    `on_export_pdf`/`on_export_png` (= `App.action_export_comparison_pdf`/
+    `_png`) pilotent le petit menu **Export** propre à cette fenêtre — sans
+    lui, exporter obligeait à quitter la fenêtre pour atteindre le menu
+    Export de la fenêtre principale, masqué derrière celle-ci (repéré à
+    l'usage). Les MÊMES actions restent aussi dans le menu Export principal
+    (grisées tant qu'aucune comparaison n'est active, via
+    `export_active_comparison`) pour le cas où cette fenêtre ne couvrirait
+    pas tout l'écran. `show_sondages` reprend la case « Afficher sondages ».
+    Une seule fenêtre de comparaison à la fois (singleton) : ré-ouvrir ferme
+    la précédente et ouvre une nouvelle avec la sélection courante."""
     global _comparison_window, _comparison_state
     if _comparison_window is not None and _comparison_window.winfo_exists():
         _comparison_window.destroy()
@@ -159,6 +167,19 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     dlg.title("Comparaison d'inspections")
     dlg.configure(bg=COLOR_PANEL)
     dlg.minsize(1000, 720)
+    # Menu propre à la fenêtre (juste Export) : cette fenêtre couvrant
+    # tout l'écran (cf. plus bas) et n'ayant pas de bandeau, le menu
+    # Export de la fenêtre principale devenait injoignable sans quitter
+    # la comparaison — repéré à l'usage. Les mêmes actions restent aussi
+    # dans le menu Export principal (grisées hors comparaison active),
+    # cf. docstring.
+    cmp_menubar = tk.Menu(dlg)
+    cmp_export_menu = tk.Menu(cmp_menubar, tearoff=0)
+    cmp_export_menu.add_command(label=_("Fiche PDF…"), command=on_export_pdf)
+    cmp_export_menu.add_command(label=_("Évolution (PNG)…"),
+                                command=on_export_png)
+    cmp_menubar.add_cascade(label=_("Export"), menu=cmp_export_menu)
+    dlg.config(menu=cmp_menubar)
     # PAS de `transient` : sous Linux/X11 un transient est traité en dialogue
     # utilitaire par le gestionnaire de fenêtres → souvent **sans bouton
     # « maximiser »** (et `-zoomed` y est ignoré silencieusement). Une fenêtre

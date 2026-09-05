@@ -273,6 +273,8 @@ TRANSLATIONS = {
     "PNG du dessin":                      "PNG del disegno",
     "Comparaison — fiche PDF…":           "Confronto — scheda PDF…",
     "Comparaison — évolution (PNG)…":     "Confronto — evoluzione (PNG)…",
+    "Fiche PDF…":                          "Scheda PDF…",
+    "Évolution (PNG)…":                   "Evoluzione (PNG)…",
     "Tableau PRBS — Excel (XLSX)…":      "Tabella PRBS — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "Tabella PRBS — pagina HTML…",
     "PRBS (cm)":                          "PRBS (cm)",

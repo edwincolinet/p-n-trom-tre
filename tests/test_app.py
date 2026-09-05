@@ -1134,7 +1134,9 @@ class TestComparaisonFenetre(unittest.TestCase):
                        arbres=[self._arbre("1", 12), self._arbre("2", 9)])
         open_comparison(self.app, cur, ref, default_arbre=cur.arbres[1],
                         cur_date="01/01/2026", couleur_classe={},
-                        on_save=lambda: None, show_sondages=True)
+                        on_save=lambda: None,
+                        on_export_pdf=lambda: None,
+                        on_export_png=lambda: None, show_sondages=True)
         gc.collect()           # force le GC : les StringVar doivent survivre
         self.app.update()
         dlg = [w for w in self.app.winfo_children()

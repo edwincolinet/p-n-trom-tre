@@ -94,6 +94,10 @@ class FichierMixin(_MixinBase):
         def _open_in_system(self, path: Path) -> None: ...
         def push_undo(self) -> None: ...
         def _update_compare_state(self) -> None: ...
+        # Fournis par `ExportActionsMixin` (menu Export ET menu propre à
+        # la fenêtre de comparaison — cf. `action_compare_arbre`).
+        def action_export_comparison_pdf(self) -> None: ...
+        def action_export_comparison_png(self) -> None: ...
 
     def action_new(self) -> None:
         if self._dirty:
@@ -480,11 +484,13 @@ class FichierMixin(_MixinBase):
         `action_reinspection`). Disponible seulement après un clic sur
         « Faire une comparaison… » — bouton et menu désactivés sinon.
 
-        L'export PDF/PNG de cette comparaison ne se déclenche plus depuis
-        un bouton de la fenêtre (cf. `comparaison.py` — coupait du menu
-        Export et de la barre d'état pendant qu'elle était ouverte) : il
-        vit désormais dans le menu Export principal, activé par
-        `comparaison.is_comparison_active()`
+        L'export PDF/PNG de cette comparaison est accessible à DEUX
+        endroits : le petit menu Export de la fenêtre elle-même
+        (`on_export_pdf`/`on_export_png` — sans lui, exporter obligeait à
+        quitter la fenêtre pour atteindre le menu Export principal, masqué
+        derrière elle) et, en secours, le menu Export principal (entrées
+        activées par `comparaison.is_comparison_active()`). Les deux
+        pointent vers les mêmes méthodes
         (`app_export_actions.action_export_comparison_pdf/_png`)."""
         ref = self._reference_chantier
         a = self._current_arbre()
@@ -495,6 +501,8 @@ class FichierMixin(_MixinBase):
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
                         on_save=self.action_save,
+                        on_export_pdf=self.action_export_comparison_pdf,
+                        on_export_png=self.action_export_comparison_png,
                         show_sondages=self.var_show_sondages.get())
 
     def _export_comparison(self, fmt: str, builder: Callable[[], Any],
