@@ -345,11 +345,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._update_save_indicator()
 
     def _update_compare_state(self) -> None:
-        """Active ou désactive le bouton et l'entrée menu « Diagnostic de la
-        comparaison » selon qu'une mission de référence est chargée ou non."""
+        """Active ou désactive l'entrée menu « Diagnostic de la comparaison »
+        selon qu'une mission de référence est chargée ou non."""
         state = "normal" if self._reference_chantier is not None else "disabled"
-        if hasattr(self, "_btn_compare"):
-            self._btn_compare.configure(state=state)
         if hasattr(self, "_menu_comparaison"):
             self._menu_comparaison.entryconfigure(1, state=state)
 

@@ -90,8 +90,6 @@ class LayoutMixin(_MixinBase):
         pane_cf: Optional[ContrefortsPane]
         pane_diag: Optional[DiagnosticPane]
 
-        def action_reinspection(self) -> None: ...
-        def action_compare_arbre(self) -> None: ...
         def action_cabinet_settings(self) -> None: ...
         def _reload_logo(self) -> None: ...
         def _refresh_tree_arbres(self) -> None: ...
@@ -137,25 +135,6 @@ class LayoutMixin(_MixinBase):
                   style="Title.TLabel").pack(side="left")
         ttk.Label(left, text=_("  Expertise arboricole"),
                   style="Sub.TLabel").pack(side="left", padx=(8, 0))
-
-        # Boutons « Comparaison » mis en avant (la ré-inspection n'est plus
-        # une fonctionnalité cachée du menu). Cf. menu Comparaison (app_menu).
-        comp = ttk.Frame(header)
-        comp.pack(side="left", padx=(28, 0))
-        btn_reinsp = ttk.Button(
-            comp, text=_("Faire une comparaison…"), style="Accent.TButton",
-            command=self.action_reinspection)
-        btn_reinsp.pack(side="left")
-        Tooltip(btn_reinsp,
-                _("Repartir d'une mission antérieure comme base : on met à jour "
-                "diamètres et sondages au lieu de tout ressaisir, et elle sert "
-                "de référence."))
-        self._btn_compare = ttk.Button(
-            comp, text=_("Diagnostic de la comparaison…"), style="Ghost.TButton",
-            command=self.action_compare_arbre, state="disabled")
-        self._btn_compare.pack(side="left", padx=(6, 0))
-        Tooltip(self._btn_compare, _("Ouvrir la fenêtre de comparaison de l'arbre "
-                                   "courant avec la mission de référence."))
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
