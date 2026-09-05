@@ -145,6 +145,7 @@ TRANSLATIONS = {
     "Suivi :":                             "Follow-up:",
 
     # ── Barre d'état ─────────────────────────────────────────────────
+    "💾 Enregistrer":                      "💾 Save",
     "Ouvrir le fichier":                   "Open file",
     "Ouvrir le dossier":                   "Open folder",
     "Prêt.":                               "Ready.",
