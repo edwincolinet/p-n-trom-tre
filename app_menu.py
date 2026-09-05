@@ -71,7 +71,6 @@ class AppLike(Protocol):
     def action_dup_arbre(self) -> None: ...
     def action_rename_arbre(self) -> None: ...
     def action_del_arbre(self) -> None: ...
-    def action_bulk_set_urgence(self) -> None: ...
 
     # Affichage
     def action_set_ui_scale(self, scale: float) -> None: ...
@@ -122,6 +121,17 @@ def _add_export_section(menu: tk.Menu, titre: str,
         menu.add_separator()
 
 
+def _section(menu: tk.Menu, titre: str, *, first: bool = False) -> None:
+    """En-tête de section désactivé, même style visuel que le menu Export
+    (`_add_export_section`) — mais pour les menus dont les entrées ne
+    sont pas de simples `add_command` (cascades, checkbuttons…), d'où un
+    helper séparé plutôt qu'un format d'item partagé. Sépare du groupe
+    précédent par un trait (omis avant le tout premier groupe du menu)."""
+    if not first:
+        menu.add_separator()
+    menu.add_command(label=f"— {titre} —", state="disabled")
+
+
 def build_menu(app: AppLike) -> None:
     """Construit et attache la barre de menu de `app` (Tk root).
 
@@ -133,16 +143,11 @@ def build_menu(app: AppLike) -> None:
     m = tk.Menu(cast(tk.Misc, app))
     app.config(menu=m)
 
-    # Fichier
+    # Fichier — organisé PAR ÉTAPE du cycle de vie (même principe que le
+    # rangement par format du menu Export) plutôt que dans l'ordre où les
+    # entrées ont été ajoutées au fil des fonctionnalités.
     f = tk.Menu(m, tearoff=0)
-    f.add_command(label=_("Ouvrir la mission d'exemple…"),
-                  command=app.action_open_demo)
-    f.add_separator()
-    f.add_command(label=_("Nouvelle mission depuis un modèle…"),
-                  command=app.action_new_from_template)
-    f.add_command(label=_("Enregistrer comme modèle…"),
-                  command=app.action_save_as_template)
-    f.add_separator()
+    _section(f, _("Mission"), first=True)
     f.add_command(label=_("Nouvelle mission"), accelerator="Ctrl+N",
                   command=app.action_new)
     f.add_command(label=_("Ouvrir mission…"), accelerator="Ctrl+O",
@@ -151,10 +156,17 @@ def build_menu(app: AppLike) -> None:
     f.add_cascade(label=_("Ouvrir récent"), menu=recent_menu)
     setattr(app, "_recent_menu", recent_menu)
     refresh_recent_menu(app)
+    f.add_command(label=_("Ouvrir la mission d'exemple…"),
+                  command=app.action_open_demo)
+    _section(f, _("Modèles"))
+    f.add_command(label=_("Nouvelle mission depuis un modèle…"),
+                  command=app.action_new_from_template)
+    f.add_command(label=_("Enregistrer comme modèle…"),
+                  command=app.action_save_as_template)
+    _section(f, _("Enregistrement"))
     f.add_command(label=_("Enregistrer"), accelerator="Ctrl+S",
                   command=app.action_save)
     f.add_command(label=_("Enregistrer sous…"), command=app.action_save_as)
-    f.add_separator()
     f.add_command(label=_("Ouvrir le dossier des sauvegardes…"),
                   command=app.action_open_backups_folder)
     f.add_separator()
@@ -172,21 +184,20 @@ def build_menu(app: AppLike) -> None:
 
     # Arbres
     a = tk.Menu(m, tearoff=0)
+    _section(a, _("Ajouter"), first=True)
     a.add_command(label=_("Ajouter un arbre"), accelerator="Ctrl+T",
                   command=app.action_add_arbre)
     a.add_command(label=_("Ajouter (hériter du précédent)"),
                   accelerator="Ctrl+Shift+T",
                   command=app.action_add_arbre_inherit)
-    a.add_separator()
+    _section(a, _("Navigation"))
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
                   command=app.action_next_arbre)
     a.add_command(label=_("Arbre précédent"), accelerator="Ctrl+PgUp",
                   command=app.action_prev_arbre)
     a.add_command(label=_("Prochain arbre à finir"),
                   command=app.action_next_a_finir)
-    a.add_command(label=_("Urgence pour la sélection…"),
-                  command=app.action_bulk_set_urgence)
-    a.add_separator()
+    _section(a, _("Modifier"))
     a.add_command(label=_("Dupliquer l'arbre courant"),
                   command=app.action_dup_arbre)
     a.add_command(label=_("Renommer l'arbre courant…"),
@@ -197,6 +208,7 @@ def build_menu(app: AppLike) -> None:
 
     # Affichage
     v = tk.Menu(m, tearoff=0)
+    _section(v, _("Accessibilité"), first=True)
     scale_var = tk.DoubleVar(value=app.get_ui_scale())
     setattr(app, "_ui_scale_var", scale_var)
     taille = tk.Menu(v, tearoff=0)
@@ -211,7 +223,7 @@ def build_menu(app: AppLike) -> None:
     v.add_checkbutton(
         label=_("Contraste élevé"), variable=hc_var,
         command=lambda: app.action_set_high_contrast(hc_var.get()))
-    v.add_separator()
+    _section(v, _("Préférences"))
     v.add_command(label=_("Logo et nom du cabinet…"),
                   command=app.action_cabinet_settings)
     v.add_command(label=_("Barème de classification…"),
@@ -263,19 +275,21 @@ def build_menu(app: AppLike) -> None:
 
     # Aide
     h = tk.Menu(m, tearoff=0)
+    _section(h, _("Aide"), first=True)
     h.add_command(label=_("Guide de démarrage…"),
                   command=app.action_open_guide)
     h.add_command(label=_("Raccourcis clavier…"),
                   command=app.action_shortcuts)
-    h.add_separator()
+    _section(h, _("Support"))
     h.add_command(label=_("Contacter le support…"),
                   command=app.action_contact_support)
     h.add_command(label=_("Ouvrir le fichier de log"),
                   command=app.action_open_log)
-    h.add_separator()
+    _section(h, _("Mises à jour"))
     h.add_command(label=_("Vérifier les mises à jour"),
                   command=app.action_check_updates)
     chk_var = tk.BooleanVar(value=app.get_check_updates())
+    setattr(app, "_check_updates_var", chk_var)
     h.add_checkbutton(
         label=_("Vérification automatique au démarrage"),
         variable=chk_var,

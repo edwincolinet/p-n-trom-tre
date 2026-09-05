@@ -9,6 +9,8 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Progetti recenti",
     "Enregistrer":                         "Salva",
     "Enregistrer sous…":                   "Salva come…",
+    "Modèles":                             "Modelli",
+    "Enregistrement":                      "Salvataggio",
     "Exporter la synthèse mission (XLSX)…":"Esporta sintesi missione (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Esporta sintesi missione (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Esporta tutte le schede (PDF)…",
@@ -24,26 +26,20 @@ TRANSLATIONS = {
 
     # ── Menu Alberi ───────────────────────────────────────────────────
     "Arbres":                              "Alberi",
+    "Ajouter":                             "Aggiungi",
+    "Navigation":                          "Navigazione",
+    "Modifier":                            "Modifica",
     "Ajouter un arbre":                    "Aggiungi albero",
     "Ajouter (hériter du précédent)":      "Aggiungi (eredita dal precedente)",
     "Dupliquer l'arbre courant":           "Duplica albero corrente",
     "Renommer l'arbre courant…":           "Rinomina albero corrente…",
     "Supprimer l'arbre courant…":          "Elimina albero corrente…",
     "Prochain arbre à finir":              "Prossimo albero da completare",
-    "Urgence pour la sélection…":          "Urgenza per la selezione…",
-    "Urgence — sélection":                 "Urgenza — selezione",
-    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
-                                           "Livello di urgenza per {n} albero/i selezionato/i:",
-    "Urgence « {niveau} » appliquée à {n} arbre(s).":
-                                           "Urgenza « {niveau} » applicata a {n} albero/i.",
-    "Sélectionnez d'abord un ou plusieurs arbres dans la "
-    "liste (Ctrl+clic ou Maj+clic pour une sélection "
-    "multiple).":
-        "Selezionare prima uno o più alberi nell'elenco (Ctrl+clic o "
-        "Maiusc+clic per la selezione multipla).",
 
     # ── Menu Visualizza ───────────────────────────────────────────────
     "Affichage":                           "Visualizza",
+    "Accessibilité":                       "Accessibilità",
+    "Préférences":                         "Preferenze",
     "Taille du texte":                     "Dimensione testo",
     "Petit":                               "Piccolo",
     "Normal":                              "Normale",
@@ -56,6 +52,7 @@ TRANSLATIONS = {
 
     # ── Menu Aiuto ────────────────────────────────────────────────────
     "Aide":                                "Aiuto",
+    "Support":                             "Supporto",
     "Raccourcis clavier…":                 "Scorciatoie da tastiera…",
     "Ouvrir le fichier de log":            "Apri file di log",
     "Vérifier les mises à jour":           "Verifica aggiornamenti",

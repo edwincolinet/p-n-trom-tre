@@ -9,6 +9,8 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Recent projects",
     "Enregistrer":                         "Save",
     "Enregistrer sous…":                   "Save as…",
+    "Modèles":                             "Templates",
+    "Enregistrement":                      "Saving",
     "Exporter la synthèse mission (XLSX)…":"Export mission summary (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Export mission summary (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Export all reports (PDF)…",
@@ -24,25 +26,20 @@ TRANSLATIONS = {
 
     # ── Menu Arbres ───────────────────────────────────────────────────
     "Arbres":                              "Trees",
+    "Ajouter":                             "Add",
+    "Navigation":                          "Navigation",
+    "Modifier":                            "Edit",
     "Ajouter un arbre":                    "Add a tree",
     "Ajouter (hériter du précédent)":      "Add (inherit from previous)",
     "Dupliquer l'arbre courant":           "Duplicate current tree",
     "Renommer l'arbre courant…":           "Rename current tree…",
     "Supprimer l'arbre courant…":          "Delete current tree…",
     "Prochain arbre à finir":              "Next unfinished tree",
-    "Urgence pour la sélection…":          "Priority for selection…",
-    "Urgence — sélection":                 "Priority — selection",
-    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
-                                           "Priority level for the {n} selected tree(s):",
-    "Urgence « {niveau} » appliquée à {n} arbre(s).":
-                                           "Priority « {niveau} » applied to {n} tree(s).",
-    "Sélectionnez d'abord un ou plusieurs arbres dans la liste "
-    "(Ctrl+clic ou Maj+clic pour une sélection multiple).":
-        "First select one or more trees in the list (Ctrl+click or "
-        "Shift+click for multiple selection).",
 
     # ── Menu Affichage ────────────────────────────────────────────────
     "Affichage":                           "View",
+    "Accessibilité":                       "Accessibility",
+    "Préférences":                         "Preferences",
     "Taille du texte":                     "Text size",
     "Petit":                               "Small",
     "Normal":                              "Normal",
@@ -55,6 +52,7 @@ TRANSLATIONS = {
 
     # ── Menu Aide ─────────────────────────────────────────────────────
     "Aide":                                "Help",
+    "Support":                             "Support",
     "Raccourcis clavier…":                 "Keyboard shortcuts…",
     "Ouvrir le fichier de log":            "Open log file",
     "Vérifier les mises à jour":           "Check for updates",
