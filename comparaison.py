@@ -18,6 +18,27 @@ Design (choix métier, cf. mémoire) :
   index/label ; un brin courant sans homologue de référence est comparé à
   None. Le tout **exportable** PNG/PDF (une page par brin pour une cépée).
 
+**Fenêtre intégrée au reste de l'app (2026-09-05)** : avant, cette
+fenêtre portait ses propres boutons Export PDF/PNG et un bouton
+Fermer — coupant l'utilisateur du menu Export et de la barre d'état
+pendant qu'elle était ouverte (repéré à l'usage : plus de bandeau,
+donc plus d'« Enregistrer » ni de « Ouvrir le fichier/dossier » après
+un export). Désormais :
+- l'export PDF/PNG se déclenche depuis le menu **Export** de la
+  fenêtre principale (entrées grisées tant qu'aucune comparaison n'est
+  ouverte) — `is_comparison_active`/`export_active_comparison` exposent
+  l'état à `app_export_actions.ExportActionsMixin` ;
+- un bouton **« 💾 Enregistrer »** dans la fenêtre appelle directement
+  `App.action_save` (`on_save`) — la mission reste enregistrable sans
+  fermer la comparaison ;
+- le pied de fenêtre affiche la confirmation d'export + boutons
+  « Ouvrir le fichier/dossier » (`show_export_feedback`, appelé par
+  `App._export_comparison`), reproduisant localement le comportement de
+  la barre d'état principale — invisible tant que la fenêtre couvre
+  l'écran ;
+- plus de bouton « Fermer » : la fenêtre a ses décorations système
+  complètes (pas de `transient`, cf. plus bas), la croix suffit.
+
 Le calcul est délégué à `diagnostic_comparaison` (`comparaison_detaillee`,
 `verdict_evolution`) et le rendu PIL à `comparaison_render` (sans Tk).
 """
@@ -48,6 +69,11 @@ from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
 
 _SEC = 440  # côté des dessins (px)
 _comparison_window: "Optional[tk.Toplevel]" = None  # singleton
+# État de la sélection courante (arbres/brins choisis) de la fenêtre
+# ci-dessus — même durée de vie qu'elle. Exposé en lecture par
+# `export_active_comparison` pour que le menu Export de la fenêtre
+# principale puisse déclencher un export sans passer par un bouton local.
+_comparison_state: "Optional[dict[str, Any]]" = None
 
 
 def _photo(img: Any) -> Any:
@@ -55,22 +81,71 @@ def _photo(img: Any) -> Any:
     return ImageTk.PhotoImage(img)
 
 
+def is_comparison_active() -> bool:
+    """Une comparaison est ouverte ET un couple d'arbres y est sélectionné
+    (donc exportable). Pilote l'état des entrées du menu Export."""
+    return (_comparison_window is not None
+            and _comparison_window.winfo_exists()
+            and _comparison_state is not None
+            and "builder_args" in _comparison_state)
+
+
+def get_comparison_window() -> "Optional[tk.Toplevel]":
+    """Fenêtre de comparaison actuellement ouverte, pour y ancrer un
+    filedialog (au premier plan) — `None` si aucune n'est ouverte."""
+    if _comparison_window is not None and _comparison_window.winfo_exists():
+        return _comparison_window
+    return None
+
+
+def export_active_comparison(fmt: str) -> "Optional[Callable[[], Any]]":
+    """Builder de pages (cf. `_page_builder`) pour la comparaison
+    actuellement ouverte, ou `None` si aucune n'est active — le menu
+    Export appelle ceci plutôt que de garder son propre état."""
+    if not is_comparison_active():
+        return None
+    assert _comparison_state is not None
+    return _page_builder(_comparison_state, fmt)
+
+
+def show_export_feedback(text: str, *, on_open_file: Callable[[], None],
+                         on_open_folder: Callable[[], None]) -> None:
+    """Affiche la confirmation d'export (+ boutons Ouvrir) dans le pied de
+    la fenêtre de comparaison actuellement ouverte. No-op si aucune n'est
+    ouverte (export déclenché après sa fermeture, cas limite). Reproduit
+    localement `App.notify_export`, invisible tant que cette fenêtre
+    couvre l'écran principal."""
+    if _comparison_state is None:
+        return
+    lbl = _comparison_state.get("_lbl_msg")
+    if lbl is None:
+        return
+    lbl.configure(text=text)
+    btn_file = _comparison_state.get("_btn_open_file")
+    if btn_file is not None:
+        btn_file.configure(state="normal", command=on_open_file)
+    btn_folder = _comparison_state.get("_btn_open_folder")
+    if btn_folder is not None:
+        btn_folder.configure(state="normal", command=on_open_folder)
+
+
 def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
                     *, default_arbre: Arbre, cur_date: str,
                     couleur_classe: Mapping[str, str],
-                    export_cb: Callable[[str, Callable[[], Any], tk.Misc],
-                                        None],
+                    on_save: Callable[[], None],
                     show_sondages: bool = True) -> None:
     """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
     avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
     se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
     = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
-    `export_cb(fmt, builder, parent)` est appelé par les boutons Export
-    (builder() renvoie la liste de pages PIL ; `parent` ancre le filedialog
-    au premier plan). `show_sondages` reprend la case « Afficher sondages ».
-    Une seule fenêtre de comparaison à la fois (singleton) : ré-ouvrir
-    ferme la précédente et ouvre une nouvelle avec la sélection courante."""
-    global _comparison_window
+    `on_save` est appelé par le bouton « 💾 Enregistrer » (= `App.action_save`,
+    la mission reste enregistrable sans fermer la fenêtre). L'export PDF/PNG
+    ne vit plus ici : il se déclenche depuis le menu Export de la fenêtre
+    principale via `export_active_comparison`. `show_sondages` reprend la
+    case « Afficher sondages ». Une seule fenêtre de comparaison à la fois
+    (singleton) : ré-ouvrir ferme la précédente et ouvre une nouvelle avec
+    la sélection courante."""
+    global _comparison_window, _comparison_state
     if _comparison_window is not None and _comparison_window.winfo_exists():
         _comparison_window.destroy()
     curs = current.arbres
@@ -103,6 +178,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
             pass
 
     state: dict[str, Any] = {}
+    _comparison_state = state
     photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
 
     # --- Sélecteurs : arbre courant (cette mission) ET arbre de référence,
@@ -130,6 +206,15 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     state["_vars"] = (var_cur, var_ref)
     ttk.Label(top, text=_("(réf. {r}  →  courant {c})").format(r=ref_label, c=cur_label),
               style="Muted.TLabel").pack(side="left", padx=(12, 0))
+    # Coupée du bandeau principal (fenêtre à part, sans menu), la mission
+    # restait inaccessible à « Enregistrer » sans fermer la comparaison —
+    # le geste le plus courant pendant une ré-inspection (on modifie les
+    # mesures, on vérifie ici, on enregistre). Bouton direct plutôt qu'un
+    # menu dupliqué : seule cette action a été jugée assez fréquente/
+    # critique pour justifier une entrée locale (cf. `export_active_comparison`
+    # pour les exports, restés dans le menu Export de la fenêtre principale).
+    ttk.Button(top, text=_("💾 Enregistrer"), style="Accent.TButton",
+               command=on_save).pack(side="right")
 
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
     # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
@@ -172,20 +257,26 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     canvas.bind("<Enter>", _bind_wheel)
     canvas.bind("<Leave>", _unbind_wheel)
 
-    # --- Boutons d'export (verdict par brin = dans chaque bloc) ---
+    # --- Pied de fenêtre : confirmation d'export + Ouvrir (reproduit
+    # localement la barre d'état principale, invisible tant que cette
+    # fenêtre couvre l'écran) — mis à jour par `show_export_feedback`
+    # quand un export est déclenché depuis le menu Export. Pas de bouton
+    # Export/Fermer ici : l'export se fait par le menu, la fermeture par
+    # la croix de la fenêtre (décorations système complètes, cf. plus haut).
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=12)
     foot.pack(fill="x")
     lbl_msg = ttk.Label(foot, text="", style="Muted.TLabel",
-                        wraplength=900, justify="left")
+                        wraplength=700, justify="left")
     lbl_msg.pack(side="left", fill="x", expand=True)
-    ttk.Button(foot, text=_("Fermer"), style="Ghost.TButton",
-               command=dlg.destroy).pack(side="right")
-    ttk.Button(foot, text=_("PNG…"), style="Ghost.TButton",
-               command=lambda: export_cb("png", _page_builder(state, "png"), dlg)
-               ).pack(side="right", padx=6)
-    ttk.Button(foot, text=_("PDF…"), style="Accent.TButton",
-               command=lambda: export_cb("pdf", _page_builder(state, "pdf"), dlg)
-               ).pack(side="right")
+    btn_open_folder = ttk.Button(foot, text=_("Ouvrir le dossier"),
+                                 style="Ghost.TButton", state="disabled")
+    btn_open_folder.pack(side="right", padx=(6, 0))
+    btn_open_file = ttk.Button(foot, text=_("Ouvrir le fichier"),
+                               style="Ghost.TButton", state="disabled")
+    btn_open_file.pack(side="right")
+    state["_lbl_msg"] = lbl_msg
+    state["_btn_open_file"] = btn_open_file
+    state["_btn_open_folder"] = btn_open_folder
 
     def _on_select(_e: Any = None) -> None:
         ci, ri = cmb_cur.current(), cmb_ref.current()

@@ -279,6 +279,8 @@ TRANSLATIONS = {
     "(suite)":                            "(cont'd)",
     "Fiche PDF (arbre courant)":          "PDF report (current tree)",
     "PNG du dessin":                      "PNG drawing",
+    "Comparaison — fiche PDF…":           "Comparison — PDF report…",
+    "Comparaison — évolution (PNG)…":     "Comparison — evolution (PNG)…",
     "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
     "PRBS (cm)":                          "PRBS (cm)",

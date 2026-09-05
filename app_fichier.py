@@ -91,6 +91,7 @@ class FichierMixin(_MixinBase):
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
         def notify_export(self, path: str, label: str) -> None: ...
+        def _open_in_system(self, path: Path) -> None: ...
         def push_undo(self) -> None: ...
         def _update_compare_state(self) -> None: ...
 
@@ -477,7 +478,14 @@ class FichierMixin(_MixinBase):
         """Ouvre la fenêtre « Diagnostic de la comparaison » : l'arbre courant
         confronté à son homologue de la mission de référence (figée par
         `action_reinspection`). Disponible seulement après un clic sur
-        « Faire une comparaison… » — bouton et menu désactivés sinon."""
+        « Faire une comparaison… » — bouton et menu désactivés sinon.
+
+        L'export PDF/PNG de cette comparaison ne se déclenche plus depuis
+        un bouton de la fenêtre (cf. `comparaison.py` — coupait du menu
+        Export et de la barre d'état pendant qu'elle était ouverte) : il
+        vit désormais dans le menu Export principal, activé par
+        `comparaison.is_comparison_active()`
+        (`app_export_actions.action_export_comparison_pdf/_png`)."""
         ref = self._reference_chantier
         a = self._current_arbre()
         if ref is None or a is None:
@@ -486,22 +494,30 @@ class FichierMixin(_MixinBase):
                         default_arbre=a,
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
-                        export_cb=self._export_comparison,
+                        on_save=self.action_save,
                         show_sondages=self.var_show_sondages.get())
 
     def _export_comparison(self, fmt: str, builder: Callable[[], Any],
                            parent: "tk.Misc") -> None:
         """Enregistre la comparaison (PNG ou PDF) construite par `builder`
-        (appelé par les boutons d'export de la fenêtre). `parent` = la
-        fenêtre de comparaison : on y ancre le filedialog pour qu'il s'ouvre
-        AU PREMIER PLAN (sinon il passe derrière la fenêtre).
+        (appelé depuis le menu Export — cf. `action_export_comparison_pdf`/
+        `_png` de `ExportActionsMixin`). `parent` = la fenêtre de
+        comparaison si elle est encore ouverte (ancre le filedialog pour
+        qu'il s'ouvre AU PREMIER PLAN, sinon il passe derrière), sinon la
+        fenêtre principale.
 
         `builder()` renvoie une **liste de pages** PDF (une par brin pour
         une cépée, assemblées en un seul PDF multi-pages) ; pour le PNG,
         `render_evolution_pngs` renvoie des `(label, image)` et
         `save_evolution_pngs` écrit **un fichier par brin** — une cépée
         n'est jamais empilée dans un unique PNG, ce qui la rendrait
-        réinsérable dans un rapport uniquement en la recadrant."""
+        réinsérable dans un rapport uniquement en la recadrant.
+
+        Le succès est signalé à DEUX endroits : la barre d'état principale
+        (`notify_export`, comme tout export) et le pied de la fenêtre de
+        comparaison (`show_export_feedback`) — la première est invisible
+        tant que la seconde couvre l'écran."""
+        from comparaison import show_export_feedback
         from comparaison_render import save_comparison_pdf, save_evolution_pngs
         ext = ".pdf" if fmt == "pdf" else ".png"
         typ = "PDF" if fmt == "pdf" else "Image PNG"
@@ -514,12 +530,18 @@ class FichierMixin(_MixinBase):
             pages = builder()
             if fmt == "pdf":
                 save_comparison_pdf(pages, p)
-                self.notify_export(p, "Comparaison d'inspections")
+                out_path = Path(p)
+                label = "Comparaison d'inspections"
             else:
                 written = save_evolution_pngs(pages, p)
+                out_path = Path(written[0])
                 label = ("Comparaison d'inspections" if len(written) == 1
                          else f"Comparaison d'inspections ({len(written)} fichiers)")
-                self.notify_export(written[0], label)
+            self.notify_export(str(out_path), label)
+            show_export_feedback(
+                f"✓ {label} — {out_path.name}",
+                on_open_file=lambda: self._open_in_system(out_path),
+                on_open_folder=lambda: self._open_in_system(out_path.parent))
         except Exception as e:
             log.exception("Échec export comparaison")
             messagebox.showerror(_("Erreur"), str(e))

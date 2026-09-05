@@ -56,6 +56,8 @@ class AppLike(Protocol):
     def action_export_pdf_arbre(self) -> None: ...
     def action_export_pdf_mission(self) -> None: ...
     def action_export_png(self) -> None: ...
+    def action_export_comparison_pdf(self) -> None: ...
+    def action_export_comparison_png(self) -> None: ...
     def action_export_prbs_xlsx(self) -> None: ...
     def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
@@ -247,10 +249,27 @@ def build_menu(app: AppLike) -> None:
          "Ctrl+E"),
         (_("Exporter toutes les fiches (PDF)…"),
          app.action_export_pdf_mission, None),
-    ))
+    ), last=True)
+    # Export de la comparaison en cours (« Diagnostic de la comparaison… »).
+    # Grisé tant qu'aucune comparaison n'est ouverte — avant, ces deux
+    # exports vivaient dans des boutons de la fenêtre de comparaison
+    # elle-même, la coupant du menu Export pendant qu'elle était ouverte.
+    # État tenu à jour par `postcommand` juste avant que le menu s'affiche
+    # (`_refresh_export_comparison_state`) plutôt que par un callback
+    # explicite à l'ouverture/fermeture de la fenêtre.
+    x.add_command(label=_("Comparaison — fiche PDF…"),
+                  command=app.action_export_comparison_pdf,
+                  state="disabled")
+    idx_export_comparison_pdf = cast(int, x.index("end"))
+    x.add_separator()
     _add_export_section(x, "PNG", (
         (_("PNG du dessin"), app.action_export_png, None),
-    ))
+    ), last=True)
+    x.add_command(label=_("Comparaison — évolution (PNG)…"),
+                  command=app.action_export_comparison_png,
+                  state="disabled")
+    idx_export_comparison_png = cast(int, x.index("end"))
+    x.add_separator()
     _add_export_section(x, "XLSX", (
         (_("Tableau PRBS — Excel (XLSX)…"), app.action_export_prbs_xlsx,
          None),
@@ -267,6 +286,14 @@ def build_menu(app: AppLike) -> None:
         (_("Tableau PRBS — page HTML…"), app.action_export_prbs_html,
          None),
     ), last=True)
+
+    def _refresh_export_comparison_state() -> None:
+        from comparaison import is_comparison_active
+        state = "normal" if is_comparison_active() else "disabled"
+        x.entryconfigure(idx_export_comparison_pdf, state=state)
+        x.entryconfigure(idx_export_comparison_png, state=state)
+
+    x.configure(postcommand=_refresh_export_comparison_state)
     m.add_cascade(label=_("Export"), menu=x)
 
     # Aide

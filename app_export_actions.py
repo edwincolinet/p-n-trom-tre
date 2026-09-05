@@ -16,7 +16,7 @@ Mixin de `App` : s'appuie sur les attributs/méthodes déclarés en
 from __future__ import annotations
 
 import tkinter as tk
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import app_exports
 from model import Arbre, Chantier
@@ -39,6 +39,10 @@ class ExportActionsMixin(_MixinBase):
         var_show_sondages: tk.BooleanVar
 
         def _current_arbre(self) -> Optional[Arbre]: ...
+        # Fourni par `FichierMixin` — export comparaison (cf. plus bas).
+        def _export_comparison(self, fmt: str,
+                               builder: Callable[[], Any],
+                               parent: "tk.Misc") -> None: ...
 
     def action_export_png(self) -> None:
         app_exports.export_png(self, self._current_arbre(),
@@ -71,3 +75,24 @@ class ExportActionsMixin(_MixinBase):
     def action_export_prbs_html(self) -> None:
         app_exports.export_html_arbre(self, self._current_arbre(),
                                       self.chantier)
+
+    # --- Comparaison (ré-inspection) ------------------------------------
+    # Ne vivent plus dans des boutons de `comparaison.py` (coupaient du
+    # menu Export pendant que la fenêtre était ouverte) : entrées du menu
+    # Export, activées seulement si une comparaison est en cours
+    # (`comparaison.is_comparison_active`, relu par un `postcommand` sur
+    # le menu dans `app_menu.py` — pas d'état à synchroniser à la main).
+
+    def action_export_comparison_pdf(self) -> None:
+        from comparaison import export_active_comparison, get_comparison_window
+        builder = export_active_comparison("pdf")
+        if builder is None:
+            return
+        self._export_comparison("pdf", builder, get_comparison_window() or self)
+
+    def action_export_comparison_png(self) -> None:
+        from comparaison import export_active_comparison, get_comparison_window
+        builder = export_active_comparison("png")
+        if builder is None:
+            return
+        self._export_comparison("png", builder, get_comparison_window() or self)
