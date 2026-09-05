@@ -32,18 +32,20 @@ ponctuels successifs (jamais une décision centralisée) :
 ## Couleurs (`palette.py`)
 
 - `COLOR_ACCENT` = couleur de marque du **chrome interactif uniquement**
-  (boutons, titres de fenêtre, onglets actifs, sélections). Bleu cobalt
-  `#2563EB` (contraste vs blanc = 5.17:1, AA), volontairement **distinct**
-  de `COULEUR_CLASSE[CLASSE_VERT]`. Un premier essai en bleu pétrole
-  désaturé (`#1E5F6B`) a été jugé trop terne à l'usage — retenu pour son
-  contraste (AAA) mais rejeté visuellement (« gris », « triste »).
+  (boutons, titres de fenêtre, onglets actifs, sélections). Vert
+  historique `#2D7A3E` — IDENTIQUE à `COULEUR_CLASSE[CLASSE_VERT]`.
+  Plusieurs teintes distinctes ont été essayées pendant ce design system
+  pour lever la collision de sens (bouton actif ↔ arbre en bon état) : un
+  bleu pétrole désaturé (`#1E5F6B`, AAA mais jugé trop terne — « gris »,
+  « triste »), un cobalt franc (`#2563EB`, AA mais « le bleu pose
+  problème »), un violet améthyste (`#6B3FA0`, AAA mais non plus retenu à
+  l'usage). Aucune n'a convaincu : préférence assumée pour le vert
+  d'origine malgré le compromis de sens.
 - `COLOR_RENDER_ACCENT` = couleur d'accent des **rendus golden-testés**
-  (dessin de section, fiche PDF, comparaison inter-missions). Figée à
-  l'ANCIENNE valeur de `COLOR_ACCENT` (`#2D7A3E`) pour ne jamais faire
-  dévier un pixel des golden-tests. Effet de bord positif : les documents
-  envoyés au client restent dans le vert historique de l'app, cohérent
-  avec le vocabulaire visuel Vert/Orange/Rouge du diagnostic qu'ils
-  exposent. **Ne jamais remplacer par `COLOR_ACCENT`** dans
+  (dessin de section, fiche PDF, comparaison inter-missions). Même valeur
+  que `COLOR_ACCENT` (`#2D7A3E`) — figée indépendamment pour que le chrome
+  UI puisse un jour reprendre une teinte distincte sans faire dévier un
+  pixel des golden-tests. **Ne jamais remplacer par `COLOR_ACCENT`** dans
   `section_canvas.py`/`pil_render.py`/`comparaison_render.py`/
   `fiche_pdf.py` — cela romprait leurs goldens.
 - `COULEUR_CLASSE` (Vert/Orange/Rouge) reste réservée à l'affichage du
@@ -70,8 +72,8 @@ proportionné dans une UI hand-tuned au pixel).
 
 ## Icônes (`icons.py`)
 
-Glyphes Unicode monochromes uniquement (formes géométriques, flèches,
-ponctuation) — jamais d'emoji couleur, dont le rendu dépend de la police
+Glyphes Unicode monochromes **par défaut** (formes géométriques, flèches,
+ponctuation) — pas d'emoji couleur, dont le rendu dépend de la police
 système et de la plateforme.
 
 - État/complétude : `ICON_STATE_EMPTY` ○ / `ICON_STATE_PARTIAL` ◐ /
@@ -81,18 +83,31 @@ système et de la plateforme.
 - Signalétique : `ICON_WARNING` ⚠ / `ICON_CHECK` ✓ / `ICON_CROSS` ✗
 - Navigation : `ICON_RESET` ↺ / `ICON_RESTART` ⟳ / `ICON_NEXT` ⏭ /
   `ICON_HINT_ARROW` →
-- `ICON_PICKER` … : bouton compact ouvrant un sélecteur (calendrier…),
-  convention déjà en usage avant ce module (boutons « Gérer les niveaux
-  personnalisés » de `pane_diagnostic.py`).
 
-**Pas de glyphe de repli** pour les actions sans équivalent monochrome
-fiable (document, imprimante, image, tableau, disquette, loupe) : ces
-boutons sont **texte seul** (« Fiche PDF (arbre courant) », « Imprimer »,
-« PNG du dessin », « Exporter le tableau », « Enregistrer »…). C'est un
-choix délibéré, pas un renoncement : chercher un dingbat Unicode obscur
-pour ces actions échangerait un risque de rendu (emoji couleur) contre un
+**Exception assumée (2026-09-05) : `ICON_CALENDAR` 📅.** Une première
+version de ce design system remplaçait le bouton calendrier par `…`
+(convention « Choisir… ») pour rester dans le principe « pas d'emoji
+couleur ». À l'usage, ce repli s'est révélé moins lisible qu'une icône —
+un `…` ne se distingue pas au premier coup d'œil d'un état « en attente »
+ou d'un simple bouton tronqué, alors que 📅 identifie la fonction
+instantanément. Même diagnostic pour le préfixe « 💾 » du bouton
+**Enregistrer**, toujours visible en barre d'état (`app_layout._btn_save`,
+chaîne `_("💾 Enregistrer")`) : c'est la commande la plus fréquente de
+l'app, elle doit rester repérable au scan rapide sur le terrain. Le risque
+de rendu plateforme-dépendant (déjà documenté ci-dessus) est jugé, pour
+ces deux commandes à très forte fréquence d'usage, moins coûteux que la
+perte de lisibilité constatée.
+
+**Pas de glyphe de repli** reste la règle pour les AUTRES actions sans
+équivalent monochrome fiable (document, imprimante, image, tableau,
+loupe) : ces boutons sont **texte seul** (« Fiche PDF (arbre courant) »,
+« Imprimer », « PNG du dessin », « Exporter le tableau »…). Choix
+délibéré, pas un renoncement : chercher un dingbat Unicode obscur pour
+ces actions échangerait un risque de rendu (emoji couleur) contre un
 autre (glyphe absent de la police système/plateforme, notamment Segoe UI
-sur Windows) sans réel gain de clarté par rapport à un libellé texte.
+sur Windows) sans réel gain de clarté par rapport à un libellé texte — à
+la différence de 📅/💾 ci-dessus, dont la reconnaissance immédiate justifie
+le compromis.
 
 **Piège i18n** : un glyphe qui préfixe une chaîne traduisible
 (`_("⚠ Renseignez le rayon…")`, `_("▸ Saisie du brin {label}")`) fait
@@ -101,7 +116,7 @@ constante `icons.py` interpolée (`_("{icon} …").format(icon=ICON_WARNING)`)
 sans nécessité : ça change la forme de la chaîne source et retombe dans le
 piège déjà documenté dans CLAUDE.md (`_(une_variable)` invisible au
 scanner AST de `tests/test_i18n.py`). Les constantes `icons.py` servent
-les glyphes **hors** chaîne traduisible (`text="✕"`, `text=ICON_PICKER`).
+les glyphes **hors** chaîne traduisible (`text="✕"`, `text=ICON_CALENDAR`).
 Toute chaîne traduisible modifiée doit avoir son entrée mise à jour dans
 `translations/en.py` **et** `translations/it.py` (clés alignées entre les
 deux, cf. `tests/test_i18n.py`).

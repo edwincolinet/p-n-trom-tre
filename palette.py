@@ -43,19 +43,17 @@ COLOR_INK        = "#1A2E22"
 COLOR_MUTED      = "#55605A"
 
 # `COLOR_ACCENT` est la couleur de marque du CHROME Tk interactif
-# (boutons, titres de fenêtre, onglets actifs, sélections). Bleu cobalt
-# volontairement DISTINCT de `COULEUR_CLASSE[CLASSE_VERT]` (contraste vs
-# blanc = 5.17:1, AA — mieux que l'ancien vert à 5.30:1 tout en restant
-# net) : avant ce design system, `COLOR_ACCENT` valait EXACTEMENT le même
-# hex que la classe de risque « Vert » — un arbre en bon état et un
-# bouton actif partageaient le même signal visuel, ce qui diluait le sens
-# du vert dans les pastilles de risque (le canal le plus important de
-# l'app). Un premier essai en bleu pétrole désaturé (#1E5F6B) a été jugé
-# trop terne (« gris », « triste ») — ce cobalt franc corrige le tir tout
-# en gardant le contraste. cf. `COLOR_RENDER_ACCENT` ci-dessous pour la
-# couleur (inchangée) des rendus golden-testés.
-COLOR_ACCENT     = "#2563EB"
-COLOR_ACCENT_SOFT= "#CBDAFA"
+# (boutons, titres de fenêtre, onglets actifs, sélections). Vert
+# historique de l'app — IDENTIQUE à `COULEUR_CLASSE[CLASSE_VERT]` (classe
+# de risque « Vert »). Plusieurs essais de teinte distincte ont été menés
+# pendant ce design system (bleu pétrole désaturé #1E5F6B, cobalt #2563EB,
+# violet améthyste #6B3FA0) pour lever cette collision de sens — un arbre
+# en bon état et un bouton actif partagent le même signal visuel — mais
+# aucun n'a convaincu à l'usage : préférence assumée pour le vert
+# d'origine malgré le compromis. cf. `COLOR_RENDER_ACCENT` ci-dessous pour
+# la couleur des rendus golden-testés (déjà ce même vert).
+COLOR_ACCENT     = "#2D7A3E"
+COLOR_ACCENT_SOFT= "#C9E4CE"
 
 # Couleur d'accent des RENDUS golden-testés (dessin de section Tk/PIL,
 # fiche PDF, comparaison inter-missions) — figée à l'ANCIENNE valeur de
