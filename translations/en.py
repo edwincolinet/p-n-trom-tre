@@ -505,13 +505,13 @@ TRANSLATIONS = {
         "exports (PDF, XLSX, CSV) to flag the measurement as less "
         "reliable.",
 
-    "Case « ~ » : marque un sondage incertain (angle de mèche, "
-    "pression, accès difficile…). La valeur reste comptée dans le "
-    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
-    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
-        "« ~ » checkbox: marks a sounding as uncertain (drill angle, "
-        "pressure, difficult access…). The value stays counted in the "
-        "diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
+    "Case « Douteux (~) » : marque un sondage incertain (angle de "
+    "mèche, pression, accès difficile…). La valeur reste comptée "
+    "dans le diagnostic, mais est préfixée « ~ » dans les exports "
+    "(PDF, XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "« Uncertain (~) » checkbox: marks a sounding as uncertain (drill "
+        "angle, pressure, difficult access…). The value stays counted in "
+        "the diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
         "CSV) to flag it.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
@@ -686,7 +686,7 @@ TRANSLATIONS = {
     'Export PDF annulé — aucun fichier écrit.': 'PDF export cancelled — no file written.',
     "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 
-    "~":                                  "~",
+    "Douteux (~)":                        "Uncertain (~)",
     "Sondage incertain (mesure douteuse)": "Uncertain sounding (doubtful reading)",
 
     "Enregistrer comme modèle…":          "Save as template…",

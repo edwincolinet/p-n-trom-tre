@@ -479,12 +479,12 @@ TRANSLATIONS = {
         "« ~ » negli export (PDF, XLSX, CSV) per segnalare la misura come "
         "meno affidabile.",
 
-    "Case « ~ » : marque un sondage incertain (angle de mèche, "
-    "pression, accès difficile…). La valeur reste comptée dans le "
-    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
-    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
-        "Casella « ~ »: segna un sondaggio come incerto (angolo di "
-        "sonda, pressione, accesso difficile…). Il valore resta "
+    "Case « Douteux (~) » : marque un sondage incertain (angle de "
+    "mèche, pression, accès difficile…). La valeur reste comptée "
+    "dans le diagnostic, mais est préfixée « ~ » dans les exports "
+    "(PDF, XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "Casella « Incerto (~) »: segna un sondaggio come incerto (angolo "
+        "di sonda, pressione, accesso difficile…). Il valore resta "
         "conteggiato nella diagnosi, ma è preceduto da « ~ » negli "
         "export (PDF, XLSX, CSV) per segnalarlo.",
 
@@ -656,7 +656,7 @@ TRANSLATIONS = {
     'Export PDF annulé — aucun fichier écrit.': 'Esportazione PDF annullata — nessun file scritto.',
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 
-    "~":                                  "~",
+    "Douteux (~)":                        "Incerto (~)",
     "Sondage incertain (mesure douteuse)": "Sondaggio incerto (misura dubbia)",
 
     "Enregistrer comme modèle…":          "Salva come modello…",
