@@ -131,10 +131,17 @@ class LayoutMixin(_MixinBase):
         # Bloc gauche : titre app
         left = ttk.Frame(header)
         left.pack(side="left")
+        # `anchor="s"` sur les deux labels : sans lui, chacun est centré
+        # dans son propre parcel (haut/bas déterminés par sa police), et
+        # le sous-titre (petite police) flotte visuellement plus haut que
+        # la ligne de base du titre (grande police) au lieu de s'aligner
+        # dessus — aligner les deux sur le bas des parcels rapproche les
+        # lignes de base.
         ttk.Label(left, text=_("Pénétromètre"),
-                  style="Title.TLabel").pack(side="left")
+                  style="Title.TLabel").pack(side="left", anchor="s")
         ttk.Label(left, text=_("  Expertise arboricole"),
-                  style="Sub.TLabel").pack(side="left", padx=(8, 0))
+                  style="Sub.TLabel").pack(side="left", anchor="s",
+                                           padx=(8, 0))
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
