@@ -773,24 +773,33 @@ def _pil_draw_titre(d: "ImageDraw.ImageDraw", f: FontFn, arbre: "Arbre",
            font=f(54, "serif_bold"), fill=COLOR_RENDER_ACCENT, anchor="mm")
 
 
-def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
+def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre | Brin",
                                 y_top: float, width: int, height: int,
                                 font_fn: FontFn, *,
                                 show_sondage_item: bool = True,
-                                show_classes: bool = True) -> None:
+                                show_classes: bool = True,
+                                extra_items: "tuple[tuple[str, str], ...]" = (),
+                                ) -> None:
     """Dessine la légende du dessin de section sur UNE LIGNE horizontale,
     centrée, sous la section.
 
     Légende adaptative : on n'affiche que les éléments effectivement
     présents sur le dessin (Bois dégradé seulement s'il y a des
     altérations ou dégradations externes ; Écorce seulement si une
-    épaisseur > 0 a été renseignée ; etc.).
+    épaisseur > 0 a été renseignée ; etc.). `arbre` peut être un `Brin`
+    (mêmes attributs pertinents que sur l'`Arbre`, cf. `Section` dans
+    `diagnostic.py`) — utile pour légender le dessin d'un seul brin.
 
     `show_sondage_item` / `show_classes` permettent à l'appelant de
     réduire la légende : l'export PNG la veut minimaliste (bois sain /
     bois dégradé / écorce), la fiche PDF garde la flèche « Sondage »
     mais retire le bloc « Classe du sondage » (les pastilles colorées
     sont déjà explicitées par le tableau PRBS).
+
+    `extra_items` ajoute des entrées à pastille pleine (label, couleur hex)
+    APRÈS les items standards et AVANT le bloc classes — utilisé par
+    `comparaison_render` pour l'item « Bois perdu » (couronne orange de la
+    section d'évolution), sans dupliquer l'algorithme de centrage/layout.
     """
     ep = max(0.0, arbre.epaisseur_ecorce_cm)
     has_decay = (
@@ -815,6 +824,8 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
         items.append(("bark", "Écorce"))
     if has_sondages and show_sondage_item:
         items.append(("arrow", "Sondage"))
+    for label, hex_col in extra_items:
+        items.append((f"solid:{hex_col}", label))
 
     classes = tuple(
         (label, COULEUR_CLASSE[label])
@@ -867,6 +878,10 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre",
             d.polygon([(ax2 + ah, ay),
                        (ax2 - 1, ay - ah * 0.65),
                        (ax2 - 1, ay + ah * 0.65)], fill=COLOR_SOND)
+        elif kind.startswith("solid:"):
+            d.rectangle([x_cur, sw_top,
+                         x_cur + swatch_w, sw_top + swatch_h],
+                        fill=kind[len("solid:"):])
         d.text((x_cur + swatch_w + 8, sw_top + swatch_h / 2), label,
                font=item_font, fill=COLOR_INK, anchor="lm")
         x_cur += item_widths[i] + gap

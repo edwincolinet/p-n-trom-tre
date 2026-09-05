@@ -481,11 +481,17 @@ class FichierMixin(_MixinBase):
     def _export_comparison(self, fmt: str, builder: Callable[[], Any],
                            parent: "tk.Misc") -> None:
         """Enregistre la comparaison (PNG ou PDF) construite par `builder`
-        (appelé par les boutons d'export de la fenêtre). `builder()` renvoie
-        une **liste de pages** (une par brin pour une cépée). `parent` = la
+        (appelé par les boutons d'export de la fenêtre). `parent` = la
         fenêtre de comparaison : on y ancre le filedialog pour qu'il s'ouvre
-        AU PREMIER PLAN (sinon il passe derrière la fenêtre)."""
-        from comparaison_render import save_comparison_pdf, save_comparison_png
+        AU PREMIER PLAN (sinon il passe derrière la fenêtre).
+
+        `builder()` renvoie une **liste de pages** PDF (une par brin pour
+        une cépée, assemblées en un seul PDF multi-pages) ; pour le PNG,
+        `render_evolution_pngs` renvoie des `(label, image)` et
+        `save_evolution_pngs` écrit **un fichier par brin** — une cépée
+        n'est jamais empilée dans un unique PNG, ce qui la rendrait
+        réinsérable dans un rapport uniquement en la recadrant."""
+        from comparaison_render import save_comparison_pdf, save_evolution_pngs
         ext = ".pdf" if fmt == "pdf" else ".png"
         typ = "PDF" if fmt == "pdf" else "Image PNG"
         p = filedialog.asksaveasfilename(
@@ -497,9 +503,12 @@ class FichierMixin(_MixinBase):
             pages = builder()
             if fmt == "pdf":
                 save_comparison_pdf(pages, p)
+                self.notify_export(p, "Comparaison d'inspections")
             else:
-                save_comparison_png(pages, p)
-            self.notify_export(p, "Comparaison d'inspections")
+                written = save_evolution_pngs(pages, p)
+                label = ("Comparaison d'inspections" if len(written) == 1
+                         else f"Comparaison d'inspections ({len(written)} fichiers)")
+                self.notify_export(written[0], label)
         except Exception as e:
             log.exception("Échec export comparaison")
             messagebox.showerror(_("Erreur"), str(e))

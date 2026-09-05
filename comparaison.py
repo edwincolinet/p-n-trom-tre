@@ -32,8 +32,8 @@ from comparaison_render import (
     PTS_LEGENDE,
     metric_rows,
     render_brin_section,
-    render_comparison_cards,
     render_comparison_pages,
+    render_evolution_pngs,
     render_evolution_section_brin,
 )
 from diagnostic_comparaison import (
@@ -298,20 +298,23 @@ def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
 
 
 def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
-    """Renvoie une closure qui rend **la liste des images** d'export depuis la
-    sélection courante (capturée dans `state`), une par brin pour une cépée.
+    """Renvoie une closure qui rend le contenu d'export depuis la sélection
+    courante (capturée dans `state`), un par brin pour une cépée.
 
     Le format dicte la composition : `pdf` → feuilles A4 livrables (en-tête,
-    3 dessins, tableau chiffré, verdict — `render_comparison_pages`) ; `png` →
-    cartes visuelles resserrées (3 dessins + verdict, sans tableau —
-    `render_comparison_cards`)."""
+    3 dessins, tableau chiffré, verdict — `render_comparison_pages`,
+    assemblées en un seul PDF multi-pages) ; `png` → la section d'évolution
+    seule, au format de l'export PNG classique d'un arbre (titre + dessin +
+    légende — `render_evolution_pngs`, `[(label, image)]`), pensée pour être
+    insérée directement dans un rapport — `save_evolution_pngs` en écrit
+    **un fichier par brin** plutôt qu'une image empilée."""
     def _build() -> Any:
         args = state.get("builder_args")
         if args is None:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
         (nom, ref_arbre, cur, annees, ref_label, cur_label,
          show_sondages) = args
-        render = (render_comparison_cards if fmt == "png"
+        render = (render_evolution_pngs if fmt == "png"
                   else render_comparison_pages)
         return render(
             nom, ref_arbre, cur, annees, ref_label=ref_label,

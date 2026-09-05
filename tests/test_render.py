@@ -217,44 +217,67 @@ class ComparaisonExportPagesTests(unittest.TestCase):
         with Image.open(path) as img:
             self.assertEqual(img.height, 2 * _PAGE_H)
 
-    def test_carte_une_pour_mono_caule(self):
-        from comparaison_render import render_comparison_cards
-        cards = render_comparison_cards(
+    def test_evolution_png_une_pour_mono_caule(self):
+        from comparaison_render import render_evolution_pngs
+        pngs = render_evolution_pngs(
             "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
             ref_label="2024", cur_label="2026")
-        self.assertEqual(len(cards), 1)
+        self.assertEqual(len(pngs), 1)
+        self.assertEqual(pngs[0][0], "")   # pas de suffixe brin
 
-    def test_carte_une_par_brin_pour_cepee(self):
-        from comparaison_render import render_comparison_cards
-        cards = render_comparison_cards(
+    def test_evolution_png_une_par_brin_pour_cepee(self):
+        from comparaison_render import render_evolution_pngs
+        pngs = render_evolution_pngs(
             "M", self._arbre(1, 8.0), self._arbre(3, 5.0), 2.0,
             ref_label="2024", cur_label="2026")
-        self.assertEqual(len(cards), 3)
+        self.assertEqual(len(pngs), 3)
+        self.assertEqual([label for label, _img in pngs], ["a", "b", "c"])
 
-    def test_carte_n_est_pas_une_page_a4(self):
-        # La carte PNG est resserrée (pas de tableau) → largeur dédiée et
-        # hauteur nettement inférieure à la feuille A4 (≠ copie du PDF).
+    def test_evolution_png_meme_format_que_export_classique(self):
+        # Format du PNG « rapport » : un seul dessin carré (titre + section
+        # + légende), pas la feuille A4 ni la carte 3-colonnes.
         from comparaison_render import (
-            _CARD_W,
+            _EVOLUTION_PNG_SIZE,
             _PAGE_H,
-            render_comparison_cards,
+            render_evolution_pngs,
         )
-        card = render_comparison_cards(
+        _label, img = render_evolution_pngs(
             "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
             ref_label="2024", cur_label="2026")[0]
-        self.assertEqual(card.width, _CARD_W)
-        self.assertLess(card.height, _PAGE_H)
+        self.assertEqual(img.size, (_EVOLUTION_PNG_SIZE, _EVOLUTION_PNG_SIZE))
+        self.assertLess(img.height, _PAGE_H * 2)
 
-    def test_carte_show_sondages_false_masque_les_fleches(self):
-        from PIL import ImageChops
+    def test_evolution_png_cepee_ecrit_un_fichier_par_brin(self):
+        # Contrairement au PDF (empilé/multi-pages), une cépée en PNG doit
+        # produire des FICHIERS séparés — directement réinsérables dans un
+        # rapport, sans recadrage d'une image empilée.
+        import glob
+        import os
+        import tempfile
 
-        from comparaison_render import render_comparison_cards
-        ref, cur = self._arbre(1, 8.0), self._arbre(1, 5.0)
-        on = render_comparison_cards("M", ref, cur, 2.0, ref_label="r",
-                                     cur_label="c", show_sondages=True)[0]
-        off = render_comparison_cards("M", ref, cur, 2.0, ref_label="r",
-                                      cur_label="c", show_sondages=False)[0]
-        self.assertIsNotNone(ImageChops.difference(on, off).getbbox())
+        from comparaison_render import render_evolution_pngs, save_evolution_pngs
+        pngs = render_evolution_pngs(
+            "M", self._arbre(1, 8.0), self._arbre(3, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        path = os.path.join(tempfile.mkdtemp(), "comparaison.png")
+        written = save_evolution_pngs(pngs, path)
+        self.assertEqual(len(written), 3)
+        self.assertEqual(sorted(written), sorted(glob.glob(
+            os.path.join(os.path.dirname(path), "comparaison_brin_*.png"))))
+        for p in written:
+            self.assertTrue(os.path.isfile(p))
+
+    def test_evolution_png_mono_caule_ecrit_le_chemin_choisi(self):
+        import os
+        import tempfile
+
+        from comparaison_render import render_evolution_pngs, save_evolution_pngs
+        pngs = render_evolution_pngs(
+            "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
+            ref_label="2024", cur_label="2026")
+        path = os.path.join(tempfile.mkdtemp(), "comparaison.png")
+        written = save_evolution_pngs(pngs, path)
+        self.assertEqual(written, [path])
 
 
 def _regenerate_fixtures() -> None:
