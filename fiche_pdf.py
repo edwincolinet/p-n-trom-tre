@@ -742,7 +742,8 @@ def render_fiche_arbre(pdf: FPDF,
     photos_valides = [r for p in (arbre.photos or [])
                       if (r := resolve_photo(p, mission_dir).path) is not None]
     if photos_valides:
-        _render_photos_page(pdf, photos_valides, arbre, chantier, margin)
+        _render_photos_page(pdf, photos_valides, arbre, chantier, margin,
+                           cabinet_name)
 
 
 def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
@@ -839,23 +840,11 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
                 y += 46
             else:
                 y += 8
-            chunks = []
-            for cls in ("Vert", "Orange", "Rouge"):
-                r = snap.par_classe(cls)
-                if r.n > 0:
-                    col = COULEUR_CLASSE[cls]
-                    chunks.append((f"{cls} {r.n}/16 ({r.grades} gr)", col))
-            if chunks:
-                sep = "   •   "
-                sep_w = pg.sw(sep, 17, "sans")
-                x_chunk: float = x_left
-                for i, (txt, col) in enumerate(chunks):
-                    if i > 0:
-                        pg.text(x_chunk, y, sep, 17, "sans", COLOR_MUTED)
-                        x_chunk += sep_w
-                    pg.text(x_chunk, y, txt, 17, "sans", col)
-                    x_chunk += pg.sw(txt, 17, "sans")
-                y += 28
+            # La répartition par classe (Vert/Orange/Rouge) est déjà lue sur
+            # la barre ci-dessus (pourcentages + étiquettes) — la ligne
+            # "Vert N/16 (X gr) • ..." qui vivait ici doublait la même
+            # information sous une seconde forme (fractions au lieu de %),
+            # jugé redondant à la lecture (cf. capture Communication/1.png).
             y += 10
             _tR_tmp, classe_g = diag
             col_g = COULEUR_CLASSE[classe_g]
@@ -923,12 +912,19 @@ def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
 
 
 def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
-                        chantier: "Chantier", margin: int) -> None:
+                        chantier: "Chantier", margin: int,
+                        cabinet_name: str = "") -> None:
     """Ajoute une page de grille de photos (jusqu'à 6 photos en 2 × 3).
 
-    En-tête vert « Photos — Arbre N°X », grille 2 colonnes avec légende (nom
-    de fichier), pied de page identique à la fiche principale. Les photos
-    sont des images collées ; l'en-tête et les légendes sont vectoriels.
+    En-tête vert « Photos — Arbre N°X », grille 2 colonnes avec légende
+    (« Photo 1 », « Photo 2 »… — PAS le nom de fichier : `Arbre.photos`
+    n'est qu'une liste de chemins libres, cf. `photo_paths` — un fichier
+    récupéré sur le web ou mal nommé se retrouverait imprimé tel quel dans
+    un document remis au client), pied de page **identique** à la fiche
+    principale (`_draw_footer` — barème appliqué + cabinet, avant cette
+    correction le pied de page ici était ré-écrit à la main et omettait
+    le cabinet). Les photos sont des images collées ; l'en-tête et les
+    légendes sont vectoriels.
     """
     from PIL import Image
 
@@ -985,12 +981,8 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
             pg.text(x0 + col_w // 2, y0 + photo_h // 2, "⚠ Photo illisible",
                     16, "sans", COLOR_MUTED, anchor="mm")
 
-        caption = _fit_text(pg, photo_path.name, 15, "sans", col_w)
+        caption = _("Photo {n}").format(n=idx + 1)
         pg.text(x0 + col_w // 2, y0 + photo_h + 6, caption,
                 15, "sans", COLOR_MUTED, anchor="mt")
 
-    pg.line(margin, H - 46, W - margin, H - 46, COLOR_MUTED, width=1)
-    pg.text(W / 2, H - 24,
-            "Pénétromètre   •   " + _("Édité le")
-            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
-            14, "sans", COLOR_MUTED, anchor="mm")
+    _draw_footer(pg, chantier, cabinet_name, margin)

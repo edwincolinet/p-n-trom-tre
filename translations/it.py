@@ -655,6 +655,7 @@ TRANSLATIONS = {
     "Incomplets":                         "Incompleti",
 
     "Photos":                             "Foto",
+    "Photo {n}":                          "Foto {n}",
     "＋ Photo":                           "＋ Foto",
     "Aucune photo":                       "Nessuna foto",
     "Ajouter des photos":                 "Aggiungi foto",

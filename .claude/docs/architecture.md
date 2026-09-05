@@ -346,6 +346,15 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 - Assemble : en-tête + logo, identité arbre, dessin section (collé, via
   `pil_render`), légende (bande PIL collée), tableau PRBS, diagnostic
   (t/R moyen+min, barre répartition, classe), préconisation/suivi, pied.
+  **Barre répartition = UNE lecture (2026-09-05)** : `_draw_mono_diagnostic`
+  n'affiche plus, sous la barre colorée, la ligne fractionnaire « Vert N/16
+  (X gr) • … » — même information que les pourcentages déjà sur la barre,
+  jugée redondante.
+- **Page photos** (`_render_photos_page`) : pied de page = `_draw_footer`
+  comme la page principale (barème + **cabinet**, était ré-écrit à la main
+  sans le cabinet) ; légende sous chaque photo = « Photo N » — **jamais**
+  le nom de fichier (chemin libre non maîtrisé, cf. « Photos = entrée
+  semi-fiable » de `CLAUDE.md`).
 - **Pas de golden pixel** (les goldens `test_render` visent `comparaison_render`,
   resté raster) : couverts par `FichePdfSmokeTests` (`%PDF` + nb pages) ; les 2
   tests de dessin (`FichePdfSondagesTests`, `FichePdfCepeeLayoutTests`) sont

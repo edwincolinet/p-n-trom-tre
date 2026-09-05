@@ -364,7 +364,11 @@ penetrometre.py  (Tk + main) ← undo.py
   le fichier est **réellement décodable comme image** avant de le passer à
   la visionneuse système — sans quoi un `.desktop` renommé `.png` serait
   exécuté par `xdg-open`. Le motif de refus est affiché sur la vignette
-  (un garde-fou silencieux passerait pour un bug).
+  (un garde-fou silencieux passerait pour un bug). **Dans la fiche PDF**
+  (`fiche_pdf._render_photos_page`), la légende sous chaque photo est
+  « Photo 1 », « Photo 2 »… — **jamais** le nom de fichier : celui-ci est
+  un chemin libre non maîtrisé (récupéré ailleurs, mal nommé) qui se
+  retrouverait sinon imprimé tel quel dans un document remis au client.
 - **Threads et Tk : ne pas mélanger.** Les tâches longues (export PDF de
   mission) se découpent en tranches sur la boucle Tk — jamais dans un
   thread worker. Deux raisons vérifiées en test : `after()` appelé depuis
@@ -460,6 +464,16 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Checkbox « Afficher sondages »** vit **sous le canvas** (`App._build_right`), pas dans l'onglet Diagnostic — elle contrôle un état visuel toujours présent. Variable `App.var_show_sondages`. Elle gouverne aussi le **dessin des exports PDF** (`action_export_pdf_arbre`/`_mission` → `render_fiche_arbre(pdf, …, show_sondages=…)`) : pastilles masquées sur le dessin si décochée, **mais le tableau PRBS reste** (c'est la donnée). L'export PNG (`action_export_png`) la respectait déjà.
 - **Titre du canvas** : `SectionCanvas._draw_titre` ne dessine que `display_name` (pas de sous-titre rayon/Ø/H/mèche — redondant avec l'onglet Identification). Aligné sur `pil_render._pil_draw_titre` (titre seul). Appelé en mono-brin ET en cépée (`_draw_cepee`).
 - **Fiche d'expertise PDF = VECTORIELLE (fpdf2)** : `fiche_pdf.py` produit un PDF **natif** (texte sélectionnable/cherchable, net au zoom, ~3-4× plus léger). Approche **hybride** : le texte, le tableau PRBS, le diagnostic et la préconisation sont vectoriels ; le **dessin de section** (rose des vents) **reste rendu par Pillow** (`pil_render.render_arbre_to_pil_image`) et **collé comme image** (`pdf.image`) — le réécrire en vectoriel serait énorme et sans gain ; la **légende horizontale** est aussi rendue sur une petite image PIL et collée (fidélité). **API** : `pdf = _new_pdf()` puis `render_fiche_arbre(pdf, arbre, chantier, …)` **ajoute** la/les page(s) (une fiche + une page photos si `arbre.photos`), enfin `pdf.output(chemin)` — la **mission** réutilise **un seul** `pdf` en bouclant (concaténation native ; plus d'`append_images` Pillow). **Tableau PRBS paginé (2026-08-20)** : une cépée à beaucoup de sondages (plusieurs brins × 16 directions) peut dépasser la hauteur d'une page A4 — le tableau se poursuit alors sur une page « (suite) » (`table_y_limit`, pied de page factorisé dans `_draw_footer` et rejoué identique sur chaque page) plutôt que de chevaucher le pied de page ; la section Diagnostic/Préconisation qui suit bascule elle aussi en haut d'une page neuve si la place restante est insuffisante. Cas mono-brin inchangé (toujours 1 page). Le document travaille en **unité = 1 px @150 DPI** (`FPDF(unit=72/150, format=(1240,1754))` ⟹ A4 exact) → **coordonnées historiques conservées verbatim** ; seule la taille de police est convertie en points à la frontière (`_Page`, wrapper qui émule les ancres PIL `la`/`lm`/`rm`/`mm`/`mt`). **Polices** : DejaVu embarquées (`assets/fonts/`) enregistrées via `add_font` — l'Helvetica de base de fpdf2 est latin-1 (casserait accents + ✓/✗) ; symboles compartimentation source-unique `dialogs_shared`. **Pas de golden pixel** sur la fiche (les goldens `test_render` visent `comparaison_render`, resté raster) → smoke tests `FichePdfSmokeTests` (%PDF + nb pages) + les 2 tests de dessin redirigés sur `render_arbre_to_pil_image`. `comparaison_render.py` **reste raster** (hors périmètre).
+  **Répartition par classe = UNE seule lecture (2026-09-05)** : le bloc
+  Diagnostic du mono-caule (`_draw_mono_diagnostic`) n'affiche plus, sous
+  la barre colorée Vert/Orange/Rouge (déjà porteuse des pourcentages), la
+  ligne texte redondante « Vert N/16 (X gr) • … » (mêmes proportions,
+  exprimées en fractions) — un doublon d'information repéré à l'usage.
+  **Page photos** (`_render_photos_page`) : le pied de page appelle
+  désormais `_draw_footer` comme la page principale (barème + **nom du
+  cabinet**) au lieu d'un pied de page ré-écrit à la main qui omettait le
+  cabinet ; la légende sous chaque photo est « Photo N » (jamais le nom de
+  fichier, cf. « Photos = entrée semi-fiable » plus haut).
 - **Exports tableau XLSX ↔ HTML** : mise en page **propre à Pénétromètre** (plus de gabarit externe). Garder les deux **alignés** (même contenu : titre mission + identité arbre en toutes lettres ; 9 colonnes N° · Direction · Grade · Rayon · PRBS bois sain · Bois altéré · t/R coloré · Classe · Compart. ; ligne **Diagnostic** = t/R moyen + classe globale, masquée si < 3 sondées via `DiagnosticSnapshot.diagnostic_global` ; légende compartimentation ✓/✗/– ; légende des classes colorée). La colonne **PRBS = mesure brute**, le **t/R = ajusté** de la dégradation externe (comportement historique). Une modif du XLSX doit être reportée au HTML (et inversement) — cf. `tests/test_export.py::HtmlExportAlignementTests` (parité) et `::test_diagnostic_et_legendes_du_tableau` (mise en page XLSX).
 
 ## Commandes utiles
