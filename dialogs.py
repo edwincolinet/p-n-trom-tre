@@ -210,7 +210,10 @@ _MOIS_FR = ("janvier", "février", "mars", "avril", "mai", "juin",
 _JOURS_FR = ("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim")
 
 
-def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
+def ask_date(parent: tk.Misc, initial: str = "", *,
+             title: str = "Choisir une date",
+             prompt: Optional[str] = None,
+             info: Optional[str] = None) -> Optional[str]:
     """Sélecteur de date par mini-calendrier, en **Tkinter pur** (pas de
     dépendance type `tkcalendar`/`babel` — cf. règle « pas de dépendance
     sans bonne raison »). Complément clavier : la saisie libre du champ
@@ -219,6 +222,14 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
     Renvoie « JJ/MM/AAAA » si une date est choisie, `""` si l'utilisateur
     efface la date, `None` s'il annule / ferme. `initial` est accepté
     librement (normalisé pour la position de départ).
+
+    `title` : titre de la fenêtre (barre de titre système — peu visible,
+    insuffisant seul pour expliquer un choix ambigu). `prompt` : en-tête
+    affiché EN CLAIR dans le dialogue (ce qu'on demande précisément — ex.
+    « Choisissez la date du diagnostic actuel »), `None` par défaut pour
+    ne rien changer aux appels existants qui n'en ont pas besoin. `info` :
+    note grise optionnelle sous le titre (ex. rappel de la date d'une
+    mission de référence), même convention que `ask_string`.
     """
     today = date.today()
     norm = normaliser_date(initial)
@@ -232,17 +243,31 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
     result: dict[str, Optional[str]] = {"val": None}
 
     dlg = tk.Toplevel(parent)
-    dlg.title("Choisir une date")
+    dlg.title(title)
     dlg.configure(bg=COLOR_PANEL)
     dlg.resizable(False, False)
 
+    row = 0
+    if prompt:
+        ttk.Label(dlg, text=prompt, background=COLOR_PANEL,
+                  font=font_subheading(), justify="left",
+                  wraplength=320).grid(row=row, column=0, sticky="w",
+                                       padx=10, pady=(10, 0))
+        row += 1
+    if info:
+        ttk.Label(dlg, text=info, background=COLOR_PANEL,
+                  foreground=COLOR_MUTED, font=font_small_italic(),
+                  wraplength=320, justify="left"
+                  ).grid(row=row, column=0, sticky="w", padx=10, pady=(4, 0))
+        row += 1
+
     header = ttk.Frame(dlg, style="Panel.TFrame")
-    header.grid(row=0, column=0, padx=10, pady=(10, 2), sticky="we")
-    lbl_title = ttk.Label(header, style="Panel.TLabel", anchor="center",
+    header.grid(row=row, column=0, padx=10, pady=(10, 2), sticky="we")
+    lbl_month = ttk.Label(header, style="Panel.TLabel", anchor="center",
                           font=font_subheading())
 
     grid_frame = ttk.Frame(dlg, style="Panel.TFrame")
-    grid_frame.grid(row=1, column=0, padx=10, pady=2)
+    grid_frame.grid(row=row + 1, column=0, padx=10, pady=2)
 
     def choose(d: date) -> None:
         result["val"] = f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
@@ -253,7 +278,7 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
         dlg.destroy()
 
     def render() -> None:
-        lbl_title.configure(
+        lbl_month.configure(
             text=f"{_MOIS_FR[state['month'] - 1]} {state['year']}")
         for w in grid_frame.winfo_children():
             w.destroy()
@@ -291,7 +316,7 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
                command=lambda: shift(-12)).grid(row=0, column=0)
     ttk.Button(header, text="◀", width=3, style="Ghost.TButton",
                command=lambda: shift(-1)).grid(row=0, column=1)
-    lbl_title.grid(row=0, column=2, sticky="we")
+    lbl_month.grid(row=0, column=2, sticky="we")
     ttk.Button(header, text="▶", width=3, style="Ghost.TButton",
                command=lambda: shift(1)).grid(row=0, column=3)
     ttk.Button(header, text="»", width=3, style="Ghost.TButton",
@@ -299,7 +324,7 @@ def ask_date(parent: tk.Misc, initial: str = "") -> Optional[str]:
     header.columnconfigure(2, weight=1)
 
     footer = ttk.Frame(dlg, style="Panel.TFrame")
-    footer.grid(row=2, column=0, padx=10, pady=(4, 10), sticky="we")
+    footer.grid(row=row + 2, column=0, padx=10, pady=(4, 10), sticky="we")
     ttk.Button(footer, text=_("Aujourd'hui"), style="Ghost.TButton",
                command=lambda: choose(today)).pack(side="left")
     ttk.Button(footer, text=_("Effacer"), style="Ghost.TButton",

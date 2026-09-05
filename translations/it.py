@@ -23,6 +23,13 @@ TRANSLATIONS = {
     "Faire une comparaison (ré-inspection)…":
                                            "Avvia confronto (re-ispezione)…",
     "Diagnostic de la comparaison…":       "Diagnosi del confronto…",
+    "Date du diagnostic actuel":           "Data della diagnosi attuale",
+    "Choisissez la date du présent diagnostic":
+                                           "Scegliere la data della diagnosi attuale",
+    "Mission de référence « {nom} » : relevée le {date}. La date choisie "
+    "ici sera comparée à celle-ci.":
+        "Progetto di riferimento « {nom} »: rilevato il {date}. La data "
+        "scelta qui sarà confrontata con questa.",
 
     # ── Menu Alberi ───────────────────────────────────────────────────
     "Arbres":                              "Alberi",

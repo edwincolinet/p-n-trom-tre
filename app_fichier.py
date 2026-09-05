@@ -434,9 +434,21 @@ class FichierMixin(_MixinBase):
             return
         # Nouvelle date de relevé (aujourd'hui par défaut). Annulé → on
         # abandonne ; effacé → on retombe sur aujourd'hui (une date est
-        # indispensable au calcul du taux d'évolution).
+        # indispensable au calcul du taux d'évolution). Calculée AVANT
+        # l'appel à `ask_date` pour être affichée dans son `info` — sans
+        # ça, rien n'indiquait à l'utilisateur QUELLE date on lui demande
+        # (celle du diagnostic présent, pas celle de la référence) ni la
+        # date de référence à laquelle elle sera comparée (repéré à
+        # l'usage : la fenêtre de calendrier, générique, ne le disait pas).
         today = datetime.now().strftime("%d/%m/%Y")
-        new_date = ask_date(self, today)
+        ref_date = loaded.date_releve or _("non renseignée")
+        new_date = ask_date(
+            self, today,
+            title=_("Date du diagnostic actuel"),
+            prompt=_("Choisissez la date du présent diagnostic"),
+            info=_("Mission de référence « {nom} » : relevée le "
+                    "{date}. La date choisie ici sera comparée à "
+                    "celle-ci.").format(nom=loaded.nom, date=ref_date))
         if new_date is None:
             return
         if not new_date:
@@ -445,7 +457,6 @@ class FichierMixin(_MixinBase):
         # Référence = instantané figé AVANT toute édition (garde l'ancienne
         # date, donc l'intervalle « annees » est correct).
         self._reference_chantier = copy.deepcopy(loaded)
-        ref_date = self._reference_chantier.date_releve or "?"
 
         self._undo_stack.clear()
         clear_recovery(_RECOVERY_PATH)
