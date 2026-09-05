@@ -30,7 +30,6 @@ TRANSLATIONS = {
     "Navigation":                          "Navigazione",
     "Modifier":                            "Modifica",
     "Ajouter un arbre":                    "Aggiungi albero",
-    "Ajouter (hériter du précédent)":      "Aggiungi (eredita dal precedente)",
     "Dupliquer l'arbre courant":           "Duplica albero corrente",
     "Renommer l'arbre courant…":           "Rinomina albero corrente…",
     "Supprimer l'arbre courant…":          "Elimina albero corrente…",
@@ -76,17 +75,9 @@ TRANSLATIONS = {
     "Tous":                                "Tutti",
     "Non fiable":                          "Non affidabile",
     "＋ Ajouter":                          "＋ Aggiungi",
-    "Arbre vierge":                        "Albero vuoto",
-    "Hériter du précédent (essence, port, mèche…)":
-                                           "Eredita dal precedente (specie, portamento, sonda…)",
     "Dupliquer":                           "Duplica",
     "Supprimer":                           "Elimina",
     "⏭ Prochain arbre à finir":           "⏭ Prossimo albero da completare",
-    "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
-    "« Hériter du précédent » pour reprendre essence, "
-    "port et mèche d'un alignement.":
-        "Aggiungi albero. « Albero vuoto » (Ctrl+T) o "
-        "« Eredita dal precedente » per riprendere specie, portamento e sonda da un filare.",
 
     # ── Schede principali ─────────────────────────────────────────────
     "Identification":                      "Identificazione",
@@ -621,11 +612,7 @@ TRANSLATIONS = {
     "Contraste élevé activé.":            "Alto contrasto attivato.",
     "Contraste élevé désactivé.":         "Alto contrasto disattivato.",
 
-    "＋ Vierge":                         "＋ Vuoto",
-    "＋ Hériter":                         "＋ Eredita",
     "Ajouter un arbre vierge":            "Aggiungi albero vuoto",
-    "Hériter du précédent":               "Eredita dal precedente",
-    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copia specie, port., Ø, altezze, sonda, cort.",
 
     "Client":                             "Cliente",
     "Nom de la mission — peut aussi porter une "

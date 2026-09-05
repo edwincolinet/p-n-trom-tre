@@ -510,24 +510,6 @@ class TestAppMixins(unittest.TestCase):
         self.assertTrue(
             self.app.nb.tab(self.app.pane_diag, "text").startswith("○"))
 
-    def test_add_arbre_inherit_reprend_identite_pas_geometrie(self) -> None:
-        cur = self.app.chantier.arbres[0]
-        cur.essence = "Platane"
-        cur.port_arbre = "semi-libre"
-        cur.meche_cm = 40.0
-        cur.rayon_tronc_cm = 33.0
-        cur.sondages.append(Sondage(numero=1, grade=0,
-                                    bois_sain_cm=33.0, bois_altere_cm=0.0))
-        self.app.action_add_arbre_inherit()
-        new = self.app.chantier.arbres[-1]
-        # Identité héritée…
-        self.assertEqual(new.essence, "Platane")
-        self.assertEqual(new.port_arbre, "semi-libre")
-        self.assertEqual(new.meche_cm, 40.0)
-        # …mais pas la géométrie mesurée ni les sondages.
-        self.assertNotEqual(new.rayon_tronc_cm, 33.0)
-        self.assertEqual(new.sondages, [])
-
     def test_dup_arbre_prochain_numero(self) -> None:
         # La duplication attribue le prochain numéro libre (max+1),
         # plus les suffixes "bis/ter" abandonnés.

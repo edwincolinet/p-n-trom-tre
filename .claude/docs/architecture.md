@@ -602,8 +602,7 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   cache `_etat_cache` (keyed by `id(arbre)` pour éviter les doublons de
   `genet_diagnostic()`), footer de **triage**
   (`_update_etat_footer` : `N rouge · N orange · N vert · N à finir`),
-  navigation clavier, CRUD (ajouter vierge / hériter, dupliquer, renommer,
-  supprimer).
+  navigation clavier, CRUD (ajouter, dupliquer, renommer, supprimer).
 - **`app_recovery.RecoveryMixin`** — autosave anti-crash (tick 60 s tant
   que `_dirty`) + récupération au démarrage. Fournit `_RECOVERY_PATH`.
 - **`app_export_actions.ExportActionsMixin`** — les `action_export_*`

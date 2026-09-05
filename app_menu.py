@@ -64,7 +64,6 @@ class AppLike(Protocol):
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
-    def action_add_arbre_inherit(self) -> None: ...
     def action_next_arbre(self) -> None: ...
     def action_prev_arbre(self) -> None: ...
     def action_next_a_finir(self) -> None: ...
@@ -187,9 +186,6 @@ def build_menu(app: AppLike) -> None:
     _section(a, _("Ajouter"), first=True)
     a.add_command(label=_("Ajouter un arbre"), accelerator="Ctrl+T",
                   command=app.action_add_arbre)
-    a.add_command(label=_("Ajouter (hériter du précédent)"),
-                  accelerator="Ctrl+Shift+T",
-                  command=app.action_add_arbre_inherit)
     _section(a, _("Navigation"))
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
                   command=app.action_next_arbre)
@@ -305,7 +301,6 @@ def build_menu(app: AppLike) -> None:
     app.bind_all("<Control-o>", lambda e: app.action_open())
     app.bind_all("<Control-s>", lambda e: app.action_save())
     app.bind_all("<Control-t>", lambda e: app.action_add_arbre())
-    app.bind_all("<Control-T>", lambda e: app.action_add_arbre_inherit())
 
 
 def refresh_recent_menu(app: AppLike) -> None:

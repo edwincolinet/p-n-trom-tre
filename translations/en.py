@@ -30,7 +30,6 @@ TRANSLATIONS = {
     "Navigation":                          "Navigation",
     "Modifier":                            "Edit",
     "Ajouter un arbre":                    "Add a tree",
-    "Ajouter (hériter du précédent)":      "Add (inherit from previous)",
     "Dupliquer l'arbre courant":           "Duplicate current tree",
     "Renommer l'arbre courant…":           "Rename current tree…",
     "Supprimer l'arbre courant…":          "Delete current tree…",
@@ -76,17 +75,9 @@ TRANSLATIONS = {
     "Tous":                                "All",
     "Non fiable":                          "Unreliable",
     "＋ Ajouter":                          "＋ Add",
-    "Arbre vierge":                        "Blank tree",
-    "Hériter du précédent (essence, port, mèche…)":
-                                           "Inherit from previous (species, type, probe…)",
     "Dupliquer":                           "Duplicate",
     "Supprimer":                           "Delete",
     "⏭ Prochain arbre à finir":           "⏭ Next unfinished tree",
-    "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
-    "« Hériter du précédent » pour reprendre essence, "
-    "port et mèche d'un alignement.":
-        "Add a tree. « Blank tree » (Ctrl+T) or "
-        "« Inherit from previous » to reuse species, type and probe from an alignment.",
 
     # ── Onglets principaux ────────────────────────────────────────────
     "Identification":                      "Identification",
@@ -651,11 +642,7 @@ TRANSLATIONS = {
     "Contraste élevé activé.":            "High contrast on.",
     "Contraste élevé désactivé.":         "High contrast off.",
 
-    "＋ Vierge":                         "＋ Blank",
-    "＋ Hériter":                         "＋ Inherit",
     "Ajouter un arbre vierge":            "Add blank tree",
-    "Hériter du précédent":               "Inherit from previous",
-    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copies species, habit, Ø, heights, probe, bark.",
 
     "Client":                             "Client",
     "Nom de la mission — peut aussi porter une "

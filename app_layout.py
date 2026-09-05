@@ -102,7 +102,6 @@ class LayoutMixin(_MixinBase):
         def action_dup_arbre(self) -> None: ...
         def action_del_arbre(self) -> None: ...
         def action_add_arbre(self) -> None: ...
-        def action_add_arbre_inherit(self) -> None: ...
         def action_next_a_finir(self) -> None: ...
         def _reset_all_filters(self) -> None: ...
         def _urgence_filter_choices(self) -> "list[str]": ...
@@ -464,21 +463,14 @@ class LayoutMixin(_MixinBase):
         # de l'ordre visuel : le premier packé en bottom est le plus bas.
         btns = ttk.Frame(frame, style="Side.TFrame")
         btns.pack(side="bottom", fill="x", pady=(10, 0))
-        # Rangée 1 : deux boutons d'ajout toujours visibles (1 clic chacun)
+        # Rangée 1 : bouton d'ajout toujours visible (1 clic)
         row_add = ttk.Frame(btns, style="Side.TFrame")
         row_add.pack(fill="x", pady=(0, 4))
-        btn_vierge = ttk.Button(row_add, text=_("＋ Vierge"),
+        btn_vierge = ttk.Button(row_add, text=_("＋ Ajouter"),
                                 style="Accent.TButton",
                                 command=self.action_add_arbre)
         btn_vierge.pack(side="left")
         Tooltip(btn_vierge, _("Ajouter un arbre vierge") + " (Ctrl+T)")
-        btn_inherit = ttk.Button(row_add, text=_("＋ Hériter"),
-                                 style="Accent.TButton",
-                                 command=self.action_add_arbre_inherit)
-        btn_inherit.pack(side="left", padx=(6, 0))
-        Tooltip(btn_inherit,
-                _("Hériter du précédent") + " (Ctrl+Shift+T) — "
-                + _("Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce."))
         # Rangée 2 : actions secondaires
         row_sec = ttk.Frame(btns, style="Side.TFrame")
         row_sec.pack(fill="x")

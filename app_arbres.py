@@ -472,36 +472,6 @@ class ArbreListMixin(_MixinBase):
         if getattr(self, "var_complet_filter", None) is not None:
             self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
 
-    def action_add_arbre_inherit(self) -> None:
-        """Ajoute un arbre héritant des champs d'« identité » de l'arbre
-        courant (essence, port, longueur de mèche, épaisseur d'écorce,
-        hauteur de sondage) mais SANS ses sondages / dégradations /
-        contreforts ni sa géométrie mesurée (rayon, diamètre, hauteur de
-        l'arbre restent à mesurer). Pensé pour les alignements d'arbres
-        identiques (30 platanes de même essence et même port) : on ne
-        re-saisit pas le protocole commun à chaque arbre."""
-        cur = self._current_arbre()
-        if cur is None:
-            return self.action_add_arbre()
-        self.push_undo()
-        new = Arbre(
-            numero_arbre=self._next_arbre_numero(),
-            essence=cur.essence,
-            port_arbre=cur.port_arbre,
-            meche_cm=cur.meche_cm,
-            hauteur_sondage_cm=cur.hauteur_sondage_cm,
-        )
-        # Protocole commun à un alignement : on reprend l'épaisseur
-        # d'écorce. La géométrie mesurée (rayon, diamètre, hauteur de
-        # l'arbre) reste à défaut — à re-mesurer pour chaque individu —,
-        # tout comme les sondages/dégradations/contreforts.
-        new.epaisseur_ecorce_cm = cur.epaisseur_ecorce_cm
-        self.chantier.arbres.append(new)
-        self.current_idx = len(self.chantier.arbres) - 1
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
     def _select_arbre_relative(self, delta: int) -> None:
         """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
         passe à l'arbre suivant/précédent **parmi les arbres visibles**

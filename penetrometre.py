@@ -1136,7 +1136,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             ]),
             ("Arbres", [
                 (["Ctrl", "T"], "Ajouter un arbre vierge"),
-                (["Ctrl", "Maj", "T"], "Hériter du précédent (Ø, essence…)"),
                 (["Ctrl", "Pg.Suiv"], "Arbre suivant"),
                 (["Ctrl", "Pg.Préc"], "Arbre précédent"),
                 (["Échap"], "Vider le filtre de recherche"),
