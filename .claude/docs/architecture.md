@@ -235,22 +235,11 @@ Avant de basculer de brin, `IdentificationPane.flush()` commite un rayon en
 cours d'édition (sinon il s'appliquerait au mauvais brin).
 `DiagnosticPane` est scrollable (Canvas interne) : résumé, tableau PRBS,
 préconisation — **plus d'exports depuis le 2026-09-05** (déplacés vers
-`ExportPane`, cf. ci-dessous). La checkbox « Afficher sondages » a été
-déplacée hors de ce pane et vit désormais sous le canvas
-(`App._build_right`). Pour une **cépée**, le résumé passe par
-`genet_summary_lines` (un bloc par brin + classe globale) et le tableau
-PRBS itère tous les brins (N° préfixé « a1 »).
-
-**`ExportPane` (onglet « Export », dernier onglet, 2026-09-05)** : point
-d'entrée unique des 8 `action_export_*` — avant, dispersées entre le
-menu Fichier (exports mission) et l'onglet Diagnostic (exports arbre).
-Une `ttk.LabelFrame` par **format de fichier** (PDF, PNG, XLSX, CSV,
-HTML), chaque bouton précisant dans son libellé/tooltip s'il porte sur
-l'arbre courant ou sur la mission — rangement par format plutôt que par
-portée, choix produit d'Edwin. Le bouton « Imprimer » (impression
-directe, `app_exports.print_pdf_arbre`) a été supprimé avec ce
-rangement (doublon avec l'export PDF), avec son entrée menu Fichier et
-son raccourci Ctrl+P.
+le menu **Export** de la barre de menu, cf. `app_menu.py` ci-dessous).
+La checkbox « Afficher sondages » a été déplacée hors de ce pane et vit
+désormais sous le canvas (`App._build_right`). Pour une **cépée**, le
+résumé passe par `genet_summary_lines` (un bloc par brin + classe
+globale) et le tableau PRBS itère tous les brins (N° préfixé « a1 »).
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -263,14 +252,25 @@ avec logging. Thin wrappers depuis `App.action_export_*`.
 ## `app_menu.py` — barre de menu Tk
 
 `build_menu(app)` attache la barre de menu et bind les raccourcis
-globaux. Quatre cascades :
+globaux. Six cascades :
 
 - **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
   (sous-menu populé par `refresh_recent_menu(app)` depuis
   `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous ;
   ouvrir le dossier des sauvegardes ; Quitter. **Ne contient plus les
-  exports** (2026-09-05, déplacés vers l'onglet `ExportPane`) ni
-  l'impression (supprimée, doublon de l'export PDF).
+  exports** (2026-09-05, déplacés vers le menu **Export**, ci-dessous)
+  ni l'impression (supprimée, doublon de l'export PDF).
+- **Export** (2026-09-05, entre Affichage et Aide) : point d'entrée
+  unique des 8 `action_export_*` — avant, dispersées entre ce menu
+  (exports mission) et l'onglet Diagnostic (exports arbre). Organisé
+  **par format de fichier** plutôt que par portée : un bloc PDF, un PNG,
+  un XLSX, un CSV, un HTML, séparés par des séparateurs et ouverts par
+  un en-tête désactivé nommant le format ; chaque libellé précise
+  lui-même s'il porte sur l'arbre courant ou sur la mission — choix
+  produit d'Edwin. Le bouton « Imprimer » (impression directe,
+  `app_exports.print_pdf_arbre`) a été supprimé avec ce rangement
+  (doublon avec l'export PDF), avec son ancienne entrée du menu Fichier
+  et son raccourci Ctrl+P.
 - **Arbres** : Ajouter (Ctrl+T), Ajouter en héritant du précédent ;
   Arbre suivant (Ctrl+PgDn) / précédent (Ctrl+PgUp) ; Dupliquer,
   Renommer, Supprimer.

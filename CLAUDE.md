@@ -41,7 +41,6 @@ pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
 pane_diagnostic.py     ← onglet Diagnostic (résumé + tableau PRBS + préconisation)
-pane_export.py         ← onglet Export (tous les exports, groupés par format : PDF/PNG/XLSX/CSV/HTML)
 comparaison.py         ← fenêtre de comparaison inter-missions (ré-inspection)
 comparaison_render.py  ← rendu PIL de la comparaison (section d'évolution + page export PNG/PDF)
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
@@ -84,7 +83,7 @@ callbacks, pour un gain net faible). Découpage :
 - `ArbreListMixin` (panneau gauche) — mute `current_idx`, `chantier.arbres`.
 - `RecoveryMixin` (autosave/récupération) — réassigne l'état de session.
 - `ExportActionsMixin` (les `action_export_*`, appelées par nom depuis
-  `pane_export` → doivent rester des méthodes de `App`) : pur dispatcher
+  `app_menu` → doivent rester des méthodes de `App`) : pur dispatcher
   en lecture seule, le seul mixin réellement découplé.
 - `FichierMixin` (cycle de vie du fichier mission : `action_new`/`_open`/
   `_save`/`_save_as`, `_open_path`, récents, + ré-inspection
@@ -94,7 +93,7 @@ callbacks, pour un gain net faible). Découpage :
 - `LayoutMixin` (fabrique de widgets : `_build_layout`/`_build_left`/
   `_build_center`/`_build_right`/`_build_statusbar` + sash). Quasi-pur
   *builder* : il **crée et assigne** la plupart des attributs UI d'`App`
-  (`tree_arbres`, `nb`, `section`, `var_*`, les 6 panes…) que
+  (`tree_arbres`, `nb`, `section`, `var_*`, les 5 panes…) que
   l'orchestrateur lit/mute ensuite. Les panes/`SectionCanvas` attendent un
   `host` satisfaisant leur Protocol (toute la surface d'`App`) → `host=self`
   passe par un `cast("App", self)` (no-op runtime, l'objet EST l'App).
@@ -446,18 +445,20 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Aide repliable** : `aide_repliable.AideRepliable(parent, *paragraphes, titre="Aide", wraplength=…)` — bloc d'aide derrière un en-tête cliquable « ⓘ Aide ▸/▾ », **replié par défaut** (discret pour l'opérateur expérimenté, dépliable au clic à la 1ʳᵉ utilisation). Remplace les libellés `Muted.TLabel` ⓘ permanents (identification : couplage Ø↔rayon + invariance PRBS ; sondages : sémantique case vide/effacer ; canevas : clic = éditer/ajouter). Fonctionne en `grid` comme en `pack` (gère sa disposition interne ; le parent place le widget). État conservé tant que le widget vit — les panes ne sont construits qu'une fois, pas par arbre. S'appuie sur les styles `Panel.TFrame`/`Muted.TLabel`.
 - **Canevas — ajout par clic** : un clic sur une direction libre du dessin ajoute un sondage à ce grade (`App.open_add_sondage`) ; un clic sur une direction déjà sondée l'édite. `SectionCanvas._on_click_background` convertit le pixel en grade (inverse de `geometry.polar_to_xy`), mémorise la géométrie du dernier rendu dans `self._geom`, et ignore les clics sur un élément interactif (garde par tags).
 - **Raccourci export** : `Ctrl+E` → `App.action_export_pdf_arbre`. Bind dans `App.__init__` (comme Ctrl+Z/Y) via `_on_export_shortcut`, qui **ne déclenche pas** si un `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans les widgets Tk).
-- **Onglet Export = point d'entrée UNIQUE des exports (2026-09-05)** :
+- **Menu Export = point d'entrée UNIQUE des exports (2026-09-05)** :
   avant, les 8 `action_export_*` étaient dispersées entre le menu
   Fichier (synthèse mission, toutes les fiches PDF, sondages CSV) et
   l'onglet Diagnostic (fiche PDF, PNG, tableau PRBS Excel/HTML) — deux
   chemins selon la portée (arbre vs mission), sans logique de rangement
-  commune. `pane_export.py` (`ExportPane`, dernier onglet du panneau
-  central) les regroupe toutes, **organisées par format de fichier**
-  (une `ttk.LabelFrame` PDF / PNG / XLSX / CSV / HTML) plutôt que par
-  portée : chaque bouton précise lui-même s'il porte sur l'arbre courant
-  ou sur la mission. Le menu Fichier ne garde que le cycle de vie du
-  fichier (Nouveau/Ouvrir/Enregistrer/Récents/Sauvegardes/Quitter) ;
-  l'onglet Diagnostic ne garde que le résumé/tableau PRBS/préconisation.
+  commune. `app_menu.py` les regroupe dans un menu **Export** dédié
+  (barre de menu, entre Affichage et Aide), **organisées par format de
+  fichier** (bloc PDF / PNG / XLSX / CSV / HTML séparés par des
+  séparateurs, chaque bloc ouvert par un en-tête désactivé nommant le
+  format) plutôt que par portée : chaque libellé précise lui-même s'il
+  porte sur l'arbre courant ou sur la mission. Le menu Fichier ne garde
+  que le cycle de vie du fichier (Nouveau/Ouvrir/Enregistrer/Récents/
+  Sauvegardes/Quitter) ; l'onglet Diagnostic ne garde que le résumé/
+  tableau PRBS/préconisation (ses boutons d'export en ont été retirés).
   **Impression directe supprimée** avec ce rangement (bouton « Imprimer »
   de l'onglet Diagnostic, entrée menu Fichier, raccourci Ctrl+P,
   `app_exports.print_pdf_arbre`) : elle faisait doublon avec la fiche
@@ -503,7 +504,7 @@ python3 -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
-  pane_contreforts.py pane_diagnostic.py pane_export.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
+  pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
@@ -571,7 +572,7 @@ fichier de clé suivi par git.
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
    - Méthodes `action_export_*` (dispatch pur) → `app_export_actions.py` ;
-     boutons d'export (onglet Export, groupés par format) → `pane_export.py`
+     menu Export (entrées groupées par format) → `app_menu.py`
    - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Construction de l'UI (`_build_*`, barre d'état, sash) → `app_layout.py`
    - Préférences/réglages + mises à jour (langue, barème, taille, contraste, logo) → `app_reglages.py`

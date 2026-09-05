@@ -47,7 +47,6 @@ from palette import (
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
-from pane_export import ExportPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 from section_canvas import SectionCanvas
@@ -648,16 +647,10 @@ class LayoutMixin(_MixinBase):
         # Onglet Diagnostic — extrait dans son propre pane (cf.
         # pane_diagnostic.py). Le pane possède son sous-canvas
         # scrollable, son résumé, la checkbox show_sondages, le tableau
-        # PRBS et la préconisation. Les exports n'y sont plus (→ onglet
-        # Export, ci-dessous).
+        # PRBS et la préconisation. Les exports n'y sont plus (→ menu
+        # Export de la barre de menu, cf. `app_menu.py`).
         self.pane_diag = DiagnosticPane(nb, host=host)
         nb.add(self.pane_diag, text=_("Diagnostic"))
-
-        # Onglet Export — dernier onglet : point d'entrée unique de tous
-        # les exports (cf. pane_export.py), regroupés par format plutôt
-        # qu'éparpillés entre le menu Fichier et l'onglet Diagnostic.
-        self.pane_export = ExportPane(nb, host=host)
-        nb.add(self.pane_export, text=_("Export"))
 
     def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)

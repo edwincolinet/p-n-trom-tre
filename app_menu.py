@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from functools import partial
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Callable, Optional, Protocol, Sequence, Tuple, cast
 
 from i18n import LANGUAGES, _
 
@@ -49,6 +49,18 @@ class AppLike(Protocol):
     def action_load_reference(self) -> bool: ...
     def action_compare_arbre(self) -> None: ...
     def action_reinspection(self) -> None: ...
+
+    # Exports — menu dédié, groupé par format (PDF/PNG/XLSX/CSV/HTML) ;
+    # chaque action précise dans son libellé si elle porte sur l'arbre
+    # courant ou sur la mission (cf. `app_export_actions.ExportActionsMixin`).
+    def action_export_pdf_arbre(self) -> None: ...
+    def action_export_pdf_mission(self) -> None: ...
+    def action_export_png(self) -> None: ...
+    def action_export_prbs_xlsx(self) -> None: ...
+    def action_export_prbs_html(self) -> None: ...
+    def action_export_csv(self) -> None: ...
+    def action_export_synthesis_xlsx(self) -> None: ...
+    def action_export_synthesis_csv(self) -> None: ...
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
@@ -85,6 +97,29 @@ class AppLike(Protocol):
     # Récents — l'App ouvre directement le chemin sans dialogue.
     def action_open_recent(self, path: str) -> None: ...
     def get_recent_files(self) -> list[str]: ...
+
+
+# Une entrée du menu Export = (libellé, commande, accélérateur|None).
+_ExportItem = Tuple[str, Callable[[], None], Optional[str]]
+
+
+def _add_export_section(menu: tk.Menu, titre: str,
+                        items: Sequence[_ExportItem], *,
+                        last: bool = False) -> None:
+    """Ajoute un bloc d'un format (PDF/PNG/XLSX/CSV/HTML) au menu Export :
+    un en-tête désactivé nommant le format, ses entrées, puis un
+    séparateur (omis après le dernier bloc). Factorisé pour que les 5
+    blocs restent visuellement identiques sans dupliquer la plomberie
+    `add_command`/`add_separator`."""
+    menu.add_command(label=f"— {titre} —", state="disabled")
+    for label, command, accelerator in items:
+        if accelerator:
+            menu.add_command(label=label, accelerator=accelerator,
+                             command=command)
+        else:
+            menu.add_command(label=label, command=command)
+    if not last:
+        menu.add_separator()
 
 
 def build_menu(app: AppLike) -> None:
@@ -192,6 +227,39 @@ def build_menu(app: AppLike) -> None:
             command=partial(app.action_set_language, code))
     v.add_cascade(label=_("Langue"), menu=lang_menu)
     m.add_cascade(label=_("Affichage"), menu=v)
+
+    # Export — point d'entrée UNIQUE des exports (2026-09-05) : avant,
+    # dispersés entre ce menu (exports mission) et l'onglet Diagnostic
+    # (exports arbre). Regroupés ici PAR FORMAT (un bloc par
+    # PDF/PNG/XLSX/CSV/HTML, en-tête désactivé) plutôt que par portée —
+    # chaque libellé précise s'il porte sur l'arbre courant ou la mission.
+    x = tk.Menu(m, tearoff=0)
+    _add_export_section(x, "PDF", (
+        (_("Fiche PDF (arbre courant)"), app.action_export_pdf_arbre,
+         "Ctrl+E"),
+        (_("Exporter toutes les fiches (PDF)…"),
+         app.action_export_pdf_mission, None),
+    ))
+    _add_export_section(x, "PNG", (
+        (_("PNG du dessin"), app.action_export_png, None),
+    ))
+    _add_export_section(x, "XLSX", (
+        (_("Tableau PRBS — Excel (XLSX)…"), app.action_export_prbs_xlsx,
+         None),
+        (_("Exporter la synthèse mission (XLSX)…"),
+         app.action_export_synthesis_xlsx, None),
+    ))
+    _add_export_section(x, "CSV", (
+        (_("Exporter sondages mission (CSV)…"), app.action_export_csv,
+         None),
+        (_("Exporter la synthèse mission (CSV)…"),
+         app.action_export_synthesis_csv, None),
+    ))
+    _add_export_section(x, "HTML", (
+        (_("Tableau PRBS — page HTML…"), app.action_export_prbs_html,
+         None),
+    ), last=True)
+    m.add_cascade(label=_("Export"), menu=x)
 
     # Aide
     h = tk.Menu(m, tearoff=0)

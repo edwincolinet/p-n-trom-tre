@@ -284,30 +284,6 @@ TRANSLATIONS = {
     "PNG du dessin":                      "PNG drawing",
     "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
-
-    # Export (onglet)
-    "Exports":                             "Exports",
-    "Chaque bouton précise s'il porte sur l'arbre courant "
-    "ou sur toute la mission.":
-        "Each button states whether it applies to the current tree "
-        "or to the whole project.",
-    "Un seul PDF multi-pages regroupant la fiche de chaque arbre de "
-    "la mission.":
-        "A single multi-page PDF gathering every tree's report in "
-        "the project.",
-    "Tableau des 16 sondages de l'arbre courant, au format Excel.":
-        "Table of the current tree's 16 soundings, as an Excel file.",
-    "Une ligne par arbre de la mission (risque, urgence, échéance…), "
-    "triable et filtrable dans Excel.":
-        "One row per tree in the project (risk, priority, due date…), "
-        "sortable and filterable in Excel.",
-    "Tous les sondages de tous les arbres de la mission, un fichier plat.":
-        "All soundings of every tree in the project, as a flat file.",
-    "Même contenu que la synthèse XLSX, au format CSV.":
-        "Same content as the XLSX summary, as CSV.",
-    "Version imprimable du tableau PRBS de l'arbre courant, sans Excel.":
-        "Printable version of the current tree's PRBS table, no Excel needed.",
-
     "PRBS (cm)":                          "PRBS (cm)",
     "t/R (%)":                            "t/R (%)",
     "Classe":                             "Class",
