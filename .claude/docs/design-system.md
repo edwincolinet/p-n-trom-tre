@@ -101,7 +101,7 @@ perte de lisibilité constatée.
 **Pas de glyphe de repli** reste la règle pour les AUTRES actions sans
 équivalent monochrome fiable (document, imprimante, image, tableau,
 loupe) : ces boutons sont **texte seul** (« Fiche PDF (arbre courant) »,
-« Imprimer », « PNG du dessin », « Exporter le tableau »…). Choix
+« PNG du dessin », « Tableau PRBS — Excel (XLSX)… »…). Choix
 délibéré, pas un renoncement : chercher un dingbat Unicode obscur pour
 ces actions échangerait un risque de rendu (emoji couleur) contre un
 autre (glyphe absent de la police système/plateforme, notamment Segoe UI

@@ -9,7 +9,6 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Progetti recenti",
     "Enregistrer":                         "Salva",
     "Enregistrer sous…":                   "Salva come…",
-    "Imprimer la fiche (arbre courant)":   "Stampa scheda (albero corrente)",
     "Exporter la synthèse mission (XLSX)…":"Esporta sintesi missione (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Esporta sintesi missione (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Esporta tutte le schede (PDF)…",
@@ -98,6 +97,7 @@ TRANSLATIONS = {
     "Dégradations externes":               "Degradi esterni",
     "Contreforts":                         "Contrafforti",
     "Diagnostic":                          "Diagnosi",
+    "Export":                              "Esporta",
 
     # ── Scheda Identificazione ────────────────────────────────────────
     "N° d'inventaire":                     "N° inventario",
@@ -274,12 +274,34 @@ TRANSLATIONS = {
                                            "Parete Residua di Legno Sano per sondaggio",
     "(suite)":                            "(continua)",
     "Fiche PDF (arbre courant)":          "Scheda PDF (albero corrente)",
-    "Imprimer":                           "Stampa",
     "PNG du dessin":                      "PNG del disegno",
-    "Exporter le tableau":                "Esporta tabella",
     "Tableau PRBS — Excel (XLSX)…":      "Tabella PRBS — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "Tabella PRBS — pagina HTML…",
-    "Sondages de la mission (CSV)…":     "Sondaggi del progetto (CSV)…",
+
+    # Export (scheda)
+    "Exports":                             "Esportazioni",
+    "Chaque bouton précise s'il porte sur l'arbre courant "
+    "ou sur toute la mission.":
+        "Ogni pulsante indica se riguarda l'albero corrente "
+        "o l'intero progetto.",
+    "Un seul PDF multi-pages regroupant la fiche de chaque arbre de "
+    "la mission.":
+        "Un unico PDF multipagina con la scheda di ogni albero "
+        "del progetto.",
+    "Tableau des 16 sondages de l'arbre courant, au format Excel.":
+        "Tabella dei 16 sondaggi dell'albero corrente, in formato Excel.",
+    "Une ligne par arbre de la mission (risque, urgence, échéance…), "
+    "triable et filtrable dans Excel.":
+        "Una riga per albero del progetto (rischio, urgenza, scadenza…), "
+        "ordinabile e filtrabile in Excel.",
+    "Tous les sondages de tous les arbres de la mission, un fichier plat.":
+        "Tutti i sondaggi di tutti gli alberi del progetto, in un unico file.",
+    "Même contenu que la synthèse XLSX, au format CSV.":
+        "Stesso contenuto della sintesi XLSX, in formato CSV.",
+    "Version imprimable du tableau PRBS de l'arbre courant, sans Excel.":
+        "Versione stampabile della tabella PRBS dell'albero corrente, "
+        "senza Excel.",
+
     "PRBS (cm)":                          "PRBS (cm)",
     "t/R (%)":                            "t/R (%)",
     "Classe":                             "Classe",
@@ -563,7 +585,6 @@ TRANSLATIONS = {
         "Eliminare definitivamente « {n} »?",
     "Exporté":                             "Esportato",
     "Rien à exporter":                     "Nulla da esportare",
-    "Impression envoyée — arbre n°{num}":  "Stampa inviata — albero n°{num}",
     "✓ Enregistré — {nom}":               "✓ Salvato — {nom}",
     "Arbre précédent":                     "Albero precedente",
     "Dégradation externe n° {n}":         "Degrado esterno n° {n}",
@@ -780,18 +801,10 @@ TRANSLATIONS = {
         "(disegno + tabella + diagnosi) — Ctrl+E",
     "Exporter le dessin de la section en image PNG":
         "Esporta il disegno della sezione come immagine PNG",
-    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-    "tous les sondages de la mission (CSV)":
-        "Esporta la tabella PRBS dell'albero (Excel / HTML) o "
-        "tutti i sondaggi del progetto (CSV)",
     "Gérer les durées de suivi personnalisées":
         "Gestisci le durate di monitoraggio personalizzate",
     "Gérer les niveaux d'urgence personnalisés":
         "Gestisci i livelli di urgenza personalizzati",
-    "Imprimer la fiche PDF directement "
-    "(sans dialogue de sauvegarde) — Ctrl+P":
-        "Stampa la scheda PDF direttamente "
-        "(senza finestra di salvataggio) — Ctrl+P",
     "Longueur (cm)":                        "Lunghezza (cm)",
     "Ouvrir la fenêtre de comparaison de l'arbre "
     "courant avec la mission de référence.":

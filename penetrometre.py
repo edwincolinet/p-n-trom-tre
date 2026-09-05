@@ -235,7 +235,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
         self.bind_all("<Control-e>", self._on_export_shortcut)
-        self.bind_all("<Control-p>", self._on_print_shortcut)
         # Navigation clavier entre arbres (Ctrl+PageDown/PageUp). Libre de
         # conflit : ttk.Notebook ne lie que Ctrl+Tab.
         self.bind_all("<Control-Next>", lambda e: self.action_next_arbre())
@@ -290,14 +289,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
             return
         self.action_export_pdf_arbre()
-
-    def _on_print_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
-        """Ctrl+P → impression directe de la fiche PDF de l'arbre courant.
-        Neutralisé dans les champs texte (Ctrl+P = début de ligne)."""
-        w = self.focus_get()
-        if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
-            return
-        self.action_print_arbre()
 
     def set_status(self, text: str) -> None:
         """Met à jour le message de la barre d'état (no-op si la barre
@@ -1142,7 +1133,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                 (["Ctrl", "O"], "Ouvrir une mission"),
                 (["Ctrl", "S"], "Enregistrer"),
                 (["Ctrl", "E"], "Exporter la fiche PDF (arbre courant)"),
-                (["Ctrl", "P"], "Imprimer la fiche PDF (arbre courant)"),
             ]),
             ("Arbres", [
                 (["Ctrl", "T"], "Ajouter un arbre vierge"),

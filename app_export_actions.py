@@ -2,11 +2,12 @@
 Actions d'export câblées sur l'App (mixin de `App`).
 
 Fine couche de raccordement : chaque méthode `action_export_*` est une
-commande utilisateur (bouton/menu) qui résout l'arbre courant + le
-chantier, puis délègue à la fonction adaptatrice de `app_exports`
-(laquelle gère filedialog, vérif Pillow/openpyxl, try/except + log et le
-feedback de succès). Ces noms sont appelés par `app_menu.py` et
-`pane_diagnostic.py` : ils doivent rester des méthodes de `App`.
+commande utilisateur (bouton) qui résout l'arbre courant + le chantier,
+puis délègue à la fonction adaptatrice de `app_exports` (laquelle gère
+filedialog, vérif Pillow/openpyxl, try/except + log et le feedback de
+succès). Ces noms sont appelés par `pane_export.py` (onglet « Export »,
+seul point d'entrée UI des exports depuis le 2026-09-05) : ils doivent
+rester des méthodes de `App`.
 
 Mixin de `App` : s'appuie sur les attributs/méthodes déclarés en
 `TYPE_CHECKING`, fournis par l'hôte.
@@ -48,12 +49,6 @@ class ExportActionsMixin(_MixinBase):
                                      self.chantier,
                                      self.var_show_sondages.get(),
                                      mission_file=self.current_file)
-
-    def action_print_arbre(self) -> None:
-        app_exports.print_pdf_arbre(self, self._current_arbre(),
-                                    self.chantier,
-                                    self.var_show_sondages.get(),
-                                    mission_file=self.current_file)
 
     def action_export_pdf_mission(self) -> None:
         app_exports.export_pdf_mission(self, self.chantier,

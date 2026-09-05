@@ -233,13 +233,24 @@ au-dessus des onglets (`App._refresh_brin_selector` / `set_current_brin`,
 masquée en mono-caule) ; il est remis à 0 à chaque changement d'arbre.
 Avant de basculer de brin, `IdentificationPane.flush()` commite un rayon en
 cours d'édition (sinon il s'appliquerait au mauvais brin).
-`DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
-individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
-pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
-mission, CSV mission). La checkbox « Afficher sondages » a été déplacée
-hors de ce pane et vit désormais sous le canvas (`App._build_right`). Pour
-une **cépée**, le résumé passe par `genet_summary_lines` (un bloc par brin +
-classe globale) et le tableau PRBS itère tous les brins (N° préfixé « a1 »).
+`DiagnosticPane` est scrollable (Canvas interne) : résumé, tableau PRBS,
+préconisation — **plus d'exports depuis le 2026-09-05** (déplacés vers
+`ExportPane`, cf. ci-dessous). La checkbox « Afficher sondages » a été
+déplacée hors de ce pane et vit désormais sous le canvas
+(`App._build_right`). Pour une **cépée**, le résumé passe par
+`genet_summary_lines` (un bloc par brin + classe globale) et le tableau
+PRBS itère tous les brins (N° préfixé « a1 »).
+
+**`ExportPane` (onglet « Export », dernier onglet, 2026-09-05)** : point
+d'entrée unique des 8 `action_export_*` — avant, dispersées entre le
+menu Fichier (exports mission) et l'onglet Diagnostic (exports arbre).
+Une `ttk.LabelFrame` par **format de fichier** (PDF, PNG, XLSX, CSV,
+HTML), chaque bouton précisant dans son libellé/tooltip s'il porte sur
+l'arbre courant ou sur la mission — rangement par format plutôt que par
+portée, choix produit d'Edwin. Le bouton « Imprimer » (impression
+directe, `app_exports.print_pdf_arbre`) a été supprimé avec ce
+rangement (doublon avec l'export PDF), avec son entrée menu Fichier et
+son raccourci Ctrl+P.
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -257,10 +268,9 @@ globaux. Quatre cascades :
 - **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
   (sous-menu populé par `refresh_recent_menu(app)` depuis
   `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous ;
-  **exports mission** (synthèse XLSX, synthèse CSV, toutes les fiches PDF,
-  sondages CSV) ; **ré-inspection** (comparer l'arbre courant à une
-  mission, choisir la mission de référence) ; ouvrir le dossier des
-  sauvegardes ; Quitter.
+  ouvrir le dossier des sauvegardes ; Quitter. **Ne contient plus les
+  exports** (2026-09-05, déplacés vers l'onglet `ExportPane`) ni
+  l'impression (supprimée, doublon de l'export PDF).
 - **Arbres** : Ajouter (Ctrl+T), Ajouter en héritant du précédent ;
   Arbre suivant (Ctrl+PgDn) / précédent (Ctrl+PgUp) ; Dupliquer,
   Renommer, Supprimer.

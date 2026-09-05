@@ -40,7 +40,8 @@ pane_identification.py ← onglet Identification
 pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
-pane_diagnostic.py     ← onglet Diagnostic (exports + résumé + préconisation)
+pane_diagnostic.py     ← onglet Diagnostic (résumé + tableau PRBS + préconisation)
+pane_export.py         ← onglet Export (tous les exports, groupés par format : PDF/PNG/XLSX/CSV/HTML)
 comparaison.py         ← fenêtre de comparaison inter-missions (ré-inspection)
 comparaison_render.py  ← rendu PIL de la comparaison (section d'évolution + page export PNG/PDF)
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
@@ -83,8 +84,8 @@ callbacks, pour un gain net faible). Découpage :
 - `ArbreListMixin` (panneau gauche) — mute `current_idx`, `chantier.arbres`.
 - `RecoveryMixin` (autosave/récupération) — réassigne l'état de session.
 - `ExportActionsMixin` (les `action_export_*`, appelées par nom depuis
-  `app_menu`/`pane_diagnostic` → doivent rester des méthodes de `App`) :
-  pur dispatcher en lecture seule, le seul mixin réellement découplé.
+  `pane_export` → doivent rester des méthodes de `App`) : pur dispatcher
+  en lecture seule, le seul mixin réellement découplé.
 - `FichierMixin` (cycle de vie du fichier mission : `action_new`/`_open`/
   `_save`/`_save_as`, `_open_path`, récents, + ré-inspection
   `action_load_reference`/`_compare_arbre`/`_export_comparison`) — mute
@@ -93,7 +94,7 @@ callbacks, pour un gain net faible). Découpage :
 - `LayoutMixin` (fabrique de widgets : `_build_layout`/`_build_left`/
   `_build_center`/`_build_right`/`_build_statusbar` + sash). Quasi-pur
   *builder* : il **crée et assigne** la plupart des attributs UI d'`App`
-  (`tree_arbres`, `nb`, `section`, `var_*`, les 5 panes…) que
+  (`tree_arbres`, `nb`, `section`, `var_*`, les 6 panes…) que
   l'orchestrateur lit/mute ensuite. Les panes/`SectionCanvas` attendent un
   `host` satisfaisant leur Protocol (toute la surface d'`App`) → `host=self`
   passe par un `cast("App", self)` (no-op runtime, l'objet EST l'App).
@@ -430,7 +431,7 @@ penetrometre.py  (Tk + main) ← undo.py
   - **Couleur de ligne (`tag`) = uniquement la classe de risque** : `etat_ok_vert`/`_orange`/`_rouge` (via `COULEUR_CLASSE`) pour les fiables ; **les incomplets `○/◐` sont en gris NEUTRE** (`etat_vide`/`etat_partiel` → `COLOR_MUTED`), plus en rouge/orange. La couleur ne signifie donc plus qu'une chose. Repli `etat_ok` (vert) si fiable mais classe indispo.
   Le seuil **fiable ≥ 3** est **aligné** sur la règle métier de fiabilité (« < 3 sondages → exports masqués »). NB : l'extrapolation géométrique de la cavité (`compute_alteration_par_grade`) reste active dès 2 sondages — découplé du seuil de fiabilité. Refresh ligne par ligne via `_refresh_current_arbre_etat()` appelé dans `_redraw_all` (après toute mutation, debounce). Footer `lbl_etat_footer` = **vue de triage macro** de la mission (`_update_etat_footer`, sans argument, recalculé sur **toute** la mission — jamais la sous-liste filtrée) : répartition `N rouge · N orange · N vert · N à finir (total)` (classes via `_arbre_etat`, « à finir » = incomplets `○/◐`). Répond au « puis-je quitter le site ? » sans ouvrir l'export de synthèse. Son **compagnon de triage** : le bouton « ⏭ Prochain arbre à finir » (sous le footer) + l'entrée menu Arbres → `action_next_a_finir` saute au prochain arbre non fiable en **bouclant** (parcours cyclique depuis le courant), **vide les filtres** si besoin pour rendre la cible visible. Les largeurs des 4 colonnes + la largeur par défaut du panneau gauche (`PanedWindow`) sont calibrées pour que `Risque` tienne malgré la scrollbar verticale ; le panneau reste élargissable à la souris.
 - **Workaround bpo-36468 (ttk.Treeview)** : depuis Python 3.7, les `tag_configure(foreground=…)` sont ignorés à cause d'entrées par défaut dans `style.map`. `app_style._fixed_map` retire les entrées `("!disabled", "!selected", …)` pour que les tags prennent la main. Sans ça, les pastilles d'état resteraient blanches.
-  **Contraste activé/désactivé d'une case à cocher (2026-08-20)** : sujet apparenté — le thème `clam` ne donne par défaut quasi aucune différence visuelle entre `Panel.TCheckbutton` activée-vide et désactivée (même contour, remplissage à peine différent), au point de passer pour un contrôle inerte. `s.map("Panel.TCheckbutton", indicatorbackground=[("disabled", COLOR_BG), ("!disabled", "white")], indicatorforeground=[("selected", COLOR_ACCENT)])` (`app_style.py`) tranche net : blanc franc activée, gris plat désactivée, coche à l'accent vert.
+  **Contraste activé/désactivé d'une case à cocher (2026-08-20)** : sujet apparenté — le thème `clam` ne donne par défaut quasi aucune différence visuelle entre `Panel.TCheckbutton` activée-vide et désactivée (même contour, remplissage à peine différent), au point de passer pour un contrôle inerte. `s.map("Panel.TCheckbutton", indicatorbackground=[("disabled", COLOR_BG), ("!disabled", "white")], indicatorforeground=[("selected", COLOR_ACCENT)])` (`app_style.py`) tranche net : blanc franc activée, gris plat désactivée, coche à la couleur d'accent.
 - **Filtre de la liste d'arbres** : cinq filtres **cumulés** (ET) dans `_arbre_matches_filter` — (1) champ 🔎 texte (`var_filter`), sous-chaîne insensible à la casse sur **n° OU essence** ; (2-5) quatre comboboxes derrière un panneau **« Filtres avancés ▸ » repliable** (même principe que `AideRepliable` — flèche ▸/▾, compteur `(n)` dans l'en-tête **visible même replié** pour qu'un filtre actif ne soit jamais oublié « hors de vue », cf. `_sync_filtres_avances`/`_count_filtres_avances_actifs`) : **Risque** (`var_risk_filter`, constantes `_RISK_FILTER_*` d'`app_arbres` : Tous / Vert / Orange / Rouge / Non fiable — « Non fiable » = colonne Risque à « — »), **Urgence** (`var_urgence_filter`, standards + personnalisés + « Non renseignée »), **Échéance** (`var_echeance_filter` : Toutes / dépassée / dans 30 j / dans 90 j / sans échéance) et **Sondages** (`var_complet_filter` : Tous / Complets ≥3 / Incomplets). `_refresh_tree_arbres` masque les lignes non concordantes **mais conserve les `iid = a{index}`** indexés sur la position réelle (cf. `_on_select_arbre`) — le filtre n'altère jamais le modèle. Le **footer reste sur toute la mission** (vue macro), pas sur la sous-liste. `Échap` dans le champ texte le vide. Les **cinq** filtres sont **remis à zéro** au chargement d'une mission (new/open) et à la **création d'un arbre** (`_clear_filter_if_set` — un arbre neuf est « Non fiable », il resterait masqué par un filtre risque actif). La **navigation clavier** (`_select_arbre_relative`) parcourt uniquement les arbres **visibles** quand un filtre est actif. **Réinitialisation** : `_reset_all_filters` (App), câblé à un **unique** bouton « ↺ Réinitialiser les filtres » **dans** le panneau Filtres avancés — un bandeau conditionnel séparé sous la liste (visible seulement quand le filtre masque ≥1 arbre) reste comme **message purement informatif** (« N arbre(s) masqué(s) par le filtre ») ; les deux portaient chacun un bouton jusqu'à ce qu'un doublon soit remonté (2026-08-20), le panneau étant le seul reachable même quand le filtre ne masque encore rien. **Action groupée** : sélection multiple dans la liste (Ctrl/Maj+clic) puis menu Arbres → « Urgence pour la sélection… » (`action_bulk_set_urgence`) applique un niveau d'urgence à tous les arbres sélectionnés en une fois.
   **Valeurs de combobox traduites vs invariantes** (piège corrigé 2026-08-20) : les sentinelles 100% UI (« Tous », « Toutes », « Non renseignée », les libellés d'échéance/complétude…) sont traduites via `_risk_filter_choices()`/`_echeance_filter_choices()`/`_complet_filter_choices()` (appelées à la construction du combobox, jamais au niveau module — la langue n'est connue qu'après `i18n.setup_language()`) ; les classes **Vert/Orange/Rouge** et les **niveaux d'urgence** restent volontairement en français partout (vocabulaire de domaine persisté/exporté tel quel, cf. « Compartimentation »). **`_(une_variable)` est invisible au test `test_i18n.py`** (le scanner AST ne lit que les littéraux `_("…")`, pas `_(CONSTANTE)`) : toute constante enveloppée ainsi doit être vérifiée **à la main** (le catalogue peut sembler complet — test vert — alors qu'une entrée manque et retombe silencieusement en français). Deux entrées manquantes de ce type (« Toutes », « Non renseignée ») ont échappé au test avant d'être repérées à l'usage.
 - **Ajout d'arbre en série** : le bouton « ＋ Ajouter » est un `Menubutton` (`Accent.TMenubutton`) à 2 entrées. **« Arbre vierge »** (`action_add_arbre`, `Ctrl+T`) = tous champs par défaut. **« Hériter du précédent »** (`action_add_arbre_inherit`) reprend les champs d'identité/protocole de l'arbre courant (essence, port, mèche, épaisseur d'écorce, hauteur de sondage) mais **PAS** la géométrie mesurée (rayon/diamètre/hauteur d'arbre laissés à défaut, à re-mesurer) ni les sondages/dégradations/contreforts — pensé pour les alignements d'arbres identiques. N° via `_next_arbre_numero` (max numérique + 1).
@@ -445,6 +446,22 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Aide repliable** : `aide_repliable.AideRepliable(parent, *paragraphes, titre="Aide", wraplength=…)` — bloc d'aide derrière un en-tête cliquable « ⓘ Aide ▸/▾ », **replié par défaut** (discret pour l'opérateur expérimenté, dépliable au clic à la 1ʳᵉ utilisation). Remplace les libellés `Muted.TLabel` ⓘ permanents (identification : couplage Ø↔rayon + invariance PRBS ; sondages : sémantique case vide/effacer ; canevas : clic = éditer/ajouter). Fonctionne en `grid` comme en `pack` (gère sa disposition interne ; le parent place le widget). État conservé tant que le widget vit — les panes ne sont construits qu'une fois, pas par arbre. S'appuie sur les styles `Panel.TFrame`/`Muted.TLabel`.
 - **Canevas — ajout par clic** : un clic sur une direction libre du dessin ajoute un sondage à ce grade (`App.open_add_sondage`) ; un clic sur une direction déjà sondée l'édite. `SectionCanvas._on_click_background` convertit le pixel en grade (inverse de `geometry.polar_to_xy`), mémorise la géométrie du dernier rendu dans `self._geom`, et ignore les clics sur un élément interactif (garde par tags).
 - **Raccourci export** : `Ctrl+E` → `App.action_export_pdf_arbre`. Bind dans `App.__init__` (comme Ctrl+Z/Y) via `_on_export_shortcut`, qui **ne déclenche pas** si un `Entry`/`Combobox` a le focus (Ctrl+E = « fin de ligne » dans les widgets Tk).
+- **Onglet Export = point d'entrée UNIQUE des exports (2026-09-05)** :
+  avant, les 8 `action_export_*` étaient dispersées entre le menu
+  Fichier (synthèse mission, toutes les fiches PDF, sondages CSV) et
+  l'onglet Diagnostic (fiche PDF, PNG, tableau PRBS Excel/HTML) — deux
+  chemins selon la portée (arbre vs mission), sans logique de rangement
+  commune. `pane_export.py` (`ExportPane`, dernier onglet du panneau
+  central) les regroupe toutes, **organisées par format de fichier**
+  (une `ttk.LabelFrame` PDF / PNG / XLSX / CSV / HTML) plutôt que par
+  portée : chaque bouton précise lui-même s'il porte sur l'arbre courant
+  ou sur la mission. Le menu Fichier ne garde que le cycle de vie du
+  fichier (Nouveau/Ouvrir/Enregistrer/Récents/Sauvegardes/Quitter) ;
+  l'onglet Diagnostic ne garde que le résumé/tableau PRBS/préconisation.
+  **Impression directe supprimée** avec ce rangement (bouton « Imprimer »
+  de l'onglet Diagnostic, entrée menu Fichier, raccourci Ctrl+P,
+  `app_exports.print_pdf_arbre`) : elle faisait doublon avec la fiche
+  PDF — imprimer un PDF exporté se fait depuis n'importe quel lecteur.
 - **Fichiers récents** : `~/.penetrometre/recent.json` (8 entrées max). `App._push_recent_file(path)` appelé après chaque open/save. Sous-menu `Fichier → Ouvrir récent` reconstruit par `app_menu.refresh_recent_menu(app)`.
 - **Adaptation petits écrans** : `App.__init__` clampe la geometry à 95 % de l'écran et fixe `minsize(1100, 680)` pour rester utilisable sur laptops 1366×768.
 - **Disposition 3 colonnes redimensionnable** : le `body` est une `tk.PanedWindow` horizontale (`self._paned`) à 3 panneaux **à poignées** — liste d'arbres (`minsize=190`, `stretch="never"`), saisie/onglets (`minsize=400`, `stretch="never"`), dessin (`minsize=360`, `stretch="always"` → absorbe le redim. fenêtre). `tk.PanedWindow` (classique, pas `ttk`) pour le `minsize` par panneau. Répond à deux besoins : élargir le tableau de saisie au détriment du dessin (onglets Dégradations/Contreforts peu denses) et réallouer l'espace sur petit écran. `SectionCanvas` se redessine sur `<Configure>` → s'adapte à la largeur du panneau sans code spécifique. **Positions persistées** : `App._save_sash_positions` (sur `<ButtonRelease-1>` de la PanedWindow) → `SettingsStore.set_sash_positions` ; `App._restore_sash_positions` les ré-applique via `sash_place` **différé** (`after(150,…)`, sinon TclError tant que la PanedWindow n'est pas dimensionnée). `get_sash_positions()` tolérant → `[]` si jamais réglé / corrompu (défauts d'`add`).
@@ -486,7 +503,7 @@ python3 -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
-  pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
+  pane_contreforts.py pane_diagnostic.py pane_export.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
@@ -553,7 +570,8 @@ fichier de clé suivi par git.
      d'une cépée → `dialogs_cepee.py` ; onglet UI → `pane_*.py`
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
-   - Boutons/menus d'export (`action_export_*`) → `app_export_actions.py`
+   - Méthodes `action_export_*` (dispatch pur) → `app_export_actions.py` ;
+     boutons d'export (onglet Export, groupés par format) → `pane_export.py`
    - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Construction de l'UI (`_build_*`, barre d'état, sash) → `app_layout.py`
    - Préférences/réglages + mises à jour (langue, barème, taille, contraste, logo) → `app_reglages.py`

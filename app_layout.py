@@ -36,7 +36,7 @@ from app_arbres import (
 )
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from i18n import _
-from icons import ICON_DELETE, ICON_PICKER
+from icons import ICON_CALENDAR, ICON_DELETE
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,
@@ -47,6 +47,7 @@ from palette import (
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
+from pane_export import ExportPane
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 from section_canvas import SectionCanvas
@@ -231,7 +232,7 @@ class LayoutMixin(_MixinBase):
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, _("Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement)."))
-                btn_cal = ttk.Button(row1, text=ICON_PICKER, width=3,
+                btn_cal = ttk.Button(row1, text=ICON_CALENDAR, width=3,
                                      style="Ghost.TButton",
                                      command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
@@ -646,10 +647,17 @@ class LayoutMixin(_MixinBase):
 
         # Onglet Diagnostic — extrait dans son propre pane (cf.
         # pane_diagnostic.py). Le pane possède son sous-canvas
-        # scrollable, ses 5 boutons d'export, son résumé, la checkbox
-        # show_sondages et le tableau PRBS.
+        # scrollable, son résumé, la checkbox show_sondages, le tableau
+        # PRBS et la préconisation. Les exports n'y sont plus (→ onglet
+        # Export, ci-dessous).
         self.pane_diag = DiagnosticPane(nb, host=host)
         nb.add(self.pane_diag, text=_("Diagnostic"))
+
+        # Onglet Export — dernier onglet : point d'entrée unique de tous
+        # les exports (cf. pane_export.py), regroupés par format plutôt
+        # qu'éparpillés entre le menu Fichier et l'onglet Diagnostic.
+        self.pane_export = ExportPane(nb, host=host)
+        nb.add(self.pane_export, text=_("Export"))
 
     def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
@@ -784,7 +792,7 @@ class LayoutMixin(_MixinBase):
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        self._btn_save = ttk.Button(bar, text=_("Enregistrer"),
+        self._btn_save = ttk.Button(bar, text=_("💾 Enregistrer"),
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)

@@ -9,7 +9,6 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Recent projects",
     "Enregistrer":                         "Save",
     "Enregistrer sous…":                   "Save as…",
-    "Imprimer la fiche (arbre courant)":   "Print tree report",
     "Exporter la synthèse mission (XLSX)…":"Export mission summary (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Export mission summary (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Export all reports (PDF)…",
@@ -97,6 +96,7 @@ TRANSLATIONS = {
     "Dégradations externes":               "External damage",
     "Contreforts":                         "Buttress roots",
     "Diagnostic":                          "Diagnosis",
+    "Export":                              "Export",
 
     # ── Onglet Identification ─────────────────────────────────────────
     "N° d'inventaire":                     "Tree ID",
@@ -281,12 +281,33 @@ TRANSLATIONS = {
                                            "Residual Sound Wood by sounding",
     "(suite)":                            "(cont'd)",
     "Fiche PDF (arbre courant)":          "PDF report (current tree)",
-    "Imprimer":                           "Print",
     "PNG du dessin":                      "PNG drawing",
-    "Exporter le tableau":                "Export table",
     "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
-    "Sondages de la mission (CSV)…":     "Mission soundings (CSV)…",
+
+    # Export (onglet)
+    "Exports":                             "Exports",
+    "Chaque bouton précise s'il porte sur l'arbre courant "
+    "ou sur toute la mission.":
+        "Each button states whether it applies to the current tree "
+        "or to the whole project.",
+    "Un seul PDF multi-pages regroupant la fiche de chaque arbre de "
+    "la mission.":
+        "A single multi-page PDF gathering every tree's report in "
+        "the project.",
+    "Tableau des 16 sondages de l'arbre courant, au format Excel.":
+        "Table of the current tree's 16 soundings, as an Excel file.",
+    "Une ligne par arbre de la mission (risque, urgence, échéance…), "
+    "triable et filtrable dans Excel.":
+        "One row per tree in the project (risk, priority, due date…), "
+        "sortable and filterable in Excel.",
+    "Tous les sondages de tous les arbres de la mission, un fichier plat.":
+        "All soundings of every tree in the project, as a flat file.",
+    "Même contenu que la synthèse XLSX, au format CSV.":
+        "Same content as the XLSX summary, as CSV.",
+    "Version imprimable du tableau PRBS de l'arbre courant, sans Excel.":
+        "Printable version of the current tree's PRBS table, no Excel needed.",
+
     "PRBS (cm)":                          "PRBS (cm)",
     "t/R (%)":                            "t/R (%)",
     "Classe":                             "Class",
@@ -592,7 +613,6 @@ TRANSLATIONS = {
         "Permanently delete « {n} »?",
     "Exporté":                             "Exported",
     "Rien à exporter":                     "Nothing to export",
-    "Impression envoyée — arbre n°{num}":  "Print sent — tree no. {num}",
     "✓ Enregistré — {nom}":               "✓ Saved — {nom}",
     "Arbre précédent":                     "Previous tree",
     "Dégradation externe n° {n}":         "External damage no. {n}",
@@ -799,18 +819,10 @@ TRANSLATIONS = {
         "(drawing + table + diagnosis) — Ctrl+E",
     "Exporter le dessin de la section en image PNG":
         "Export the section drawing as a PNG image",
-    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-    "tous les sondages de la mission (CSV)":
-        "Export the tree's PRBS table (Excel / HTML) or "
-        "all soundings of the project (CSV)",
     "Gérer les durées de suivi personnalisées":
         "Manage custom follow-up durations",
     "Gérer les niveaux d'urgence personnalisés":
         "Manage custom priority levels",
-    "Imprimer la fiche PDF directement "
-    "(sans dialogue de sauvegarde) — Ctrl+P":
-        "Print the PDF report directly "
-        "(without a save dialog) — Ctrl+P",
     "Longueur (cm)":                        "Length (cm)",
     "Ouvrir la fenêtre de comparaison de l'arbre "
     "courant avec la mission de référence.":
