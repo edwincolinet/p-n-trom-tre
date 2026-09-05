@@ -660,7 +660,7 @@ class LayoutMixin(_MixinBase):
             variable=self.var_show_sondages,
             command=lambda: self.section.set_show_sondages(
                 self.var_show_sondages.get()),
-            style="TCheckbutton",
+            style="Panel.TCheckbutton",
         ).pack(anchor="w", pady=(6, 0))
         # Indice de découvrabilité : le canevas est interactif (clic sur
         # un élément = édition, clic sur une direction vide = ajout).

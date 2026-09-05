@@ -138,21 +138,30 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                       ("active",   COLOR_ACCENT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
                 foreground=ink, padding=3)
-    # Cases à cocher posées sur un fond panneau (dialogues) : sans ça le
-    # libellé hériterait du fond COLOR_BG et trancherait sur le panneau.
+    # Cases à cocher posées sur un fond panneau : sans ça le libellé
+    # hériterait du fond COLOR_BG et trancherait sur le panneau. Style
+    # UNIQUE pour toutes les cases à cocher de l'app (dialogues, grille
+    # Sondages, panneau du dessin) — une seule apparence à faire évoluer.
     s.configure("Panel.TCheckbutton", background=COLOR_PANEL,
-                foreground=ink)
-    # Affordance cliquable : sans ce `map`, le thème `clam` rend une case
-    # cochable (activée, vide) quasi indiscernable d'une case désactivée —
-    # même contour gris fin, même remplissage clair, aucun signal visuel
-    # de « ceci répond au clic ». Case activée = fond blanc net (comme un
-    # champ de saisie) ; désactivée = fond gris plat (comme les champs
-    # désactivés) ; cochée = coche à l'accent vert de l'appli (au lieu du
-    # gris par défaut, qui se distinguait mal du contour).
+                foreground=ink, indicatorsize=16)
+    # Affordance cliquable ET lisibilité de l'état (2026-09-05) : la case
+    # native du thème `clam` est petite (~10px) et ne change qu'une coche
+    # à peine plus verte que le fond blanc entre coché/décoché — repérée
+    # comme peu lisible à l'usage. Case vide = contour net, fond blanc
+    # (comme un champ de saisie) ; désactivée = fond gris plat (comme les
+    # champs désactivés) ; **cochée = remplissage plein à l'accent vert
+    # avec une coche blanche** (inversion de contraste plutôt qu'une
+    # simple coche colorée sur fond inchangé) — l'état saute aux yeux au
+    # lieu de s'y fondre. `disabled` reste prioritaire sur `selected`
+    # (coche cochée-désactivée = grise sur fond gris, pas verte) : listé
+    # en premier dans chaque `map`, ttk retient la première correspondance.
     s.map("Panel.TCheckbutton",
           background=[("active", COLOR_PANEL)],
-          indicatorbackground=[("disabled", COLOR_BG), ("!disabled", "white")],
-          indicatorforeground=[("selected", COLOR_ACCENT)])
+          indicatorbackground=[("disabled", COLOR_BG),
+                               ("selected", COLOR_ACCENT),
+                               ("!disabled", "white")],
+          indicatorforeground=[("disabled", "selected", COLOR_MUTED),
+                               ("selected", "white")])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=font_body_bold(),
