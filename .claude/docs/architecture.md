@@ -252,35 +252,53 @@ avec logging. Thin wrappers depuis `App.action_export_*`.
 ## `app_menu.py` — barre de menu Tk
 
 `build_menu(app)` attache la barre de menu et bind les raccourcis
-globaux. Six cascades :
+globaux. Six cascades, chacune organisée en **sections avec en-tête
+désactivé** (helper `_section`, même principe visuel que les blocs par
+format du menu Export — réorganisation du 2026-09-05) :
 
-- **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
-  (sous-menu populé par `refresh_recent_menu(app)` depuis
-  `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous ;
-  ouvrir le dossier des sauvegardes ; Quitter. **Ne contient plus les
-  exports** (2026-09-05, déplacés vers le menu **Export**, ci-dessous)
-  ni l'impression (supprimée, doublon de l'export PDF).
+- **Fichier** : section *Mission* (Nouvelle Ctrl+N, Ouvrir Ctrl+O,
+  **Ouvrir récent** — sous-menu populé par `refresh_recent_menu(app)`
+  depuis `app.get_recent_files()` —, Ouvrir la mission d'exemple),
+  section *Modèles* (Nouvelle depuis un modèle, Enregistrer comme
+  modèle), section *Enregistrement* (Enregistrer Ctrl+S, Enregistrer
+  sous, Ouvrir le dossier des sauvegardes), puis Quitter. **Ne contient
+  plus les exports** (2026-09-05, déplacés vers le menu **Export**,
+  ci-dessous) ni l'impression (supprimée, doublon de l'export PDF).
+- **Comparaison** : Faire une comparaison (ré-inspection), Diagnostic
+  de la comparaison (désactivé tant qu'aucune référence n'est chargée).
+- **Arbres** : section *Ajouter* (Ajouter un arbre Ctrl+T), section
+  *Navigation* (Arbre suivant Ctrl+PgDn / précédent Ctrl+PgUp, Prochain
+  arbre à finir), section *Modifier* (Dupliquer, Renommer, Supprimer).
+  L'ancienne variante « Ajouter (hériter du précédent) » a été retirée
+  le 2026-09-05 (jugée floue, trop proche en apparence de Dupliquer).
+- **Affichage** : section *Accessibilité* (Taille du texte —
+  Petit/Normal/Grand/Très grand, radiobuttons —, Contraste élevé,
+  checkbutton), section *Préférences* (Logo et nom du cabinet, Barème
+  de classification, Langue).
 - **Export** (2026-09-05, entre Affichage et Aide) : point d'entrée
-  unique des 8 `action_export_*` — avant, dispersées entre ce menu
-  (exports mission) et l'onglet Diagnostic (exports arbre). Organisé
-  **par format de fichier** plutôt que par portée : un bloc PDF, un PNG,
-  un XLSX, un CSV, un HTML, séparés par des séparateurs et ouverts par
-  un en-tête désactivé nommant le format ; chaque libellé précise
-  lui-même s'il porte sur l'arbre courant ou sur la mission — choix
-  produit d'Edwin. Le bouton « Imprimer » (impression directe,
+  unique des exports — avant, dispersés entre ce menu (exports mission)
+  et l'onglet Diagnostic (exports arbre). Organisé **par format de
+  fichier** plutôt que par portée : un bloc PDF, un PNG, un XLSX, un
+  CSV, un HTML, séparés par des séparateurs et ouverts par un en-tête
+  désactivé nommant le format ; chaque libellé précise lui-même s'il
+  porte sur l'arbre courant ou sur la mission — choix produit d'Edwin.
+  Les blocs PDF et PNG contiennent aussi une entrée d'export de la
+  **comparaison en cours** (« Comparaison — fiche PDF… » / « — évolution
+  (PNG)… »), grisée tant qu'aucune comparaison n'est active
+  (`comparaison.is_comparison_active()`, relu par un `postcommand` sur
+  le menu) — les mêmes actions vivent aussi dans le bandeau propre à la
+  fenêtre de comparaison (cf. § Ré-inspection ci-dessous), cette entrée
+  du menu principal servant de secours si elle ne couvre pas l'écran.
+  Le bouton « Imprimer » (impression directe,
   `app_exports.print_pdf_arbre`) a été supprimé avec ce rangement
   (doublon avec l'export PDF), avec son ancienne entrée du menu Fichier
   et son raccourci Ctrl+P.
-- **Arbres** : Ajouter (Ctrl+T), Ajouter en héritant du précédent ;
-  Arbre suivant (Ctrl+PgDn) / précédent (Ctrl+PgUp) ; Dupliquer,
-  Renommer, Supprimer.
-- **Affichage** : Taille du texte (Petit/Normal/Grand/Très grand,
-  radiobuttons) ; Contraste élevé (checkbutton).
-- **Comparaison** : Faire une comparaison (ré-inspection), Choisir la
-  mission de référence, Diagnostic de la comparaison.
-- **Aide** : Guide de démarrage, Raccourcis clavier, separator, Contacter
-  le support, Ouvrir le fichier de log, separator, Vérifier les mises à
-  jour / Vérification automatique, separator, Redémarrer, À propos.
+- **Aide** : section *Aide* (Guide de démarrage, Raccourcis clavier),
+  section *Support* (Contacter le support, Ouvrir le fichier de log),
+  section *Mises à jour* (Vérifier les mises à jour, Vérification
+  automatique au démarrage — checkbutton, sa variable est conservée sur
+  `app` pour ne pas être ramassée par le GC, cf. piège identique pour
+  les combobox de `comparaison.py`), puis Redémarrer / À propos.
 
 `refresh_recent_menu(app)` est exposée pour être réappelée par l'App
 après chaque ouverture/enregistrement ; elle vide et reconstruit le
@@ -607,11 +625,14 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   que `_dirty`) + récupération au démarrage. Fournit `_RECOVERY_PATH`.
 - **`app_export_actions.ExportActionsMixin`** — les `action_export_*`
   (PNG, fiche PDF, PDF mission, CSV, synthèse XLSX/CSV, PRBS XLSX/HTML) ;
-  pur dispatcher en lecture seule vers `app_exports` (seul mixin découplé).
+  pur dispatcher en lecture seule vers `app_exports`. Exception (2026-09-05) :
+  `action_export_comparison_{pdf,png}` délèguent à `self._export_comparison`
+  (`FichierMixin`, via `comparaison.export_active_comparison`) plutôt qu'à
+  `app_exports` — la comparaison n'a pas d'adaptateur dans ce module.
 - **`app_fichier.FichierMixin`** — cycle de vie du fichier mission
   (new/open/save/save_as, `_open_path`, récents) + **ré-inspection**
-  (`action_load_reference`/`_compare_arbre`/`_export_comparison`). Fournit
-  `_BACKUP_PATH` (sauvegardes glissantes).
+  (`action_reinspection`/`action_compare_arbre`/`_export_comparison`).
+  Fournit `_BACKUP_PATH` (sauvegardes glissantes).
 - **`app_layout.LayoutMixin`** — construction de l'UI (`_build_layout` /
   `_build_left` / `_build_center` / `_build_right` / `_build_statusbar` + sash,
   `_trial_banner`). Quasi-pur builder : crée et assigne la plupart des
@@ -691,8 +712,14 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 
 - **`comparaison.py`** — fenêtre Tk `open_comparison(...)` redimensionnable :
   3 sections côte à côte (référence | courant | **section d'évolution**),
-  tableau chiffré, verdict, export PNG + PDF. Référence chargée **par
-  session** (rien de persisté). Décisions métier dans CLAUDE.md.
+  tableau chiffré, verdict. Référence chargée **par session** (rien de
+  persisté). Porte son **propre bandeau** (`dlg.config(menu=…)`, menu
+  Export à 2 entrées) et un bouton « 💾 Enregistrer » (`App.action_save`)
+  — sans eux, la fenêtre (quasi plein écran, pas `transient`) coupait de
+  tout le reste de l'app (2026-09-05). L'export PDF/PNG reste aussi
+  disponible, grisé hors comparaison active, dans le menu Export
+  principal (`comparaison.is_comparison_active`/`export_active_comparison`/
+  `get_comparison_window`). Décisions métier dans CLAUDE.md.
 - **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
   (couronne **orange** = bois sain perdu depuis la référence, contours
   lissés Catmull-Rom), `render_comparison_page` (A4 paysage),

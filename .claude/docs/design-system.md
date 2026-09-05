@@ -70,6 +70,31 @@ le code déjà touché par une évolution, **pas un retrofit systématique**
 des `padx=`/`pady=` existants (surface trop large pour un gain
 proportionné dans une UI hand-tuned au pixel).
 
+## Cases à cocher (`app_style.Panel.TCheckbutton`)
+
+Style **unique** pour toutes les cases à cocher de l'app (dialogues,
+grille Sondages, panneau du dessin — un seul `ttk.Checkbutton` réel,
+`style="TCheckbutton"`, subsistait hors de ce style avant le 2026-09-05 ;
+son fond gris tranchait sur le panneau blanc qui l'entoure, cf. piège
+ci-dessous). Repéré à l'usage comme peu lisible : indicateur natif du
+thème `clam` minuscule (~10px) et état coché à peine distinct de l'état
+vide (une coche verte discrète sur fond blanc inchangé). Corrigé par :
+
+- `indicatorsize=16` (contre ~10px natif) — cible plus grande, plus facile
+  à repérer et à cliquer.
+- **Inversion de contraste à l'état coché** plutôt qu'une simple coche
+  colorée sur fond inchangé : `indicatorbackground` plein `COLOR_ACCENT` +
+  `indicatorforeground` blanc. `disabled` reste prioritaire sur `selected`
+  dans les deux `map` (listé en premier — ttk retient la première
+  correspondance) : une case cochée-désactivée reste grise sur fond gris,
+  jamais verte.
+
+**Piège** : une case à cocher posée sur un panneau blanc (`Panel.TFrame`)
+avec le style de base `TCheckbutton` hérite du fond `COLOR_BG` (crème) de
+la règle `.` — un rectangle visiblement décalé apparaît derrière son
+libellé. Toujours utiliser `style="Panel.TCheckbutton"`, jamais le style
+de base, dès qu'une case à cocher est posée sur un panneau.
+
 ## Icônes (`icons.py`)
 
 Glyphes Unicode monochromes **par défaut** (formes géométriques, flèches,
