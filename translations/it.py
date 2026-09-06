@@ -143,7 +143,6 @@ TRANSLATIONS = {
     "Suivi :":                             "Follow-up:",
 
     # ── Barra di stato ────────────────────────────────────────────────
-    "💾 Enregistrer":                      "💾 Salva",
     "Ouvrir le fichier":                   "Apri file",
     "Ouvrir le dossier":                   "Apri cartella",
     "Prêt.":                               "Pronto.",

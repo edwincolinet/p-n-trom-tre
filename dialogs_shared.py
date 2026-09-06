@@ -249,7 +249,7 @@ def normaliser_date(s: str) -> Optional[str]:
 
 
 # --- Indicateur d'enregistrement (barre d'état) --------------------------
-# SOURCE UNIQUE du texte/couleur/activation du bouton « 💾 Enregistrer » —
+# SOURCE UNIQUE du texte/couleur/activation du bouton « Enregistrer » —
 # partagée par la barre d'état principale (`penetrometre._update_save_indicator`)
 # et le pied de la fenêtre de comparaison (`comparaison.open_comparison`),
 # pour que les deux bandeaux affichent TOUJOURS le même indicateur pour un

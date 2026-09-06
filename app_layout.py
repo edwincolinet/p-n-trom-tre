@@ -776,7 +776,10 @@ class LayoutMixin(_MixinBase):
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        self._btn_save = ttk.Button(bar, text=_("💾 Enregistrer"),
+        # Texte seul, sans préfixe emoji (2026-09-06, cf. `icons.py`) : le
+        # « 💾 » rendait mal sur Windows (emoji couleur surdimensionné,
+        # confirmé sur un test réel).
+        self._btn_save = ttk.Button(bar, text=_("Enregistrer"),
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)

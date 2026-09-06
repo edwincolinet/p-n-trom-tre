@@ -108,31 +108,41 @@ système et de la plateforme.
 - Signalétique : `ICON_WARNING` ⚠ / `ICON_CHECK` ✓ / `ICON_CROSS` ✗
 - Navigation : `ICON_RESET` ↺ / `ICON_RESTART` ⟳ / `ICON_NEXT` ⏭ /
   `ICON_HINT_ARROW` →
+- Calendrier : `ICON_CALENDAR` ▦ (bouton compact ouvrant `dialogs.ask_date`)
 
-**Exception assumée (2026-09-05) : `ICON_CALENDAR` 📅.** Une première
-version de ce design system remplaçait le bouton calendrier par `…`
-(convention « Choisir… ») pour rester dans le principe « pas d'emoji
-couleur ». À l'usage, ce repli s'est révélé moins lisible qu'une icône —
-un `…` ne se distingue pas au premier coup d'œil d'un état « en attente »
-ou d'un simple bouton tronqué, alors que 📅 identifie la fonction
-instantanément. Même diagnostic pour le préfixe « 💾 » du bouton
-**Enregistrer**, toujours visible en barre d'état (`app_layout._btn_save`,
-chaîne `_("💾 Enregistrer")`) : c'est la commande la plus fréquente de
-l'app, elle doit rester repérable au scan rapide sur le terrain. Le risque
-de rendu plateforme-dépendant (déjà documenté ci-dessus) est jugé, pour
-ces deux commandes à très forte fréquence d'usage, moins coûteux que la
-perte de lisibilité constatée.
+**Exception 📅/💾 essayée puis abandonnée (2026-09-05 → 2026-09-06).** Une
+première version de ce design system remplaçait le bouton calendrier par
+`…` (convention « Choisir… ») pour rester dans le principe « pas d'emoji
+couleur » ; jugé moins lisible sur inspection du code (un `…` ne se
+distingue pas au premier coup d'œil d'un état « en attente »), le design
+system était revenu à l'emoji couleur 📅 pour ce bouton, ainsi qu'au
+préfixe « 💾 » du bouton **Enregistrer** (`app_layout._btn_save`) — pariant
+que leur reconnaissance immédiate valait le risque de rendu
+plateforme-dépendant déjà documenté ci-dessus. **Un test sur Windows réel
+a confirmé ce risque** : 📅/💾 viennent du bloc Unicode « Miscellaneous
+Symbols and Pictographs », à présentation **emoji obligatoire** — Segoe UI
+ne les contient pas, Tk bascule sur Segoe UI Emoji, dont le rendu couleur
+surdimensionné jure avec le chrome plat du reste de l'app (repéré à
+l'usage, pas en amont). Les glyphes listés plus haut (formes géométriques,
+flèches, ponctuation) n'ont pas ce problème : ce sont des blocs Unicode à
+présentation **texte par défaut**, rendus par la police système normale
+sans bascule de police. Correctif (2026-09-06) :
+- le préfixe « 💾 » est retiré, le bouton redevient texte seul
+  (`_("Enregistrer")`) ;
+- `ICON_CALENDAR` passe à `▦` (Formes géométriques, texte par défaut,
+  même bloc qu'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` déjà éprouvés
+  sur Windows) plutôt qu'un retour à `…` — chaque bouton qui le porte a
+  déjà une infobulle explicite, et `▦` reste visuellement **distinct** des
+  boutons `…` voisins de `pane_diagnostic` (gérer urgences/durées
+  personnalisées), ce qu'un simple retour à `…` aurait perdu.
 
-**Pas de glyphe de repli** reste la règle pour les AUTRES actions sans
-équivalent monochrome fiable (document, imprimante, image, tableau,
-loupe) : ces boutons sont **texte seul** (« Fiche PDF (arbre courant) »,
-« PNG du dessin », « Tableau PRBS — Excel (XLSX)… »…). Choix
-délibéré, pas un renoncement : chercher un dingbat Unicode obscur pour
-ces actions échangerait un risque de rendu (emoji couleur) contre un
-autre (glyphe absent de la police système/plateforme, notamment Segoe UI
-sur Windows) sans réel gain de clarté par rapport à un libellé texte — à
-la différence de 📅/💾 ci-dessus, dont la reconnaissance immédiate justifie
-le compromis.
+**Pas de glyphe de repli** reste la règle pour les actions sans équivalent
+monochrome fiable (document, imprimante, image, tableau, loupe) : ces
+boutons sont **texte seul** (« Fiche PDF (arbre courant) », « PNG du
+dessin », « Tableau PRBS — Excel (XLSX)… »…) — désormais la règle **sans
+exception**, l'épisode 📅/💾 ci-dessus ayant montré que le compromis
+« emoji couleur pour 2 boutons à forte fréquence » ne survivait pas à un
+test réel sur Windows.
 
 **Piège i18n** : un glyphe qui préfixe une chaîne traduisible
 (`_("⚠ Renseignez le rayon…")`, `_("▸ Saisie du brin {label}")`) fait

@@ -14,16 +14,32 @@ image, tableau, loupe), le choix du design system reste de NE PAS
 chercher un glyphe de repli : le bouton reste texte seul (cf.
 `.claude/docs/design-system.md`).
 
-**Exception assumée (2026-09-05)** : le bouton « Enregistrer » (toujours
-visible en barre d'état) et les boutons calendrier (📅, sélection de
-date) sont des commandes à très forte fréquence d'usage sur le terrain —
-le repli en texte seul (essayé dans une première version de ce design
-system) s'est révélé moins lisible en scan rapide que l'emoji couleur
-d'origine. Le risque de rendu plateforme-dépendant est jugé, pour ces
-deux cas précis, moins coûteux que la perte de lisibilité. `ICON_CALENDAR`
-ci-dessous porte cette exception ; le préfixe « 💾 » du bouton Enregistrer
-vit directement dans la chaîne traduisible (`app_layout._("💾 Enregistrer")`),
-comme avant.
+**Exception 📅/💾 abandonnée (2026-09-06)** : une version antérieure de ce
+design system utilisait 📅 (calendrier) et le préfixe « 💾 » du bouton
+Enregistrer, en pariant que leur reconnaissance immédiate compenserait le
+risque de rendu plateforme-dépendant déjà identifié ci-dessus. Un test sur
+Windows réel (pas seulement une inspection du code) a confirmé ce risque :
+ces deux glyphes viennent du bloc « Miscellaneous Symbols and
+Pictographs », qui impose une présentation **emoji couleur** — Segoe UI ne
+les contient pas, Tk bascule alors sur Segoe UI Emoji, dont les glyphes
+pleine couleur et surdimensionnés jurent avec le chrome plat du reste de
+l'app. Ce n'est pas le cas des glyphes ci-dessus (formes géométriques,
+flèches, ponctuation) : ces blocs sont **texte par défaut**, rendus par la
+police système normale sans bascule de police, d'où leur rendu identique
+et fiable sur les trois plateformes déjà avant ce correctif.
+- Le préfixe « 💾 » est retiré : le bouton Enregistrer redevient texte
+  seul (`_("Enregistrer")`, déjà traduit ailleurs dans l'app — même clé de
+  catalogue réutilisée, cf. `app_layout._btn_save`/
+  `comparaison.py` pied de fenêtre).
+- `ICON_CALENDAR` passe à un glyphe **texte par défaut** du bloc Formes
+  géométriques (même bloc qu'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE`,
+  déjà éprouvé sur Windows) : `▦`, une grille évoquant une page de
+  calendrier — moins immédiatement identifiable qu'un pictogramme couleur,
+  mais chaque bouton qui le porte a déjà une infobulle explicite
+  (« Choisir la date au calendrier »…) et le glyphe reste **distinct** des
+  boutons « … » voisins (`pane_diagnostic` : « Gérer les niveaux
+  d'urgence/durées personnalisés »), point qui aurait été perdu en
+  repliant simplement sur « … ».
 """
 
 from __future__ import annotations
@@ -44,5 +60,5 @@ ICON_STATE_FULL = "●"
 ICON_CHECK = "✓"
 ICON_CROSS = "✗"
 # Bouton compact ouvrant le calendrier de sélection de date — cf.
-# l'exception assumée en tête de module.
-ICON_CALENDAR = "📅"
+# le correctif en tête de module (glyphe texte-par-défaut, pas d'emoji).
+ICON_CALENDAR = "▦"

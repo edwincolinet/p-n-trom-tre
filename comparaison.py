@@ -34,7 +34,7 @@ la comparaison :
   exposent l'état à `app_export_actions.ExportActionsMixin` ;
 - **le pied de fenêtre reprend le MÊME bandeau que la barre d'état
   principale** (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`,
-  même disposition) : bouton « 💾 Enregistrer » (`on_save` = `App.action_save`
+  même disposition) : bouton « Enregistrer » (`on_save` = `App.action_save`
   ; un widget Tk ne pouvant pas être partagé entre deux fenêtres comme un
   menu, c'est une **reconstruction visuellement identique**, pas le même
   widget) + indicateur d'enregistrement (texte/couleur venant de
@@ -147,7 +147,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
     se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
     = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
-    `on_save` est appelé par le bouton « 💾 Enregistrer » (= `App.action_save`,
+    `on_save` est appelé par le bouton « Enregistrer » (= `App.action_save`,
     la mission reste enregistrable sans fermer la fenêtre).
 
     `parent` est l'App principale : sa barre de menu (`parent._menubar`,
@@ -308,7 +308,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     # (décorations système complètes, cf. plus haut).
     foot = ttk.Frame(dlg, style="Side.TFrame")
     foot.pack(side="bottom", fill="x")
-    btn_save = ttk.Button(foot, text=_("💾 Enregistrer"), style="Ghost.TButton")
+    btn_save = ttk.Button(foot, text=_("Enregistrer"), style="Ghost.TButton")
     btn_save.pack(side="left", padx=(10, 6), pady=2)
     Tooltip(btn_save, _("Enregistrer la mission") + " (Ctrl+S)")
     lbl_save_state = ttk.Label(foot, text="", style="Side.TLabel",
