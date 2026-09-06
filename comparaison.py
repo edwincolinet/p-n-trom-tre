@@ -142,8 +142,7 @@ def show_export_feedback(text: str, *, on_open_file: Callable[[], None],
 def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
                     *, default_arbre: Arbre, cur_date: str,
                     couleur_classe: Mapping[str, str],
-                    on_save: Callable[[], None],
-                    show_sondages: bool = True) -> None:
+                    on_save: Callable[[], None]) -> None:
     """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
     avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
     se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
@@ -159,10 +158,19 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     au lieu d'un sous-ensemble reconstruit à la main. Les entrées Export de
     la comparaison (« Comparaison — fiche PDF… »/« … évolution (PNG)… »)
     s'activent d'elles-mêmes dès qu'une sélection est faite ici, via
-    `is_comparison_active`. `show_sondages` reprend la case « Afficher
-    sondages ». Une seule fenêtre de comparaison à la fois (singleton) :
-    ré-ouvrir ferme la précédente et ouvre une nouvelle avec la sélection
-    courante."""
+    `is_comparison_active`.
+
+    **Case « Afficher sondages » partagée** (2026-09-06, plus de paramètre
+    `show_sondages`) : la fenêtre pose sa PROPRE case à cocher sur
+    `parent.var_show_sondages` — la MÊME `tk.BooleanVar` que celle de la
+    fenêtre principale (un seul interpréteur Tcl pour toute l'app, comme le
+    menu partagé ci-dessus) — pour ne plus avoir à changer de fenêtre pour
+    afficher/masquer les sondages. Une trace sur cette variable redessine
+    les blocs à chaque bascule, d'où qu'elle vienne (cette fenêtre ou la
+    principale) ; la variable et sa trace, `App`-level, redessinent aussi le
+    canevas principal (`App._build_right`). Une seule fenêtre de comparaison
+    à la fois (singleton) : ré-ouvrir ferme la précédente et ouvre une
+    nouvelle avec la sélection courante."""
     global _comparison_window, _comparison_state
     if _comparison_window is not None and _comparison_window.winfo_exists():
         _comparison_window.destroy()
@@ -234,6 +242,18 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     state["_vars"] = (var_cur, var_ref)
     ttk.Label(top, text=_("(réf. {r}  →  courant {c})").format(r=ref_label, c=cur_label),
               style="Muted.TLabel").pack(side="left", padx=(12, 0))
+    # Case « Afficher sondages » — MÊME `BooleanVar` que celle de la fenêtre
+    # principale (`App.var_show_sondages`, un seul interpréteur Tcl pour
+    # toute l'app) : cocher ici la coche aussi là-bas, et réciproquement,
+    # sans avoir à changer de fenêtre. Repli local si `parent` n'en expose
+    # pas (robustesse tests).
+    var_show_sondages = getattr(parent, "var_show_sondages", None)
+    if var_show_sondages is None:
+        var_show_sondages = tk.BooleanVar(value=True)
+    ttk.Checkbutton(
+        top, text=_("Afficher l'emplacement des sondages sur le dessin"),
+        variable=var_show_sondages, style="Panel.TCheckbutton",
+    ).pack(side="right")
 
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
     # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
@@ -325,6 +345,7 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
         if not (0 <= ci < len(curs)) or not (0 <= ri < len(refs)):
             return
         cur_arbre, ref_arbre = curs[ci], refs[ri]
+        show_sondages = bool(var_show_sondages.get())
         # Mémo export (les pages sont recalculées à la demande dans le builder).
         state["builder_args"] = (reference.nom, ref_arbre, cur_arbre, annees,
                                   ref_label, cur_label, show_sondages)
@@ -342,6 +363,22 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
 
     cmb_cur.bind("<<ComboboxSelected>>", _on_select)
     cmb_ref.bind("<<ComboboxSelected>>", _on_select)
+    # Redessine les blocs (avec les sondages affichés/masqués) dès que la
+    # case bascule, d'où qu'elle vienne (cette fenêtre ou la principale).
+    # Trace retirée à la fermeture : sinon elle survivrait sur cette
+    # `BooleanVar` partagée et rappellerait `_on_select` sur des widgets
+    # détruits à la prochaine bascule.
+    _trace_id = var_show_sondages.trace_add(
+        "write", lambda *_a: _on_select())
+
+    def _on_destroy(e: Any) -> None:
+        if e.widget is dlg:
+            try:
+                var_show_sondages.trace_remove("write", _trace_id)
+            except tk.TclError:
+                pass
+
+    dlg.bind("<Destroy>", _on_destroy)
 
     if not curs or not refs:
         ttk.Label(inner,

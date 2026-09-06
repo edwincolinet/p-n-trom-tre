@@ -645,12 +645,20 @@ class LayoutMixin(_MixinBase):
         # que soit l'onglet actif, plutôt que caché dans l'onglet
         # Diagnostic).
         self.var_show_sondages = tk.BooleanVar(value=True)
+        # `trace_add` (et non `command=` sur ce seul Checkbutton) : la
+        # fenêtre de comparaison (`comparaison.open_comparison`) porte sa
+        # PROPRE case cochée sur cette MÊME `BooleanVar` (partagée, un seul
+        # interpréteur Tcl pour toute l'app) pour ne pas avoir à changer de
+        # fenêtre — `command=` n'aurait réagi qu'aux clics sur CE
+        # Checkbutton-ci, pas à ceux de l'autre fenêtre sur la même variable.
+        self.var_show_sondages.trace_add(
+            "write",
+            lambda *_a: self.section.set_show_sondages(
+                self.var_show_sondages.get()))
         ttk.Checkbutton(
             frame,
             text=_("Afficher l'emplacement des sondages sur le dessin"),
             variable=self.var_show_sondages,
-            command=lambda: self.section.set_show_sondages(
-                self.var_show_sondages.get()),
             style="Panel.TCheckbutton",
         ).pack(anchor="w", pady=(6, 0))
         # Indice de découvrabilité : le canevas est interactif (clic sur

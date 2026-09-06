@@ -730,7 +730,16 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
     d'export + « Ouvrir le fichier/dossier ». L'ancien bouton Enregistrer
     du bandeau supérieur a été retiré (doublon, 2026-09-06).
   Sans ce bandeau, la fenêtre (quasi plein écran, pas `transient`) coupait
-  de tout le reste de l'app (2026-09-05). Décisions métier dans CLAUDE.md.
+  de tout le reste de l'app (2026-09-05). Elle porte aussi sa **propre case
+  « Afficher sondages »** posée sur `App.var_show_sondages` — la MÊME
+  `BooleanVar` que celle de la fenêtre principale (un seul interpréteur Tcl
+  pour toute l'app, même mécanique de partage que le menu) — pour ne plus
+  avoir à changer de fenêtre pour l'afficher/masquer ; une `trace_add`
+  redessine les blocs de cette fenêtre à chaque bascule (retirée à la
+  fermeture via `<Destroy>`) et une autre, posée une fois dans
+  `App._build_right`, redessine `App.section` — plus de `command=` local
+  qui n'aurait réagi qu'aux clics sur SA propre case. Décisions métier dans
+  CLAUDE.md.
 - **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
   (couronne **orange** = bois sain perdu depuis la référence, contours
   lissés Catmull-Rom), `render_comparison_page` (A4 paysage),

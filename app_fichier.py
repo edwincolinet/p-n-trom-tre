@@ -80,7 +80,6 @@ class FichierMixin(_MixinBase):
         var_ch_client: tk.StringVar
         var_ch_ope: tk.StringVar
         var_ch_date: tk.StringVar
-        var_show_sondages: tk.BooleanVar
 
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
@@ -497,8 +496,7 @@ class FichierMixin(_MixinBase):
                         default_arbre=a,
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
-                        on_save=self.action_save,
-                        show_sondages=self.var_show_sondages.get())
+                        on_save=self.action_save)
 
     def _export_comparison(self, fmt: str, builder: Callable[[], Any],
                            parent: "tk.Misc") -> None:
