@@ -536,6 +536,18 @@ Build / empaquetage (distribution uniquement — le dev tourne sans build) :
 - Nuitka (binaire compilé, option durcie) : `python3 build/build_nuitka.py` →
   `dist-nuitka/` (compilateur C requis ; réplique le spec).
 
+**Fichiers embarqués (`datas` du spec / `--include-data-*` de Nuitka)** :
+`assets/`, `exemples/`, `docs/` (contient `guide_demarrage.html`, ouvert par
+`action_open_guide`), `LICENSE` et `PRIVACY.md` (à la racine du bundle,
+ouverts par `penetrometre._open_doc` depuis les boutons « Licence (CLU) »/
+« Confidentialité » de la fenêtre À propos). **Piège corrigé (2026-09-06)** :
+`LICENSE`/`PRIVACY.md`/`docs/` étaient absents des deux specs — l'app
+tournait normalement (`Path(__file__).parent / name` résout dans
+l'environnement de dev), mais dans le binaire empaqueté ces boutons
+affichaient « Fichier introuvable » (silencieux, pas de crash). Nuitka doit
+rester le **miroir exact** des `datas` du spec PyInstaller — toute
+modification de l'un doit être reportée sur l'autre.
+
 Gestion des licences (usage interne). La clé privée vit **hors du dépôt**,
 dans `~/.penetrometre-keys/private.key` (ou `$PENETROMETRE_LICENSE_KEY`) :
 
