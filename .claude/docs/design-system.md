@@ -108,41 +108,51 @@ système et de la plateforme.
 - Signalétique : `ICON_WARNING` ⚠ / `ICON_CHECK` ✓ / `ICON_CROSS` ✗
 - Navigation : `ICON_RESET` ↺ / `ICON_RESTART` ⟳ / `ICON_NEXT` ⏭ /
   `ICON_HINT_ARROW` →
-- Calendrier : `ICON_CALENDAR` ▦ (bouton compact ouvrant `dialogs.ask_date`)
+- Calendrier : `ICON_CALENDAR` 📅 (`▦` sur Windows — cf. l'exception
+  ci-dessous), bouton compact ouvrant `dialogs.ask_date`
 
-**Exception 📅/💾 essayée puis abandonnée (2026-09-05 → 2026-09-06).** Une
+**Exception 📅/💾 : Windows seulement (2026-09-05 → 2026-09-06).** Une
 première version de ce design system remplaçait le bouton calendrier par
 `…` (convention « Choisir… ») pour rester dans le principe « pas d'emoji
 couleur » ; jugé moins lisible sur inspection du code (un `…` ne se
 distingue pas au premier coup d'œil d'un état « en attente »), le design
 system était revenu à l'emoji couleur 📅 pour ce bouton, ainsi qu'au
-préfixe « 💾 » du bouton **Enregistrer** (`app_layout._btn_save`) — pariant
-que leur reconnaissance immédiate valait le risque de rendu
-plateforme-dépendant déjà documenté ci-dessus. **Un test sur Windows réel
-a confirmé ce risque** : 📅/💾 viennent du bloc Unicode « Miscellaneous
-Symbols and Pictographs », à présentation **emoji obligatoire** — Segoe UI
-ne les contient pas, Tk bascule sur Segoe UI Emoji, dont le rendu couleur
-surdimensionné jure avec le chrome plat du reste de l'app (repéré à
-l'usage, pas en amont). Les glyphes listés plus haut (formes géométriques,
-flèches, ponctuation) n'ont pas ce problème : ce sont des blocs Unicode à
-présentation **texte par défaut**, rendus par la police système normale
-sans bascule de police. Correctif (2026-09-06) :
-- le préfixe « 💾 » est retiré, le bouton redevient texte seul
-  (`_("Enregistrer")`) ;
-- `ICON_CALENDAR` passe à `▦` (Formes géométriques, texte par défaut,
-  même bloc qu'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` déjà éprouvés
-  sur Windows) plutôt qu'un retour à `…` — chaque bouton qui le porte a
-  déjà une infobulle explicite, et `▦` reste visuellement **distinct** des
+préfixe « 💾 » du bouton **Enregistrer** (`app_layout._btn_save`) —
+pariant que leur reconnaissance immédiate valait le risque de rendu
+plateforme-dépendant déjà documenté ci-dessus, **partout**. **Un test sur
+Windows réel a confirmé ce risque, mais SEULEMENT sur Windows** : un
+second test sur Linux a confirmé que le rendu d'origine y convient — pas
+de raison de changer ce qui fonctionne là où ça fonctionne. 📅/💾 viennent
+du bloc Unicode « Miscellaneous Symbols and Pictographs », à présentation
+**emoji obligatoire** — Segoe UI (Windows) ne les contient pas, Tk bascule
+sur Segoe UI Emoji, dont le rendu couleur surdimensionné jure avec le
+chrome plat du reste de l'app ; les polices système Linux/macOS n'ont pas
+ce problème de bascule. Les glyphes listés plus haut (formes géométriques,
+flèches, ponctuation) n'ont ce problème sur AUCUNE plateforme : ce sont
+des blocs Unicode à présentation **texte par défaut**, rendus par la
+police système normale sans bascule de police. Correctif (2026-09-06),
+**conditionné à `sys.platform == "win32"`** :
+- `ICON_CALENDAR` (icons.py) : `📅` partout SAUF Windows, où il passe à
+  `▦` (Formes géométriques, texte par défaut, même bloc
+  qu'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` déjà éprouvés sur
+  Windows) plutôt qu'un retour à `…` — chaque bouton qui le porte a déjà
+  une infobulle explicite, et `▦` reste visuellement **distinct** des
   boutons `…` voisins de `pane_diagnostic` (gérer urgences/durées
   personnalisées), ce qu'un simple retour à `…` aurait perdu.
+- Le préfixe « 💾 » du bouton Enregistrer suit la même bascule, mais vit
+  dans une chaîne traduisible (pas une constante) : `app_layout.py` et
+  `comparaison.py` font chacun `_("💾 Enregistrer") if sys.platform !=
+  "win32" else _("Enregistrer")` — DEUX appels `_(...)` littéraux
+  distincts, jamais `_(variable)` (invisible au scanner AST de
+  `test_i18n.py`, cf. piège i18n plus bas). Les deux clés restent dans
+  les catalogues `en`/`it`.
 
 **Pas de glyphe de repli** reste la règle pour les actions sans équivalent
 monochrome fiable (document, imprimante, image, tableau, loupe) : ces
 boutons sont **texte seul** (« Fiche PDF (arbre courant) », « PNG du
-dessin », « Tableau PRBS — Excel (XLSX)… »…) — désormais la règle **sans
-exception**, l'épisode 📅/💾 ci-dessus ayant montré que le compromis
-« emoji couleur pour 2 boutons à forte fréquence » ne survivait pas à un
-test réel sur Windows.
+dessin », « Tableau PRBS — Excel (XLSX)… »…) ; 📅/💾 ci-dessus restent
+l'unique exception **et seulement sur Windows**, un compromis plateforme
+plutôt qu'un compromis universel.
 
 **Piège i18n** : un glyphe qui préfixe une chaîne traduisible
 (`_("⚠ Renseignez le rayon…")`, `_("▸ Saisie du brin {label}")`) fait

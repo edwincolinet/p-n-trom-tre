@@ -724,7 +724,8 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   - **Pied** : un widget ordinaire ne pouvant pas être partagé comme un
     menu, c'est une reconstruction visuellement identique à la barre
     d'état (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`) —
-    bouton « Enregistrer » (`App.action_save`) + indicateur
+    bouton « 💾 Enregistrer » (texte seul sur Windows, cf. `icons.py`)
+    (`App.action_save`) + indicateur
     d'enregistrement (`dialogs_shared.save_state_label(dirty, has_file)`,
     SOURCE UNIQUE partagée avec `App._update_save_indicator`) + message
     d'export + « Ouvrir le fichier/dossier ». L'ancien bouton Enregistrer

@@ -20,6 +20,7 @@ ci-dessous (greppable, pour mypy ; sans effet au runtime).
 from __future__ import annotations
 
 import logging
+import sys
 import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -776,10 +777,15 @@ class LayoutMixin(_MixinBase):
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        # Texte seul, sans préfixe emoji (2026-09-06, cf. `icons.py`) : le
-        # « 💾 » rendait mal sur Windows (emoji couleur surdimensionné,
-        # confirmé sur un test réel).
-        self._btn_save = ttk.Button(bar, text=_("Enregistrer"),
+        # Préfixe « 💾 » gardé partout SAUF Windows (2026-09-06, cf.
+        # `icons.py`) : emoji couleur surdimensionné confirmé sur un test
+        # Windows réel, mais rendu correct constaté sur Linux/macOS — pas de
+        # raison de le retirer là où il fonctionne. Deux appels `_(...)`
+        # littéraux distincts (pas `_(variable)`, invisible au scanner AST
+        # de `test_i18n.py`).
+        save_label = _("Enregistrer") if sys.platform == "win32" \
+            else _("💾 Enregistrer")
+        self._btn_save = ttk.Button(bar, text=save_label,
                                     style="Ghost.TButton",
                                     command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)
