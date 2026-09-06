@@ -9,7 +9,8 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Progetti recenti",
     "Enregistrer":                         "Salva",
     "Enregistrer sous…":                   "Salva come…",
-    "Imprimer la fiche (arbre courant)":   "Stampa scheda (albero corrente)",
+    "Modèles":                             "Modelli",
+    "Enregistrement":                      "Salvataggio",
     "Exporter la synthèse mission (XLSX)…":"Esporta sintesi missione (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Esporta sintesi missione (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Esporta tutte le schede (PDF)…",
@@ -22,29 +23,29 @@ TRANSLATIONS = {
     "Faire une comparaison (ré-inspection)…":
                                            "Avvia confronto (re-ispezione)…",
     "Diagnostic de la comparaison…":       "Diagnosi del confronto…",
+    "Date du diagnostic actuel":           "Data della diagnosi attuale",
+    "Choisissez la date du présent diagnostic":
+                                           "Scegliere la data della diagnosi attuale",
+    "Mission de référence « {nom} » : relevée le {date}. La date choisie "
+    "ici sera comparée à celle-ci.":
+        "Progetto di riferimento « {nom} »: rilevato il {date}. La data "
+        "scelta qui sarà confrontata con questa.",
 
     # ── Menu Alberi ───────────────────────────────────────────────────
     "Arbres":                              "Alberi",
+    "Ajouter":                             "Aggiungi",
+    "Navigation":                          "Navigazione",
+    "Modifier":                            "Modifica",
     "Ajouter un arbre":                    "Aggiungi albero",
-    "Ajouter (hériter du précédent)":      "Aggiungi (eredita dal precedente)",
     "Dupliquer l'arbre courant":           "Duplica albero corrente",
     "Renommer l'arbre courant…":           "Rinomina albero corrente…",
     "Supprimer l'arbre courant…":          "Elimina albero corrente…",
     "Prochain arbre à finir":              "Prossimo albero da completare",
-    "Urgence pour la sélection…":          "Urgenza per la selezione…",
-    "Urgence — sélection":                 "Urgenza — selezione",
-    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
-                                           "Livello di urgenza per {n} albero/i selezionato/i:",
-    "Urgence « {niveau} » appliquée à {n} arbre(s).":
-                                           "Urgenza « {niveau} » applicata a {n} albero/i.",
-    "Sélectionnez d'abord un ou plusieurs arbres dans la "
-    "liste (Ctrl+clic ou Maj+clic pour une sélection "
-    "multiple).":
-        "Selezionare prima uno o più alberi nell'elenco (Ctrl+clic o "
-        "Maiusc+clic per la selezione multipla).",
 
     # ── Menu Visualizza ───────────────────────────────────────────────
     "Affichage":                           "Visualizza",
+    "Accessibilité":                       "Accessibilità",
+    "Préférences":                         "Preferenze",
     "Taille du texte":                     "Dimensione testo",
     "Petit":                               "Piccolo",
     "Normal":                              "Normale",
@@ -57,6 +58,7 @@ TRANSLATIONS = {
 
     # ── Menu Aiuto ────────────────────────────────────────────────────
     "Aide":                                "Aiuto",
+    "Support":                             "Supporto",
     "Raccourcis clavier…":                 "Scorciatoie da tastiera…",
     "Ouvrir le fichier de log":            "Apri file di log",
     "Vérifier les mises à jour":           "Verifica aggiornamenti",
@@ -69,28 +71,20 @@ TRANSLATIONS = {
     "Adresse":                             "Luogo",
     "Opérateur":                           "Operatore",
     "Date":                                "Data",
-    "🔍 Faire une comparaison…":           "🔍 Avvia confronto…",
-    "📊 Diagnostic de la comparaison…":    "📊 Diagnosi del confronto…",
+    "Faire une comparaison…":              "Avvia confronto…",
 
     # ── Pannello sinistro — elenco alberi ─────────────────────────────
     "Arbres de la mission":                "Alberi del progetto",
+    "Filtrer":                             "Filtra",
     "Risque":                              "Rischio",
     "Urgence":                             "Urgenza",
     "Filtres avancés":                     "Filtri avanzati",
     "Tous":                                "Tutti",
     "Non fiable":                          "Non affidabile",
     "＋ Ajouter":                          "＋ Aggiungi",
-    "Arbre vierge":                        "Albero vuoto",
-    "Hériter du précédent (essence, port, mèche…)":
-                                           "Eredita dal precedente (specie, portamento, sonda…)",
     "Dupliquer":                           "Duplica",
     "Supprimer":                           "Elimina",
     "⏭ Prochain arbre à finir":           "⏭ Prossimo albero da completare",
-    "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
-    "« Hériter du précédent » pour reprendre essence, "
-    "port et mèche d'un alignement.":
-        "Aggiungi albero. « Albero vuoto » (Ctrl+T) o "
-        "« Eredita dal precedente » per riprendere specie, portamento e sonda da un filare.",
 
     # ── Schede principali ─────────────────────────────────────────────
     "Identification":                      "Identificazione",
@@ -98,6 +92,7 @@ TRANSLATIONS = {
     "Dégradations externes":               "Degradi esterni",
     "Contreforts":                         "Contrafforti",
     "Diagnostic":                          "Diagnosi",
+    "Export":                              "Esporta",
 
     # ── Scheda Identificazione ────────────────────────────────────────
     "N° d'inventaire":                     "N° inventario",
@@ -274,13 +269,14 @@ TRANSLATIONS = {
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Parete Residua di Legno Sano per sondaggio",
     "(suite)":                            "(continua)",
-    "📄 Fiche PDF (arbre courant)":       "📄 Scheda PDF (albero corrente)",
-    "🖨 Imprimer":                        "🖨 Stampa",
-    "🖼 PNG du dessin":                   "🖼 PNG del disegno",
-    "📊 Exporter le tableau":             "📊 Esporta tabella",
+    "Fiche PDF (arbre courant)":          "Scheda PDF (albero corrente)",
+    "PNG du dessin":                      "PNG del disegno",
+    "Comparaison — fiche PDF…":           "Confronto — scheda PDF…",
+    "Comparaison — évolution (PNG)…":     "Confronto — evoluzione (PNG)…",
+    "Fiche PDF…":                          "Scheda PDF…",
+    "Évolution (PNG)…":                   "Evoluzione (PNG)…",
     "Tableau PRBS — Excel (XLSX)…":      "Tabella PRBS — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "Tabella PRBS — pagina HTML…",
-    "Sondages de la mission (CSV)…":     "Sondaggi del progetto (CSV)…",
     "PRBS (cm)":                          "PRBS (cm)",
     "t/R (%)":                            "t/R (%)",
     "Classe":                             "Classe",
@@ -339,8 +335,8 @@ TRANSLATIONS = {
 
     "Arbre courant :":                     "Albero corrente:",
     "comparé à (référence) :":             "confrontato con (riferimento):",
-    "🖼 PNG…":                             "🖼 PNG…",
-    "📄 PDF…":                             "📄 PDF…",
+    "PNG…":                                "PNG…",
+    "PDF…":                                "PDF…",
     "(pas de brin de référence)":          "(nessun fusto di riferimento)",
     "La mission courante ou de référence ne contient aucun arbre.":
                                            "Il progetto corrente o di riferimento non contiene alberi.",
@@ -494,12 +490,12 @@ TRANSLATIONS = {
         "« ~ » negli export (PDF, XLSX, CSV) per segnalare la misura come "
         "meno affidabile.",
 
-    "Case « ~ » : marque un sondage incertain (angle de mèche, "
-    "pression, accès difficile…). La valeur reste comptée dans le "
-    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
-    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
-        "Casella « ~ »: segna un sondaggio come incerto (angolo di "
-        "sonda, pressione, accesso difficile…). Il valore resta "
+    "Case « Douteux (~) » : marque un sondage incertain (angle de "
+    "mèche, pression, accès difficile…). La valeur reste comptée "
+    "dans le diagnostic, mais est préfixée « ~ » dans les exports "
+    "(PDF, XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "Casella « Incerto (~) »: segna un sondaggio come incerto (angolo "
+        "di sonda, pressione, accesso difficile…). Il valore resta "
         "conteggiato nella diagnosi, ma è preceduto da « ~ » negli "
         "export (PDF, XLSX, CSV) per segnalarlo.",
 
@@ -564,7 +560,6 @@ TRANSLATIONS = {
         "Eliminare definitivamente « {n} »?",
     "Exporté":                             "Esportato",
     "Rien à exporter":                     "Nulla da esportare",
-    "Impression envoyée — arbre n°{num}":  "Stampa inviata — albero n°{num}",
     "✓ Enregistré — {nom}":               "✓ Salvato — {nom}",
     "Arbre précédent":                     "Albero precedente",
     "Dégradation externe n° {n}":         "Degrado esterno n° {n}",
@@ -628,11 +623,7 @@ TRANSLATIONS = {
     "Contraste élevé activé.":            "Alto contrasto attivato.",
     "Contraste élevé désactivé.":         "Alto contrasto disattivato.",
 
-    "＋ Vierge":                         "＋ Vuoto",
-    "＋ Hériter":                         "＋ Eredita",
     "Ajouter un arbre vierge":            "Aggiungi albero vuoto",
-    "Hériter du précédent":               "Eredita dal precedente",
-    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copia specie, port., Ø, altezze, sonda, cort.",
 
     "Client":                             "Cliente",
     "Nom de la mission — peut aussi porter une "
@@ -656,6 +647,7 @@ TRANSLATIONS = {
     "Incomplets":                         "Incompleti",
 
     "Photos":                             "Foto",
+    "Photo {n}":                          "Foto {n}",
     "＋ Photo":                           "＋ Foto",
     "Aucune photo":                       "Nessuna foto",
     "Ajouter des photos":                 "Aggiungi foto",
@@ -675,7 +667,7 @@ TRANSLATIONS = {
     'Export PDF annulé — aucun fichier écrit.': 'Esportazione PDF annullata — nessun file scritto.',
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 
-    "~":                                  "~",
+    "Douteux (~)":                        "Incerto (~)",
     "Sondage incertain (mesure douteuse)": "Sondaggio incerto (misura dubbia)",
 
     "Enregistrer comme modèle…":          "Salva come modello…",
@@ -780,18 +772,10 @@ TRANSLATIONS = {
         "(disegno + tabella + diagnosi) — Ctrl+E",
     "Exporter le dessin de la section en image PNG":
         "Esporta il disegno della sezione come immagine PNG",
-    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-    "tous les sondages de la mission (CSV)":
-        "Esporta la tabella PRBS dell'albero (Excel / HTML) o "
-        "tutti i sondaggi del progetto (CSV)",
     "Gérer les durées de suivi personnalisées":
         "Gestisci le durate di monitoraggio personalizzate",
     "Gérer les niveaux d'urgence personnalisés":
         "Gestisci i livelli di urgenza personalizzati",
-    "Imprimer la fiche PDF directement "
-    "(sans dialogue de sauvegarde) — Ctrl+P":
-        "Stampa la scheda PDF direttamente "
-        "(senza finestra di salvataggio) — Ctrl+P",
     "Longueur (cm)":                        "Lunghezza (cm)",
     "Ouvrir la fenêtre de comparaison de l'arbre "
     "courant avec la mission de référence.":

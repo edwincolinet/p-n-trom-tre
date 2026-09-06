@@ -21,6 +21,11 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
+; Tous les chemins relatifs ci-dessous (SetupIconFile, LicenseFile,
+; OutputDir, [Files] Source) sont résolus depuis SourceDir — sans cette
+; ligne, le défaut est le dossier du script (build\), pas la racine du
+; dépôt où tournent PyInstaller et ce workflow.
+SourceDir=..
 ; Installation par utilisateur (sans droits admin / UAC)
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Penetrometre
@@ -34,7 +39,7 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExe}
 ; Affiche le CLU et exige l'acceptation avant installation
-LicenseFile=..\LICENSE
+LicenseFile=LICENSE
 ; Empêche l'ouverture de plusieurs instances de l'installeur
 AppMutex=PenetrometerSetupMutex
 

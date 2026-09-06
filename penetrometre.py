@@ -52,7 +52,7 @@ from dialogs import (
 from dialogs_cepee import ask_cepee_layout
 from dialogs_license import show_activation_dialog
 from dialogs_saisie import edit_contrefort, edit_degradation, edit_sondage
-from dialogs_shared import message_chevauchement
+from dialogs_shared import message_chevauchement, save_state_label
 from i18n import _, setup_language, translate_values
 from license import (
     LicenseData,
@@ -79,7 +79,6 @@ from palette import (
     COLOR_INK,
     COLOR_MUTED,
     COLOR_PANEL,
-    COLOR_WARN,
 )
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -91,6 +90,7 @@ from persistence import (
     clear_recovery,
 )
 from ui_fonts import font as ui_font
+from ui_fonts import font_small_bold
 from undo import UndoStack
 
 __version__ = "3.6.0"
@@ -234,7 +234,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self.bind_all("<Control-y>", lambda e: self._perform_redo())
         self.bind_all("<Control-Z>", lambda e: self._perform_redo())
         self.bind_all("<Control-e>", self._on_export_shortcut)
-        self.bind_all("<Control-p>", self._on_print_shortcut)
         # Navigation clavier entre arbres (Ctrl+PageDown/PageUp). Libre de
         # conflit : ttk.Notebook ne lie que Ctrl+Tab.
         self.bind_all("<Control-Next>", lambda e: self.action_next_arbre())
@@ -289,14 +288,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
             return
         self.action_export_pdf_arbre()
-
-    def _on_print_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
-        """Ctrl+P → impression directe de la fiche PDF de l'arbre courant.
-        Neutralisé dans les champs texte (Ctrl+P = début de ligne)."""
-        w = self.focus_get()
-        if isinstance(w, (ttk.Entry, ttk.Combobox, tk.Entry)):
-            return
-        self.action_print_arbre()
 
     def set_status(self, text: str) -> None:
         """Met à jour le message de la barre d'état (no-op si la barre
@@ -353,11 +344,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._update_save_indicator()
 
     def _update_compare_state(self) -> None:
-        """Active ou désactive le bouton et l'entrée menu « Diagnostic de la
-        comparaison » selon qu'une mission de référence est chargée ou non."""
+        """Active ou désactive l'entrée menu « Diagnostic de la comparaison »
+        selon qu'une mission de référence est chargée ou non."""
         state = "normal" if self._reference_chantier is not None else "disabled"
-        if hasattr(self, "_btn_compare"):
-            self._btn_compare.configure(state=state)
         if hasattr(self, "_menu_comparaison"):
             self._menu_comparaison.entryconfigure(1, state=state)
 
@@ -365,24 +354,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         """Reflète l'état d'enregistrement dans la barre d'état (texte +
         couleur) et l'activation du bouton Enregistrer. Centralisé via
         `_update_title`, donc à jour à chaque changement du dirty flag.
-        No-op tant que la barre n'est pas construite (ordre d'`__init__`)."""
+        No-op tant que la barre n'est pas construite (ordre d'`__init__`).
+        Texte/couleur/activation viennent de `dialogs_shared.save_state_label`
+        (source unique, partagée avec le pied de la fenêtre de comparaison)."""
         if not hasattr(self, "lbl_save_state"):
             return
-        if self._dirty:
-            self.lbl_save_state.configure(
-                text=_("● Modifications non enregistrées"),
-                foreground=COLOR_WARN)
-            self._btn_save.configure(state="normal")
-        elif self.current_file is not None:
-            self.lbl_save_state.configure(
-                text=_("✓ Enregistré"), foreground=COLOR_ACCENT)
-            self._btn_save.configure(state="disabled")
-        else:
-            # Mission neuve jamais enregistrée : rien à perdre, mais le
-            # bouton reste actif (premier « Enregistrer sous… »).
-            self.lbl_save_state.configure(
-                text=_("Mission non enregistrée"), foreground=COLOR_MUTED)
-            self._btn_save.configure(state="normal")
+        text, color, enabled = save_state_label(
+            dirty=self._dirty, has_file=self.current_file is not None)
+        self.lbl_save_state.configure(text=text, foreground=color)
+        self._btn_save.configure(state="normal" if enabled else "disabled")
 
     def _on_close(self) -> None:
         if self._dirty:
@@ -1141,11 +1121,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                 (["Ctrl", "O"], "Ouvrir une mission"),
                 (["Ctrl", "S"], "Enregistrer"),
                 (["Ctrl", "E"], "Exporter la fiche PDF (arbre courant)"),
-                (["Ctrl", "P"], "Imprimer la fiche PDF (arbre courant)"),
             ]),
             ("Arbres", [
                 (["Ctrl", "T"], "Ajouter un arbre vierge"),
-                (["Ctrl", "Maj", "T"], "Hériter du précédent (Ø, essence…)"),
                 (["Ctrl", "Pg.Suiv"], "Arbre suivant"),
                 (["Ctrl", "Pg.Préc"], "Arbre précédent"),
                 (["Échap"], "Vider le filtre de recherche"),
@@ -1193,7 +1171,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         def _render_section(parent: tk.Misc, titre: str,
                             lignes: list) -> None:
             ttk.Label(parent, text=titre.upper(),
-                      font=ui_font("Helvetica", 9, "bold"),
+                      font=font_small_bold(),
                       foreground=COLOR_ACCENT).grid(
                           sticky="w", pady=(10, 4), columnspan=2)
             grille = ttk.Frame(parent)

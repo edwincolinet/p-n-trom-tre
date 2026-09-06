@@ -80,7 +80,6 @@ class FichierMixin(_MixinBase):
         var_ch_client: tk.StringVar
         var_ch_ope: tk.StringVar
         var_ch_date: tk.StringVar
-        var_show_sondages: tk.BooleanVar
 
         def _suspend_sync_block(self) -> AbstractContextManager[None]: ...
         def _refresh_tree_arbres(self) -> None: ...
@@ -91,8 +90,13 @@ class FichierMixin(_MixinBase):
         def _current_arbre(self) -> Optional[Arbre]: ...
         def set_status(self, text: str) -> None: ...
         def notify_export(self, path: str, label: str) -> None: ...
+        def _open_in_system(self, path: Path) -> None: ...
         def push_undo(self) -> None: ...
         def _update_compare_state(self) -> None: ...
+        # Fournis par `ExportActionsMixin` (menu Export ET menu propre à
+        # la fenêtre de comparaison — cf. `action_compare_arbre`).
+        def action_export_comparison_pdf(self) -> None: ...
+        def action_export_comparison_png(self) -> None: ...
 
     def action_new(self) -> None:
         if self._dirty:
@@ -189,17 +193,17 @@ class FichierMixin(_MixinBase):
         dlg.resizable(False, False)
         dlg.configure(bg="#F5F7F5")
 
-        from ui_fonts import font as _font
+        from ui_fonts import font_body, font_subheading
         frm = ttk.Frame(dlg, padding=16)
         frm.pack(fill="both", expand=True)
         ttk.Label(frm, text=_("Choisissez un modèle :"),
-                  font=_font("Helvetica", 11, "bold")).pack(anchor="w",
-                                                             pady=(0, 8))
+                  font=font_subheading()).pack(anchor="w",
+                                                pady=(0, 8))
 
         lb_frame = ttk.Frame(frm)
         lb_frame.pack(fill="both", expand=True)
         lb = tk.Listbox(lb_frame, height=8, width=40,
-                        font=_font("Helvetica", 10), selectmode="single")
+                        font=font_body(), selectmode="single")
         sb = ttk.Scrollbar(lb_frame, orient="vertical", command=lb.yview)
         lb.configure(yscrollcommand=sb.set)
         lb.pack(side="left", fill="both", expand=True)
@@ -434,9 +438,21 @@ class FichierMixin(_MixinBase):
             return
         # Nouvelle date de relevé (aujourd'hui par défaut). Annulé → on
         # abandonne ; effacé → on retombe sur aujourd'hui (une date est
-        # indispensable au calcul du taux d'évolution).
+        # indispensable au calcul du taux d'évolution). Calculée AVANT
+        # l'appel à `ask_date` pour être affichée dans son `info` — sans
+        # ça, rien n'indiquait à l'utilisateur QUELLE date on lui demande
+        # (celle du diagnostic présent, pas celle de la référence) ni la
+        # date de référence à laquelle elle sera comparée (repéré à
+        # l'usage : la fenêtre de calendrier, générique, ne le disait pas).
         today = datetime.now().strftime("%d/%m/%Y")
-        new_date = ask_date(self, today)
+        ref_date = loaded.date_releve or _("non renseignée")
+        new_date = ask_date(
+            self, today,
+            title=_("Date du diagnostic actuel"),
+            prompt=_("Choisissez la date du présent diagnostic"),
+            info=_("Mission de référence « {nom} » : relevée le "
+                    "{date}. La date choisie ici sera comparée à "
+                    "celle-ci.").format(nom=loaded.nom, date=ref_date))
         if new_date is None:
             return
         if not new_date:
@@ -445,7 +461,6 @@ class FichierMixin(_MixinBase):
         # Référence = instantané figé AVANT toute édition (garde l'ancienne
         # date, donc l'intervalle « annees » est correct).
         self._reference_chantier = copy.deepcopy(loaded)
-        ref_date = self._reference_chantier.date_releve or "?"
 
         self._undo_stack.clear()
         clear_recovery(_RECOVERY_PATH)
@@ -466,7 +481,13 @@ class FichierMixin(_MixinBase):
         """Ouvre la fenêtre « Diagnostic de la comparaison » : l'arbre courant
         confronté à son homologue de la mission de référence (figée par
         `action_reinspection`). Disponible seulement après un clic sur
-        « Faire une comparaison… » — bouton et menu désactivés sinon."""
+        « Faire une comparaison… » — bouton et menu désactivés sinon.
+
+        La fenêtre partage le bandeau de l'App (même `tk.Menu`, cf.
+        `comparaison.open_comparison`) : l'export PDF/PNG de cette
+        comparaison se fait depuis le menu Export, comme partout ailleurs
+        (entrées activées par `comparaison.is_comparison_active()`, pointant
+        vers `app_export_actions.action_export_comparison_pdf/_png`)."""
         ref = self._reference_chantier
         a = self._current_arbre()
         if ref is None or a is None:
@@ -475,17 +496,30 @@ class FichierMixin(_MixinBase):
                         default_arbre=a,
                         cur_date=self.chantier.date_releve,
                         couleur_classe=COULEUR_CLASSE,
-                        export_cb=self._export_comparison,
-                        show_sondages=self.var_show_sondages.get())
+                        on_save=self.action_save)
 
     def _export_comparison(self, fmt: str, builder: Callable[[], Any],
                            parent: "tk.Misc") -> None:
         """Enregistre la comparaison (PNG ou PDF) construite par `builder`
-        (appelé par les boutons d'export de la fenêtre). `builder()` renvoie
-        une **liste de pages** (une par brin pour une cépée). `parent` = la
-        fenêtre de comparaison : on y ancre le filedialog pour qu'il s'ouvre
-        AU PREMIER PLAN (sinon il passe derrière la fenêtre)."""
-        from comparaison_render import save_comparison_pdf, save_comparison_png
+        (appelé depuis le menu Export — cf. `action_export_comparison_pdf`/
+        `_png` de `ExportActionsMixin`). `parent` = la fenêtre de
+        comparaison si elle est encore ouverte (ancre le filedialog pour
+        qu'il s'ouvre AU PREMIER PLAN, sinon il passe derrière), sinon la
+        fenêtre principale.
+
+        `builder()` renvoie une **liste de pages** PDF (une par brin pour
+        une cépée, assemblées en un seul PDF multi-pages) ; pour le PNG,
+        `render_evolution_pngs` renvoie des `(label, image)` et
+        `save_evolution_pngs` écrit **un fichier par brin** — une cépée
+        n'est jamais empilée dans un unique PNG, ce qui la rendrait
+        réinsérable dans un rapport uniquement en la recadrant.
+
+        Le succès est signalé à DEUX endroits : la barre d'état principale
+        (`notify_export`, comme tout export) et le pied de la fenêtre de
+        comparaison (`show_export_feedback`) — la première est invisible
+        tant que la seconde couvre l'écran."""
+        from comparaison import show_export_feedback
+        from comparaison_render import save_comparison_pdf, save_evolution_pngs
         ext = ".pdf" if fmt == "pdf" else ".png"
         typ = "PDF" if fmt == "pdf" else "Image PNG"
         p = filedialog.asksaveasfilename(
@@ -497,9 +531,18 @@ class FichierMixin(_MixinBase):
             pages = builder()
             if fmt == "pdf":
                 save_comparison_pdf(pages, p)
+                out_path = Path(p)
+                label = "Comparaison d'inspections"
             else:
-                save_comparison_png(pages, p)
-            self.notify_export(p, "Comparaison d'inspections")
+                written = save_evolution_pngs(pages, p)
+                out_path = Path(written[0])
+                label = ("Comparaison d'inspections" if len(written) == 1
+                         else f"Comparaison d'inspections ({len(written)} fichiers)")
+            self.notify_export(str(out_path), label)
+            show_export_feedback(
+                f"✓ {label} — {out_path.name}",
+                on_open_file=lambda: self._open_in_system(out_path),
+                on_open_folder=lambda: self._open_in_system(out_path.parent))
         except Exception as e:
             log.exception("Échec export comparaison")
             messagebox.showerror(_("Erreur"), str(e))

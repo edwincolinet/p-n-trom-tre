@@ -26,7 +26,7 @@ from palette import (
     COLOR_PANEL,
     COLOR_WOOD,
 )
-from ui_fonts import font as ui_font
+from ui_fonts import font_small_italic, font_subheading
 
 
 def ask_cepee_layout(parent: tk.Misc,
@@ -116,7 +116,7 @@ def ask_cepee_layout(parent: tk.Misc,
             txt = (f"{label} · ancre{rot_txt}" if anchor
                    else f"{label}{rot_txt}")
             cv.create_text(cx, cy, text=txt, fill=COLOR_INK,
-                           font=ui_font("Helvetica", 11, "bold"))
+                           font=font_subheading())
 
     def brin_at(px: float, py: float) -> Optional[int]:
         # Brins dessinés dans l'ordre ; on teste du dernier au premier pour
@@ -181,7 +181,7 @@ def ask_cepee_layout(parent: tk.Misc,
         text=_("Glissez un brin pour le positionner")
              + " ; molette au-dessus d'un brin pour le faire pivoter (pas de 25 gr).",
         background=COLOR_PANEL, foreground=COLOR_MUTED,
-        font=ui_font("Helvetica", 9, "italic"),
+        font=font_small_italic(),
         wraplength=int(W), justify="left").grid(
         row=1, column=0, sticky="w", padx=12, pady=(0, 6))
 

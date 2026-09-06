@@ -43,7 +43,7 @@ from i18n import _
 from model import Brin, Contrefort
 from palette import COLOR_ACCENT
 from tooltip import Tooltip
-from ui_fonts import font as ui_font
+from ui_fonts import font_body_bold, font_small_bold, font_subheading
 
 # Largeur angulaire d'un contrefort : multiples de 25, de 25 à 400 gr.
 _LARGEUR_VALUES = [str(v) for v in range(25, 401, 25)]
@@ -80,7 +80,7 @@ class ContrefortsPane(ttk.Frame):
         # Écho du brin édité (cépée) — cf. SondagesPane. Vide en mono-caule.
         self._brin_title = ttk.Label(
             self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 11, "bold"))
+            font=font_subheading())
 
         self._intro = ttk.Label(
             self,
@@ -96,7 +96,7 @@ class ContrefortsPane(ttk.Frame):
                  _("Largeur (gr)"), _("Commentaire")]
         for c, h in enumerate(heads):
             ttk.Label(grid, text=h, style="Panel.TLabel",
-                      font=ui_font("Helvetica", 9, "bold")).grid(
+                      font=font_small_bold()).grid(
                 row=0, column=c, sticky="w", padx=6, pady=(0, 4))
 
         vcmd = (self.register(validate_numeric), "%P")
@@ -108,7 +108,7 @@ class ContrefortsPane(ttk.Frame):
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
                                 cursor="hand2",
-                                font=ui_font("Helvetica", 10, "bold"))
+                                font=font_body_bold())
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
                                width=7, cursor="hand2")

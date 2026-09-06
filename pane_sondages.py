@@ -7,6 +7,11 @@ mesure, l'onglet présente les **16 directions pré-affichées** (rose des
 vents N → NNO) ; l'opérateur ne fait que taper la valeur de bois sain et
 descendre d'une ligne (Entrée / flèche bas).
 
+Le contenu (grille 16 lignes + Ø local + bloc Aide déplié) peut dépasser
+la hauteur disponible sur petit écran ou avec une taille de texte
+agrandie : il vit donc dans un sous-`tk.Canvas` scrollable verticalement
+(même motif que `pane_diagnostic`), pour rester accessible en entier.
+
 Sémantique de la grille :
 - **Case « Bois sain » vide** = direction non sondée (aucun `Sondage`).
 - **Une valeur saisie** (y compris 0) = sondage existant à cette direction.
@@ -64,9 +69,9 @@ from dialogs_shared import (
 from geometry import GRADES, WIND_LABELS
 from i18n import _
 from model import Brin, Sondage
-from palette import COLOR_ACCENT, COLOR_WARN
+from palette import COLOR_ACCENT, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
-from ui_fonts import font as ui_font
+from ui_fonts import font_body_bold, font_small_bold, font_subheading
 
 _COMPART_VALUES = compart_choices(_COMPART_FR)
 
@@ -84,7 +89,7 @@ class SondagesPane(ttk.Frame):
     """Pane Tk autonome : grille fixe de 16 directions, saisie directe."""
 
     def __init__(self, master: tk.Misc, host: _SondagesHost, **kw: Any) -> None:
-        super().__init__(master, style="Panel.TFrame", padding=10, **kw)
+        super().__init__(master, style="Panel.TFrame", **kw)
         self._host = host
         self._suspend = False
         self._undo_snap: Optional[dict] = None
@@ -105,17 +110,64 @@ class SondagesPane(ttk.Frame):
         self._build()
 
     def _build(self) -> None:
+        # Canvas + scrollbar : la grille (16 lignes + Ø local) et le bloc
+        # Aide déplié peuvent dépasser la hauteur disponible (petit écran,
+        # ou taille de texte agrandie) sans qu'aucun moyen de scroller ne
+        # soit offert autrement — même motif que `pane_diagnostic`.
+        canvas = tk.Canvas(self, bg=COLOR_PANEL, highlightthickness=0, bd=0)
+        scroll = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        content = ttk.Frame(canvas, style="Panel.TFrame", padding=10)
+        content_window = canvas.create_window((0, 0), window=content,
+                                               anchor="nw")
+
+        def _on_configure_inner(_e: "tk.Event[tk.Misc]") -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_configure_outer(event: "tk.Event[tk.Misc]") -> None:
+            canvas.itemconfigure(content_window, width=event.width)
+
+        content.bind("<Configure>", _on_configure_inner)
+        canvas.bind("<Configure>", _on_configure_outer)
+
+        # Molette : bindings globaux N'ACTIVÉS QUE si pointeur sur ce
+        # canvas — sinon la molette détourne le scroll des autres onglets.
+        def _on_mousewheel(event: "tk.Event[tk.Misc]") -> None:
+            canvas.yview_scroll(int(-event.delta / 120), "units")
+
+        def _on_mousewheel_linux(event: "tk.Event[tk.Misc]") -> None:
+            canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
+
+        def _bind_wheel(_e: "tk.Event[tk.Misc]") -> None:
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            canvas.bind_all("<Button-4>", _on_mousewheel_linux)
+            canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+
+        def _unbind_wheel(_e: "tk.Event[tk.Misc]") -> None:
+            canvas.unbind_all("<MouseWheel>")
+            canvas.unbind_all("<Button-4>")
+            canvas.unbind_all("<Button-5>")
+
+        canvas.bind("<Enter>", _bind_wheel)
+        canvas.bind("<Leave>", _unbind_wheel)
+
+        self._build_content(content)
+
+    def _build_content(self, parent: ttk.Frame) -> None:
         # Rappel du brin édité (cépée) — placé en tête, au plus près de la
         # grille où vont les yeux pendant la saisie. Vide pour un mono-caule
         # (dépacké → pane inchangé) ; « ▸ Saisie du brin b » sinon. Le
         # sélecteur global « Brin a/b/c » reste au-dessus des onglets ;
         # cet écho évite de saisir 16 PRBS sur le mauvais brin. Maj `refresh`.
         self._brin_title = ttk.Label(
-            self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 11, "bold"))
+            parent, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
+            font=font_subheading())
 
         self._intro = ttk.Label(
-            self,
+            parent,
             text=_("Tapez la PRBS (bois sain) de chaque direction, puis "
                  "Entrée (ou ↓) pour descendre. Le dessin et le diagnostic "
                  "se recalculent en direct."),
@@ -128,19 +180,26 @@ class SondagesPane(ttk.Frame):
         # sain n'est pas borné — d'où ce rappel explicite (lève la confusion
         # « pourquoi des — partout ? » de qui attaque Sondages avant le rayon).
         self._lbl_no_radius = ttk.Label(
-            self,
+            parent,
             text=_("⚠ Renseignez le rayon du tronc dans l'onglet Identification :"
                  " sans lui, le bois altéré n'est pas calculé."),
             style="Panel.TLabel", foreground=COLOR_WARN,
             wraplength=420, justify="left")
 
-        grid = ttk.Frame(self, style="Panel.TFrame")
+        grid = ttk.Frame(parent, style="Panel.TFrame")
         grid.pack(fill="both", expand=True)
         self._grid = grid
 
+        # Colonne 7 (« Douteux (~) ») : en-tête en toutes lettres plutôt que
+        # le seul « ~ » (repéré comme trop cryptique à l'usage — rien
+        # n'indique à qui ne connaît pas déjà la fonctionnalité qu'une case
+        # à cocher se cache derrière un tiret). Le symbole reste affiché
+        # entre parenthèses pour le lien visuel avec le préfixe « ~ » que
+        # portent les exports (PDF/XLSX/CSV) pour une mesure incertaine.
+        _COL_INCERTAIN = 7
         heads = [_("Direction"), _("Grade"), _("Ø local (cm)"),
                  _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
-                 _("Commentaire"), _("~")]
+                 _("Commentaire"), _("Douteux (~)")]
         # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
         _tip_incertain = _(
             "Sondage incertain (angle de mèche, pression, accès difficile…). "
@@ -149,9 +208,9 @@ class SondagesPane(ttk.Frame):
             "fiable.")
         for c, h in enumerate(heads):
             lbl_head = ttk.Label(grid, text=h, style="Panel.TLabel",
-                                 font=ui_font("Helvetica", 9, "bold"))
+                                 font=font_small_bold())
             lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
-            if h == "~":
+            if c == _COL_INCERTAIN:
                 Tooltip(lbl_head, _tip_incertain)
 
         vcmd = (self.register(validate_numeric), "%P")
@@ -165,7 +224,7 @@ class SondagesPane(ttk.Frame):
             lbl_dir = ttk.Label(grid, text=WIND_LABELS[g],
                                 style="Panel.TLabel", width=6,
                                 cursor="hand2",
-                                font=ui_font("Helvetica", 10, "bold"))
+                                font=font_body_bold())
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
             lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
                                width=7, cursor="hand2")
@@ -265,21 +324,21 @@ class SondagesPane(ttk.Frame):
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une direction est écrêtée.
         self._lbl_fusion = ttk.Label(
-            self, text=FUSION_WARN_TEXT, style="Panel.TLabel",
+            parent, text=FUSION_WARN_TEXT, style="Panel.TLabel",
             foreground=COLOR_WARN, wraplength=420, justify="left")
 
         self._aide = AideRepliable(
-            self,
+            parent,
             _("Laissez vide une direction non sondée. Effacer supprime le sondage "
               "(commentaire, compartimentation et Ø local compris). "
               "Double-cliquez pour le détail."),
             _("Ø local : diamètre sous écorce mesuré à CETTE direction (un "
               "tronc n'est jamais parfaitement cylindrique). Laissez vide "
               "pour utiliser le diamètre général de l'onglet Identification."),
-            _("Case « ~ » : marque un sondage incertain (angle de mèche, "
-              "pression, accès difficile…). La valeur reste comptée dans le "
-              "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
-              "XLSX, CSV) pour signaler la mesure comme moins fiable."),
+            _("Case « Douteux (~) » : marque un sondage incertain (angle de "
+              "mèche, pression, accès difficile…). La valeur reste comptée "
+              "dans le diagnostic, mais est préfixée « ~ » dans les exports "
+              "(PDF, XLSX, CSV) pour signaler la mesure comme moins fiable."),
             wraplength=420,
         )
         self._aide.pack(anchor="w", pady=(8, 0))

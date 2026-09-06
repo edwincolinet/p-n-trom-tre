@@ -53,7 +53,7 @@ from i18n import _
 from model import Brin, DegradationExterne, degradations_chevauchements
 from palette import COLOR_ACCENT, COLOR_WARN
 from tooltip import Tooltip
-from ui_fonts import font as ui_font
+from ui_fonts import font_body_bold, font_small_bold, font_subheading
 
 
 class _DegradationsHost(Protocol):
@@ -87,7 +87,7 @@ class DegradationsPane(ttk.Frame):
         # Écho du brin édité (cépée) — cf. SondagesPane. Vide en mono-caule.
         self._brin_title = ttk.Label(
             self, text="", style="Panel.TLabel", foreground=COLOR_ACCENT,
-            font=ui_font("Helvetica", 11, "bold"))
+            font=font_subheading())
 
         self._intro = ttk.Label(
             self,
@@ -163,7 +163,7 @@ class DegradationsPane(ttk.Frame):
                  _("Zone dégradée"), _("Commentaire"), ""]
         for c, h in enumerate(heads):
             ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
-                      font=ui_font("Helvetica", 9, "bold")).grid(
+                      font=font_small_bold()).grid(
                 row=0, column=c, sticky="w", padx=6, pady=(0, 4))
 
         vcmd = (self.register(validate_numeric), "%P")
@@ -227,7 +227,7 @@ class DegradationsPane(ttk.Frame):
 
         lbl_num = ttk.Label(f, text=str(deg.numero), style="Panel.TLabel",
                             width=3, cursor="hand2",
-                            font=ui_font("Helvetica", 10, "bold"))
+                            font=font_body_bold())
         lbl_num.grid(row=r, column=0, sticky="w", padx=6, pady=1)
         lbl_num.bind("<Double-1>", lambda e: self._open_detail(deg))
         Tooltip(lbl_num, _("Double-cliquez pour saisir la largeur en cm"))
@@ -315,7 +315,7 @@ class DegradationsPane(ttk.Frame):
         lbl_warn = ttk.Label(f, textvariable=row["warn"],
                              style="Panel.TLabel", width=2,
                              foreground=COLOR_WARN,
-                             font=ui_font("Helvetica", 10, "bold"))
+                             font=font_body_bold())
         lbl_warn.grid(row=r, column=8, sticky="w", pady=1)
         Tooltip(lbl_warn,
                 _("Profondeur + altération centrale > rayon sur au moins "

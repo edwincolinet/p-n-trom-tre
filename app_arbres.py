@@ -22,10 +22,9 @@ from typing import TYPE_CHECKING, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 from diagnostic import genet_diagnostic
-from dialogs import ask_choice, ask_string
-from i18n import _, translate_values, untranslate_value
+from dialogs import ask_string
+from i18n import _, untranslate_value
 from model import URGENCE_NIVEAUX, Arbre
-from pane_diagnostic import _URGENCE_VIDE
 
 # Cf. note dans `app_recovery` : base `tk.Tk` pour mypy (self = widget),
 # `object` au runtime.
@@ -473,36 +472,6 @@ class ArbreListMixin(_MixinBase):
         if getattr(self, "var_complet_filter", None) is not None:
             self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
 
-    def action_add_arbre_inherit(self) -> None:
-        """Ajoute un arbre héritant des champs d'« identité » de l'arbre
-        courant (essence, port, longueur de mèche, épaisseur d'écorce,
-        hauteur de sondage) mais SANS ses sondages / dégradations /
-        contreforts ni sa géométrie mesurée (rayon, diamètre, hauteur de
-        l'arbre restent à mesurer). Pensé pour les alignements d'arbres
-        identiques (30 platanes de même essence et même port) : on ne
-        re-saisit pas le protocole commun à chaque arbre."""
-        cur = self._current_arbre()
-        if cur is None:
-            return self.action_add_arbre()
-        self.push_undo()
-        new = Arbre(
-            numero_arbre=self._next_arbre_numero(),
-            essence=cur.essence,
-            port_arbre=cur.port_arbre,
-            meche_cm=cur.meche_cm,
-            hauteur_sondage_cm=cur.hauteur_sondage_cm,
-        )
-        # Protocole commun à un alignement : on reprend l'épaisseur
-        # d'écorce. La géométrie mesurée (rayon, diamètre, hauteur de
-        # l'arbre) reste à défaut — à re-mesurer pour chaque individu —,
-        # tout comme les sondages/dégradations/contreforts.
-        new.epaisseur_ecorce_cm = cur.epaisseur_ecorce_cm
-        self.chantier.arbres.append(new)
-        self.current_idx = len(self.chantier.arbres) - 1
-        self._clear_filter_if_set()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-
     def _select_arbre_relative(self, delta: int) -> None:
         """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
         passe à l'arbre suivant/précédent **parmi les arbres visibles**
@@ -650,45 +619,3 @@ class ArbreListMixin(_MixinBase):
         a.numero_arbre = new
         self.pane_id.load_from_arbre()
         self._refresh_tree_arbres()
-
-    def action_bulk_set_urgence(self) -> None:
-        """Applique un niveau d'urgence à tous les arbres actuellement
-        sélectionnés dans la liste (Ctrl/Maj-clic pour une sélection
-        multiple). La Treeview acceptait déjà la multi-sélection sans
-        qu'aucune action ne s'en serve — utile pour un alignement d'arbres
-        identiques qu'on ne veut pas trier un par un."""
-        sel = self.tree_arbres.selection()
-        idxs = sorted(int(iid[1:]) for iid in sel if iid.startswith("a"))
-        if not idxs:
-            messagebox.showinfo(
-                _("Urgence"),
-                _("Sélectionnez d'abord un ou plusieurs arbres dans la "
-                  "liste (Ctrl+clic ou Maj+clic pour une sélection "
-                  "multiple)."))
-            return
-        vide = _(_URGENCE_VIDE)
-        niveaux_fr = list(URGENCE_NIVEAUX)
-        custom = self.get_urgences_custom()
-        choices = [vide, *translate_values(niveaux_fr), *custom]
-        choice = ask_choice(
-            self, _("Urgence — sélection"),
-            _("Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :"
-             ).format(n=len(idxs)),
-            choices, initial=vide)
-        if choice is None:
-            return
-        if choice == vide:
-            new = ""
-        elif choice in custom:
-            new = choice
-        else:
-            new = untranslate_value(choice, niveaux_fr)
-        self.push_undo()
-        for i in idxs:
-            self.chantier.arbres[i].urgence = new
-        self._mark_dirty()
-        self._refresh_tree_arbres()
-        self._load_arbre_to_ui()
-        self.set_status(
-            _("Urgence « {niveau} » appliquée à {n} arbre(s).").format(
-                niveau=choice, n=len(idxs)))

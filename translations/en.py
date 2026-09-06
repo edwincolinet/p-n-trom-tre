@@ -9,7 +9,8 @@ TRANSLATIONS = {
     "Ouvrir récent":                       "Recent projects",
     "Enregistrer":                         "Save",
     "Enregistrer sous…":                   "Save as…",
-    "Imprimer la fiche (arbre courant)":   "Print tree report",
+    "Modèles":                             "Templates",
+    "Enregistrement":                      "Saving",
     "Exporter la synthèse mission (XLSX)…":"Export mission summary (XLSX)…",
     "Exporter la synthèse mission (CSV)…": "Export mission summary (CSV)…",
     "Exporter toutes les fiches (PDF)…":   "Export all reports (PDF)…",
@@ -22,28 +23,29 @@ TRANSLATIONS = {
     "Faire une comparaison (ré-inspection)…":
                                            "Start comparison (re-inspection)…",
     "Diagnostic de la comparaison…":       "Comparison report…",
+    "Date du diagnostic actuel":           "Current diagnosis date",
+    "Choisissez la date du présent diagnostic":
+                                           "Choose the date of the current diagnosis",
+    "Mission de référence « {nom} » : relevée le {date}. La date choisie "
+    "ici sera comparée à celle-ci.":
+        "Reference project « {nom} »: surveyed on {date}. The date you "
+        "pick here will be compared against it.",
 
     # ── Menu Arbres ───────────────────────────────────────────────────
     "Arbres":                              "Trees",
+    "Ajouter":                             "Add",
+    "Navigation":                          "Navigation",
+    "Modifier":                            "Edit",
     "Ajouter un arbre":                    "Add a tree",
-    "Ajouter (hériter du précédent)":      "Add (inherit from previous)",
     "Dupliquer l'arbre courant":           "Duplicate current tree",
     "Renommer l'arbre courant…":           "Rename current tree…",
     "Supprimer l'arbre courant…":          "Delete current tree…",
     "Prochain arbre à finir":              "Next unfinished tree",
-    "Urgence pour la sélection…":          "Priority for selection…",
-    "Urgence — sélection":                 "Priority — selection",
-    "Niveau d'urgence pour les {n} arbre(s) sélectionné(s) :":
-                                           "Priority level for the {n} selected tree(s):",
-    "Urgence « {niveau} » appliquée à {n} arbre(s).":
-                                           "Priority « {niveau} » applied to {n} tree(s).",
-    "Sélectionnez d'abord un ou plusieurs arbres dans la liste "
-    "(Ctrl+clic ou Maj+clic pour une sélection multiple).":
-        "First select one or more trees in the list (Ctrl+click or "
-        "Shift+click for multiple selection).",
 
     # ── Menu Affichage ────────────────────────────────────────────────
     "Affichage":                           "View",
+    "Accessibilité":                       "Accessibility",
+    "Préférences":                         "Preferences",
     "Taille du texte":                     "Text size",
     "Petit":                               "Small",
     "Normal":                              "Normal",
@@ -56,6 +58,7 @@ TRANSLATIONS = {
 
     # ── Menu Aide ─────────────────────────────────────────────────────
     "Aide":                                "Help",
+    "Support":                             "Support",
     "Raccourcis clavier…":                 "Keyboard shortcuts…",
     "Ouvrir le fichier de log":            "Open log file",
     "Vérifier les mises à jour":           "Check for updates",
@@ -68,28 +71,20 @@ TRANSLATIONS = {
     "Adresse":                             "Location",
     "Opérateur":                           "Operator",
     "Date":                                "Date",
-    "🔍 Faire une comparaison…":           "🔍 Start comparison…",
-    "📊 Diagnostic de la comparaison…":    "📊 Comparison report…",
+    "Faire une comparaison…":              "Start comparison…",
 
     # ── Panneau gauche — liste d'arbres ───────────────────────────────
     "Arbres de la mission":                "Project trees",
+    "Filtrer":                             "Filter",
     "Risque":                              "Risk",
     "Urgence":                             "Priority",
     "Filtres avancés":                     "Advanced filters",
     "Tous":                                "All",
     "Non fiable":                          "Unreliable",
     "＋ Ajouter":                          "＋ Add",
-    "Arbre vierge":                        "Blank tree",
-    "Hériter du précédent (essence, port, mèche…)":
-                                           "Inherit from previous (species, type, probe…)",
     "Dupliquer":                           "Duplicate",
     "Supprimer":                           "Delete",
     "⏭ Prochain arbre à finir":           "⏭ Next unfinished tree",
-    "Ajouter un arbre. « Arbre vierge » (Ctrl+T) ou "
-    "« Hériter du précédent » pour reprendre essence, "
-    "port et mèche d'un alignement.":
-        "Add a tree. « Blank tree » (Ctrl+T) or "
-        "« Inherit from previous » to reuse species, type and probe from an alignment.",
 
     # ── Onglets principaux ────────────────────────────────────────────
     "Identification":                      "Identification",
@@ -97,6 +92,7 @@ TRANSLATIONS = {
     "Dégradations externes":               "External damage",
     "Contreforts":                         "Buttress roots",
     "Diagnostic":                          "Diagnosis",
+    "Export":                              "Export",
 
     # ── Onglet Identification ─────────────────────────────────────────
     "N° d'inventaire":                     "Tree ID",
@@ -281,13 +277,14 @@ TRANSLATIONS = {
     "Paroi Résiduelle de Bois Sain par sondage":
                                            "Residual Sound Wood by sounding",
     "(suite)":                            "(cont'd)",
-    "📄 Fiche PDF (arbre courant)":       "📄 PDF report (current tree)",
-    "🖨 Imprimer":                        "🖨 Print",
-    "🖼 PNG du dessin":                   "🖼 PNG drawing",
-    "📊 Exporter le tableau":             "📊 Export table",
+    "Fiche PDF (arbre courant)":          "PDF report (current tree)",
+    "PNG du dessin":                      "PNG drawing",
+    "Comparaison — fiche PDF…":           "Comparison — PDF report…",
+    "Comparaison — évolution (PNG)…":     "Comparison — evolution (PNG)…",
+    "Fiche PDF…":                          "PDF report…",
+    "Évolution (PNG)…":                   "Evolution (PNG)…",
     "Tableau PRBS — Excel (XLSX)…":      "PRBS table — Excel (XLSX)…",
     "Tableau PRBS — page HTML…":         "PRBS table — HTML page…",
-    "Sondages de la mission (CSV)…":     "Mission soundings (CSV)…",
     "PRBS (cm)":                          "PRBS (cm)",
     "t/R (%)":                            "t/R (%)",
     "Classe":                             "Class",
@@ -350,8 +347,8 @@ TRANSLATIONS = {
     # Fenêtre de comparaison
     "Arbre courant :":                     "Current tree:",
     "comparé à (référence) :":             "compared to (reference):",
-    "🖼 PNG…":                             "🖼 PNG…",
-    "📄 PDF…":                             "📄 PDF…",
+    "PNG…":                                "PNG…",
+    "PDF…":                                "PDF…",
     "(pas de brin de référence)":          "(no reference stem)",
     "La mission courante ou de référence ne contient aucun arbre.":
                                            "The current or reference project contains no trees.",
@@ -519,13 +516,13 @@ TRANSLATIONS = {
         "exports (PDF, XLSX, CSV) to flag the measurement as less "
         "reliable.",
 
-    "Case « ~ » : marque un sondage incertain (angle de mèche, "
-    "pression, accès difficile…). La valeur reste comptée dans le "
-    "diagnostic, mais est préfixée « ~ » dans les exports (PDF, "
-    "XLSX, CSV) pour signaler la mesure comme moins fiable.":
-        "« ~ » checkbox: marks a sounding as uncertain (drill angle, "
-        "pressure, difficult access…). The value stays counted in the "
-        "diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
+    "Case « Douteux (~) » : marque un sondage incertain (angle de "
+    "mèche, pression, accès difficile…). La valeur reste comptée "
+    "dans le diagnostic, mais est préfixée « ~ » dans les exports "
+    "(PDF, XLSX, CSV) pour signaler la mesure comme moins fiable.":
+        "« Uncertain (~) » checkbox: marks a sounding as uncertain (drill "
+        "angle, pressure, difficult access…). The value stays counted in "
+        "the diagnosis, but is prefixed with « ~ » in exports (PDF, XLSX, "
         "CSV) to flag it.",
 
     "Double-cliquez pour le détail (commentaire, grade)":
@@ -593,7 +590,6 @@ TRANSLATIONS = {
         "Permanently delete « {n} »?",
     "Exporté":                             "Exported",
     "Rien à exporter":                     "Nothing to export",
-    "Impression envoyée — arbre n°{num}":  "Print sent — tree no. {num}",
     "✓ Enregistré — {nom}":               "✓ Saved — {nom}",
     "Arbre précédent":                     "Previous tree",
     "Dégradation externe n° {n}":         "External damage no. {n}",
@@ -657,11 +653,7 @@ TRANSLATIONS = {
     "Contraste élevé activé.":            "High contrast on.",
     "Contraste élevé désactivé.":         "High contrast off.",
 
-    "＋ Vierge":                         "＋ Blank",
-    "＋ Hériter":                         "＋ Inherit",
     "Ajouter un arbre vierge":            "Add blank tree",
-    "Hériter du précédent":               "Inherit from previous",
-    "Reprend essence, port, Ø, H arbre, mèche, H sondage, écorce.": "Copies species, habit, Ø, heights, probe, bark.",
 
     "Client":                             "Client",
     "Nom de la mission — peut aussi porter une "
@@ -685,6 +677,7 @@ TRANSLATIONS = {
     "Incomplets":                         "Incomplete",
 
     "Photos":                             "Photos",
+    "Photo {n}":                          "Photo {n}",
     "＋ Photo":                           "＋ Photo",
     "Aucune photo":                       "No photos",
     "Ajouter des photos":                 "Add photos",
@@ -704,7 +697,7 @@ TRANSLATIONS = {
     'Export PDF annulé — aucun fichier écrit.': 'PDF export cancelled — no file written.',
     "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 
-    "~":                                  "~",
+    "Douteux (~)":                        "Uncertain (~)",
     "Sondage incertain (mesure douteuse)": "Uncertain sounding (doubtful reading)",
 
     "Enregistrer comme modèle…":          "Save as template…",
@@ -799,18 +792,10 @@ TRANSLATIONS = {
         "(drawing + table + diagnosis) — Ctrl+E",
     "Exporter le dessin de la section en image PNG":
         "Export the section drawing as a PNG image",
-    "Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-    "tous les sondages de la mission (CSV)":
-        "Export the tree's PRBS table (Excel / HTML) or "
-        "all soundings of the project (CSV)",
     "Gérer les durées de suivi personnalisées":
         "Manage custom follow-up durations",
     "Gérer les niveaux d'urgence personnalisés":
         "Manage custom priority levels",
-    "Imprimer la fiche PDF directement "
-    "(sans dialogue de sauvegarde) — Ctrl+P":
-        "Print the PDF report directly "
-        "(without a save dialog) — Ctrl+P",
     "Longueur (cm)":                        "Length (cm)",
     "Ouvrir la fenêtre de comparaison de l'arbre "
     "courant avec la mission de référence.":

@@ -38,6 +38,7 @@ from photo_paths import (
     suffixe_autorise,
 )
 from ui_fonts import font as ui_font
+from ui_fonts import font_body_bold
 
 log = logging.getLogger("penetrometre")
 
@@ -108,7 +109,7 @@ class PhotoGallery(ttk.Frame):
         hdr = ttk.Frame(self, style="Panel.TFrame")
         hdr.pack(fill="x", pady=(0, 4))
         ttk.Label(hdr, text=_("Photos"),
-                  font=ui_font("Helvetica", 10, "bold"),
+                  font=font_body_bold(),
                   style="Panel.TLabel").pack(side="left")
         ttk.Button(hdr, text=_("＋ Photo"),
                    style="Ghost.TButton",

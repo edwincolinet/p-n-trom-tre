@@ -233,13 +233,13 @@ au-dessus des onglets (`App._refresh_brin_selector` / `set_current_brin`,
 masquée en mono-caule) ; il est remis à 0 à chaque changement d'arbre.
 Avant de basculer de brin, `IdentificationPane.flush()` commite un rayon en
 cours d'édition (sinon il s'appliquerait au mauvais brin).
-`DiagnosticPane` est scrollable (Canvas interne) et expose les 5 exports
-individuels (PNG / fiche PDF / XLSX / HTML / CSV mission) en haut du
-pane — le menu Fichier ne conserve que les 2 exports globaux (PDF
-mission, CSV mission). La checkbox « Afficher sondages » a été déplacée
-hors de ce pane et vit désormais sous le canvas (`App._build_right`). Pour
-une **cépée**, le résumé passe par `genet_summary_lines` (un bloc par brin +
-classe globale) et le tableau PRBS itère tous les brins (N° préfixé « a1 »).
+`DiagnosticPane` est scrollable (Canvas interne) : résumé, tableau PRBS,
+préconisation — **plus d'exports depuis le 2026-09-05** (déplacés vers
+le menu **Export** de la barre de menu, cf. `app_menu.py` ci-dessous).
+La checkbox « Afficher sondages » a été déplacée hors de ce pane et vit
+désormais sous le canvas (`App._build_right`). Pour une **cépée**, le
+résumé passe par `genet_summary_lines` (un bloc par brin + classe
+globale) et le tableau PRBS itère tous les brins (N° préfixé « a1 »).
 
 ## `app_exports.py` — actions d'export Tk
 
@@ -252,25 +252,53 @@ avec logging. Thin wrappers depuis `App.action_export_*`.
 ## `app_menu.py` — barre de menu Tk
 
 `build_menu(app)` attache la barre de menu et bind les raccourcis
-globaux. Quatre cascades :
+globaux. Six cascades, chacune organisée en **sections avec en-tête
+désactivé** (helper `_section`, même principe visuel que les blocs par
+format du menu Export — réorganisation du 2026-09-05) :
 
-- **Fichier** : Nouvelle (Ctrl+N), Ouvrir (Ctrl+O), **Ouvrir récent**
-  (sous-menu populé par `refresh_recent_menu(app)` depuis
-  `app.get_recent_files()`), Enregistrer (Ctrl+S), Enregistrer sous ;
-  **exports mission** (synthèse XLSX, synthèse CSV, toutes les fiches PDF,
-  sondages CSV) ; **ré-inspection** (comparer l'arbre courant à une
-  mission, choisir la mission de référence) ; ouvrir le dossier des
-  sauvegardes ; Quitter.
-- **Arbres** : Ajouter (Ctrl+T), Ajouter en héritant du précédent ;
-  Arbre suivant (Ctrl+PgDn) / précédent (Ctrl+PgUp) ; Dupliquer,
-  Renommer, Supprimer.
-- **Affichage** : Taille du texte (Petit/Normal/Grand/Très grand,
-  radiobuttons) ; Contraste élevé (checkbutton).
-- **Comparaison** : Faire une comparaison (ré-inspection), Choisir la
-  mission de référence, Diagnostic de la comparaison.
-- **Aide** : Guide de démarrage, Raccourcis clavier, separator, Contacter
-  le support, Ouvrir le fichier de log, separator, Vérifier les mises à
-  jour / Vérification automatique, separator, Redémarrer, À propos.
+- **Fichier** : section *Mission* (Nouvelle Ctrl+N, Ouvrir Ctrl+O,
+  **Ouvrir récent** — sous-menu populé par `refresh_recent_menu(app)`
+  depuis `app.get_recent_files()` —, Ouvrir la mission d'exemple),
+  section *Modèles* (Nouvelle depuis un modèle, Enregistrer comme
+  modèle), section *Enregistrement* (Enregistrer Ctrl+S, Enregistrer
+  sous, Ouvrir le dossier des sauvegardes), puis Quitter. **Ne contient
+  plus les exports** (2026-09-05, déplacés vers le menu **Export**,
+  ci-dessous) ni l'impression (supprimée, doublon de l'export PDF).
+- **Comparaison** : Faire une comparaison (ré-inspection), Diagnostic
+  de la comparaison (désactivé tant qu'aucune référence n'est chargée).
+- **Arbres** : section *Ajouter* (Ajouter un arbre Ctrl+T), section
+  *Navigation* (Arbre suivant Ctrl+PgDn / précédent Ctrl+PgUp, Prochain
+  arbre à finir), section *Modifier* (Dupliquer, Renommer, Supprimer).
+  L'ancienne variante « Ajouter (hériter du précédent) » a été retirée
+  le 2026-09-05 (jugée floue, trop proche en apparence de Dupliquer).
+- **Affichage** : section *Accessibilité* (Taille du texte —
+  Petit/Normal/Grand/Très grand, radiobuttons —, Contraste élevé,
+  checkbutton), section *Préférences* (Logo et nom du cabinet, Barème
+  de classification, Langue).
+- **Export** (2026-09-05, entre Affichage et Aide) : point d'entrée
+  unique des exports — avant, dispersés entre ce menu (exports mission)
+  et l'onglet Diagnostic (exports arbre). Organisé **par format de
+  fichier** plutôt que par portée : un bloc PDF, un PNG, un XLSX, un
+  CSV, un HTML, séparés par des séparateurs et ouverts par un en-tête
+  désactivé nommant le format ; chaque libellé précise lui-même s'il
+  porte sur l'arbre courant ou sur la mission — choix produit d'Edwin.
+  Les blocs PDF et PNG contiennent aussi une entrée d'export de la
+  **comparaison en cours** (« Comparaison — fiche PDF… » / « — évolution
+  (PNG)… »), grisée tant qu'aucune comparaison n'est active
+  (`comparaison.is_comparison_active()`, relu par un `postcommand` sur
+  le menu) — les mêmes actions vivent aussi dans le bandeau propre à la
+  fenêtre de comparaison (cf. § Ré-inspection ci-dessous), cette entrée
+  du menu principal servant de secours si elle ne couvre pas l'écran.
+  Le bouton « Imprimer » (impression directe,
+  `app_exports.print_pdf_arbre`) a été supprimé avec ce rangement
+  (doublon avec l'export PDF), avec son ancienne entrée du menu Fichier
+  et son raccourci Ctrl+P.
+- **Aide** : section *Aide* (Guide de démarrage, Raccourcis clavier),
+  section *Support* (Contacter le support, Ouvrir le fichier de log),
+  section *Mises à jour* (Vérifier les mises à jour, Vérification
+  automatique au démarrage — checkbutton, sa variable est conservée sur
+  `app` pour ne pas être ramassée par le GC, cf. piège identique pour
+  les combobox de `comparaison.py`), puis Redémarrer / À propos.
 
 `refresh_recent_menu(app)` est exposée pour être réappelée par l'App
 après chaque ouverture/enregistrement ; elle vide et reconstruit le
@@ -346,6 +374,15 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
 - Assemble : en-tête + logo, identité arbre, dessin section (collé, via
   `pil_render`), légende (bande PIL collée), tableau PRBS, diagnostic
   (t/R moyen+min, barre répartition, classe), préconisation/suivi, pied.
+  **Barre répartition = UNE lecture (2026-09-05)** : `_draw_mono_diagnostic`
+  n'affiche plus, sous la barre colorée, la ligne fractionnaire « Vert N/16
+  (X gr) • … » — même information que les pourcentages déjà sur la barre,
+  jugée redondante.
+- **Page photos** (`_render_photos_page`) : pied de page = `_draw_footer`
+  comme la page principale (barème + **cabinet**, était ré-écrit à la main
+  sans le cabinet) ; légende sous chaque photo = « Photo N » — **jamais**
+  le nom de fichier (chemin libre non maîtrisé, cf. « Photos = entrée
+  semi-fiable » de `CLAUDE.md`).
 - **Pas de golden pixel** (les goldens `test_render` visent `comparaison_render`,
   resté raster) : couverts par `FichePdfSmokeTests` (`%PDF` + nb pages) ; les 2
   tests de dessin (`FichePdfSondagesTests`, `FichePdfCepeeLayoutTests`) sont
@@ -583,17 +620,19 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   cache `_etat_cache` (keyed by `id(arbre)` pour éviter les doublons de
   `genet_diagnostic()`), footer de **triage**
   (`_update_etat_footer` : `N rouge · N orange · N vert · N à finir`),
-  navigation clavier, CRUD (ajouter vierge / hériter, dupliquer, renommer,
-  supprimer).
+  navigation clavier, CRUD (ajouter, dupliquer, renommer, supprimer).
 - **`app_recovery.RecoveryMixin`** — autosave anti-crash (tick 60 s tant
   que `_dirty`) + récupération au démarrage. Fournit `_RECOVERY_PATH`.
 - **`app_export_actions.ExportActionsMixin`** — les `action_export_*`
   (PNG, fiche PDF, PDF mission, CSV, synthèse XLSX/CSV, PRBS XLSX/HTML) ;
-  pur dispatcher en lecture seule vers `app_exports` (seul mixin découplé).
+  pur dispatcher en lecture seule vers `app_exports`. Exception (2026-09-05) :
+  `action_export_comparison_{pdf,png}` délèguent à `self._export_comparison`
+  (`FichierMixin`, via `comparaison.export_active_comparison`) plutôt qu'à
+  `app_exports` — la comparaison n'a pas d'adaptateur dans ce module.
 - **`app_fichier.FichierMixin`** — cycle de vie du fichier mission
   (new/open/save/save_as, `_open_path`, récents) + **ré-inspection**
-  (`action_load_reference`/`_compare_arbre`/`_export_comparison`). Fournit
-  `_BACKUP_PATH` (sauvegardes glissantes).
+  (`action_reinspection`/`action_compare_arbre`/`_export_comparison`).
+  Fournit `_BACKUP_PATH` (sauvegardes glissantes).
 - **`app_layout.LayoutMixin`** — construction de l'UI (`_build_layout` /
   `_build_left` / `_build_center` / `_build_right` / `_build_statusbar` + sash,
   `_trial_banner`). Quasi-pur builder : crée et assigne la plupart des
@@ -668,13 +707,48 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 - **`palette.py`** — couleurs partagées **Tk ↔ PIL** (bois, écorce,
   cavité, `COULEUR_CLASSE`, `COLOR_WARN`, `COLOR_ACCENT`…). Invariant :
   `COLOR_BARK ≠ COLOR_ROT` (contraste dégradation/écorce).
+- **`chrome_icons.py`** — icônes bitmap (calendrier, disquette) dessinées
+  par PIL et mises en cache en `PhotoImage`, utilisées **uniquement sur
+  Windows** (`sys.platform == "win32"`) pour remplacer 📅/le préfixe
+  « 💾 » (emoji couleur qui rendent mal via Segoe UI Emoji) ainsi que le
+  glyphe de repli `▦` testé puis abandonné (absent de `cp1252`, support
+  Windows non garanti) — une image ne dépend d'aucune police installée.
+  Linux/macOS gardent les glyphes d'`icons.py` (`ICON_CALENDAR` 📅),
+  rendu confirmé correct à l'usage. Cf. CLAUDE.md pour l'historique complet.
 
 ## Ré-inspection inter-missions
 
 - **`comparaison.py`** — fenêtre Tk `open_comparison(...)` redimensionnable :
   3 sections côte à côte (référence | courant | **section d'évolution**),
-  tableau chiffré, verdict, export PNG + PDF. Référence chargée **par
-  session** (rien de persisté). Décisions métier dans CLAUDE.md.
+  tableau chiffré, verdict. Référence chargée **par session** (rien de
+  persisté). Porte le **MÊME bandeau que la fenêtre principale**, en-tête
+  ET pied :
+  - **Menu** : le même widget `tk.Menu` (posé sur `App._menubar` par
+    `app_menu.build_menu`, réattaché à `dlg` via `dlg.config(menu=…)`, un
+    `tk.Menu` pouvant servir de barre de menu à plusieurs fenêtres). L'export
+    PDF/PNG se fait donc depuis le menu Export ordinaire, grisé hors
+    comparaison active (`comparaison.is_comparison_active`/
+    `export_active_comparison`/`get_comparison_window`).
+  - **Pied** : un widget ordinaire ne pouvant pas être partagé comme un
+    menu, c'est une reconstruction visuellement identique à la barre
+    d'état (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`) —
+    bouton « 💾 Enregistrer » (icône bitmap + texte sur Windows, cf. `chrome_icons.py`)
+    (`App.action_save`) + indicateur
+    d'enregistrement (`dialogs_shared.save_state_label(dirty, has_file)`,
+    SOURCE UNIQUE partagée avec `App._update_save_indicator`) + message
+    d'export + « Ouvrir le fichier/dossier ». L'ancien bouton Enregistrer
+    du bandeau supérieur a été retiré (doublon, 2026-09-06).
+  Sans ce bandeau, la fenêtre (quasi plein écran, pas `transient`) coupait
+  de tout le reste de l'app (2026-09-05). Elle porte aussi sa **propre case
+  « Afficher sondages »** posée sur `App.var_show_sondages` — la MÊME
+  `BooleanVar` que celle de la fenêtre principale (un seul interpréteur Tcl
+  pour toute l'app, même mécanique de partage que le menu) — pour ne plus
+  avoir à changer de fenêtre pour l'afficher/masquer ; une `trace_add`
+  redessine les blocs de cette fenêtre à chaque bascule (retirée à la
+  fermeture via `<Destroy>`) et une autre, posée une fois dans
+  `App._build_right`, redessine `App.section` — plus de `command=` local
+  qui n'aurait réagi qu'aux clics sur SA propre case. Décisions métier dans
+  CLAUDE.md.
 - **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
   (couronne **orange** = bois sain perdu depuis la référence, contours
   lissés Catmull-Rom), `render_comparison_page` (A4 paysage),

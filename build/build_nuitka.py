@@ -74,6 +74,13 @@ def main() -> int:
         # Données embarquées — miroir des `datas` du spec PyInstaller.
         "--include-data-dir=assets=assets",
         "--include-data-dir=exemples=exemples",
+        "--include-data-dir=docs=docs",
+        # Boutons « Licence (CLU) »/« Confidentialité » de la fenêtre
+        # « À propos » (`penetrometre._open_doc`) : sans eux, ces boutons
+        # affichaient « Fichier introuvable » dans l'exécutable empaqueté
+        # (absent avant le 2026-09-06, repéré à l'usage).
+        "--include-data-files=LICENSE=LICENSE",
+        "--include-data-files=PRIVACY.md=PRIVACY.md",
         # Imports parfois chargés dynamiquement (miroir des `hiddenimports`).
         "--include-package=openpyxl",
         "--include-package=cryptography",

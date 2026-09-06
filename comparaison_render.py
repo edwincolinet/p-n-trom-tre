@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
-    evolution_classe,
     verdict_evolution,
 )
 from geometry import (
@@ -30,19 +29,24 @@ from geometry import (
 )
 from i18n import _
 from palette import (
-    COLOR_ACCENT,
     COLOR_BARK,
     COLOR_INK,
     COLOR_MUTED,
+    COLOR_RENDER_ACCENT,
     COLOR_ROT,
     COLOR_WOOD,
 )
 from pil_render import (
+    BULLET_RADIUS_PX,
+    _draw_horizontal_legend_pil,
+    _margin_top_titre,
     _pil_draw_cardinales,
     _pil_draw_cernes,
     _pil_draw_echelle_radiale,
+    _pil_draw_sondages,
     _pil_draw_ticks,
     _pil_load_fonts,
+    _titre_y,
     render_arbre_to_pil_image,
 )
 
@@ -56,6 +60,7 @@ if TYPE_CHECKING:
 # Nord (grade 0) est en haut → −90°.
 _GR_TO_DEG = 0.9
 _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
+_ORANGE_HEX = "#{:02X}{:02X}{:02X}".format(*_ORANGE)
 
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
@@ -84,7 +89,10 @@ def render_brin_section(src: "Arbre", brin: "Brin", size: int = 460,
 
 
 def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
-                                  size: int = 460) -> "PILImage":
+                                  size: int = 460, *,
+                                  show_title: bool = False, titre: str = "",
+                                  port: str = "", meche: float = 0.0,
+                                  show_sondages: bool = False) -> "PILImage":
     """« Section d'évolution » d'**un brin** : sur la géométrie du brin
     COURANT, le bois sain **perdu depuis la référence** est surligné en
     orange. Contrairement à une lecture « tout depuis le centre », la perte
@@ -112,14 +120,41 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     qualité** de tracé que les autres dessins. La perte depuis la référence
     est obtenue par superposition : on peint l'état COURANT en orange (bois
     perdu), puis l'état de RÉFÉRENCE en `COLOR_ROT` par-dessus → l'orange ne
-    subsiste que dans la zone creusée entre les deux campagnes."""
+    subsiste que dans la zone creusée entre les deux campagnes.
+
+    `show_title=True` ajoute un titre en tête et une **légende complète**
+    en bas (même format que l'export PNG classique d'un arbre,
+    `pil_render.render_arbre_to_pil_image` + `_draw_horizontal_legend_pil`) :
+    Bois sain / Bois dégradé / Écorce / Sondage (ce dernier seulement si
+    `show_sondages`) + un item « Aggravation » pour la couronne orange —
+    nom court (légende d'un support visuel, pas une phrase explicative) ET
+    distinct de « Bois dégradé » (le `COLOR_ROT` sombre = dégradation déjà
+    là à la référence ; l'orange = ce qui s'est ajouté DEPUIS, cf. vocabulaire
+    déjà en usage dans `diagnostic_comparaison.verdict_evolution` — les
+    confondre sous un même mot comme « Bois perdu » les faisait lire comme
+    la même chose). Utilisé par l'export PNG « rapport » (`render_evolution_pngs`).
+    `port`/`meche` (genet-level) et `show_sondages` ne servent qu'à cette
+    légende complète : ils positionnent aussi les pastilles de sondage sur
+    le dessin lui-même, comme la section réelle."""
     from PIL import Image, ImageDraw
 
     from diagnostic import compute_alteration_par_grade
 
     img = Image.new("RGB", (size, size), "white")
     d = ImageDraw.Draw(img, "RGBA")          # mode RGBA, comme le rendu réel
-    f = _pil_load_fonts()
+    f_base = _pil_load_fonts()
+    # Facteur d'échelle des constantes en pixels partagées avec
+    # `pil_render` (police des cardinales/de l'échelle radiale, largeurs de
+    # trait) — même formule que `render_arbre_to_pil_image` : sans lui, un
+    # export haute résolution (2400 px, cf. `render_evolution_pngs`) garde
+    # des lettres/tirets calibrés pour un aperçu ~460-532 px, minuscules et
+    # se chevauchant avec la légende. La légende elle-même (`sf` plus bas)
+    # reste dimensionnée directement en fraction de `size`, DÉJÀ
+    # proportionnelle : elle utilise `f_base`, pas ce `f` mis à l'échelle.
+    ds = max(1.0, size / 1200.0)
+
+    def f(sz: int, variant: str = "sans") -> Any:
+        return f_base(max(1, int(sz * ds)), variant)
 
     rot = cur_b.rotation_grades
     ep = max(0.0, cur_b.epaisseur_ecorce_cm)
@@ -136,17 +171,32 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
 
     # Cadrage identique à render_arbre_to_pil_image(show_title=False,
     # show_legend=False) pour que la section d'évolution ait exactement
-    # le même grossissement que les sections réf/courant.
+    # le même grossissement que les sections réf/courant — SAUF avec
+    # `show_title=True` (export PNG « rapport » autonome, pas de colonne
+    # voisine à aligner) : une bande basse dédiée est alors réservée pour
+    # la légende, comme `render_arbre_to_pil_image(show_legend=True)` — sans
+    # elle, la légende empiète sur la lettre cardinale « S » (constaté à
+    # haute résolution, où sa police — mise à l'échelle par `ds` — grandit
+    # sans que son décalage au bord du tronc, un pixel-constant, ne suive).
     expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
     r_ext_max = max(R_of(g) for g in GRADES) + expansion
-    margin_top = 70
-    margin_bottom = max(80, int(size * 0.06))
+    margin_top = _margin_top_titre(size, ds) if show_title else 70
+    base_bottom = max(80, int(size * 0.06))
+    caption_h = max(70, int(size * 0.09)) if show_title else 0
+    if show_title and ref_b is None:
+        caption_h += int(size * 0.045)   # 2e ligne : note « sans référence »
+    margin_bottom = base_bottom + caption_h
     margin_side = max(60, int(size * 0.055))
     radius_px_max = min((size - 2 * margin_side) / 2,
                         (size - margin_top - margin_bottom) / 2)
     cx = size / 2.0
     cy = margin_top + radius_px_max
     scale = radius_px_max / (r_ext_max if r_ext_max > 0 else 1.0)
+
+    if show_title:
+        d.text((size / 2, _titre_y(size)), titre,
+               font=f(54, "serif_bold"), fill=COLOR_RENDER_ACCENT,
+               anchor="mm")
 
     R = cur_b.rayon_tronc_cm   # grand axe (= rayon si circulaire)
 
@@ -204,23 +254,52 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
     _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
 
-    # Échelle radiale (premier plan, comme la section réelle). Pas de
-    # sondages dans la section d'évolution → toujours plein Est.
-    _pil_draw_echelle_radiale(d, f, cur_b, cx, cy, scale, 1.0,
-                              show_sondages=False)
+    if show_sondages:
+        bullet_r = max(BULLET_RADIUS_PX, int(BULLET_RADIUS_PX * ds))
+        _pil_draw_sondages(d, f, cur_b, port, meche, cx, cy, R, scale, bullet_r)
 
-    sf = f(int(size * 0.030), "sans")
-    cap_y = size * 0.95
-    if ref_b is None:
-        d.text((size * 0.5, cap_y + 8),
-               _("pas de brin de référence — état courant seul"),
-               font=sf, fill=COLOR_MUTED, anchor="mm")
+    # Échelle radiale (premier plan, comme la section réelle) : esquive une
+    # flèche de sondage seulement si `show_sondages` (sinon plein Est).
+    _pil_draw_echelle_radiale(d, f, cur_b, cx, cy, scale, ds,
+                              show_sondages=show_sondages)
+
+    if show_title:
+        legend_y = size - caption_h + int(size * 0.012)
+        extra_items = (("Aggravation", _ORANGE_HEX),) if ref_b is not None else ()
+        # `height` pilote la taille de police/pastille de la légende, PAS le
+        # cadrage (qui reste `width=size`, le vrai canevas) : à `size` réel
+        # (2400), les 5 items possibles (sain/dégradé/écorce/sondage/perdu)
+        # débordent du canevas si la police suit `size` — même artifice que
+        # `fiche_pdf` (légende dimensionnée sur une hauteur fixe, collée sur
+        # une page plus large qu'elle).
+        legend_font_h = int(size * 0.6)
+        _draw_horizontal_legend_pil(d, cur_b, y_top=legend_y, width=size,
+                                    height=legend_font_h, font_fn=f_base,
+                                    show_sondage_item=show_sondages,
+                                    show_classes=False, extra_items=extra_items)
+        if ref_b is None:
+            note_font = f_base(int(size * 0.022), "sans")
+            d.text((size * 0.5, legend_y + int(size * 0.06)),
+                   _("pas de brin de référence — état courant seul"),
+                   font=note_font, fill=COLOR_MUTED, anchor="mm")
     else:
-        d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
-                    fill=_ORANGE, outline=(150, 150, 146))
-        d.text((size * 0.14 + 26, cap_y + 8),
-               "= bois sain perdu depuis la référence",
-               font=sf, fill=COLOR_MUTED, anchor="lm")
+        # Légende d'origine, compacte, conservée pour les usages existants
+        # (fenêtre de comparaison, cartes 3-colonnes) : ces vues affichent
+        # déjà les dates en en-tête de colonne, pas besoin de la légende
+        # complète ici, et le cadrage doit rester identique aux colonnes
+        # voisines (cf. commentaire sur `margin_bottom` plus haut).
+        sf = f_base(int(size * 0.030), "sans")
+        cap_y = size * 0.95
+        if ref_b is None:
+            d.text((size * 0.5, cap_y + 8),
+                   _("pas de brin de référence — état courant seul"),
+                   font=sf, fill=COLOR_MUTED, anchor="mm")
+        else:
+            d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
+                        fill=_ORANGE, outline=(150, 150, 146))
+            d.text((size * 0.14 + 26, cap_y + 8),
+                   "= bois sain perdu depuis la référence",
+                   font=sf, fill=COLOR_MUTED, anchor="lm")
     return img
 
 
@@ -333,7 +412,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
     d = ImageDraw.Draw(page)
 
     # En-tête vert.
-    d.rectangle([0, 0, W, 92], fill=COLOR_ACCENT)
+    d.rectangle([0, 0, W, 92], fill=COLOR_RENDER_ACCENT)
     d.text((margin, 20), titre, font=f(30, "serif_bold"), fill="white")
     d.text((margin, 62),
            f"Mission « {mission_nom or 'Mission'} »   •   "
@@ -358,7 +437,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
              margin + 520 + 250 + 250]
     headers = ("Indicateur", "Référence", "Courant", "Évolution")
     head_h = 38
-    d.rectangle([margin, y, W - margin, y + head_h], fill=COLOR_ACCENT)
+    d.rectangle([margin, y, W - margin, y + head_h], fill=COLOR_RENDER_ACCENT)
     for cx0, h in zip(col_x, headers):
         d.text((cx0 + 10, y + head_h / 2), h, font=f(16, "sans_bold"),
                fill="white", anchor="lm")
@@ -436,153 +515,79 @@ def render_comparison_pages(mission_nom: str, ref_arbre: "Arbre",
     return pages
 
 
-# --- « Carte visuelle » de comparaison (export PNG) ----------------------
-# Le PNG n'est plus une rasterisation de la feuille A4 (en-tête, tableau
-# chiffré, verdict) : c'est une image resserrée, centrée sur les TROIS
-# dessins (référence / courant / évolution) + le verdict. Pensée pour le
-# partage rapide ou l'insertion dans un rapport, là où la fiche A4 (PDF)
-# reste le livrable formel. Cf. choix produit (carte visuelle).
-_CARD_MARGIN = 40
-_CARD_GAP = 24
-_CARD_SEC = _PAGE_SEC                                   # 532, dessins nets
-_CARD_W = 2 * _CARD_MARGIN + 3 * _CARD_SEC + 2 * _CARD_GAP
+# --- Export PNG « rapport » (section d'évolution seule) ------------------
+# Le PNG n'est plus la carte 3-colonnes (référence / courant / évolution +
+# verdict) : trop dense pour être insérée telle quelle dans un rapport
+# d'expertise (texte + trois dessins). Il reprend désormais EXACTEMENT le
+# format de l'export PNG classique d'un arbre (titre + un seul dessin +
+# légende, cf. `pil_render.render_arbre_to_pil_image`), mais le dessin est
+# la « section d'évolution » (couronne orange = bois sain perdu depuis la
+# référence). La feuille A4 complète (3 dessins + tableau + verdict) reste
+# le format du PDF (`render_comparison_pages`), inchangé — c'est le
+# livrable formel, pas destiné à être recadré dans un rapport tiers.
+_EVOLUTION_PNG_SIZE = 2400   # même résolution que l'export PNG classique
 
 
-def _verdict_rgb(detail: "ComparaisonDetail") -> Any:
-    """Couleur du verdict selon l'évolution de classe (aggravation = rouge,
-    amélioration = vert, stable = encre). Pendant PIL de `_verdict_color`
-    (côté Tk) — gardé local pour que ce module reste sans dépendance UI."""
-    evo = evolution_classe(detail.classe_ref, detail.classe_cur)
-    if evo is None:
-        return COLOR_MUTED
-    if evo > 0:
-        return "#C0392B"
-    if evo < 0:
-        return "#2D7A3E"
-    return COLOR_INK
+def render_evolution_pngs(mission_nom: str, ref_arbre: "Arbre",
+                          cur_arbre: "Arbre", annees: Optional[float],
+                          *, ref_label: str, cur_label: str,
+                          show_sondages: bool = True
+                          ) -> List[Tuple[str, "PILImage"]]:
+    """Export PNG « rapport » : **une image par brin** pour une cépée, une
+    image **genet** pour un mono-caule — chacune au format de l'export PNG
+    classique (titre + section d'évolution + légende complète). `mission_nom`
+    ne pèse pas sur ce rendu (pas de mission affichée) ; `ref_label`/
+    `cur_label` non plus (la légende ne date plus l'image, cf.
+    `render_evolution_section_brin`) — les deux sont conservés pour que ce
+    constructeur reste interchangeable avec `render_comparison_pages` dans
+    `comparaison._page_builder`. `show_sondages` reprend la case « Afficher
+    sondages » : pastilles sur le dessin + item « Sondage » de la légende.
 
-
-def _wrap_card(text: str, font: Any, max_w: float, draw: Any,
-               max_lines: int = 3) -> List[str]:
-    """Retour à la ligne par mots pour le verdict de la carte (borné)."""
-    lines: List[str] = []
-    cur = ""
-    for word in (text or "").split():
-        trial = (cur + " " + word).strip()
-        if not cur or draw.textbbox((0, 0), trial, font=font)[2] <= max_w:
-            cur = trial
-        else:
-            lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
-    return lines[:max_lines]
-
-
-def _compose_comparison_card(titre: str, sous_titre: str, ref_label: str,
-                             cur_label: str, ref_img: "PILImage",
-                             cur_img: "PILImage", evo_img: "PILImage",
-                             detail: "ComparaisonDetail") -> "PILImage":
-    """Compose une carte visuelle : titre léger, 3 dessins côte à côte avec
-    en-têtes de colonne, verdict coloré dessous. Pas de bandeau plein ni de
-    tableau chiffré (≠ page A4). Hauteur ajustée au verdict (1 à 3 lignes)."""
-    from PIL import Image, ImageDraw
-    f = _pil_load_fonts()
-    margin, gap, sec, W = _CARD_MARGIN, _CARD_GAP, _CARD_SEC, _CARD_W
-
-    title_font = f(30, "serif_bold")
-    sub_font = f(17, "sans")
-    col_font = f(20, "sans_bold")
-    verdict_font = f(21, "sans_bold")
-    note_font = f(14, "sans")
-
-    title_h, sub_h = 40, (26 if sous_titre else 0)
-    gap_after_title, col_h, gap_after_img, line_h = 18, 34, 22, 30
-
-    # Pré-mesure du verdict (wrap) pour dimensionner la hauteur de la carte.
-    tmp = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    verdict = verdict_evolution(detail)
-    vlines = _wrap_card(verdict, verdict_font, W - 2 * margin, tmp)
-    verdict_h = max(1, len(vlines)) * line_h
-    # Note « pts » seulement si le verdict en contient (t/R comparable).
-    show_note = "pts" in verdict
-    note_h = 28 if show_note else 0
-
-    total_h = (margin + title_h + sub_h + gap_after_title + col_h + sec
-               + gap_after_img + verdict_h + note_h + margin)
-
-    card = Image.new("RGB", (W, total_h), "white")
-    d = ImageDraw.Draw(card)
-
-    # Filet d'accent vertical à gauche (rappel du langage visuel des fiches).
-    d.rectangle([0, 0, 6, total_h], fill=COLOR_ACCENT)
-
-    y = margin
-    d.text((margin, y), titre, font=title_font, fill=COLOR_INK)
-    y += title_h
-    if sous_titre:
-        d.text((margin, y), sous_titre, font=sub_font, fill=COLOR_MUTED)
-        y += sub_h
-    y += gap_after_title
-
-    cols = ((_("Référence — {r}").format(r=ref_label), ref_img),
-            (f"Courant — {cur_label}", cur_img),
-            ("Évolution de l'altération", evo_img))
-    y_img = y + col_h
-    for i, (titre_col, img) in enumerate(cols):
-        x = margin + i * (sec + gap)
-        d.text((x + sec / 2, y), titre_col, font=col_font,
-               fill=COLOR_INK, anchor="ma")
-        card.paste(img, (x, y_img))
-    y = y_img + sec + gap_after_img
-
-    vcol = _verdict_rgb(detail)
-    for line in vlines:
-        d.text((margin, y), line, font=verdict_font, fill=vcol)
-        y += line_h
-    if show_note:
-        y += 4
-        d.text((margin, y), PTS_LEGENDE, font=note_font, fill=COLOR_MUTED)
-    return card
-
-
-def render_comparison_cards(mission_nom: str, ref_arbre: "Arbre",
-                            cur_arbre: "Arbre", annees: Optional[float],
-                            *, ref_label: str, cur_label: str,
-                            show_sondages: bool = True) -> List["PILImage"]:
-    """Cartes visuelles d'export PNG : **une carte par brin** pour une cépée,
-    une carte **genet** pour un mono-caule. Même appariement et même choix de
-    dessins que `render_comparison_pages`, mais composition resserrée (3
-    dessins + verdict, sans tableau). Le sous-titre rappelle la mission."""
-    sous_titre = f"Mission « {mission_nom or 'Mission'} »"
+    Renvoie `[(label, image)]` — `label=""` pour le mono-caule (fichier
+    unique) ; `label="a"/"b"/…` pour chaque brin d'une cépée, pour que
+    `save_evolution_pngs` écrive **un fichier PNG par brin** (une cépée
+    stockée dans une seule image empilée verticalement n'est pas
+    directement insérable dans un rapport)."""
     if len(cur_arbre.brins) <= 1:
-        detail = comparaison_detaillee(ref_arbre, cur_arbre, annees)
-        ref_img = render_arbre_to_pil_image(
-            ref_arbre, _CARD_SEC, _CARD_SEC, show_sondages=show_sondages,
-            show_title=False, show_legend=False)
-        cur_img = render_arbre_to_pil_image(
-            cur_arbre, _CARD_SEC, _CARD_SEC, show_sondages=show_sondages,
-            show_title=False, show_legend=False)
-        evo_img = render_evolution_section(ref_arbre, cur_arbre, _CARD_SEC)
-        return [_compose_comparison_card(
-            f"Comparaison d'inspections — {cur_arbre.display_name}",
-            sous_titre, ref_label, cur_label,
-            ref_img, cur_img, evo_img, detail)]
-    cards: List["PILImage"] = []
-    for label, cur_b, ref_b, detail in comparaison_par_brin(
+        img = render_evolution_section_brin(
+            ref_arbre.brin_courant, cur_arbre.brin_courant,
+            _EVOLUTION_PNG_SIZE, show_title=True,
+            titre=cur_arbre.display_name,
+            port=cur_arbre.port_arbre, meche=cur_arbre.meche_cm,
+            show_sondages=show_sondages)
+        return [("", img)]
+    imgs: List[Tuple[str, "PILImage"]] = []
+    for label, cur_b, ref_b, _detail in comparaison_par_brin(
             ref_arbre, cur_arbre, annees):
-        ref_img = (render_brin_section(ref_arbre, ref_b, _CARD_SEC,
-                                       show_sondages=show_sondages)
-                   if ref_b is not None
-                   else _blank_section(_CARD_SEC, _("pas de brin de référence")))
-        cur_img = render_brin_section(cur_arbre, cur_b, _CARD_SEC,
-                                      show_sondages=show_sondages)
-        evo_img = render_evolution_section_brin(ref_b, cur_b, _CARD_SEC)
-        cards.append(_compose_comparison_card(
-            f"Comparaison d'inspections — {cur_arbre.display_name} — Brin {label}",
-            sous_titre, ref_label, cur_label,
-            ref_img, cur_img, evo_img, detail))
-    return cards
+        imgs.append((label, render_evolution_section_brin(
+            ref_b, cur_b, _EVOLUTION_PNG_SIZE, show_title=True,
+            titre=f"{cur_arbre.display_name} — Brin {label}",
+            port=cur_arbre.port_arbre, meche=cur_arbre.meche_cm,
+            show_sondages=show_sondages)))
+    return imgs
+
+
+def save_evolution_pngs(pages: List[Tuple[str, "PILImage"]],
+                        path: str) -> List[str]:
+    """Enregistre l'export PNG « rapport » (`render_evolution_pngs`) :
+    **un fichier par brin** pour une cépée (suffixe `_brin_<label>` avant
+    l'extension du chemin choisi, dans le même dossier), le chemin choisi
+    tel quel pour un mono-caule (`label=""`, page unique) — contrairement
+    aux autres exports comparaison, jamais empilé en une seule image.
+    Renvoie les chemins effectivement écrits (le premier sert de repère
+    pour `App.notify_export`)."""
+    if len(pages) == 1 and pages[0][0] == "":
+        pages[0][1].save(path, "PNG")
+        return [path]
+    import os
+    stem, ext = os.path.splitext(path)
+    ext = ext or ".png"
+    written = []
+    for label, img in pages:
+        p = f"{stem}_brin_{label}{ext}"
+        img.save(p, "PNG")
+        written.append(p)
+    return written
 
 
 def save_comparison_png(pages: List["PILImage"], path: str) -> None:

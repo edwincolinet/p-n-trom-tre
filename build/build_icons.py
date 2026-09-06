@@ -15,6 +15,10 @@ from pathlib import Path
 
 from PIL import Image
 
+# La console Windows par défaut (cp1252) ne peut pas encoder ✓/— ci-dessous.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 SRC = Path("assets/Icone.jpeg")
 OUT = Path("build/icons")
 OUT.mkdir(parents=True, exist_ok=True)

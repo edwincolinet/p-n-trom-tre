@@ -1,10 +1,13 @@
 name: Build & Release
 
-# Déclenché uniquement sur les tags vX.Y.Z (ex: v3.6.0).
+# Déclenché sur les tags vX.Y.Z (ex: v3.6.0), ou manuellement (test d'un
+# build sans créer de tag ni de Release publique — cf. job `release` plus
+# bas, qui ne se déclenche que sur un push de tag).
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: {}
 
 # ──────────────────────────────────────────────────────────────────────
 # SIGNATURE DE CODE — secrets à configurer dans GitHub → Settings →
@@ -316,6 +319,7 @@ jobs:
   # ──────────────────────────────────────────────
   release:
     needs: [build-windows, build-macos, build-linux]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from functools import partial
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Callable, Optional, Protocol, Sequence, Tuple, cast
 
 from i18n import LANGUAGES, _
 
@@ -49,25 +49,29 @@ class AppLike(Protocol):
     def action_load_reference(self) -> bool: ...
     def action_compare_arbre(self) -> None: ...
     def action_reinspection(self) -> None: ...
-    # Exports globaux (mission) — les exports individuels (PNG, fiche
-    # PDF, tableau XLSX/HTML) restent accessibles depuis l'onglet
-    # Diagnostic, qui les expose en haut du pane.
-    def action_print_arbre(self) -> None: ...
+
+    # Exports — menu dédié, groupé par format (PDF/PNG/XLSX/CSV/HTML) ;
+    # chaque action précise dans son libellé si elle porte sur l'arbre
+    # courant ou sur la mission (cf. `app_export_actions.ExportActionsMixin`).
+    def action_export_pdf_arbre(self) -> None: ...
     def action_export_pdf_mission(self) -> None: ...
+    def action_export_png(self) -> None: ...
+    def action_export_comparison_pdf(self) -> None: ...
+    def action_export_comparison_png(self) -> None: ...
+    def action_export_prbs_xlsx(self) -> None: ...
+    def action_export_prbs_html(self) -> None: ...
     def action_export_csv(self) -> None: ...
     def action_export_synthesis_xlsx(self) -> None: ...
     def action_export_synthesis_csv(self) -> None: ...
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
-    def action_add_arbre_inherit(self) -> None: ...
     def action_next_arbre(self) -> None: ...
     def action_prev_arbre(self) -> None: ...
     def action_next_a_finir(self) -> None: ...
     def action_dup_arbre(self) -> None: ...
     def action_rename_arbre(self) -> None: ...
     def action_del_arbre(self) -> None: ...
-    def action_bulk_set_urgence(self) -> None: ...
 
     # Affichage
     def action_set_ui_scale(self, scale: float) -> None: ...
@@ -95,6 +99,40 @@ class AppLike(Protocol):
     def get_recent_files(self) -> list[str]: ...
 
 
+# Une entrée du menu Export = (libellé, commande, accélérateur|None).
+_ExportItem = Tuple[str, Callable[[], None], Optional[str]]
+
+
+def _add_export_section(menu: tk.Menu, titre: str,
+                        items: Sequence[_ExportItem], *,
+                        last: bool = False) -> None:
+    """Ajoute un bloc d'un format (PDF/PNG/XLSX/CSV/HTML) au menu Export :
+    un en-tête désactivé nommant le format, ses entrées, puis un
+    séparateur (omis après le dernier bloc). Factorisé pour que les 5
+    blocs restent visuellement identiques sans dupliquer la plomberie
+    `add_command`/`add_separator`."""
+    menu.add_command(label=f"— {titre} —", state="disabled")
+    for label, command, accelerator in items:
+        if accelerator:
+            menu.add_command(label=label, accelerator=accelerator,
+                             command=command)
+        else:
+            menu.add_command(label=label, command=command)
+    if not last:
+        menu.add_separator()
+
+
+def _section(menu: tk.Menu, titre: str, *, first: bool = False) -> None:
+    """En-tête de section désactivé, même style visuel que le menu Export
+    (`_add_export_section`) — mais pour les menus dont les entrées ne
+    sont pas de simples `add_command` (cascades, checkbuttons…), d'où un
+    helper séparé plutôt qu'un format d'item partagé. Sépare du groupe
+    précédent par un trait (omis avant le tout premier groupe du menu)."""
+    if not first:
+        menu.add_separator()
+    menu.add_command(label=f"— {titre} —", state="disabled")
+
+
 def build_menu(app: AppLike) -> None:
     """Construit et attache la barre de menu de `app` (Tk root).
 
@@ -105,17 +143,17 @@ def build_menu(app: AppLike) -> None:
     # à l'usage `app` est toujours une instance de `tk.Tk` (l'App).
     m = tk.Menu(cast(tk.Misc, app))
     app.config(menu=m)
+    # Mémorisé pour que `comparaison.open_comparison` puisse donner à sa
+    # fenêtre EXACTEMENT le même bandeau (un `tk.Menu` peut être attaché
+    # comme barre de menu à plusieurs fenêtres à la fois) plutôt qu'un
+    # sous-ensemble reconstruit à la main.
+    setattr(app, "_menubar", m)
 
-    # Fichier
+    # Fichier — organisé PAR ÉTAPE du cycle de vie (même principe que le
+    # rangement par format du menu Export) plutôt que dans l'ordre où les
+    # entrées ont été ajoutées au fil des fonctionnalités.
     f = tk.Menu(m, tearoff=0)
-    f.add_command(label=_("Ouvrir la mission d'exemple…"),
-                  command=app.action_open_demo)
-    f.add_separator()
-    f.add_command(label=_("Nouvelle mission depuis un modèle…"),
-                  command=app.action_new_from_template)
-    f.add_command(label=_("Enregistrer comme modèle…"),
-                  command=app.action_save_as_template)
-    f.add_separator()
+    _section(f, _("Mission"), first=True)
     f.add_command(label=_("Nouvelle mission"), accelerator="Ctrl+N",
                   command=app.action_new)
     f.add_command(label=_("Ouvrir mission…"), accelerator="Ctrl+O",
@@ -124,23 +162,17 @@ def build_menu(app: AppLike) -> None:
     f.add_cascade(label=_("Ouvrir récent"), menu=recent_menu)
     setattr(app, "_recent_menu", recent_menu)
     refresh_recent_menu(app)
+    f.add_command(label=_("Ouvrir la mission d'exemple…"),
+                  command=app.action_open_demo)
+    _section(f, _("Modèles"))
+    f.add_command(label=_("Nouvelle mission depuis un modèle…"),
+                  command=app.action_new_from_template)
+    f.add_command(label=_("Enregistrer comme modèle…"),
+                  command=app.action_save_as_template)
+    _section(f, _("Enregistrement"))
     f.add_command(label=_("Enregistrer"), accelerator="Ctrl+S",
                   command=app.action_save)
     f.add_command(label=_("Enregistrer sous…"), command=app.action_save_as)
-    f.add_separator()
-    f.add_command(label=_("Imprimer la fiche (arbre courant)"),
-                  accelerator="Ctrl+P",
-                  command=app.action_print_arbre)
-    f.add_separator()
-    f.add_command(label=_("Exporter la synthèse mission (XLSX)…"),
-                  command=app.action_export_synthesis_xlsx)
-    f.add_command(label=_("Exporter la synthèse mission (CSV)…"),
-                  command=app.action_export_synthesis_csv)
-    f.add_command(label=_("Exporter toutes les fiches (PDF)…"),
-                  command=app.action_export_pdf_mission)
-    f.add_command(label=_("Exporter sondages mission (CSV)…"),
-                  command=app.action_export_csv)
-    f.add_separator()
     f.add_command(label=_("Ouvrir le dossier des sauvegardes…"),
                   command=app.action_open_backups_folder)
     f.add_separator()
@@ -158,21 +190,17 @@ def build_menu(app: AppLike) -> None:
 
     # Arbres
     a = tk.Menu(m, tearoff=0)
+    _section(a, _("Ajouter"), first=True)
     a.add_command(label=_("Ajouter un arbre"), accelerator="Ctrl+T",
                   command=app.action_add_arbre)
-    a.add_command(label=_("Ajouter (hériter du précédent)"),
-                  accelerator="Ctrl+Shift+T",
-                  command=app.action_add_arbre_inherit)
-    a.add_separator()
+    _section(a, _("Navigation"))
     a.add_command(label="Arbre suivant", accelerator="Ctrl+PgDn",
                   command=app.action_next_arbre)
     a.add_command(label=_("Arbre précédent"), accelerator="Ctrl+PgUp",
                   command=app.action_prev_arbre)
     a.add_command(label=_("Prochain arbre à finir"),
                   command=app.action_next_a_finir)
-    a.add_command(label=_("Urgence pour la sélection…"),
-                  command=app.action_bulk_set_urgence)
-    a.add_separator()
+    _section(a, _("Modifier"))
     a.add_command(label=_("Dupliquer l'arbre courant"),
                   command=app.action_dup_arbre)
     a.add_command(label=_("Renommer l'arbre courant…"),
@@ -183,6 +211,7 @@ def build_menu(app: AppLike) -> None:
 
     # Affichage
     v = tk.Menu(m, tearoff=0)
+    _section(v, _("Accessibilité"), first=True)
     scale_var = tk.DoubleVar(value=app.get_ui_scale())
     setattr(app, "_ui_scale_var", scale_var)
     taille = tk.Menu(v, tearoff=0)
@@ -197,7 +226,7 @@ def build_menu(app: AppLike) -> None:
     v.add_checkbutton(
         label=_("Contraste élevé"), variable=hc_var,
         command=lambda: app.action_set_high_contrast(hc_var.get()))
-    v.add_separator()
+    _section(v, _("Préférences"))
     v.add_command(label=_("Logo et nom du cabinet…"),
                   command=app.action_cabinet_settings)
     v.add_command(label=_("Barème de classification…"),
@@ -214,21 +243,81 @@ def build_menu(app: AppLike) -> None:
     v.add_cascade(label=_("Langue"), menu=lang_menu)
     m.add_cascade(label=_("Affichage"), menu=v)
 
+    # Export — point d'entrée UNIQUE des exports (2026-09-05) : avant,
+    # dispersés entre ce menu (exports mission) et l'onglet Diagnostic
+    # (exports arbre). Regroupés ici PAR FORMAT (un bloc par
+    # PDF/PNG/XLSX/CSV/HTML, en-tête désactivé) plutôt que par portée —
+    # chaque libellé précise s'il porte sur l'arbre courant ou la mission.
+    x = tk.Menu(m, tearoff=0)
+    _add_export_section(x, "PDF", (
+        (_("Fiche PDF (arbre courant)"), app.action_export_pdf_arbre,
+         "Ctrl+E"),
+        (_("Exporter toutes les fiches (PDF)…"),
+         app.action_export_pdf_mission, None),
+    ), last=True)
+    # Export de la comparaison en cours (« Diagnostic de la comparaison… »).
+    # Grisé tant qu'aucune comparaison n'est ouverte — avant, ces deux
+    # exports vivaient dans des boutons de la fenêtre de comparaison
+    # elle-même, la coupant du menu Export pendant qu'elle était ouverte.
+    # État tenu à jour par `postcommand` juste avant que le menu s'affiche
+    # (`_refresh_export_comparison_state`) plutôt que par un callback
+    # explicite à l'ouverture/fermeture de la fenêtre.
+    x.add_command(label=_("Comparaison — fiche PDF…"),
+                  command=app.action_export_comparison_pdf,
+                  state="disabled")
+    idx_export_comparison_pdf = cast(int, x.index("end"))
+    x.add_separator()
+    _add_export_section(x, "PNG", (
+        (_("PNG du dessin"), app.action_export_png, None),
+    ), last=True)
+    x.add_command(label=_("Comparaison — évolution (PNG)…"),
+                  command=app.action_export_comparison_png,
+                  state="disabled")
+    idx_export_comparison_png = cast(int, x.index("end"))
+    x.add_separator()
+    _add_export_section(x, "XLSX", (
+        (_("Tableau PRBS — Excel (XLSX)…"), app.action_export_prbs_xlsx,
+         None),
+        (_("Exporter la synthèse mission (XLSX)…"),
+         app.action_export_synthesis_xlsx, None),
+    ))
+    _add_export_section(x, "CSV", (
+        (_("Exporter sondages mission (CSV)…"), app.action_export_csv,
+         None),
+        (_("Exporter la synthèse mission (CSV)…"),
+         app.action_export_synthesis_csv, None),
+    ))
+    _add_export_section(x, "HTML", (
+        (_("Tableau PRBS — page HTML…"), app.action_export_prbs_html,
+         None),
+    ), last=True)
+
+    def _refresh_export_comparison_state() -> None:
+        from comparaison import is_comparison_active
+        state = "normal" if is_comparison_active() else "disabled"
+        x.entryconfigure(idx_export_comparison_pdf, state=state)
+        x.entryconfigure(idx_export_comparison_png, state=state)
+
+    x.configure(postcommand=_refresh_export_comparison_state)
+    m.add_cascade(label=_("Export"), menu=x)
+
     # Aide
     h = tk.Menu(m, tearoff=0)
+    _section(h, _("Aide"), first=True)
     h.add_command(label=_("Guide de démarrage…"),
                   command=app.action_open_guide)
     h.add_command(label=_("Raccourcis clavier…"),
                   command=app.action_shortcuts)
-    h.add_separator()
+    _section(h, _("Support"))
     h.add_command(label=_("Contacter le support…"),
                   command=app.action_contact_support)
     h.add_command(label=_("Ouvrir le fichier de log"),
                   command=app.action_open_log)
-    h.add_separator()
+    _section(h, _("Mises à jour"))
     h.add_command(label=_("Vérifier les mises à jour"),
                   command=app.action_check_updates)
     chk_var = tk.BooleanVar(value=app.get_check_updates())
+    setattr(app, "_check_updates_var", chk_var)
     h.add_checkbutton(
         label=_("Vérification automatique au démarrage"),
         variable=chk_var,
@@ -244,7 +333,6 @@ def build_menu(app: AppLike) -> None:
     app.bind_all("<Control-o>", lambda e: app.action_open())
     app.bind_all("<Control-s>", lambda e: app.action_save())
     app.bind_all("<Control-t>", lambda e: app.action_add_arbre())
-    app.bind_all("<Control-T>", lambda e: app.action_add_arbre_inherit())
 
 
 def refresh_recent_menu(app: AppLike) -> None:

@@ -1,6 +1,8 @@
 """
-Onglet « Diagnostic » : boutons d'export, résumé textuel, checkbox
-d'affichage des sondages, tableau PRBS par sondage.
+Onglet « Diagnostic » : résumé textuel, tableau PRBS par sondage,
+préconisation. Les exports (PDF, PNG, XLSX, CSV, HTML) vivent dans
+l'onglet « Export » (`pane_export.py`) — ce pane n'en a plus la charge
+depuis le 2026-09-05 (ils y étaient épars entre ici et le menu Fichier).
 
 C'est le plus gros pane : le contenu vit dans un sous-`tk.Canvas`
 scrollable (verticalement) pour rester utilisable même quand la
@@ -8,8 +10,6 @@ fenêtre est étroite.
 
 Contrat host (Protocol structural) :
 - `_current_arbre()`         : arbre courant ou None.
-- `action_export_*`          : 5 actions d'export (PDF, PNG, XLSX,
-                                HTML, CSV mission).
 - `on_show_sondages_toggled(show)` : notifie l'App du toggle de la
                                 checkbox — l'App répercute sur le
                                 `SectionCanvas` qu'elle possède.
@@ -20,11 +20,13 @@ résumé (`lbl_diag`) et le tableau PRBS par sondage.
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from tkinter import ttk
 from typing import Any, Optional, Protocol
 
 from bareme import classer_prbs
+from chrome_icons import calendar_icon
 from diagnostic import (
     FUSION_WARN_TEXT,
     degradation_externe_par_grade,
@@ -35,10 +37,11 @@ from dialogs_settings import ask_suivi_custom, ask_urgences_custom
 from dialogs_shared import SUIVI_VALIDITES, normaliser_date
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _, translate_values, untranslate_value
+from icons import ICON_CALENDAR
 from model import URGENCE_NIVEAUX, Arbre
 from palette import COLOR_MUTED, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
-from ui_fonts import font as ui_font
+from ui_fonts import font_body
 
 # Premier item des comboboxes = « non renseignée » (stocke "").
 _URGENCE_VIDE = "— Non renseignée —"
@@ -47,12 +50,6 @@ _SUIVI_VIDE = "— Non renseignée —"
 
 class _DiagnosticHost(Protocol):
     def _current_arbre(self) -> Optional[Arbre]: ...
-    def action_export_pdf_arbre(self) -> None: ...
-    def action_print_arbre(self) -> None: ...
-    def action_export_png(self) -> None: ...
-    def action_export_prbs_xlsx(self) -> None: ...
-    def action_export_prbs_html(self) -> None: ...
-    def action_export_csv(self) -> None: ...
     # Préconisation (urgence / échéance / texte / suivi) — édition + undo/dirty.
     def on_preconisation_changed(self) -> None: ...
     def push_undo(self) -> None: ...
@@ -117,57 +114,13 @@ class DiagnosticPane(ttk.Frame):
         self._build_content(content)
 
     def _build_content(self, parent: ttk.Frame) -> None:
-        # --- Boutons d'export EN HAUT (toujours accessibles) ---
-        # Le livrable (fiche PDF) et l'image (PNG) restent en boutons
-        # directs ; les 3 exports de tableau (XLSX/HTML/CSV) — variantes
-        # de format d'une même donnée — sont regroupés sous un menu
-        # déroulant pour alléger la barre (5 boutons → 2 boutons + 1 menu).
-        btn_exp = ttk.Frame(parent, style="Panel.TFrame")
-        btn_exp.pack(fill="x", pady=(0, 12))
-        btn_pdf = ttk.Button(btn_exp, text=_("📄 Fiche PDF (arbre courant)"),
-                             style="Accent.TButton",
-                             command=self._host.action_export_pdf_arbre)
-        btn_pdf.pack(side="left", padx=(0, 6))
-        Tooltip(btn_pdf, _("Exporter la fiche PDF de l'arbre courant "
-                         "(dessin + tableau + diagnostic) — Ctrl+E"))
-        btn_print = ttk.Button(btn_exp, text=_("🖨 Imprimer"),
-                               style="Ghost.TButton",
-                               command=self._host.action_print_arbre)
-        btn_print.pack(side="left", padx=(0, 6))
-        Tooltip(btn_print, _("Imprimer la fiche PDF directement "
-                           "(sans dialogue de sauvegarde) — Ctrl+P"))
-        btn_png = ttk.Button(btn_exp, text=_("🖼 PNG du dessin"),
-                             style="Ghost.TButton",
-                             command=self._host.action_export_png)
-        btn_png.pack(side="left", padx=(0, 6))
-        Tooltip(btn_png, _("Exporter le dessin de la section en image PNG"))
-
-        mb_table = ttk.Menubutton(btn_exp, text=_("📊 Exporter le tableau"),
-                                  style="Ghost.TMenubutton", direction="below")
-        table_menu = tk.Menu(mb_table, tearoff=0)
-        table_menu.add_command(
-            label=_("Tableau PRBS — Excel (XLSX)…"),
-            command=self._host.action_export_prbs_xlsx)
-        table_menu.add_command(
-            label=_("Tableau PRBS — page HTML…"),
-            command=self._host.action_export_prbs_html)
-        table_menu.add_separator()
-        table_menu.add_command(
-            label=_("Sondages de la mission (CSV)…"),
-            command=self._host.action_export_csv)
-        mb_table["menu"] = table_menu
-        mb_table.pack(side="left")
-        Tooltip(mb_table,
-                _("Exporter le tableau PRBS de l'arbre (Excel / HTML) ou "
-                "tous les sondages de la mission (CSV)"))
-
         # --- Bloc résumé haut ---
         ttk.Label(parent, text=_("Résumé de l'arbre courant"),
                   style="H.TLabel").pack(anchor="w", pady=(4, 4))
         self._txt_diag = tk.Text(
             parent, state="disabled", wrap="word", relief="flat", bd=0,
             bg=COLOR_PANEL, cursor="arrow", takefocus=False,
-            font=ui_font("Helvetica", 10), height=1)
+            font=font_body(), height=1)
         self._txt_diag.tag_configure("vert",   foreground="#2D7A3E")
         self._txt_diag.tag_configure("orange", foreground="#C25C00")
         self._txt_diag.tag_configure("rouge",  foreground="#C0392B")
@@ -291,8 +244,16 @@ class DiagnosticPane(ttk.Frame):
         ent_ech.pack(side="left", padx=(0, 2))
         ent_ech.bind("<FocusIn>", lambda e: self._preco_focus_in())
         ent_ech.bind("<FocusOut>", lambda e: self._on_echeance_focus_out())
-        btn_cal = ttk.Button(line, text="📅", style="Ghost.TButton", width=3,
-                             command=self._pick_echeance)
+        # Icône bitmap plutôt qu'ICON_CALENDAR sur Windows (2026-09-06,
+        # cf. chrome_icons.py) : zéro risque de police manquante.
+        if sys.platform == "win32":
+            btn_cal = ttk.Button(line, image=calendar_icon(),
+                                 style="Ghost.TButton",
+                                 command=self._pick_echeance)
+        else:
+            btn_cal = ttk.Button(line, text=ICON_CALENDAR, width=3,
+                                 style="Ghost.TButton",
+                                 command=self._pick_echeance)
         btn_cal.pack(side="left")
         Tooltip(btn_cal, _("Choisir l'échéance au calendrier"))
         ttk.Label(line, text=_("(facultatif)"), style="Muted.TLabel",
@@ -301,7 +262,7 @@ class DiagnosticPane(ttk.Frame):
         ttk.Label(parent, text=_("Action recommandée (texte libre)"),
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
         self.txt_preco = tk.Text(parent, height=3, wrap="word",
-                                 font=ui_font("Helvetica", 10),
+                                 font=font_body(),
                                  relief="solid", borderwidth=1)
         self.txt_preco.pack(fill="x", pady=(0, 14))
         self.txt_preco.bind("<FocusIn>", lambda e: self._preco_focus_in())
@@ -338,8 +299,16 @@ class DiagnosticPane(ttk.Frame):
         ent_sech.bind("<FocusIn>", lambda e: self._suivi_focus_in())
         ent_sech.bind("<FocusOut>",
                       lambda e: self._on_suivi_echeance_focus_out())
-        btn_scal = ttk.Button(suivi_line, text="📅", style="Ghost.TButton",
-                              width=3, command=self._pick_suivi_echeance)
+        # Icône bitmap plutôt qu'ICON_CALENDAR sur Windows (2026-09-06,
+        # cf. chrome_icons.py).
+        if sys.platform == "win32":
+            btn_scal = ttk.Button(suivi_line, image=calendar_icon(),
+                                  style="Ghost.TButton",
+                                  command=self._pick_suivi_echeance)
+        else:
+            btn_scal = ttk.Button(suivi_line, text=ICON_CALENDAR,
+                                  style="Ghost.TButton", width=3,
+                                  command=self._pick_suivi_echeance)
         btn_scal.pack(side="left")
         Tooltip(btn_scal, _("Choisir la date de prochaine visite au calendrier"))
         ttk.Label(suivi_line, text=_("(facultatif)"), style="Muted.TLabel",
@@ -348,7 +317,7 @@ class DiagnosticPane(ttk.Frame):
         ttk.Label(parent, text=_("Contenu du suivi (texte libre)"),
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
         self.txt_suivi = tk.Text(parent, height=3, wrap="word",
-                                 font=ui_font("Helvetica", 10),
+                                 font=font_body(),
                                  relief="solid", borderwidth=1)
         self.txt_suivi.pack(fill="x", pady=(0, 12))
         self.txt_suivi.bind("<FocusIn>", lambda e: self._suivi_focus_in())

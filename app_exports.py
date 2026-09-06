@@ -169,59 +169,6 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         messagebox.showerror("Erreur d'export PDF", str(e))
 
 
-def print_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
-                    chantier: Chantier,
-                    show_sondages: bool = True,
-                    mission_file: Optional[Path] = None) -> None:
-    """Impression directe de la fiche PDF de l'arbre courant.
-
-    Génère la fiche dans un fichier temporaire, puis l'envoie à
-    l'imprimante par défaut (`lp` sur Linux, `lpr` sur macOS,
-    `os.startfile('print')` sur Windows). Aucun filedialog."""
-    if not _need_pil("PDF"):
-        return
-    if not _need_fpdf():
-        return
-    if not arbre:
-        return
-    import subprocess
-    import sys
-    import tempfile
-    try:
-        cabinet_name, logo_path = _get_cabinet_info(parent)
-        pdf = _new_pdf()
-        render_fiche_arbre(pdf, arbre, chantier,
-                           show_sondages=show_sondages,
-                           logo_path=logo_path,
-                           cabinet_name=cabinet_name,
-                           mission_file=mission_file)
-        num = arbre.numero_arbre or "arbre"
-        with tempfile.NamedTemporaryFile(
-                suffix=".pdf",
-                prefix=f"penetrometre_{num}_",
-                delete=False) as tmp:
-            tmp_path = tmp.name
-        pdf.output(tmp_path)
-
-        if sys.platform.startswith("win"):
-            import os as _os
-            _os.startfile(tmp_path, "print")  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["lpr", tmp_path], check=False)
-        else:
-            res = subprocess.run(["lp", tmp_path], capture_output=True)
-            if res.returncode != 0:
-                # CUPS absent ou non configuré → ouvrir dans le visualiseur
-                subprocess.run(["xdg-open", tmp_path], check=False)
-
-        set_status = getattr(parent, "set_status", None)
-        if set_status:
-            set_status(_("Impression envoyée — arbre n°{num}").format(num=num))
-    except Exception as e:
-        log.exception("Échec impression directe")
-        messagebox.showerror("Erreur d'impression", str(e))
-
-
 def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
                        show_sondages: bool = True,
                        mission_file: Optional[Path] = None) -> None:

@@ -44,13 +44,13 @@ from geometry import (
 )
 from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 from palette import (
-    COLOR_ACCENT,
     COLOR_BARK,
     COLOR_BARK_LIGHT,
     COLOR_CERNE,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_PANEL,
+    COLOR_RENDER_ACCENT,
     COLOR_ROT,
     COLOR_SOND,
     COLOR_WOOD,
@@ -616,7 +616,7 @@ class SectionCanvas(tk.Canvas):
             self.create_text(cx + dx, y + dy, text=brin.label,
                              font=("Georgia", 13, "bold"), fill="white")
         self.create_text(cx, y, text=brin.label,
-                         font=("Georgia", 13, "bold"), fill=COLOR_ACCENT)
+                         font=("Georgia", 13, "bold"), fill=COLOR_RENDER_ACCENT)
 
     def _draw_cepee(self, A: Arbre) -> None:
         """Compose une cépée : N brins positionnés dans un cadrage commun.
@@ -935,4 +935,4 @@ class SectionCanvas(tk.Canvas):
         # s'aligne ainsi sur le PNG (`_pil_draw_titre`, titre seul).
         w = max(self.winfo_width(), 1)
         self.create_text(w/2, 16, text=A.display_name,
-                         font=("Georgia", 15, "bold"), fill=COLOR_ACCENT)
+                         font=("Georgia", 15, "bold"), fill=COLOR_RENDER_ACCENT)
