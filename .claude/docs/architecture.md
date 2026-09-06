@@ -713,13 +713,24 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 - **`comparaison.py`** — fenêtre Tk `open_comparison(...)` redimensionnable :
   3 sections côte à côte (référence | courant | **section d'évolution**),
   tableau chiffré, verdict. Référence chargée **par session** (rien de
-  persisté). Porte son **propre bandeau** (`dlg.config(menu=…)`, menu
-  Export à 2 entrées) et un bouton « 💾 Enregistrer » (`App.action_save`)
-  — sans eux, la fenêtre (quasi plein écran, pas `transient`) coupait de
-  tout le reste de l'app (2026-09-05). L'export PDF/PNG reste aussi
-  disponible, grisé hors comparaison active, dans le menu Export
-  principal (`comparaison.is_comparison_active`/`export_active_comparison`/
-  `get_comparison_window`). Décisions métier dans CLAUDE.md.
+  persisté). Porte le **MÊME bandeau que la fenêtre principale**, en-tête
+  ET pied :
+  - **Menu** : le même widget `tk.Menu` (posé sur `App._menubar` par
+    `app_menu.build_menu`, réattaché à `dlg` via `dlg.config(menu=…)`, un
+    `tk.Menu` pouvant servir de barre de menu à plusieurs fenêtres). L'export
+    PDF/PNG se fait donc depuis le menu Export ordinaire, grisé hors
+    comparaison active (`comparaison.is_comparison_active`/
+    `export_active_comparison`/`get_comparison_window`).
+  - **Pied** : un widget ordinaire ne pouvant pas être partagé comme un
+    menu, c'est une reconstruction visuellement identique à la barre
+    d'état (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`) —
+    bouton « 💾 Enregistrer » (`App.action_save`) + indicateur
+    d'enregistrement (`dialogs_shared.save_state_label(dirty, has_file)`,
+    SOURCE UNIQUE partagée avec `App._update_save_indicator`) + message
+    d'export + « Ouvrir le fichier/dossier ». L'ancien bouton Enregistrer
+    du bandeau supérieur a été retiré (doublon, 2026-09-06).
+  Sans ce bandeau, la fenêtre (quasi plein écran, pas `transient`) coupait
+  de tout le reste de l'app (2026-09-05). Décisions métier dans CLAUDE.md.
 - **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
   (couronne **orange** = bois sain perdu depuis la référence, contours
   lissés Catmull-Rom), `render_comparison_page` (A4 paysage),

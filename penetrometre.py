@@ -52,7 +52,7 @@ from dialogs import (
 from dialogs_cepee import ask_cepee_layout
 from dialogs_license import show_activation_dialog
 from dialogs_saisie import edit_contrefort, edit_degradation, edit_sondage
-from dialogs_shared import message_chevauchement
+from dialogs_shared import message_chevauchement, save_state_label
 from i18n import _, setup_language, translate_values
 from license import (
     LicenseData,
@@ -79,7 +79,6 @@ from palette import (
     COLOR_INK,
     COLOR_MUTED,
     COLOR_PANEL,
-    COLOR_WARN,
 )
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
@@ -355,24 +354,15 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         """Reflète l'état d'enregistrement dans la barre d'état (texte +
         couleur) et l'activation du bouton Enregistrer. Centralisé via
         `_update_title`, donc à jour à chaque changement du dirty flag.
-        No-op tant que la barre n'est pas construite (ordre d'`__init__`)."""
+        No-op tant que la barre n'est pas construite (ordre d'`__init__`).
+        Texte/couleur/activation viennent de `dialogs_shared.save_state_label`
+        (source unique, partagée avec le pied de la fenêtre de comparaison)."""
         if not hasattr(self, "lbl_save_state"):
             return
-        if self._dirty:
-            self.lbl_save_state.configure(
-                text=_("● Modifications non enregistrées"),
-                foreground=COLOR_WARN)
-            self._btn_save.configure(state="normal")
-        elif self.current_file is not None:
-            self.lbl_save_state.configure(
-                text=_("✓ Enregistré"), foreground=COLOR_ACCENT)
-            self._btn_save.configure(state="disabled")
-        else:
-            # Mission neuve jamais enregistrée : rien à perdre, mais le
-            # bouton reste actif (premier « Enregistrer sous… »).
-            self.lbl_save_state.configure(
-                text=_("Mission non enregistrée"), foreground=COLOR_MUTED)
-            self._btn_save.configure(state="normal")
+        text, color, enabled = save_state_label(
+            dirty=self._dirty, has_file=self.current_file is not None)
+        self.lbl_save_state.configure(text=text, foreground=color)
+        self._btn_save.configure(state="normal" if enabled else "disabled")
 
     def _on_close(self) -> None:
         if self._dirty:

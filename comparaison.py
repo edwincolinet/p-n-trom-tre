@@ -23,19 +23,27 @@ fenêtre portait ses propres boutons Export PDF/PNG et un bouton
 Fermer — coupant l'utilisateur du menu Export et de la barre d'état
 pendant qu'elle était ouverte (repéré à l'usage : plus de bandeau,
 donc plus d'« Enregistrer » ni de « Ouvrir le fichier/dossier » après
-un export). Désormais :
-- l'export PDF/PNG se déclenche depuis le menu **Export** de la
-  fenêtre principale (entrées grisées tant qu'aucune comparaison n'est
-  ouverte) — `is_comparison_active`/`export_active_comparison` exposent
-  l'état à `app_export_actions.ExportActionsMixin` ;
-- un bouton **« 💾 Enregistrer »** dans la fenêtre appelle directement
-  `App.action_save` (`on_save`) — la mission reste enregistrable sans
-  fermer la comparaison ;
-- le pied de fenêtre affiche la confirmation d'export + boutons
-  « Ouvrir le fichier/dossier » (`show_export_feedback`, appelé par
-  `App._export_comparison`), reproduisant localement le comportement de
-  la barre d'état principale — invisible tant que la fenêtre couvre
-  l'écran ;
+un export). Un premier passage lui a donné un menu local réduit à
+« Export » ; **désormais elle porte le MÊME bandeau que la fenêtre
+principale** (le même widget `tk.Menu`, cf. `open_comparison`) — accès
+complet à Fichier/Comparaison/Arbres/Affichage/Export/Aide sans quitter
+la comparaison :
+- l'export PDF/PNG se déclenche depuis le menu **Export**, exactement
+  comme ailleurs dans l'app (entrées grisées tant qu'aucune comparaison
+  n'est ouverte) — `is_comparison_active`/`export_active_comparison`
+  exposent l'état à `app_export_actions.ExportActionsMixin` ;
+- **le pied de fenêtre reprend le MÊME bandeau que la barre d'état
+  principale** (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`,
+  même disposition) : bouton « 💾 Enregistrer » (`on_save` = `App.action_save`
+  ; un widget Tk ne pouvant pas être partagé entre deux fenêtres comme un
+  menu, c'est une **reconstruction visuellement identique**, pas le même
+  widget) + indicateur d'enregistrement (texte/couleur venant de
+  `dialogs_shared.save_state_label`, SOURCE UNIQUE partagée avec
+  `App._update_save_indicator` pour que les deux bandeaux disent toujours
+  la même chose) + message d'export + boutons « Ouvrir le fichier/dossier »
+  (`show_export_feedback`, appelé par `App._export_comparison`) — l'ancien
+  bouton « Enregistrer » du bandeau supérieur a été retiré (doublon,
+  2026-09-06) ;
 - plus de bouton « Fermer » : la fenêtre a ses décorations système
   complètes (pas de `transient`, cf. plus bas), la croix suffit.
 
@@ -62,10 +70,12 @@ from diagnostic_comparaison import (
     evolution_classe,
     verdict_evolution,
 )
-from dialogs_shared import annees_entre
+from dialogs_shared import annees_entre, save_state_label
 from i18n import _
 from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
+from tooltip import Tooltip
+from ui_fonts import font_small, font_small_bold
 
 _SEC = 440  # côté des dessins (px)
 _comparison_window: "Optional[tk.Toplevel]" = None  # singleton
@@ -133,8 +143,6 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
                     *, default_arbre: Arbre, cur_date: str,
                     couleur_classe: Mapping[str, str],
                     on_save: Callable[[], None],
-                    on_export_pdf: Callable[[], None],
-                    on_export_png: Callable[[], None],
                     show_sondages: bool = True) -> None:
     """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
     avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
@@ -143,16 +151,18 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     `on_save` est appelé par le bouton « 💾 Enregistrer » (= `App.action_save`,
     la mission reste enregistrable sans fermer la fenêtre).
 
-    `on_export_pdf`/`on_export_png` (= `App.action_export_comparison_pdf`/
-    `_png`) pilotent le petit menu **Export** propre à cette fenêtre — sans
-    lui, exporter obligeait à quitter la fenêtre pour atteindre le menu
-    Export de la fenêtre principale, masqué derrière celle-ci (repéré à
-    l'usage). Les MÊMES actions restent aussi dans le menu Export principal
-    (grisées tant qu'aucune comparaison n'est active, via
-    `export_active_comparison`) pour le cas où cette fenêtre ne couvrirait
-    pas tout l'écran. `show_sondages` reprend la case « Afficher sondages ».
-    Une seule fenêtre de comparaison à la fois (singleton) : ré-ouvrir ferme
-    la précédente et ouvre une nouvelle avec la sélection courante."""
+    `parent` est l'App principale : sa barre de menu (`parent._menubar`,
+    posée par `app_menu.build_menu`) est réutilisée **telle quelle** comme
+    bandeau de cette fenêtre (un `tk.Menu` Tk peut servir de menu à
+    plusieurs fenêtres à la fois) — ce qui donne accès à Fichier/
+    Comparaison/Arbres/Affichage/Export/Aide sans quitter la comparaison,
+    au lieu d'un sous-ensemble reconstruit à la main. Les entrées Export de
+    la comparaison (« Comparaison — fiche PDF… »/« … évolution (PNG)… »)
+    s'activent d'elles-mêmes dès qu'une sélection est faite ici, via
+    `is_comparison_active`. `show_sondages` reprend la case « Afficher
+    sondages ». Une seule fenêtre de comparaison à la fois (singleton) :
+    ré-ouvrir ferme la précédente et ouvre une nouvelle avec la sélection
+    courante."""
     global _comparison_window, _comparison_state
     if _comparison_window is not None and _comparison_window.winfo_exists():
         _comparison_window.destroy()
@@ -167,19 +177,16 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     dlg.title("Comparaison d'inspections")
     dlg.configure(bg=COLOR_PANEL)
     dlg.minsize(1000, 720)
-    # Menu propre à la fenêtre (juste Export) : cette fenêtre couvrant
-    # tout l'écran (cf. plus bas) et n'ayant pas de bandeau, le menu
-    # Export de la fenêtre principale devenait injoignable sans quitter
-    # la comparaison — repéré à l'usage. Les mêmes actions restent aussi
-    # dans le menu Export principal (grisées hors comparaison active),
-    # cf. docstring.
-    cmp_menubar = tk.Menu(dlg)
-    cmp_export_menu = tk.Menu(cmp_menubar, tearoff=0)
-    cmp_export_menu.add_command(label=_("Fiche PDF…"), command=on_export_pdf)
-    cmp_export_menu.add_command(label=_("Évolution (PNG)…"),
-                                command=on_export_png)
-    cmp_menubar.add_cascade(label=_("Export"), menu=cmp_export_menu)
-    dlg.config(menu=cmp_menubar)
+    # Même bandeau que la fenêtre principale (littéralement le même widget
+    # `tk.Menu`) : avant, cette fenêtre reconstruisait un menu local réduit
+    # à « Export », ce qui coupait l'accès à Fichier/Comparaison/Arbres/
+    # Affichage/Aide tant qu'elle restait ouverte (quasi plein écran, pas
+    # `transient`, cf. plus bas). Réutiliser le menu de `parent` (posé sur
+    # `_menubar` par `app_menu.build_menu`) évite ce sous-ensemble à
+    # entretenir en double.
+    menubar = getattr(parent, "_menubar", None)
+    if menubar is not None:
+        dlg.config(menu=menubar)
     # PAS de `transient` : sous Linux/X11 un transient est traité en dialogue
     # utilitaire par le gestionnaire de fenêtres → souvent **sans bouton
     # « maximiser »** (et `-zoomed` y est ignoré silencieusement). Une fenêtre
@@ -227,15 +234,6 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     state["_vars"] = (var_cur, var_ref)
     ttk.Label(top, text=_("(réf. {r}  →  courant {c})").format(r=ref_label, c=cur_label),
               style="Muted.TLabel").pack(side="left", padx=(12, 0))
-    # Coupée du bandeau principal (fenêtre à part, sans menu), la mission
-    # restait inaccessible à « Enregistrer » sans fermer la comparaison —
-    # le geste le plus courant pendant une ré-inspection (on modifie les
-    # mesures, on vérifie ici, on enregistre). Bouton direct plutôt qu'un
-    # menu dupliqué : seule cette action a été jugée assez fréquente/
-    # critique pour justifier une entrée locale (cf. `export_active_comparison`
-    # pour les exports, restés dans le menu Export de la fenêtre principale).
-    ttk.Button(top, text=_("💾 Enregistrer"), style="Accent.TButton",
-               command=on_save).pack(side="right")
 
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
     # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
@@ -278,23 +276,46 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     canvas.bind("<Enter>", _bind_wheel)
     canvas.bind("<Leave>", _unbind_wheel)
 
-    # --- Pied de fenêtre : confirmation d'export + Ouvrir (reproduit
-    # localement la barre d'état principale, invisible tant que cette
-    # fenêtre couvre l'écran) — mis à jour par `show_export_feedback`
-    # quand un export est déclenché depuis le menu Export. Pas de bouton
-    # Export/Fermer ici : l'export se fait par le menu, la fermeture par
-    # la croix de la fenêtre (décorations système complètes, cf. plus haut).
-    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=12)
-    foot.pack(fill="x")
-    lbl_msg = ttk.Label(foot, text="", style="Muted.TLabel",
-                        wraplength=700, justify="left")
-    lbl_msg.pack(side="left", fill="x", expand=True)
+    # --- Pied de fenêtre = MÊME bandeau que la barre d'état principale
+    # (même styles Side.TFrame/Side.TLabel/Ghost.TButton, même disposition :
+    # bouton Enregistrer + indicateur d'enregistrement à gauche, message à
+    # la suite, « Ouvrir le fichier/dossier » à droite). Avant, la fenêtre
+    # avait son propre bouton « Enregistrer » en haut (retiré : il fait
+    # doublon avec celui-ci) et un pied réduit au message d'export. Le menu
+    # (Ctrl+S compris, via `bind_all` sur la fenêtre principale) reste
+    # disponible en parallèle — pas de bouton Export/Fermer ici : l'export
+    # se fait par le menu Export, la fermeture par la croix de la fenêtre
+    # (décorations système complètes, cf. plus haut).
+    foot = ttk.Frame(dlg, style="Side.TFrame")
+    foot.pack(side="bottom", fill="x")
+    btn_save = ttk.Button(foot, text=_("💾 Enregistrer"), style="Ghost.TButton")
+    btn_save.pack(side="left", padx=(10, 6), pady=2)
+    Tooltip(btn_save, _("Enregistrer la mission") + " (Ctrl+S)")
+    lbl_save_state = ttk.Label(foot, text="", style="Side.TLabel",
+                               font=font_small_bold())
+    lbl_save_state.pack(side="left", padx=(0, 14), pady=3)
+
+    def _refresh_save_state() -> None:
+        dirty = bool(getattr(parent, "_dirty", False))
+        has_file = getattr(parent, "current_file", None) is not None
+        text, color, enabled = save_state_label(dirty=dirty, has_file=has_file)
+        lbl_save_state.configure(text=text, foreground=color)
+        btn_save.configure(state="normal" if enabled else "disabled")
+
+    def _do_save() -> None:
+        on_save()
+        _refresh_save_state()
+
+    btn_save.configure(command=_do_save)
+    _refresh_save_state()
+    lbl_msg = ttk.Label(foot, text="", style="Side.TLabel", font=font_small())
+    lbl_msg.pack(side="left", padx=(0, 12), pady=3, fill="x", expand=True)
     btn_open_folder = ttk.Button(foot, text=_("Ouvrir le dossier"),
                                  style="Ghost.TButton", state="disabled")
-    btn_open_folder.pack(side="right", padx=(6, 0))
+    btn_open_folder.pack(side="right", padx=(0, 10), pady=2)
     btn_open_file = ttk.Button(foot, text=_("Ouvrir le fichier"),
                                style="Ghost.TButton", state="disabled")
-    btn_open_file.pack(side="right")
+    btn_open_file.pack(side="right", padx=(0, 4), pady=2)
     state["_lbl_msg"] = lbl_msg
     state["_btn_open_file"] = btn_open_file
     state["_btn_open_folder"] = btn_open_folder

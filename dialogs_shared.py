@@ -14,6 +14,7 @@ from typing import List, Optional
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _, untranslate_value
 from model import DegradationExterne
+from palette import COLOR_ACCENT, COLOR_MUTED, COLOR_WARN
 
 # --- Compartimentation (sondages) ----------------------------------------
 # Valeurs modèle canoniques (français, stockées telles quelles dans le
@@ -245,6 +246,25 @@ def normaliser_date(s: str) -> Optional[str]:
     except ValueError:
         return None
     return f"{d.day:02d}/{d.month:02d}/{d.year:04d}"
+
+
+# --- Indicateur d'enregistrement (barre d'état) --------------------------
+# SOURCE UNIQUE du texte/couleur/activation du bouton « 💾 Enregistrer » —
+# partagée par la barre d'état principale (`penetrometre._update_save_indicator`)
+# et le pied de la fenêtre de comparaison (`comparaison.open_comparison`),
+# pour que les deux bandeaux affichent TOUJOURS le même indicateur pour un
+# même état, sans dupliquer la logique texte/couleur.
+def save_state_label(*, dirty: bool, has_file: bool) -> tuple[str, str, bool]:
+    """Texte, couleur (hex) et activation du bouton pour l'indicateur
+    d'enregistrement, selon l'état `dirty`/`has_file` (mission jamais
+    enregistrée). Renvoie `(texte, couleur, bouton_actif)`."""
+    if dirty:
+        return _("● Modifications non enregistrées"), COLOR_WARN, True
+    if has_file:
+        return _("✓ Enregistré"), COLOR_ACCENT, False
+    # Mission neuve jamais enregistrée : rien à perdre, mais le bouton
+    # reste actif (premier « Enregistrer sous… »).
+    return _("Mission non enregistrée"), COLOR_MUTED, True
 
 
 def annees_entre(date_a: str, date_b: str) -> Optional[float]:

@@ -143,6 +143,11 @@ def build_menu(app: AppLike) -> None:
     # à l'usage `app` est toujours une instance de `tk.Tk` (l'App).
     m = tk.Menu(cast(tk.Misc, app))
     app.config(menu=m)
+    # Mémorisé pour que `comparaison.open_comparison` puisse donner à sa
+    # fenêtre EXACTEMENT le même bandeau (un `tk.Menu` peut être attaché
+    # comme barre de menu à plusieurs fenêtres à la fois) plutôt qu'un
+    # sous-ensemble reconstruit à la main.
+    setattr(app, "_menubar", m)
 
     # Fichier — organisé PAR ÉTAPE du cycle de vie (même principe que le
     # rangement par format du menu Export) plutôt que dans l'ordre où les
