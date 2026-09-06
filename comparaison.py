@@ -58,6 +58,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable, Mapping, Optional
 
+from chrome_icons import save_icon
 from comparaison_render import (
     PTS_LEGENDE,
     metric_rows,
@@ -309,11 +310,15 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     # (décorations système complètes, cf. plus haut).
     foot = ttk.Frame(dlg, style="Side.TFrame")
     foot.pack(side="bottom", fill="x")
-    # Préfixe « 💾 » gardé partout SAUF Windows — cf. `icons.py` (emoji
-    # couleur disgracieux confirmé sur Windows, rendu correct ailleurs).
-    _save_label = _("Enregistrer") if sys.platform == "win32" \
-        else _("💾 Enregistrer")
-    btn_save = ttk.Button(foot, text=_save_label, style="Ghost.TButton")
+    # Icône bitmap plutôt que le préfixe « 💾 » sur Windows — cf.
+    # `chrome_icons.py` (emoji couleur disgracieux confirmé sur Windows,
+    # rendu correct ailleurs).
+    if sys.platform == "win32":
+        btn_save = ttk.Button(foot, image=save_icon(), text=_("Enregistrer"),
+                              compound="left", style="Ghost.TButton")
+    else:
+        btn_save = ttk.Button(foot, text=_("💾 Enregistrer"),
+                              style="Ghost.TButton")
     btn_save.pack(side="left", padx=(10, 6), pady=2)
     Tooltip(btn_save, _("Enregistrer la mission") + " (Ctrl+S)")
     lbl_save_state = ttk.Label(foot, text="", style="Side.TLabel",

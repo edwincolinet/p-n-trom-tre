@@ -36,6 +36,7 @@ from app_arbres import (
     _risk_filter_choices,
 )
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from chrome_icons import calendar_icon, save_icon
 from i18n import _
 from icons import ICON_CALENDAR, ICON_DELETE
 from palette import (
@@ -222,16 +223,20 @@ class LayoutMixin(_MixinBase):
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, _("Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement)."))
-                # Texte plutôt qu'ICON_CALENDAR sur Windows (2026-09-06) :
-                # l'emoji 📅 rend mal et son repli glyphe (▦) s'est révélé
-                # tout aussi risqué (absent de l'encodage Windows par
-                # défaut) — cf. icons.py. Texte seul = zéro risque de police.
-                cal_text = _("Date") if sys.platform == "win32" \
-                    else ICON_CALENDAR
-                btn_cal = ttk.Button(
-                    row1, text=cal_text,
-                    width=6 if sys.platform == "win32" else 3,
-                    style="Ghost.TButton", command=self._pick_date)
+                # Icône bitmap plutôt qu'ICON_CALENDAR sur Windows
+                # (2026-09-06) : l'emoji 📅 rend mal et son repli glyphe
+                # (▦) s'est révélé tout aussi risqué (absent de l'encodage
+                # Windows par défaut) — cf. icons.py/chrome_icons.py. Une
+                # image PIL est garantie identique quelle que soit la
+                # police installée.
+                if sys.platform == "win32":
+                    btn_cal = ttk.Button(row1, image=calendar_icon(),
+                                         style="Ghost.TButton",
+                                         command=self._pick_date)
+                else:
+                    btn_cal = ttk.Button(row1, text=ICON_CALENDAR, width=3,
+                                         style="Ghost.TButton",
+                                         command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
                 Tooltip(btn_cal, _("Choisir la date au calendrier"))
             else:
@@ -784,17 +789,19 @@ class LayoutMixin(_MixinBase):
         bar.pack(side="bottom", fill="x")
         # Bouton Enregistrer TOUJOURS visible : le menu / Ctrl+S ne donne
         # aucun repère permanent à l'opérateur terrain (« ai-je enregistré ? »).
-        # Préfixe « 💾 » gardé partout SAUF Windows (2026-09-06, cf.
-        # `icons.py`) : emoji couleur surdimensionné confirmé sur un test
-        # Windows réel, mais rendu correct constaté sur Linux/macOS — pas de
-        # raison de le retirer là où il fonctionne. Deux appels `_(...)`
-        # littéraux distincts (pas `_(variable)`, invisible au scanner AST
-        # de `test_i18n.py`).
-        save_label = _("Enregistrer") if sys.platform == "win32" \
-            else _("💾 Enregistrer")
-        self._btn_save = ttk.Button(bar, text=save_label,
-                                    style="Ghost.TButton",
-                                    command=self.action_save)
+        # Icône bitmap plutôt que le préfixe emoji « 💾 » sur Windows
+        # (2026-09-06, cf. `chrome_icons.py`) : rendu couleur surdimensionné
+        # confirmé sur un test Windows réel, mais rendu correct constaté sur
+        # Linux/macOS — pas de raison de le retirer là où il fonctionne.
+        if sys.platform == "win32":
+            self._btn_save = ttk.Button(
+                bar, image=save_icon(), text=_("Enregistrer"),
+                compound="left", style="Ghost.TButton",
+                command=self.action_save)
+        else:
+            self._btn_save = ttk.Button(bar, text=_("💾 Enregistrer"),
+                                        style="Ghost.TButton",
+                                        command=self.action_save)
         self._btn_save.pack(side="left", padx=(10, 6), pady=2)
         Tooltip(self._btn_save, _("Enregistrer la mission") + " (Ctrl+S)")
         # Indicateur d'état d'enregistrement, mis à jour à chaque mutation

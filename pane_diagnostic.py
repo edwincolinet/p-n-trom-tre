@@ -26,6 +26,7 @@ from tkinter import ttk
 from typing import Any, Optional, Protocol
 
 from bareme import classer_prbs
+from chrome_icons import calendar_icon
 from diagnostic import (
     FUSION_WARN_TEXT,
     degradation_externe_par_grade,
@@ -243,13 +244,16 @@ class DiagnosticPane(ttk.Frame):
         ent_ech.pack(side="left", padx=(0, 2))
         ent_ech.bind("<FocusIn>", lambda e: self._preco_focus_in())
         ent_ech.bind("<FocusOut>", lambda e: self._on_echeance_focus_out())
-        # Texte plutôt qu'ICON_CALENDAR sur Windows (2026-09-06, cf. icons.py) :
-        # zéro risque de police manquante.
-        cal_text = _("Date") if sys.platform == "win32" else ICON_CALENDAR
-        btn_cal = ttk.Button(
-            line, text=cal_text, style="Ghost.TButton",
-            width=6 if sys.platform == "win32" else 3,
-            command=self._pick_echeance)
+        # Icône bitmap plutôt qu'ICON_CALENDAR sur Windows (2026-09-06,
+        # cf. chrome_icons.py) : zéro risque de police manquante.
+        if sys.platform == "win32":
+            btn_cal = ttk.Button(line, image=calendar_icon(),
+                                 style="Ghost.TButton",
+                                 command=self._pick_echeance)
+        else:
+            btn_cal = ttk.Button(line, text=ICON_CALENDAR, width=3,
+                                 style="Ghost.TButton",
+                                 command=self._pick_echeance)
         btn_cal.pack(side="left")
         Tooltip(btn_cal, _("Choisir l'échéance au calendrier"))
         ttk.Label(line, text=_("(facultatif)"), style="Muted.TLabel",
@@ -295,12 +299,16 @@ class DiagnosticPane(ttk.Frame):
         ent_sech.bind("<FocusIn>", lambda e: self._suivi_focus_in())
         ent_sech.bind("<FocusOut>",
                       lambda e: self._on_suivi_echeance_focus_out())
-        # Texte plutôt qu'ICON_CALENDAR sur Windows (2026-09-06, cf. icons.py).
-        scal_text = _("Date") if sys.platform == "win32" else ICON_CALENDAR
-        btn_scal = ttk.Button(
-            suivi_line, text=scal_text, style="Ghost.TButton",
-            width=6 if sys.platform == "win32" else 3,
-            command=self._pick_suivi_echeance)
+        # Icône bitmap plutôt qu'ICON_CALENDAR sur Windows (2026-09-06,
+        # cf. chrome_icons.py).
+        if sys.platform == "win32":
+            btn_scal = ttk.Button(suivi_line, image=calendar_icon(),
+                                  style="Ghost.TButton",
+                                  command=self._pick_suivi_echeance)
+        else:
+            btn_scal = ttk.Button(suivi_line, text=ICON_CALENDAR,
+                                  style="Ghost.TButton", width=3,
+                                  command=self._pick_suivi_echeance)
         btn_scal.pack(side="left")
         Tooltip(btn_scal, _("Choisir la date de prochaine visite au calendrier"))
         ttk.Label(suivi_line, text=_("(facultatif)"), style="Muted.TLabel",

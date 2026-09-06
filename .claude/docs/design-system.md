@@ -108,59 +108,47 @@ système et de la plateforme.
 - Signalétique : `ICON_WARNING` ⚠ / `ICON_CHECK` ✓ / `ICON_CROSS` ✗
 - Navigation : `ICON_RESET` ↺ / `ICON_RESTART` ⟳ / `ICON_NEXT` ⏭ /
   `ICON_HINT_ARROW` →
-- Calendrier : `ICON_CALENDAR` 📅 (texte `_("Date")` sur Windows — cf.
+- Calendrier : `ICON_CALENDAR` 📅 (icône bitmap sur Windows — cf.
   l'exception ci-dessous), bouton compact ouvrant `dialogs.ask_date`
 
-**Exception 📅/💾 : Windows seulement (2026-09-05 → 2026-09-06).** Une
-première version de ce design system remplaçait le bouton calendrier par
-`…` (convention « Choisir… ») pour rester dans le principe « pas d'emoji
-couleur » ; jugé moins lisible sur inspection du code (un `…` ne se
-distingue pas au premier coup d'œil d'un état « en attente »), le design
-system était revenu à l'emoji couleur 📅 pour ce bouton, ainsi qu'au
-préfixe « 💾 » du bouton **Enregistrer** (`app_layout._btn_save`) —
-pariant que leur reconnaissance immédiate valait le risque de rendu
-plateforme-dépendant déjà documenté ci-dessus, **partout**. **Un test sur
-Windows réel a confirmé ce risque, mais SEULEMENT sur Windows** : un
-second test sur Linux a confirmé que le rendu d'origine y convient — pas
-de raison de changer ce qui fonctionne là où ça fonctionne. 📅/💾 viennent
-du bloc Unicode « Miscellaneous Symbols and Pictographs », à présentation
-**emoji obligatoire** — Segoe UI (Windows) ne les contient pas, Tk bascule
-sur Segoe UI Emoji, dont le rendu couleur surdimensionné jure avec le
-chrome plat du reste de l'app ; les polices système Linux/macOS n'ont pas
-ce problème de bascule. Les glyphes listés plus haut (formes géométriques,
-flèches, ponctuation) n'ont ce problème sur AUCUNE plateforme : ce sont
-des blocs Unicode à présentation **texte par défaut**, rendus par la
-police système normale sans bascule de police — MAIS pas de garantie
-uniforme de présence dans les polices Windows de base : un premier repli
-Windows (`ICON_CALENDAR = "▦"`, testé en pariant sur ce principe) a
-lui-même échoué — un diagnostic CI sur `windows-latest` a montré que `▦`
-n'est même pas représentable dans l'encodage Windows par défaut
-(`cp1252`), signe que sa police n'est pas universellement disponible.
-**Correctif final (2026-09-06), conditionné à `sys.platform == "win32"`,
-seule option sans aucun risque de police manquante** :
-- `ICON_CALENDAR` (icons.py) reste `📅` — utilisé tel quel partout SAUF
-  Windows. Sur Windows, chaque bouton qui le porte affiche à la place le
-  texte `_("Date")` (déjà traduit ailleurs dans l'app — même clé de
-  catalogue réutilisée) : fait au point d'usage
-  (`app_layout.py`/`pane_diagnostic.py` ×2), pas dans `icons.py`, car une
-  chaîne traduisible a besoin d'un appel `_("...")` littéral pour rester
-  visible au scanner AST de `test_i18n.py` (cf. piège i18n plus bas) — une
-  constante de module ne peut pas porter de texte traduit. La largeur du
-  bouton passe de `width=3` à `width=6` sur Windows pour laisser la place
-  au mot (inchangée ailleurs).
-- Le préfixe « 💾 » du bouton Enregistrer suit la même bascule, mais vit
-  dans une chaîne traduisible (pas une constante) : `app_layout.py` et
-  `comparaison.py` font chacun `_("💾 Enregistrer") if sys.platform !=
-  "win32" else _("Enregistrer")` — DEUX appels `_(...)` littéraux
-  distincts, jamais `_(variable)`. Les deux clés restent dans les
-  catalogues `en`/`it`.
+**Exception 📅/💾 : Windows seulement, résolue en bitmap (`chrome_icons.py`,
+2026-09-05 → 2026-09-06).** Historique de la dérive, dans l'ordre :
+1. Une première version remplaçait le bouton calendrier par `…`
+   (convention « Choisir… ») pour rester dans le principe « pas d'emoji
+   couleur » ; jugé moins lisible sur inspection du code.
+2. Retour à l'emoji couleur 📅 (et au préfixe « 💾 » du bouton
+   **Enregistrer**, `app_layout._btn_save`) **partout**, pariant que leur
+   reconnaissance immédiate valait le risque de rendu plateforme-dépendant
+   déjà documenté ci-dessus. **Un test Windows réel a confirmé ce risque,
+   mais SEULEMENT sur Windows** (Linux confirmé correct à l'usage) : 📅/💾
+   viennent du bloc « Miscellaneous Symbols and Pictographs », à
+   présentation **emoji obligatoire** — Segoe UI ne les contient pas, Tk
+   bascule sur Segoe UI Emoji, rendu couleur surdimensionné.
+3. Repli glyphe conditionné à `sys.platform == "win32"`
+   (`ICON_CALENDAR = "▦"`, Formes géométriques, texte par défaut comme les
+   glyphes listés plus haut) — lui-même abandonné : un diagnostic CI sur
+   `windows-latest` a montré que `▦` n'est même pas représentable dans
+   l'encodage Windows par défaut (`cp1252`), signe que sa police n'est pas
+   universellement disponible sur Windows contrairement aux glyphes
+   `ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` (Latin-1/WGL4).
+4. Repli texte (`_("Date")` à la place d'un glyphe) — fonctionnel (zéro
+   risque de police) mais jugé insatisfaisant : pas une « icône ».
+5. **Correctif final retenu : `chrome_icons.py`**, une **icône bitmap**
+   dessinée par PIL (déjà une dépendance du projet) et mise en cache en
+   `PhotoImage` — une image ne dépend d'AUCUNE police installée, rendu
+   garanti identique sur toute machine Windows. Utilisé UNIQUEMENT sur
+   Windows (`if sys.platform == "win32": ttk.Button(..., image=
+   chrome_icons.calendar_icon()/save_icon(), ...)`, sinon la branche
+   `else` garde `ICON_CALENDAR`/le préfixe « 💾 » d'origine) — Linux/macOS
+   ne sont pas concernés, leur rendu convenait déjà.
 
 **Pas de glyphe de repli** reste la règle pour les actions sans équivalent
 monochrome fiable (document, imprimante, image, tableau, loupe) : ces
 boutons sont **texte seul** (« Fiche PDF (arbre courant) », « PNG du
-dessin », « Tableau PRBS — Excel (XLSX)… »…) ; 📅/💾 ci-dessus restent
-l'unique exception **et seulement sur Windows**, un compromis plateforme
-plutôt qu'un compromis universel.
+dessin », « Tableau PRBS — Excel (XLSX)… »…) — 📅/💾 restent la seule
+paire à bénéficier d'un traitement dédié (icône bitmap), réservé à
+Windows, car ce sont les deux seules commandes jugées assez fréquentes
+sur le terrain pour justifier cet investissement.
 
 **Piège i18n** : un glyphe qui préfixe une chaîne traduisible
 (`_("⚠ Renseignez le rayon…")`, `_("▸ Saisie du brin {label}")`) fait

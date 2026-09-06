@@ -707,6 +707,14 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 - **`palette.py`** — couleurs partagées **Tk ↔ PIL** (bois, écorce,
   cavité, `COULEUR_CLASSE`, `COLOR_WARN`, `COLOR_ACCENT`…). Invariant :
   `COLOR_BARK ≠ COLOR_ROT` (contraste dégradation/écorce).
+- **`chrome_icons.py`** — icônes bitmap (calendrier, disquette) dessinées
+  par PIL et mises en cache en `PhotoImage`, utilisées **uniquement sur
+  Windows** (`sys.platform == "win32"`) pour remplacer 📅/le préfixe
+  « 💾 » (emoji couleur qui rendent mal via Segoe UI Emoji) ainsi que le
+  glyphe de repli `▦` testé puis abandonné (absent de `cp1252`, support
+  Windows non garanti) — une image ne dépend d'aucune police installée.
+  Linux/macOS gardent les glyphes d'`icons.py` (`ICON_CALENDAR` 📅),
+  rendu confirmé correct à l'usage. Cf. CLAUDE.md pour l'historique complet.
 
 ## Ré-inspection inter-missions
 
@@ -724,7 +732,7 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   - **Pied** : un widget ordinaire ne pouvant pas être partagé comme un
     menu, c'est une reconstruction visuellement identique à la barre
     d'état (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`) —
-    bouton « 💾 Enregistrer » (texte seul sur Windows, cf. `icons.py`)
+    bouton « 💾 Enregistrer » (icône bitmap + texte sur Windows, cf. `chrome_icons.py`)
     (`App.action_save`) + indicateur
     d'enregistrement (`dialogs_shared.save_state_label(dirty, has_file)`,
     SOURCE UNIQUE partagée avec `App._update_save_indicator`) + message

@@ -30,24 +30,20 @@ uniquement**, pas un abandon général.
 
 Un premier repli Windows (`ICON_CALENDAR = "▦"`, Formes géométriques,
 texte-par-défaut) a lui-même été abandonné : un diagnostic CI sur
-`windows-latest` a montré que `▦` n'est même pas représentable
-dans l'encodage Windows par défaut (`cp1252` — `UnicodeEncodeError:
-'charmap' codec can't encode character '▦'`), signe que son support
-dans les polices Windows de base est bien moins garanti que celui
+`windows-latest` a montré que `▦` n'est même pas représentable dans
+l'encodage Windows par défaut (`cp1252` — `UnicodeEncodeError: 'charmap'
+codec can't encode character '▦'`), signe que son support dans les
+polices Windows de base est bien moins garanti que celui
 d'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` (Latin-1/WGL4, couverts
-par `cp1252`). **Correctif retenu (2026-09-06), le seul garanti sans
-risque de police manquante** : sur Windows, les boutons calendrier
-affichent le mot **`_("Date")`** (texte simple, déjà traduit ailleurs
-dans l'app — même clé de catalogue réutilisée) au lieu d'un glyphe —
-`ICON_CALENDAR` reste `📅` ailleurs. Fait au niveau de chaque bouton
-(`app_layout.py`, `pane_diagnostic.py` ×2), pas dans ce module : le
-libellé est traduisible, `ICON_CALENDAR` ne l'est pas (une chaîne
-traduisible a besoin d'un appel `_("...")` littéral **au point d'usage**
-pour rester visible au scanner AST de `test_i18n.py`, cf. « piège i18n »
-dans CLAUDE.md — la même raison pour laquelle le préfixe « 💾 » du bouton
-Enregistrer vit dans `app_layout._btn_save`/`comparaison.py`, pas ici, et
-y fait le `if sys.platform == "win32"` lui-même sur DEUX appels `_(...)`
-littéraux distincts (`_("💾 Enregistrer")` / `_("Enregistrer")`)).
+par `cp1252`). Un second repli en texte simple (`_("Date")`) a bien
+fonctionné (zéro risque de police) mais restait moins satisfaisant qu'une
+vraie icône. **Correctif final (2026-09-06) : `chrome_icons.py`** — sur
+Windows, les boutons calendrier/Enregistrer affichent une **icône bitmap**
+(dessinée par PIL, mise en cache en `PhotoImage`) plutôt qu'un glyphe
+Unicode : une image ne dépend d'AUCUNE police installée, donc rendu
+garanti identique quelle que soit la machine Windows. `ICON_CALENDAR`
+(ce module) et le préfixe « 💾 » restent inchangés partout ailleurs
+(Linux/macOS, rendu confirmé correct à l'usage).
 """
 
 from __future__ import annotations
@@ -68,6 +64,7 @@ ICON_STATE_FULL = "●"
 ICON_CHECK = "✓"
 ICON_CROSS = "✗"
 # Bouton compact ouvrant le calendrier de sélection de date. Sur Windows,
-# remplacé par le texte `_("Date")` au point d'usage (cf. l'exception en
-# tête de module) — cette constante ne sert donc QUE hors Windows.
+# remplacé par une icône bitmap (`chrome_icons.calendar_icon`, cf.
+# l'exception en tête de module) — cette constante ne sert donc QUE
+# hors Windows.
 ICON_CALENDAR = "📅"
