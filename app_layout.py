@@ -222,9 +222,16 @@ class LayoutMixin(_MixinBase):
                 e.bind("<FocusOut>", lambda ev: self._date_focus_out())
                 Tooltip(e, _("Date du relevé — format JJ/MM/AAAA "
                            "(normalisée automatiquement)."))
-                btn_cal = ttk.Button(row1, text=ICON_CALENDAR, width=3,
-                                     style="Ghost.TButton",
-                                     command=self._pick_date)
+                # Texte plutôt qu'ICON_CALENDAR sur Windows (2026-09-06) :
+                # l'emoji 📅 rend mal et son repli glyphe (▦) s'est révélé
+                # tout aussi risqué (absent de l'encodage Windows par
+                # défaut) — cf. icons.py. Texte seul = zéro risque de police.
+                cal_text = _("Date") if sys.platform == "win32" \
+                    else ICON_CALENDAR
+                btn_cal = ttk.Button(
+                    row1, text=cal_text,
+                    width=6 if sys.platform == "win32" else 3,
+                    style="Ghost.TButton", command=self._pick_date)
                 btn_cal.pack(side="left", padx=(0, 14))
                 Tooltip(btn_cal, _("Choisir la date au calendrier"))
             else:

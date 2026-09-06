@@ -108,8 +108,8 @@ système et de la plateforme.
 - Signalétique : `ICON_WARNING` ⚠ / `ICON_CHECK` ✓ / `ICON_CROSS` ✗
 - Navigation : `ICON_RESET` ↺ / `ICON_RESTART` ⟳ / `ICON_NEXT` ⏭ /
   `ICON_HINT_ARROW` →
-- Calendrier : `ICON_CALENDAR` 📅 (`▦` sur Windows — cf. l'exception
-  ci-dessous), bouton compact ouvrant `dialogs.ask_date`
+- Calendrier : `ICON_CALENDAR` 📅 (texte `_("Date")` sur Windows — cf.
+  l'exception ci-dessous), bouton compact ouvrant `dialogs.ask_date`
 
 **Exception 📅/💾 : Windows seulement (2026-09-05 → 2026-09-06).** Une
 première version de ce design system remplaçait le bouton calendrier par
@@ -130,22 +130,30 @@ chrome plat du reste de l'app ; les polices système Linux/macOS n'ont pas
 ce problème de bascule. Les glyphes listés plus haut (formes géométriques,
 flèches, ponctuation) n'ont ce problème sur AUCUNE plateforme : ce sont
 des blocs Unicode à présentation **texte par défaut**, rendus par la
-police système normale sans bascule de police. Correctif (2026-09-06),
-**conditionné à `sys.platform == "win32"`** :
-- `ICON_CALENDAR` (icons.py) : `📅` partout SAUF Windows, où il passe à
-  `▦` (Formes géométriques, texte par défaut, même bloc
-  qu'`ICON_STATE_*`/`ICON_EXPAND`/`ICON_COLLAPSE` déjà éprouvés sur
-  Windows) plutôt qu'un retour à `…` — chaque bouton qui le porte a déjà
-  une infobulle explicite, et `▦` reste visuellement **distinct** des
-  boutons `…` voisins de `pane_diagnostic` (gérer urgences/durées
-  personnalisées), ce qu'un simple retour à `…` aurait perdu.
+police système normale sans bascule de police — MAIS pas de garantie
+uniforme de présence dans les polices Windows de base : un premier repli
+Windows (`ICON_CALENDAR = "▦"`, testé en pariant sur ce principe) a
+lui-même échoué — un diagnostic CI sur `windows-latest` a montré que `▦`
+n'est même pas représentable dans l'encodage Windows par défaut
+(`cp1252`), signe que sa police n'est pas universellement disponible.
+**Correctif final (2026-09-06), conditionné à `sys.platform == "win32"`,
+seule option sans aucun risque de police manquante** :
+- `ICON_CALENDAR` (icons.py) reste `📅` — utilisé tel quel partout SAUF
+  Windows. Sur Windows, chaque bouton qui le porte affiche à la place le
+  texte `_("Date")` (déjà traduit ailleurs dans l'app — même clé de
+  catalogue réutilisée) : fait au point d'usage
+  (`app_layout.py`/`pane_diagnostic.py` ×2), pas dans `icons.py`, car une
+  chaîne traduisible a besoin d'un appel `_("...")` littéral pour rester
+  visible au scanner AST de `test_i18n.py` (cf. piège i18n plus bas) — une
+  constante de module ne peut pas porter de texte traduit. La largeur du
+  bouton passe de `width=3` à `width=6` sur Windows pour laisser la place
+  au mot (inchangée ailleurs).
 - Le préfixe « 💾 » du bouton Enregistrer suit la même bascule, mais vit
   dans une chaîne traduisible (pas une constante) : `app_layout.py` et
   `comparaison.py` font chacun `_("💾 Enregistrer") if sys.platform !=
   "win32" else _("Enregistrer")` — DEUX appels `_(...)` littéraux
-  distincts, jamais `_(variable)` (invisible au scanner AST de
-  `test_i18n.py`, cf. piège i18n plus bas). Les deux clés restent dans
-  les catalogues `en`/`it`.
+  distincts, jamais `_(variable)`. Les deux clés restent dans les
+  catalogues `en`/`it`.
 
 **Pas de glyphe de repli** reste la règle pour les actions sans équivalent
 monochrome fiable (document, imprimante, image, tableau, loupe) : ces

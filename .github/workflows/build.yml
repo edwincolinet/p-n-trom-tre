@@ -66,9 +66,6 @@ jobs:
       - name: Générer les icônes
         run: python build/build_icons.py
 
-      - name: DEBUG TEMPORAIRE — diagnostic icônes/plateforme
-        run: python -c "import sys, icons; print('sys.platform =', sys.platform); print('ICON_CALENDAR =', repr(icons.ICON_CALENDAR)); import tkinter; print('tk version =', tkinter.TkVersion, tkinter.Tcl().eval('info patchlevel'))"
-
       - name: Extraire la version
         id: version
         run: |
