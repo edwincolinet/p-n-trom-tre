@@ -8,7 +8,7 @@ Module séparé pour deux raisons :
    et n'a rien à faire dans le corps de la classe `App`.
 
 2. **Réutilisabilité** : si demain un second outil (par exemple un
-   visualiseur de logs) partage le look Pénétromètre, il appellera
+   visualiseur de logs) partage le look Pénétromètre Silvavenir, il appellera
    `apply_ttk_styles(root)` sur sa propre fenêtre.
 
 La fonction utilise les couleurs centralisées dans `palette.py`.
@@ -24,11 +24,15 @@ from palette import (
     COLOR_ACCENT,
     COLOR_ACCENT_SOFT,
     COLOR_BG,
+    COLOR_BRAND_ORANGE,
+    COLOR_BRAND_ORANGE_DARK,
+    COLOR_DISABLED,
+    COLOR_FIELD_BORDER,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_PANEL,
+    COLOR_RULE,
     COLOR_SIDE_PANEL,
-    COLOR_WOOD_DARK,
 )
 from ui_fonts import (
     font_body,
@@ -77,11 +81,20 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                 foreground=ink)
     s.configure("Side.TLabel", background=COLOR_SIDE_PANEL,
                 foreground=ink)
+    # Titre de marque : orange de la charte (réservé aux titres ≥ 20 px,
+    # ce qui est le cas à 18 pt) ; sous-titres et titres de section en
+    # vert forêt (`H.TLabel`).
     s.configure("Title.TLabel", background=COLOR_BG,
-                foreground=COLOR_ACCENT,
+                foreground=COLOR_BRAND_ORANGE,
                 font=font_title())
     s.configure("Sub.TLabel", background=COLOR_BG, foreground=muted,
                 font=font_subtitle())
+    # Bandeau de marque (en-tête de la fenêtre principale) : fond blanc.
+    s.configure("Brand.TFrame", background=COLOR_PANEL)
+    s.configure("Brand.Title.TLabel", background=COLOR_PANEL,
+                foreground=COLOR_BRAND_ORANGE, font=font_title())
+    s.configure("Brand.Sub.TLabel", background=COLOR_PANEL,
+                foreground=muted, font=font_subtitle())
     s.configure("H.TLabel", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT,
                 font=font_heading())
@@ -89,36 +102,52 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                 foreground=muted,
                 font=font_small())
     s.configure("TButton", padding=6)
-    s.configure("Accent.TButton", background=COLOR_ACCENT,
+    # Action principale = orange de marque (une seule par écran, charte
+    # SILVAVENIR), survol en orange foncé.
+    s.configure("Accent.TButton", background=COLOR_BRAND_ORANGE,
                 foreground="white", padding=(12, 7),
                 font=font_body_bold(), borderwidth=0)
+    # Désactivé (charte) : fond neutre, texte gris, jamais l'orange plein.
     s.map("Accent.TButton",
-          background=[("active", COLOR_WOOD_DARK),
-                      ("pressed", COLOR_WOOD_DARK)])
+          background=[("disabled", COLOR_SIDE_PANEL),
+                      ("active", COLOR_BRAND_ORANGE_DARK),
+                      ("pressed", COLOR_BRAND_ORANGE_DARK)],
+          foreground=[("disabled", COLOR_DISABLED)])
     # Variante Menubutton du bouton accent (bouton « ＋ Ajouter ▾ » de la
     # liste d'arbres) : le style TButton ne s'applique pas tel quel à un
     # Menubutton.
-    s.configure("Accent.TMenubutton", background=COLOR_ACCENT,
+    s.configure("Accent.TMenubutton", background=COLOR_BRAND_ORANGE,
                 foreground="white", padding=(12, 7),
                 font=font_body_bold(), borderwidth=0)
     s.map("Accent.TMenubutton",
-          background=[("active", COLOR_WOOD_DARK),
-                      ("pressed", COLOR_WOOD_DARK)])
+          background=[("disabled", COLOR_SIDE_PANEL),
+                      ("active", COLOR_BRAND_ORANGE_DARK),
+                      ("pressed", COLOR_BRAND_ORANGE_DARK)],
+          foreground=[("disabled", COLOR_DISABLED)])
+    # Bouton secondaire = contour et texte vert forêt, fond blanc.
     s.configure("Ghost.TButton", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT, padding=(10, 6),
-                font=font_body(), borderwidth=1)
+                font=font_body(), borderwidth=1,
+                bordercolor=COLOR_ACCENT, lightcolor=COLOR_PANEL,
+                darkcolor=COLOR_PANEL)
     s.map("Ghost.TButton",
-          background=[("active", COLOR_ACCENT_SOFT)])
+          background=[("active", COLOR_ACCENT_SOFT)],
+          foreground=[("disabled", COLOR_DISABLED)],
+          bordercolor=[("disabled", COLOR_FIELD_BORDER)])
     # Menu déroulant d'export (`pane_diagnostic`) : même look que
     # Ghost.TButton mais sur un ttk.Menubutton (le style TButton ne
     # s'applique pas tel quel à un Menubutton).
     s.configure("Ghost.TMenubutton", background=COLOR_PANEL,
                 foreground=COLOR_ACCENT, padding=(10, 6),
-                font=font_body(), borderwidth=1)
+                font=font_body(), borderwidth=1,
+                bordercolor=COLOR_ACCENT, lightcolor=COLOR_PANEL,
+                darkcolor=COLOR_PANEL)
     s.map("Ghost.TMenubutton",
-          background=[("active", COLOR_ACCENT_SOFT)])
+          background=[("active", COLOR_ACCENT_SOFT)],
+          foreground=[("disabled", COLOR_DISABLED)],
+          bordercolor=[("disabled", COLOR_FIELD_BORDER)])
     # Sélecteur de brin (cépées) : barre et boutons-onglets.
-    _brin_bg = "#EBF5EE"   # très légère teinte verte (distinct du fond blanc)
+    _brin_bg = COLOR_ACCENT_SOFT   # vert très pâle (distinct du fond blanc)
     s.configure("BrinBar.TFrame", background=_brin_bg)
     s.configure("BrinBar.TLabel",
                 background=_brin_bg, foreground=muted,
@@ -137,7 +166,12 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                       ("pressed",  "white"),
                       ("active",   COLOR_ACCENT)])
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
-                foreground=ink, padding=3)
+                foreground=ink, padding=3, bordercolor=COLOR_FIELD_BORDER,
+                lightcolor=COLOR_FIELD_BORDER, darkcolor=COLOR_FIELD_BORDER)
+    # Focus d'un champ : liseré orange de la charte.
+    s.map("TEntry", bordercolor=[("focus", COLOR_BRAND_ORANGE)],
+          lightcolor=[("focus", COLOR_BRAND_ORANGE)],
+          darkcolor=[("focus", COLOR_BRAND_ORANGE)])
     # Cases à cocher posées sur un fond panneau : sans ça le libellé
     # hériterait du fond COLOR_BG et trancherait sur le panneau. Style
     # UNIQUE pour toutes les cases à cocher de l'app (dialogues, grille
@@ -165,7 +199,7 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=font_body_bold(),
-                background="#E7E2D4", foreground=muted)
+                background=COLOR_RULE, foreground=muted)
     s.map("TNotebook.Tab",
           background=[("selected", COLOR_PANEL)],
           foreground=[("selected", COLOR_ACCENT)])

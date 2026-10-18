@@ -75,7 +75,7 @@ class DiagnosticSnapshot:
     - la répartition par classe (`vert`/`orange`/`rouge`) ;
     - la liste brute des `ratios` (16 t/R) ;
     - les indicateurs de direction critique (`tR_min*`) ;
-    - la classe globale calculée sur le `tR_moyen` ;
+    - la classe globale calculée sur le **t/R minimal** (`tR_min`) ;
     - la classe ponctuelle la plus défavorable (`classe_pire`) ;
     - l'état de l'extrapolation (`n_sondees`, `diagnostic_fiable`,
       `extrapolation_text`).
@@ -83,11 +83,16 @@ class DiagnosticSnapshot:
     `diagnostic_fiable` est True à partir de **3 directions sondées**
     (seuil, aligné sur la pastille d'état verte de la
     liste d'arbres et le footer « X/N arbres fiables »). En-dessous,
-    `classe_globale` et `tR_moyen` reposent sur trop peu de mesures
+    `classe_globale` et `tR_min` reposent sur trop peu de mesures
     (les directions non sondées sont extrapolées ou supposées saines) et
     donneraient un résultat faussement rassurant : les consommateurs
-    (UI, fiche PDF, XLSX, HTML) doivent masquer ces deux champs et
+    (UI, fiche PDF, XLSX, HTML) doivent masquer la classe publiée et
     signaler l'indisponibilité.
+
+    Biomécanique : la rupture d'un tronc creux part de sa section la plus
+    faible → seul le t/R **minimal** compte. Aucun t/R moyen n'est calculé
+    ni publié (une moyenne masquerait un point faible : 15 directions à
+    0,6 et une à 0,05 donneraient « Vert »).
 
     NB : l'extrapolation géométrique de la cavité
     (`compute_alteration_par_grade`) reste active dès 2 sondages — c'est
@@ -101,7 +106,6 @@ class DiagnosticSnapshot:
     tR_min: float
     tR_min_grade: int
     tR_min_dir: str
-    tR_moyen: float
     classe_globale: str
     classe_pire: str
     n_sondees: int
@@ -121,11 +125,11 @@ class DiagnosticSnapshot:
 
     @property
     def diagnostic_global(self) -> Optional[Tuple[float, str]]:
-        """`(tR_moyen, classe_globale)` si publiable, `None` sinon.
+        """`(tR_min, classe_globale)` si publiable, `None` sinon.
 
         Encapsule la règle « pas de diagnostic global si <3 sondages » :
         chaque consommateur (fiche PDF, XLSX, HTML, diagnostic Tk) doit
-        appeler cette propriété plutôt que de lire `tR_moyen` /
+        appeler cette propriété plutôt que de lire `tR_min` /
         `classe_globale` puis tester `diagnostic_fiable` à la main —
         sinon le prochain export à arriver oubliera le masquage et
         affichera un Vert trompeur sur un arbre avec 1 sondage.
@@ -134,15 +138,15 @@ class DiagnosticSnapshot:
         idiomatique :
         ```
         if (g := snap.diagnostic_global) is not None:
-            tR_moyen, classe = g
-            # … afficher t/R moyen et classe
+            tR_min, classe = g
+            # … afficher t/R minimal et classe
         else:
             # … afficher l'avertissement
         ```
         """
         if not self.diagnostic_fiable:
             return None
-        return (self.tR_moyen, self.classe_globale)
+        return (self.tR_min, self.classe_globale)
 
 
 def compute_alteration_par_grade(arbre: "Section") -> List[float]:
@@ -352,7 +356,7 @@ def extrapolation_summary(arbre: "Section") -> Dict[str, int]:
 
     L'interprétation (« est-ce fiable ? ») est laissée au lecteur :
     l'app expose les chiffres bruts dans le diagnostic et la fiche
-    PDF/XLSX/HTML, libre à l'opérateur Pénétromètre d'en tirer la
+    PDF/XLSX/HTML, libre à l'opérateur Pénétromètre Silvavenir d'en tirer la
     conclusion adaptée à son cas.
     """
     grades_sondes = sorted({s.grade for s in arbre.sondages
@@ -427,7 +431,8 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
         for cls in ("Vert", "Orange", "Rouge")
     }
 
-    # Direction critique (t/R minimal — info conservée)
+    # Direction critique = point le plus faible de la section : c'est lui
+    # qui pilote la classe publiée (cf. ci-dessous).
     tR_min = min(ratios)
     i_crit = ratios.index(tR_min)
     grade_crit = GRADES[i_crit]
@@ -440,23 +445,14 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
                 dir_crit = f"~{lbl}"
                 break
 
-    # Classe globale = barème appliqué au t/R MOYEN sur les
-    # 16 directions du pourtour.
+    # Classe globale = barème appliqué au t/R MINIMAL des 16 directions.
     #
-    # Cette approche reflète l'état général de la section :
-    # - une seule direction critique ne déclasse pas tout l'arbre,
-    # - mais une dégradation répartie tire la moyenne vers le bas.
-    #
-    # On conserve aussi t/R minimal et la pire classe ponctuelle comme
-    # indicateurs complémentaires d'alerte locale.
-    #
-    # Convention métier confirmée par Pénétromètre (2026-05) : la classe
-    # publiée est bien celle du t/R moyen, pas la pire classe
-    # ponctuelle. Toute modification de cette règle doit revalider avec
-    # l'utilisateur métier — la fiche PDF, XLSX et HTML s'alignent
-    # toutes sur ce choix.
-    tR_moyen = sum(ratios) / len(ratios) if ratios else 1.0
-    classe_globale = classer_prbs(tR_moyen, port)
+    # Biomécanique (critère de Mattheck) : la rupture d'une section creuse
+    # s'amorce à sa paroi la plus mince ; seul le t/R minimal compte. Une
+    # moyenne sur le pourtour masquerait un point faible local et pouvait
+    # classer « Vert » un arbre quasi rompu en un endroit (décision
+    # d'Edwin, 2026-10-18 — remplace l'ancienne règle « t/R moyen »).
+    classe_globale = classer_prbs(tR_min, port)
     # Pire classe ponctuelle (info complémentaire)
     if repartitions["Rouge"].n > 0:
         classe_pire = "Rouge"
@@ -469,7 +465,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
     # minimum (aligné sur la pastille verte et le footer de la liste
     # d'arbres). En-dessous, trop peu de mesures réelles sur le pourtour :
     # les directions non sondées sont extrapolées (≥2) ou supposées
-    # saines (≤1), ce qui tire artificiellement le t/R moyen vers Vert.
+    # saines (≤1), ce qui masque artificiellement le point faible réel.
     n_sondees = extrapolation_summary(arbre)["n_sondees"]
 
     return DiagnosticSnapshot(
@@ -480,7 +476,6 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
         tR_min=tR_min,
         tR_min_grade=grade_crit,
         tR_min_dir=dir_crit,
-        tR_moyen=tR_moyen,
         classe_globale=classe_globale,
         classe_pire=classe_pire,
         n_sondees=n_sondees,
@@ -495,8 +490,9 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
 
 # Ordre de gravité des classes : le « pire brin » d'une cépée est celui de
 # classe maximale selon cet ordre (approche sécuritaire validée —
-# l'agrégat porte sur les CLASSES des brins, jamais sur un t/R moyen
-# inter-brins, dont les repères polaires distincts n'ont pas de sens commun).
+# l'agrégat porte sur les CLASSES des brins (donc sur leur t/R minimal), jamais
+# sur un t/R inter-brins agrégé, dont les repères polaires distincts n'ont pas
+# de sens commun).
 _GRAVITE_CLASSE = {"Vert": 0, "Orange": 1, "Rouge": 2}
 
 
@@ -600,8 +596,8 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
         return lignes
 
     # Direction critique = mesure réelle → montrée même en diagnostic non
-    # fiable (< 3 sondages). t/R minimal est regroupé avec t/R moyen (zone
-    # unique) quand le diagnostic global est publiable.
+    # fiable (< 3 sondages) ; quand le diagnostic global est publiable, il
+    # est suivi de la classe qui en découle.
     tR_min_txt = (f"t/R minimal : {100*snap.tR_min:.1f} %  "
                   f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
 
@@ -613,7 +609,7 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
             ("⚠ Diagnostic global indisponible : il faut au moins "
              "3 directions sondées pour un diagnostic fiable.", "warn"))
         return lignes
-    tR_moyen, classe_globale = diag
+    _tR_min, classe_globale = diag
 
     lignes.append(("Répartition sur le pourtour (16 directions) :", ""))
     for cls in ("Vert", "Orange", "Rouge"):
@@ -624,10 +620,8 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
                 (f"  ● {cls:<7} : {r.n}/16 directions  "
                  f"({r.grades} gr / {r.pct:.0f} % du pourtour)", tag))
     lignes.append(("", ""))
-    # Zone t/R regroupée : moyen (global) + minimal (direction critique).
-    lignes.append(
-        (f"t/R moyen : {100*tR_moyen:.1f} %      {tR_min_txt}", ""))
-    lignes.append((f"→ Classe globale : {classe_globale}",
+    lignes.append((tR_min_txt, ""))
+    lignes.append((f"→ Classe (t/R minimal) : {classe_globale}",
                    _TAG_CLASSE.get(classe_globale, "")))
     return lignes
 
@@ -656,11 +650,11 @@ def genet_summary_tagged(arbre: "Arbre") -> "List[Tuple[str, str]]":
     ]
     if gd.classe_globale is not None:
         lignes.append(
-            (f"→ Classe globale (pire brin fiable) : {gd.classe_globale}",
+            (f"→ Classe (pire brin fiable) : {gd.classe_globale}",
              _TAG_CLASSE.get(gd.classe_globale, "")))
     else:
         lignes.append(
-            ("⚠ Classe globale indisponible : aucun brin avec au moins "
+            ("⚠ Classe indisponible : aucun brin avec au moins "
              "3 directions sondées.", "warn"))
     lignes.append(("", ""))
     for b in arbre.brins:
@@ -689,11 +683,14 @@ class MissionSynthesisRow(NamedTuple):
     """Une ligne de synthèse mission = l'état diagnostic d'un arbre.
 
     Champs masqués (`None`) selon la règle métier de fiabilité :
-    - `tR_moyen_pct` / `classe_globale` = `None` si le diagnostic global
-      n'est pas publiable (rayon nul, ou < 3 directions sondées — cf.
+    - `classe_globale` = `None` si le diagnostic global n'est pas publiable
+      (rayon nul, ou < 3 directions sondées — cf.
       `DiagnosticSnapshot.diagnostic_global`).
-    - `tR_min_pct` / `crit_grade` = `None` s'il n'y a aucune altération
-      saisie (ou aucun sondage) : pas de « direction critique » pertinente.
+    - `tR_min_pct` = t/R minimal (100 % si aucune altération) ; `None`
+      seulement sans mesure exploitable (rayon nul ou aucun sondage). Mesure
+      réelle : renseigné même quand la classe est masquée (< 3 sondages).
+    - `crit_grade` = `None` s'il n'y a aucune altération saisie : pas de
+      « direction critique » pertinente.
 
     `fiable` rappelle l'état de fiabilité (≥ 3 sondages) pour que les
     consommateurs puissent afficher « Non fiable » plutôt qu'un simple
@@ -705,7 +702,6 @@ class MissionSynthesisRow(NamedTuple):
     n_sondees: int
     rayon_cm: float
     fiable: bool
-    tR_moyen_pct: Optional[float]
     classe_globale: Optional[str]
     tR_min_pct: Optional[float]
     crit_grade: Optional[int]
@@ -727,23 +723,26 @@ class MissionSynthesisRow(NamedTuple):
 def _synthesis_row_for_section(numero: str, essence: str, port: str,
                                section: "Section", brin_label: str = ""
                                ) -> MissionSynthesisRow:
-    """Ligne de synthèse pour une **section** (brin) : t/R moyen, classe,
+    """Ligne de synthèse pour une **section** (brin) : t/R minimal, classe,
     direction critique, en respectant le masquage < 3 sondages."""
     n = len([s for s in section.sondages if s.grade in GRADES])
     if section.rayon_tronc_cm <= 0 or n == 0:
         return MissionSynthesisRow(
             numero=numero, essence=essence, port=port, n_sondees=n,
             rayon_cm=section.rayon_tronc_cm, fiable=False,
-            tR_moyen_pct=None, classe_globale=None,
+            classe_globale=None,
             tR_min_pct=None, crit_grade=None, crit_dir="",
             brin_label=brin_label)
     snap = repartition_classes_brin(section, port)
     diag = snap.diagnostic_global
-    tR_moyen_pct = 100.0 * diag[0] if diag is not None else None
     classe = diag[1] if diag is not None else None
+    crit_grade: Optional[int]
     if snap.tR_min >= 0.999:  # aucune altération → pas de direction critique
-        tR_min_pct: Optional[float] = None
-        crit_grade: Optional[int] = None
+        # 100 % n'est publié que si le diagnostic est fiable : avec 1-2
+        # sondages, « rien d'altéré » signifie surtout « rien mesuré ».
+        tR_min_pct: Optional[float] = (
+            100.0 * snap.tR_min if diag is not None else None)
+        crit_grade = None
         crit_dir = ""
     else:
         tR_min_pct = 100.0 * snap.tR_min
@@ -753,7 +752,7 @@ def _synthesis_row_for_section(numero: str, essence: str, port: str,
         numero=numero, essence=essence, port=port,
         n_sondees=snap.n_sondees, rayon_cm=section.rayon_tronc_cm,
         fiable=snap.diagnostic_fiable,
-        tR_moyen_pct=tR_moyen_pct, classe_globale=classe,
+        classe_globale=classe,
         tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
         brin_label=brin_label)
 
@@ -761,8 +760,8 @@ def _synthesis_row_for_section(numero: str, essence: str, port: str,
 def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
     """Ligne de tête d'une cépée : classe globale = pire brin (via
     `genet_diagnostic`), rayon = plus gros brin, point critique = pire t/R
-    parmi les brins. `tR_moyen_pct` reste `None` (la moyenne inter-brins
-    n'a pas de sens — l'agrégat porte sur les classes)."""
+    parmi les brins (donc son t/R minimal — cohérent avec la classe, qui est
+    celle du pire brin fiable)."""
     gd = genet_diagnostic(arbre)
     port = arbre.port_arbre
     n_total = sum(extrapolation_summary(b)["n_sondees"] for b in arbre.brins)
@@ -772,19 +771,20 @@ def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
         if b.rayon_tronc_cm <= 0:
             continue
         snap = repartition_classes_brin(b, port)
-        if snap.tR_min < 0.999 and (worst is None or snap.tR_min < worst.tR_min):
+        if worst is None or snap.tR_min < worst.tR_min:
             worst = snap
+    tR_min_pct: Optional[float] = None
+    crit_grade: Optional[int] = None
+    crit_dir = ""
     if worst is not None:
-        tR_min_pct: Optional[float] = 100.0 * worst.tR_min
-        crit_grade: Optional[int] = worst.tR_min_grade
-        crit_dir = worst.tR_min_dir
-    else:
-        tR_min_pct = crit_grade = None
-        crit_dir = ""
+        tR_min_pct = 100.0 * worst.tR_min
+        if worst.tR_min < 0.999:   # sinon aucune altération : pas de direction
+            crit_grade = worst.tR_min_grade
+            crit_dir = worst.tR_min_dir
     return MissionSynthesisRow(
         numero=arbre.numero_arbre, essence=arbre.essence, port=port,
         n_sondees=n_total, rayon_cm=rayon, fiable=gd.fiable,
-        tR_moyen_pct=None, classe_globale=gd.classe_globale,
+        classe_globale=gd.classe_globale,
         tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
         brin_label="")
 

@@ -48,12 +48,14 @@ DESKTOP
 cp build/icons/Icone.png "$APPDIR/penetrometre.png"
 
 # --- Télécharger appimagetool si absent ---
-# Épinglé sur la release 13 (stable) au lieu de "continuous" (nightly, peut casser)
-APPIMAGETOOL_VERSION="13"
+# Épinglé sur une release numérotée (jamais "continuous", nightly qui peut
+# casser). Le dépôt AppImage/AppImageKit ne publie plus l'outil (la release
+# 13 y renvoie 404) : il vit désormais dans AppImage/appimagetool.
+APPIMAGETOOL_VERSION="1.9.1"
 if [ ! -f "$TOOL" ]; then
     echo "Téléchargement d'appimagetool ${APPIMAGETOOL_VERSION}..."
     wget -q -O "$TOOL" \
-        "https://github.com/AppImage/AppImageKit/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+        "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
     chmod +x "$TOOL"
 fi
 

@@ -30,43 +30,53 @@ from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
 # Palette UI (panneaux, texte, accents)
 # ----------------------------------------------------------------------
 
-COLOR_BG         = "#F7F3EA"   # fond général
+# --- Charte SILVAVENIR (dossier « design system SILVAVENIR », v1.0 sept. 2026)
+#
+# Marque : orange #F58101 (titres ≥ 20 px, filets, action principale) ;
+# orange foncé #E36C0A (orange lisible en petit corps, survols, liens) ;
+# vert forêt #385623 (sous-titres, actions secondaires, texte sur clair) ;
+# vert feuille #40A838 (couleur du logo — marque, JAMAIS un état) ;
+# vert profond #24331B (fonds pleins, bandeaux) ; sable #FCE3C0 (surlignages).
+COLOR_BRAND_ORANGE      = "#F58101"
+COLOR_BRAND_ORANGE_DARK = "#E36C0A"
+COLOR_BRAND_FOREST      = "#385623"
+COLOR_BRAND_LEAF        = "#40A838"
+COLOR_BRAND_DEEP        = "#24331B"
+COLOR_BRAND_SAND        = "#FCE3C0"
+
+COLOR_BG         = "#FAF9F5"   # fond général (« Papier »)
 COLOR_PANEL      = "#FFFFFF"   # panneaux blancs
-COLOR_SIDE_PANEL = "#EAE5D8"   # bandeau latéral (liste des arbres)
-COLOR_INK        = "#1A2E22"
+COLOR_SIDE_PANEL = "#F4F2EC"   # bandeau latéral (« Sous-couche »)
+COLOR_RULE       = "#E3E1DA"   # filets
+COLOR_FIELD_BORDER = "#D9D7CF" # bordure de champ de saisie
+COLOR_INK        = "#404040"   # corps de texte — jamais de noir pur
+COLOR_INK_STRONG = "#262625"   # encre forte (titres, valeurs saisies)
 # Texte secondaire (libellés d'aide ⓘ, sous-titres, labels d'échelle du
-# dessin). Assombri de #6E7B73 à #55605A pour repasser au-dessus du
-# seuil de contraste WCAG AA (≈6.5:1 sur blanc, ≈5.8:1 sur le fond
-# beige) : l'ancienne teinte (~4.0-4.4:1) rendait le texte d'aide en
-# 9 px peu lisible sur un laptop de terrain en plein jour. Couleur
-# partagée Tk ↔ PIL → les exports PNG/PDF en bénéficient aussi.
-COLOR_MUTED      = "#55605A"
+# dessin) : gris secondaire de la charte (#595959, ≈7:1 sur blanc,
+# ≈6.6:1 sur le fond Papier — au-dessus du seuil WCAG AA, lisible en plein
+# jour sur un laptop de terrain). Couleur partagée Tk ↔ PIL.
+COLOR_MUTED      = "#595959"
+# Gris titre 3 de la charte : texte des contrôles désactivés, légendes.
+COLOR_DISABLED   = "#7F7F7F"
 
-# `COLOR_ACCENT` est la couleur de marque du CHROME Tk interactif
-# (boutons, titres de fenêtre, onglets actifs, sélections). Vert
-# historique de l'app — IDENTIQUE à `COULEUR_CLASSE[CLASSE_VERT]` (classe
-# de risque « Vert »). Plusieurs essais de teinte distincte ont été menés
-# pendant ce design system (bleu pétrole désaturé #1E5F6B, cobalt #2563EB,
-# violet améthyste #6B3FA0) pour lever cette collision de sens — un arbre
-# en bon état et un bouton actif partagent le même signal visuel — mais
-# aucun n'a convaincu à l'usage : préférence assumée pour le vert
-# d'origine malgré le compromis. cf. `COLOR_RENDER_ACCENT` ci-dessous pour
-# la couleur des rendus golden-testés (déjà ce même vert).
-COLOR_ACCENT     = "#2D7A3E"
-COLOR_ACCENT_SOFT= "#C9E4CE"
+# `COLOR_ACCENT` est la couleur d'accent du CHROME Tk interactif
+# (onglets actifs, sélections, cases cochées, titres de section) : le
+# **vert forêt** de la charte. Distinct de `COULEUR_CLASSE[CLASSE_VERT]`
+# (classe de risque « Vert ») — c'était le compromis assumé avant la
+# charte, où le vert d'accent EST le vert « bon état » ; la charte
+# interdit d'ailleurs d'employer le vert de marque comme couleur d'état.
+# L'action principale (bouton `Accent.TButton`) est, elle, en orange de
+# marque (`COLOR_BRAND_ORANGE`).
+COLOR_ACCENT     = COLOR_BRAND_FOREST
+COLOR_ACCENT_SOFT= "#F1F5EC"   # survol / sélection doux (vert très pâle)
 
-# Couleur d'accent des RENDUS golden-testés (dessin de section Tk/PIL,
-# fiche PDF, comparaison inter-missions) — figée à l'ANCIENNE valeur de
-# `COLOR_ACCENT` (avant ce design system) pour ne jamais faire dévier un
-# pixel des golden-tests (`tests/test_render.py`,
-# `tests/test_section_canvas.py`) au passage du chrome UI à sa nouvelle
-# teinte. Un heureux side-effect : ces documents (destinés au client)
-# restent dans le vert historique de l'app, cohérent avec le vocabulaire
-# visuel Vert/Orange/Rouge du diagnostic qu'ils exposent — voir
-# `.claude/docs/design-system.md`. Ne JAMAIS remplacer par `COLOR_ACCENT`
+# Couleur d'accent des RENDUS (dessin de section Tk/PIL, fiche PDF,
+# comparaison inter-missions) : vert forêt de la charte. Figée
+# indépendamment de `COLOR_ACCENT` pour que le chrome puisse évoluer sans
+# faire dévier les golden-tests. Ne JAMAIS remplacer par `COLOR_ACCENT`
 # dans `section_canvas.py`/`pil_render.py`/`comparaison_render.py`/
 # `fiche_pdf.py`.
-COLOR_RENDER_ACCENT = "#2D7A3E"
+COLOR_RENDER_ACCENT = COLOR_BRAND_FOREST
 
 # Avertissement non bloquant (garde-fou de saisie : fusion écrêtée des
 # dégradations, données à vérifier). Même ambre saturé que la pastille

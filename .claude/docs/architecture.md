@@ -7,7 +7,7 @@ en bref en fin de document** (purpose + surface publique) avec renvoi à
 **CLAUDE.md** pour le détail — on évite d'y dupliquer la prose volatile.
 **En cas de doute, CLAUDE.md fait foi pour la couche App.**
 
-## `bareme.py` — barème métier Pénétromètre (stdlib uniquement)
+## `bareme.py` — barème métier Pénétromètre Silvavenir (stdlib uniquement)
 
 - `classer_prbs(ratio_tR, port_arbre) -> str` — renvoie `Vert | Orange | Rouge`
   selon le **groupe de barème courant** contenant ce port
@@ -445,7 +445,7 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
   (`MissionSynthesisRow.brin_label`) s'affichent « ↳ brin a », identité genet
   laissée vide ; le bilan ne compte que les genets.
 - `export_prbs_xlsx(…)` — Excel stylé (openpyxl). Mise en page propre à
-  Pénétromètre (terminologie interne, plus de gabarit externe) : titre mission
+  Pénétromètre Silvavenir (terminologie interne, plus de gabarit externe) : titre mission
   + identité de l'arbre en toutes lettres (bannières fusionnées), puis les
   9 colonnes N° · Direction · Grade · Rayon · PRBS · Bois altéré · t/R
   (coloré par classe) · Classe (texte coloré) · Compart. (glyphe coloré),
@@ -472,7 +472,7 @@ sur son 1er champ utile (la combobox Direction/Orientation). Le paramètre
 peuvent éditer un brin précis d'une cépée.
 
 `ask_string(parent, title, prompt, initial, info=…)` : dialogue de
-saisie texte thémé (look ttk Pénétromètre) qui remplace
+saisie texte thémé (look ttk Pénétromètre Silvavenir) qui remplace
 `simpledialog.askstring`. Renvoie `None` si annulé, la chaîne (sans
 `strip`) si validé — `""` validé ≠ `None`. Utilisé par
 `App.action_rename_arbre`.

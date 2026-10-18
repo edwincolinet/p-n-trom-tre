@@ -30,10 +30,13 @@ from geometry import (
 from i18n import _
 from palette import (
     COLOR_BARK,
+    COLOR_BRAND_ORANGE,
+    COLOR_FIELD_BORDER,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_RENDER_ACCENT,
     COLOR_ROT,
+    COLOR_SIDE_PANEL,
     COLOR_WOOD,
 )
 from pil_render import (
@@ -303,7 +306,7 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     return img
 
 
-# Légende du « pts » de la ligne t/R moyen — partagée par la fenêtre Tk, la
+# Légende du « pts » de la ligne t/R minimal — partagée par la fenêtre Tk, la
 # page PDF et (en version courte) la carte PNG. Le « pts » = points de
 # pourcentage est correct mais jargonneux : un écart de 15 pts entre 45 % et
 # 30 % n'est PAS une baisse de 15 % (c'est −33 % en relatif). On l'explicite.
@@ -323,8 +326,8 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
     """Lignes du tableau chiffré : (libellé, référence, courant, évolution).
     Partagé par la fenêtre Tk et la page d'export."""
     rows: List[Tuple[str, str, str, str]] = []
-    # Classe globale
-    rows.append(("Classe globale", _classe_aff(detail.classe_ref),
+    # Classe (t/R minimal)
+    rows.append(("Classe (t/R minimal)", _classe_aff(detail.classe_ref),
                  _classe_aff(detail.classe_cur), ""))
     # Diamètre du tronc — un arbre croît en diamètre entre deux campagnes.
     # Le rendre explicite : chaque PRBS/t/R est déjà rapporté à SON rayon,
@@ -338,13 +341,13 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
         if detail.rayon_ref is not None and detail.rayon_cur is not None:
             evo_diam = f"{2 * (detail.rayon_cur - detail.rayon_ref):+.1f} cm"
         rows.append(("Diamètre du tronc", diam_ref, diam_cur, evo_diam))
-    # t/R moyen
+    # t/R minimal (point le plus faible — seul indicateur biomécanique)
     evo_tr = ""
-    if detail.tR_moy_ref is not None and detail.tR_moy_cur is not None:
-        dpts = detail.tR_moy_cur - detail.tR_moy_ref
+    if detail.tR_min_ref is not None and detail.tR_min_cur is not None:
+        dpts = detail.tR_min_cur - detail.tR_min_ref
         evo_tr = f"{dpts:+.1f} pts"
-    rows.append(("t/R moyen", _pct_aff(detail.tR_moy_ref),
-                 _pct_aff(detail.tR_moy_cur), evo_tr))
+    rows.append(("t/R minimal", _pct_aff(detail.tR_min_ref),
+                 _pct_aff(detail.tR_min_cur), evo_tr))
     # PRBS moyenne extrapolée (16 directions)
     evo_prbs = ""
     if detail.perte_moy_par_dir is not None:
@@ -413,6 +416,7 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
 
     # En-tête vert.
     d.rectangle([0, 0, W, 92], fill=COLOR_RENDER_ACCENT)
+    d.rectangle([0, 92, W, 96], fill=COLOR_BRAND_ORANGE)  # filet de marque
     d.text((margin, 20), titre, font=f(30, "serif_bold"), fill="white")
     d.text((margin, 62),
            f"Mission « {mission_nom or 'Mission'} »   •   "
@@ -445,12 +449,12 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
     row_h = 34
     for k, row in enumerate(rows):
         if k % 2 == 1:
-            d.rectangle([margin, y, W - margin, y + row_h], fill="#F2F2F2")
+            d.rectangle([margin, y, W - margin, y + row_h], fill=COLOR_SIDE_PANEL)
         for cx0, val in zip(col_x, row):
             d.text((cx0 + 10, y + row_h / 2), val, font=f(15, "sans"),
                    fill=COLOR_INK, anchor="lm")
         y += row_h
-    d.rectangle([margin, y_img + sec + 24, W - margin, y], outline="#BBBBBB")
+    d.rectangle([margin, y_img + sec + 24, W - margin, y], outline=COLOR_FIELD_BORDER)
 
     # Note explicative du « pts » (sous le tableau).
     y += 8

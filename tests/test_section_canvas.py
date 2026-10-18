@@ -97,19 +97,28 @@ def _canvas_dump(canvas) -> list:
 def _render_canvas(scenario: str) -> list:
     """Crée une `SectionCanvas`, y charge l'arbre du scénario, et
     retourne le dump des items dessinés."""
+    import ui_fonts
     from section_canvas import SectionCanvas
 
+    # Familles de la charte résolues selon les polices INSTALLÉES (donc
+    # variables d'un poste à l'autre, et modifiées par tout test qui crée
+    # une `App`) : on fige les noms historiques pour un golden reproductible.
+    saved = (ui_fonts._family_title, ui_fonts._family_body)
+    ui_fonts._family_title, ui_fonts._family_body = "Georgia", "Helvetica"
     root = tk.Tk()
-    # Fenêtre dimensionnée explicitement pour que `winfo_width()`
-    # retourne la valeur attendue après `update_idletasks()`.
-    root.geometry(f"{CANVAS_W}x{CANVAS_H}+0+0")
-    canvas = SectionCanvas(root, width=CANVAS_W, height=CANVAS_H)
-    canvas.pack()
-    root.update_idletasks()
-    canvas.set_arbre(build_arbre(scenario))
-    root.update_idletasks()
-    items = _canvas_dump(canvas)
-    root.destroy()
+    try:
+        # Fenêtre dimensionnée explicitement pour que `winfo_width()`
+        # retourne la valeur attendue après `update_idletasks()`.
+        root.geometry(f"{CANVAS_W}x{CANVAS_H}+0+0")
+        canvas = SectionCanvas(root, width=CANVAS_W, height=CANVAS_H)
+        canvas.pack()
+        root.update_idletasks()
+        canvas.set_arbre(build_arbre(scenario))
+        root.update_idletasks()
+        items = _canvas_dump(canvas)
+    finally:
+        root.destroy()
+        ui_fonts._family_title, ui_fonts._family_body = saved
     return items
 
 

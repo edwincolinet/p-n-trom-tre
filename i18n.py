@@ -1,5 +1,5 @@
 """
-Internationalisation (i18n) du logiciel Pénétromètre.
+Internationalisation (i18n) du logiciel Pénétromètre Silvavenir.
 
 Fournit `_()` pour marquer et traduire les chaînes visibles.
 La langue est choisie dans les réglages (SettingsStore.language) et

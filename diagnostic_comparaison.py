@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
 
 from diagnostic import (
     _GRAVITE_CLASSE,
+    MissionSynthesisRow,
     _synthesis_genet_row,
     _synthesis_row_for_section,
     prbs_par_grade,
@@ -30,13 +31,19 @@ if TYPE_CHECKING:
 class ArbreCompareSummary(NamedTuple):
     """Résumé court d'un arbre pour la comparaison d'inspections
     (campagnes successives) — agrégat genet, règle de fiabilité respectée
-    (`classe`/`tR_moyen_pct` = `None` si < 3 sondages ; `tR_moyen_pct`
-    aussi `None` pour une cépée — la moyenne inter-brins n'a pas de sens)."""
+    (`classe`/`tR_min_pct` = `None` si < 3 sondages ; pour une cépée,
+    `tR_min_pct` est celui du pire brin)."""
     classe: Optional[str]
-    tR_moyen_pct: Optional[float]
+    tR_min_pct: Optional[float]
     n_sondees: int
     rayon_cm: float
     fiable: bool
+
+
+def _tR_min_publie(row: MissionSynthesisRow) -> Optional[float]:
+    """t/R minimal de la ligne de synthèse, masqué comme la classe quand le
+    diagnostic n'est pas publiable (< 3 sondages)."""
+    return row.tR_min_pct if row.classe_globale is not None else None
 
 
 def arbre_compare_summary(arbre: "Arbre") -> ArbreCompareSummary:
@@ -48,7 +55,7 @@ def arbre_compare_summary(arbre: "Arbre") -> ArbreCompareSummary:
     else:
         row = _synthesis_genet_row(arbre)
     return ArbreCompareSummary(
-        classe=row.classe_globale, tR_moyen_pct=row.tR_moyen_pct,
+        classe=row.classe_globale, tR_min_pct=_tR_min_publie(row),
         n_sondees=row.n_sondees, rayon_cm=row.rayon_cm, fiable=row.fiable)
 
 
@@ -65,7 +72,7 @@ def evolution_classe(reference: Optional[str],
 
 
 def verdict_evolution(detail: "ComparaisonDetail") -> str:
-    """Phrase de verdict de la comparaison (classe + t/R moyen + taux de
+    """Phrase de verdict de la comparaison (classe + t/R minimal + taux de
     perte cm/an). Partagée par la fenêtre et l'export."""
     rc = detail.classe_ref or "non publié"
     cc = detail.classe_cur or "non publié"
@@ -73,16 +80,16 @@ def verdict_evolution(detail: "ComparaisonDetail") -> str:
     if evo is None:
         base = f"Évolution de classe non comparable (réf. {rc}, courant {cc})."
     elif evo > 0:
-        base = f"⚠ Aggravation : classe {rc} → {cc}."
+        base = f"▲ Aggravation : classe {rc} → {cc}."
     elif evo < 0:
         base = f"✓ Amélioration : classe {rc} → {cc}."
     else:
         base = f"= Stable : classe {cc}."
-    if detail.tR_moy_ref is not None and detail.tR_moy_cur is not None:
-        delta = detail.tR_moy_cur - detail.tR_moy_ref
+    if detail.tR_min_ref is not None and detail.tR_min_cur is not None:
+        delta = detail.tR_min_cur - detail.tR_min_ref
         fl = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
-        base += (f"   t/R moyen : {detail.tR_moy_ref:.1f} % → "
-                 f"{detail.tR_moy_cur:.1f} % ({fl} {abs(delta):.1f} pts)")
+        base += (f"   t/R minimal : {detail.tR_min_ref:.1f} % → "
+                 f"{detail.tR_min_cur:.1f} % ({fl} {abs(delta):.1f} pts)")
     if detail.perte_moy_par_dir is not None and detail.perte_moy_par_dir > 0.05:
         base += (f"   Perte de bois sain : "
                  f"{detail.perte_moy_par_dir:.1f} cm/direction")
@@ -137,8 +144,8 @@ class ComparaisonDetail(NamedTuple):
     compart_changees: int
     classe_ref: Optional[str]
     classe_cur: Optional[str]
-    tR_moy_ref: Optional[float]
-    tR_moy_cur: Optional[float]
+    tR_min_ref: Optional[float]
+    tR_min_cur: Optional[float]
     # Rayon du tronc (cm) de chaque campagne — un arbre croît en diamètre
     # avec le temps. Surfacé dans le tableau (ligne « Diamètre ») et déjà
     # pris en compte dans les calculs (chaque PRBS/t/R utilise SON rayon).
@@ -197,7 +204,7 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
         compart_changees=sum(1 for d in directions
                              if d.compart_ref != d.compart_cur),
         classe_ref=s_ref.classe, classe_cur=s_cur.classe,
-        tR_moy_ref=s_ref.tR_moyen_pct, tR_moy_cur=s_cur.tR_moyen_pct,
+        tR_min_ref=s_ref.tR_min_pct, tR_min_cur=s_cur.tR_min_pct,
         rayon_ref=(ref_b.rayon_tronc_cm if ref_b is not None
                    and ref_b.rayon_tronc_cm > 0 else None),
         rayon_cur=(cur_b.rayon_tronc_cm if cur_b.rayon_tronc_cm > 0 else None))
@@ -218,7 +225,7 @@ def _brin_compare_summary(brin: "Brin", port: str) -> ArbreCompareSummary:
     genet) — pour la comparaison brin-à-brin d'une cépée."""
     row = _synthesis_row_for_section("", "", port, brin)
     return ArbreCompareSummary(
-        classe=row.classe_globale, tR_moyen_pct=row.tR_moyen_pct,
+        classe=row.classe_globale, tR_min_pct=_tR_min_publie(row),
         n_sondees=row.n_sondees, rayon_cm=row.rayon_cm, fiable=row.fiable)
 
 

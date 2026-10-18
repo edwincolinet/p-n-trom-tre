@@ -49,10 +49,10 @@ from pathlib import Path
 # binaires distribués, donc changer de paire invaliderait toutes les
 # licences déjà émises.
 #
-# Ordre de résolution : $PENETROMETRE_LICENSE_KEY, puis ~/.penetrometre-keys/,
+# Ordre de résolution : $SILVAVENIR_LICENSE_KEY, puis ~/.silvavenir-keys/,
 # puis (compat) ./private.key s'il existe encore — avec avertissement.
-_ENV_KEY = "PENETROMETRE_LICENSE_KEY"
-_HOME_KEY_PATH = Path.home() / ".penetrometre-keys" / "private.key"
+_ENV_KEY = "SILVAVENIR_LICENSE_KEY"
+_HOME_KEY_PATH = Path.home() / ".silvavenir-keys" / "private.key"
 _LEGACY_KEY_PATH = Path("private.key")
 
 

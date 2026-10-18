@@ -92,7 +92,7 @@ def main() -> int:
         "--nofollow-import-to=tkinter.test",
         # Métadonnées binaire.
         "--company-name=Edwin Colinet",
-        "--product-name=Penetrometre Pénétromètre",
+        "--product-name=Penetrometre Silvavenir",
         f"--product-version={_version()}",
         "--output-filename=Penetrometre",
         f"--output-dir={_OUT}",

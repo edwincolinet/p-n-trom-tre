@@ -1,4 +1,4 @@
-"""English translations for Pénétromètre — source language is French."""
+"""English translations for Pénétromètre Silvavenir — source language is French."""
 
 TRANSLATIONS = {
     # ── Menu Fichier ──────────────────────────────────────────────────
@@ -152,7 +152,7 @@ TRANSLATIONS = {
     "Mission non enregistrée":             "Unsaved project",
 
     # ── À propos ─────────────────────────────────────────────────────
-    "Pénétromètre — Expertise arboricole":     "Pénétromètre — Tree expertise",
+    "Pénétromètre Silvavenir — Expertise arboricole":     "Pénétromètre Silvavenir — Tree expertise",
     "Version":                             "Version",
     "Auteur":                              "Author",
     "Contact":                             "Contact",
@@ -305,12 +305,11 @@ TRANSLATIONS = {
     "Classe rouge":                       "Red class",
     "Hauteur sondage":                    "Sounding height",
     "Hauteur arbre":                      "Tree height",
-    "Arbre n°{n}":                        "Tree #{n}",
+    "Arbre n°\u00a0{n}":                        "Tree #{n}",
     "Port {port}":                        "Growth habit {port}",
     "Port":                               "Growth habit",
-    "t/R moyen (%)":                       "Average t/R (%)",
+    "t/R minimal (%)":                     "Minimum t/R (%)",
     "Direction critique":                 "Critical direction",
-    "t/R critique (%)":                    "Critical t/R (%)",
     "Validité suivi":                     "Follow-up validity",
     "Échéance suivi":                     "Follow-up deadline",
     "Commentaire suivi":                  "Follow-up comment",
@@ -462,10 +461,9 @@ TRANSLATIONS = {
         "\nNote: 'Resistograph' is a registered trademark.\nThis software uses the generic term 'resistograph'.",
 
     # PDF labels
-    "t/R moyen sur le pourtour":           "Average t/R around perimeter",
     "t/R minimal":                         "Minimum t/R",
-    "Classe globale":                      "Overall class",
-    "Classe globale (pire brin)":          "Overall class (worst stem)",
+    "Classe (t/R minimal)":                "Class (minimum t/R)",
+    "Classe (pire brin)":                  "Class (worst stem)",
     "Aucune altération saisie.":           "No alteration recorded.",
 
     # ── Sprint 6 — dernières chaînes ──────────────────────────────────
@@ -605,8 +603,8 @@ TRANSLATIONS = {
     "Synthèse mission CSV enregistrée":  "Mission summary CSV saved",
     "Synthèse mission XLSX enregistrée": "Mission summary XLSX saved",
     "Synthèse":                          "Summary",
-    "Pénétromètre — Synthèse mission « {nom} »":
-        "Pénétromètre — Mission summary « {nom} »",
+    "Pénétromètre Silvavenir — Synthèse mission « {nom} »":
+        "Pénétromètre Silvavenir — Mission summary « {nom} »",
     "pas de brin de référence — état courant seul":
         "no reference stem — current state only",
     "pas de brin de référence":          "no reference stem",
@@ -693,7 +691,7 @@ TRANSLATIONS = {
     "Écriture du fichier…":                  "Writing the file…",
     'Export PDF de la mission':             'Project PDF export',
     'Génération des fiches…':               'Generating sheets…',
-    'Arbre n°{num}':                        'Tree no. {num}',
+    'Arbre n°\u00a0{num}':                        'Tree no. {num}',
     'Export PDF annulé — aucun fichier écrit.': 'PDF export cancelled — no file written.',
     "Le fichier a été déplacé ou supprimé.": "The file has been moved or deleted.",
 
@@ -731,7 +729,7 @@ TRANSLATIONS = {
     "Créez via Fichier → Enregistrer comme modèle…": "Use File → Save as template…",
 
     # ── Divers (clés isolées du source) ──────────────────────────────
-    "Pénétromètre":                            "Pénétromètre",
+    "Pénétromètre Silvavenir":                            "Pénétromètre Silvavenir",
     "  Expertise arboricole":              "  Tree assessment",
     "Annuler":                             "Cancel",
     "Préconisation":                       "Recommendation",

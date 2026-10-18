@@ -104,7 +104,7 @@ jobs:
             /p  $env:CODESIGN_P12_PASSWORD `
             /tr http://timestamp.digicert.com `
             /td sha256 /fd sha256 `
-            /d  "Pénétromètre — Expertise arboricole" `
+            /d  "Pénétromètre Silvavenir — Expertise arboricole" `
             "dist\Penetrometre\Penetrometre.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -138,7 +138,7 @@ jobs:
             /p  $env:CODESIGN_P12_PASSWORD `
             /tr http://timestamp.digicert.com `
             /td sha256 /fd sha256 `
-            /d  "Pénétromètre — Expertise arboricole" `
+            /d  "Pénétromètre Silvavenir — Expertise arboricole" `
             $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

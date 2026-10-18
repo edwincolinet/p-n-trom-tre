@@ -1,6 +1,6 @@
-# Politique de confidentialité — Pénétromètre
+# Politique de confidentialité — Pénétromètre Silvavenir
 
-**Logiciel :** Pénétromètre — Expertise arboricole au pénétromètre  
+**Logiciel :** Pénétromètre Silvavenir — Expertise arboricole au pénétromètre  
 **Auteur :** Edwin Colinet  
 **Date de mise à jour :** juin 2026
 
@@ -8,7 +8,7 @@
 
 ## 1. Principe général
 
-Pénétromètre est une application **desktop autonome, 100 % hors ligne**.
+Pénétromètre Silvavenir est une application **desktop autonome, 100 % hors ligne**.
 Le logiciel **ne transmet aucune donnée** à des serveurs distants,
 à des services cloud ou à des tiers. Aucune connexion réseau n'est
 établie pendant votre travail, à l'exception de la vérification
@@ -18,7 +18,7 @@ optionnelle des mises à jour (voir §5).
 
 ## 2. Données stockées localement
 
-Toutes les données générées par Pénétromètre sont stockées sur votre poste
+Toutes les données générées par Pénétromètre Silvavenir sont stockées sur votre poste
 dans le dossier `~/.penetrometre/` (Linux/macOS) ou
 `%APPDATA%\Penetrometre\` (Windows) :
 
@@ -32,7 +32,7 @@ dans le dossier `~/.penetrometre/` (Linux/macOS) ou
 | `recovery/autosave.json` | Sauvegarde anti-crash temporaire | Supprimé dès l'enregistrement normal |
 
 Les **fichiers de mission** (`.json`) sont enregistrés à l'emplacement
-choisi par l'utilisateur — Pénétromètre n'impose pas de dossier.
+choisi par l'utilisateur — Pénétromètre Silvavenir n'impose pas de dossier.
 
 ---
 

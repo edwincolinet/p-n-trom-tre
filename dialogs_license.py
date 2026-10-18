@@ -14,6 +14,7 @@ from tkinter import ttk
 from typing import TYPE_CHECKING, Optional, Union
 
 from palette import COLOR_ACCENT, COLOR_BG, COLOR_INK, COLOR_MUTED, COLOR_WARN
+from ui_fonts import font, resolve_brand_fonts
 
 if TYPE_CHECKING:
     from license import LicenseData, TrialInfo
@@ -43,7 +44,8 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
     trial_already_started = essai_deja_consomme()
 
     dlg = tk.Toplevel()
-    dlg.title("Activation — Pénétromètre")
+    resolve_brand_fonts(dlg)
+    dlg.title("Activation — Pénétromètre Silvavenir")
     dlg.resizable(False, False)
     dlg.configure(bg=COLOR_BG)
 
@@ -66,8 +68,8 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
 
     ttk.Label(
         outer,
-        text="Pénétromètre — Activation",
-        font=("Helvetica", 15, "bold"),
+        text="Pénétromètre Silvavenir — Activation",
+        font=font("Georgia", 15, "bold"),
         foreground=COLOR_ACCENT,
     ).pack(anchor="w")
 
@@ -110,7 +112,7 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
         foreground=COLOR_MUTED,
         wraplength=504,
         justify="left",
-        font=("Helvetica", 8),
+        font=font("Helvetica", 8),
     ).pack(anchor="w", pady=(2, 0))
 
     ttk.Separator(outer).pack(fill="x", pady=(12, 12))
@@ -183,7 +185,7 @@ def show_activation_dialog(root: tk.Tk) -> Optional[ActivationResult]:
         outer,
         text="Pour obtenir une licence : e.colinet@silvavenir.fr",
         foreground=COLOR_MUTED,
-        font=("Helvetica", 8),
+        font=font("Helvetica", 8),
     ).pack(anchor="w", pady=(16, 0))
 
     dlg.bind("<Return>", lambda e: on_activate())

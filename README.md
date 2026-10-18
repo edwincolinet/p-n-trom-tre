@@ -172,8 +172,9 @@ mon-dossier/
 ├── docs/
 │   └── guide_demarrage.html    ← guide de démarrage autonome (2 pages A4)
 ├── assets/
-│   ├── Icone.jpeg              ← icône bureau (.desktop)
-│   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
+│   ├── Icone.png               ← icône bureau (.desktop) et source des icônes natives
+│   ├── cropped-logo-silvavenir.png
+│   └── fonts/                  ← Jost, Source Sans 3 (charte) + DejaVu embarquées
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
 ```
 
@@ -274,8 +275,9 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Ratio t/R** = PRBS / Rayon, et classification Vert / Orange / Rouge
   selon le port
 - **Répartition** sur les 16 directions du pourtour (extrapolées)
-- **Classe globale** = barème appliqué au **t/R moyen**
-  sur les 16 directions
+- **Classe** = barème appliqué au **t/R minimal** des 16 directions
+  (la rupture part de la paroi la plus mince : aucune moyenne n'est
+  calculée ni publiée)
 - **Préconisation** (la décision d'expertise) : par arbre, un niveau
   d'**urgence** (Immédiate / Court terme / Moyen terme / Surveillance /
   Sans objet), une **échéance** d'intervention facultative et une
@@ -303,8 +305,8 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Diagnostic non publié si n_sondages < 3** : en-dessous de 3
   directions sondées, trop peu de mesures réelles sur le pourtour (les
   directions non sondées sont extrapolées ou supposées saines) pour
-  publier un diagnostic global honnête. Le t/R moyen et la classe
-  globale sont alors **supprimés** de la fiche PDF (et des exports
+  publier un diagnostic global honnête. Le t/R minimal et la classe
+  sont alors **supprimés** de la fiche PDF (et des exports
   XLSX/HTML/CSV), remplacés par un avertissement explicite ; saisir au
   moins 3 sondages dans des directions différentes pour obtenir un
   diagnostic global. Ce seuil de fiabilité est volontairement découplé
@@ -335,7 +337,7 @@ purement descriptif : n'impacte pas le diagnostic.
 ### Exports
 
 - **PDF arbre** : fiche complète A4 avec en-tête mission, logo
-  Pénétromètre, identité de l'arbre, dessin annoté, tableau PRBS coloré,
+  Pénétromètre Silvavenir, identité de l'arbre, dessin annoté, tableau PRBS coloré,
   diagnostic avec barre de répartition Vert / Orange / Rouge.
   La colonne PRBS affiche la valeur pure (sans mention des dégradations
   externes).
@@ -348,9 +350,9 @@ purement descriptif : n'impacte pas le diagnostic.
   Titre mission + identité de l'arbre en toutes lettres, puis les
   colonnes N° · Direction (N/NE/…) · Grade · Rayon · PRBS bois sain ·
   Bois altéré · t/R (color-codé par classe) · Classe · Compartimentation
-  ✓ / ✗ / –. Sous le tableau : une ligne **Diagnostic** (t/R moyen +
-  classe globale, alignée sur la fiche PDF), une légende des glyphes
-  puis une légende des classes. Thème vert Pénétromètre, alternance de
+  ✓ / ✗ / –. Sous le tableau : une ligne **Diagnostic** (t/R minimal +
+  classe, alignée sur la fiche PDF), une légende des glyphes
+  puis une légende des classes. Thème Pénétromètre Silvavenir (en-têtes vert forêt), alternance de
   lignes, en-tête gelé. Nécessite
   [openpyxl](https://pypi.org/project/openpyxl/)
   (`pip install -r requirements.txt`).
@@ -428,7 +430,7 @@ une classe Vert/Orange/Rouge a été obtenue.
 
 ### Licence et mode essai
 
-Pénétromètre est un logiciel propriétaire. Un système de **licence offline**
+Pénétromètre Silvavenir est un logiciel propriétaire. Un système de **licence offline**
 (Ed25519, binding machine optionnel) et un **mode essai gratuit 30 jours**
 sont intégrés. Pour obtenir une licence : `e.colinet@silvavenir.fr`.
 
@@ -455,7 +457,7 @@ double-clic et clic droit sur un arbre).
 
 - Algorithme d'interpolation : Catmull-Rom spline fermée (Catmull & Rom, 1974)
 - Convention PRBS : méthode VTA de Mattheck & Breloer (1994)
-- Barème de classification : convention Pénétromètre
+- Barème de classification : convention Pénétromètre Silvavenir
 - Logo : personnalisable (Affichage → Logo et nom du cabinet)
 - Polices embarquées : DejaVu (`assets/fonts/`) sous licence Bitstream
   Vera. Voir `assets/fonts/LICENSE`.

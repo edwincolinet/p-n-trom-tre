@@ -77,7 +77,7 @@ from i18n import _
 from model import Arbre, Chantier
 from palette import COLOR_INK, COLOR_MUTED, COLOR_PANEL
 from tooltip import Tooltip
-from ui_fonts import font_small, font_small_bold
+from ui_fonts import font, font_small, font_small_bold
 
 _SEC = 440  # côté des dessins (px)
 _comparison_window: "Optional[tk.Toplevel]" = None  # singleton
@@ -421,7 +421,7 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
     block.pack(fill="x", expand=True)
     if label is not None:
         ttk.Label(block, text=f"Brin {label}", style="H.TLabel",
-                  font=("Helvetica", 13, "bold")).pack(anchor="w", padx=12)
+                  font=font("Georgia", 13, "bold")).pack(anchor="w", padx=12)
 
     row = ttk.Frame(block, style="Panel.TFrame", padding=(12, 4))
     row.pack(fill="x")
@@ -462,7 +462,7 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
                                                    pady=(2, 0))
 
     ttk.Label(block, text=verdict_evolution(detail), style="Panel.TLabel",
-              font=("Helvetica", 11, "bold"), wraplength=900, justify="left",
+              font=font("Helvetica", 11, "bold"), wraplength=900, justify="left",
               foreground=_verdict_color(detail.classe_ref, detail.classe_cur)
               ).pack(anchor="w", padx=12, pady=(2, 6))
     ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=2)

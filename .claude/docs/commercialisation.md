@@ -1,6 +1,6 @@
 # Chantier commercialisation — Pénétromètre v3.x
 
-Analyse critique du 20/06/2026. Objectif : commercialiser Pénétromètre
+Analyse critique du 20/06/2026. Objectif : commercialiser Pénétromètre Silvavenir
 auprès de cabinets arboricoles extérieurs (projet personnel d'Edwin Colinet).
 
 **Mise à jour du statut : 28/06/2026** — les items P1-B/C/D et P2-A/B/C/D
@@ -271,7 +271,7 @@ fabricants de pénétromètres (IML/Resistograph en tête) fournissent en
 général leur propre logiciel avec l'appareil — un cabinet qui a déjà payé
 le matériel a donc déjà « un » outil, à coût marginal nul. L'autre
 concurrent est le classeur Excel, cité par le README lui-même comme
-référence historique. Vendre Pénétromètre suppose un discours de rupture très
+référence historique. Vendre Pénétromètre Silvavenir suppose un discours de rupture très
 concret (gain de temps sur la fiche PDF, fiabilité du calcul, image de
 marque du rapport client) — rien n'indique que ce discours a été formulé
 ni testé face à un cabinet.
@@ -297,7 +297,7 @@ impression avant même l'ouverture de l'app. Coût faible (~400 €/an
 cumulé Windows+macOS) pour un blocage total de conversion.
 
 **6. Bus factor = 1, et pas à temps plein.** Le contact de licence
-(`e.colinet@silvavenir.fr`) est distinct de l'e-mail pro d'Edwin — Pénétromètre
+(`e.colinet@silvavenir.fr`) est distinct de l'e-mail pro d'Edwin — Pénétromètre Silvavenir
 est un projet personnel séparé (cf. mémoire `project_penetrometre_perso`). Un
 cabinet qui migre ses missions terrain vers ce format prend un risque de
 continuité (support, correctifs, pérennité du format JSON) sur un projet

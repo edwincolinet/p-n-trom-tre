@@ -42,7 +42,9 @@ from icons import ICON_CALENDAR, ICON_DELETE
 from palette import (
     COLOR_ACCENT,
     COLOR_BG,
+    COLOR_BRAND_ORANGE,
     COLOR_MUTED,
+    COLOR_PANEL,
     COLOR_WARN,
     COULEUR_CLASSE,
 )
@@ -127,11 +129,15 @@ class LayoutMixin(_MixinBase):
         def _pick_date(self) -> None: ...
 
     def _build_layout(self) -> None:
-        header = ttk.Frame(self)
-        header.pack(fill="x", padx=18, pady=(14, 6))
+        # Bandeau de marque de la charte SILVAVENIR : fond blanc, filet
+        # orange de 3 px dessous.
+        header = ttk.Frame(self, style="Brand.TFrame", padding=(18, 14))
+        header.pack(fill="x")
+        tk.Frame(self, bg=COLOR_BRAND_ORANGE, height=3).pack(fill="x",
+                                                             pady=(0, 6))
 
         # Bloc gauche : titre app
-        left = ttk.Frame(header)
+        left = ttk.Frame(header, style="Brand.TFrame")
         left.pack(side="left")
         # `anchor="s"` sur les deux labels : sans lui, chacun est centré
         # dans son propre parcel (haut/bas déterminés par sa police), et
@@ -144,17 +150,17 @@ class LayoutMixin(_MixinBase):
         # sous-titre 2px SOUS la ligne de base du titre. `pady=(0, 2)`
         # compense cet écart mesuré (vérifié pixel à pixel sur une
         # capture d'écran) pour aligner les deux lignes de base.
-        ttk.Label(left, text=_("Pénétromètre"),
-                  style="Title.TLabel").pack(side="left", anchor="s")
+        ttk.Label(left, text=_("Pénétromètre Silvavenir"),
+                  style="Brand.Title.TLabel").pack(side="left", anchor="s")
         ttk.Label(left, text=_("  Expertise arboricole"),
-                  style="Sub.TLabel").pack(side="left", anchor="s",
-                                           padx=(8, 0), pady=(0, 2))
+                  style="Brand.Sub.TLabel").pack(side="left", anchor="s",
+                                                 padx=(8, 0), pady=(0, 2))
 
         # Bloc droit : zone logo cabinet (cliquable → paramètres cabinet).
         # PIL est requis pour les exports PNG/PDF — s'il est absent au
         # démarrage, l'utilisateur l'apprend ici (log) plutôt qu'au
         # moment d'un clic « Exporter PDF » qui échouerait silencieusement.
-        self._logo_frame = tk.Frame(header, cursor="hand2")
+        self._logo_frame = tk.Frame(header, cursor="hand2", bg=COLOR_PANEL)
         self._logo_frame.pack(side="right", padx=(12, 0))
         self._logo_frame.bind(
             "<Button-1>", lambda e: self.action_cabinet_settings())
@@ -584,7 +590,7 @@ class LayoutMixin(_MixinBase):
         _inner = ttk.Frame(self._welcome_frame, style="Panel.TFrame")
         _inner.place(relx=0.5, rely=0.44, anchor="center")
         ttk.Label(
-            _inner, text="Pénétromètre",
+            _inner, text="Pénétromètre Silvavenir",
             font=ui_font("Georgia", 28), style="Panel.TLabel",
         ).pack(pady=(0, 2))
         ttk.Label(

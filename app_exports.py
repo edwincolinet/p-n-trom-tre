@@ -207,7 +207,7 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
         for i, a in enumerate(arbres, start=1):
             # `avancer` repeint ET traite les événements en attente :
             # c'est ce qui garde le bouton Annuler réactif.
-            prog.avancer(i - 1, _("Arbre n°{num}").format(
+            prog.avancer(i - 1, _("Arbre n°\u00a0{num}").format(
                 num=a.numero_arbre or "?"))
             if prog.demande_annulation():
                 annule = True
@@ -308,7 +308,7 @@ def _suggest_synthesis_name(chantier: Chantier, ext: str) -> str:
 
 def export_synthesis_csv_mission(parent: tk.Misc,
                                  chantier: Chantier) -> None:
-    """Synthèse mission (1 ligne/arbre : classe globale, t/R moyen,
+    """Synthèse mission (1 ligne/arbre : classe, t/R minimal,
     direction critique) en CSV."""
     if not _check_completeness(parent, chantier):
         return

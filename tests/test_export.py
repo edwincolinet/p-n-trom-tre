@@ -185,9 +185,9 @@ class XlsxSmokeTests(unittest.TestCase):
                 os.unlink(path)
 
     def test_diagnostic_et_legendes_du_tableau(self):
-        """Verrouille la mise en page (propre à Pénétromètre) du tableau XLSX :
+        """Verrouille la mise en page (propre au Pénétromètre Silvavenir) du tableau XLSX :
 
-        - une ligne « Diagnostic » (t/R moyen + classe globale) sous le
+        - une ligne « Diagnostic » (t/R minimal + classe) sous le
           tableau, alignée sur la fiche PDF ;
         - une légende compartimentation couvrant les 3 glyphes ✔/✘/— ;
         - une légende des classes « Classe verte/orange/rouge » colorée
@@ -226,8 +226,9 @@ class XlsxSmokeTests(unittest.TestCase):
             # Ligne Diagnostic (3 sondages → diagnostic fiable publié).
             diag_row = next(r for r, v in col_a.items()
                             if isinstance(v, str) and v.startswith("Diagnostic —"))
-            self.assertIn("t/R moyen", col_a[diag_row])
-            self.assertIn("Classe globale", col_a[diag_row])
+            self.assertIn("t/R minimal", col_a[diag_row])
+            self.assertIn("Classe", col_a[diag_row])
+            self.assertNotIn("t/R moyen", col_a[diag_row])
 
             # Légende compartimentation : couvre les 3 glyphes (source unique
             # `dialogs_shared` → suit un éventuel restyle des symboles).
@@ -433,14 +434,14 @@ class MissionSynthesisRowsTests(unittest.TestCase):
         c.arbres = [Arbre(numero_arbre="1"), Arbre(numero_arbre="2")]
         self.assertEqual(len(mission_synthesis_rows(c)), 2)
 
-    def test_arbre_fiable_publie_classe_et_tR_moyen(self):
+    def test_arbre_fiable_publie_classe_et_tR_min(self):
         from diagnostic import mission_synthesis_rows
         c = self._arbre("1", 20.0, [0, 50, 100, 150, 200, 250, 300, 350],
                         sain=16.0)  # t/R = 0.8 partout → Vert
         r = mission_synthesis_rows(c)[0]
         self.assertTrue(r.fiable)
         self.assertEqual(r.classe_globale, "Vert")
-        self.assertAlmostEqual(r.tR_moyen_pct, 80.0, places=1)
+        self.assertAlmostEqual(r.tR_min_pct, 80.0, places=1)
 
     def test_moins_de_3_sondages_masque_diagnostic_global(self):
         from diagnostic import mission_synthesis_rows
@@ -448,7 +449,6 @@ class MissionSynthesisRowsTests(unittest.TestCase):
         r = mission_synthesis_rows(c)[0]
         self.assertFalse(r.fiable)
         self.assertIsNone(r.classe_globale)
-        self.assertIsNone(r.tR_moyen_pct)
         # mais le nombre de sondages reste exposé
         self.assertEqual(r.n_sondees, 2)
 
