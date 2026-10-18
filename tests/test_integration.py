@@ -69,7 +69,7 @@ class RoundTripIntegrationTests(unittest.TestCase):
         arbre2 = reloaded.arbres[0]
         snap_after = repartition_classes(arbre2)
 
-        self.assertEqual(snap_before.tR_moyen, snap_after.tR_moyen)
+        self.assertEqual(snap_before.tR_min, snap_after.tR_min)
         self.assertEqual(snap_before.classe_globale, snap_after.classe_globale)
         self.assertEqual(snap_before.ratios, snap_after.ratios)
 

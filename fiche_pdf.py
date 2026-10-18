@@ -460,7 +460,7 @@ def render_fiche_arbre(pdf: FPDF,
     if multi_brins:
         est_diag_h = 76 + 32 + 28 * len(arbre.brins) + 24
     else:
-        est_diag_h = 360  # majorant : t/R + bar + détail + classe globale
+        est_diag_h = 360  # majorant : t/R + bar + détail + classe
     est_legend_h = 56
     # Pied de page : filet (H-60) + ligne barème (H-44) + ligne
     # Pénétromètre/date (H-22). Doit rester cohérent avec le bloc « Pied de
@@ -757,16 +757,10 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
     snap = repartition_classes(arbre)
     diag = snap.diagnostic_global
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
-        if diag is not None:
-            tR_moyen_diag, _cls_tmp = diag
-            pg.text(x_left, y,
-                    _("t/R moyen sur le pourtour") + f" : {100 * tR_moyen_diag:.1f} %",
-                    18, "sans_bold", COLOR_INK)
-            y += 28
         pg.text(x_left, y,
                 _("t/R minimal") + f" : {100 * snap.tR_min:.1f} %  "
                 f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
-                18, "sans", COLOR_INK)
+                18, "sans_bold" if diag is not None else "sans", COLOR_INK)
         y += 28
         if snap.extrapolation_text:
             pg.text(x_left, y, snap.extrapolation_text, 16, "sans", COLOR_MUTED)
@@ -851,7 +845,7 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
             box_w, box_h = 460, 60
             pg.rect(x_left, y, x_left + box_w, y + box_h, col_g)
             pg.text(x_left + box_w / 2, y + box_h / 2,
-                    _("Classe globale") + f" : {classe_g}",
+                    _("Classe (t/R minimal)") + f" : {classe_g}",
                     24, "sans_bold", "white", anchor="mm")
             y += box_h + 8
     else:
@@ -875,12 +869,12 @@ def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
         box_w, box_h = 560, 60
         pg.rect(x_left, y, x_left + box_w, y + box_h, col_g)
         pg.text(x_left + box_w / 2, y + box_h / 2,
-                _("Classe globale (pire brin)") + f" : {gd.classe_globale}",
+                _("Classe (pire brin)") + f" : {gd.classe_globale}",
                 22, "sans_bold", "white", anchor="mm")
         y += box_h + 16
     else:
         pg.text(x_left, y,
-                "⚠ Classe globale indisponible : aucun brin avec au moins "
+                "⚠ Classe indisponible : aucun brin avec au moins "
                 "3 directions sondées.",
                 18, "sans_bold", (176, 0, 32))
         y += 36
@@ -898,9 +892,8 @@ def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
         snap = repartition_classes_brin(b, port)
         diag = snap.diagnostic_global
         if diag is not None:
-            tR_moyen_b, classe_b = diag
-            txt = (f"{classe_b}   •   t/R moyen {100 * tR_moyen_b:.1f} %"
-                   f"   •   t/R min {100 * snap.tR_min:.1f} %")
+            tR_min_b, classe_b = diag
+            txt = f"{classe_b}   •   t/R minimal {100 * tR_min_b:.1f} %"
             pg.text(px, y, txt, 17, "sans", COULEUR_CLASSE[classe_b])
         else:
             pg.text(px, y,

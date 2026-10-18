@@ -308,7 +308,7 @@ def _suggest_synthesis_name(chantier: Chantier, ext: str) -> str:
 
 def export_synthesis_csv_mission(parent: tk.Misc,
                                  chantier: Chantier) -> None:
-    """Synthèse mission (1 ligne/arbre : classe globale, t/R moyen,
+    """Synthèse mission (1 ligne/arbre : classe, t/R minimal,
     direction critique) en CSV."""
     if not _check_completeness(parent, chantier):
         return

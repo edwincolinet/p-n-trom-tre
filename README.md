@@ -274,8 +274,9 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Ratio t/R** = PRBS / Rayon, et classification Vert / Orange / Rouge
   selon le port
 - **Répartition** sur les 16 directions du pourtour (extrapolées)
-- **Classe globale** = barème appliqué au **t/R moyen**
-  sur les 16 directions
+- **Classe** = barème appliqué au **t/R minimal** des 16 directions
+  (la rupture part de la paroi la plus mince : aucune moyenne n'est
+  calculée ni publiée)
 - **Préconisation** (la décision d'expertise) : par arbre, un niveau
   d'**urgence** (Immédiate / Court terme / Moyen terme / Surveillance /
   Sans objet), une **échéance** d'intervention facultative et une
@@ -303,8 +304,8 @@ purement descriptif : n'impacte pas le diagnostic.
 - **Diagnostic non publié si n_sondages < 3** : en-dessous de 3
   directions sondées, trop peu de mesures réelles sur le pourtour (les
   directions non sondées sont extrapolées ou supposées saines) pour
-  publier un diagnostic global honnête. Le t/R moyen et la classe
-  globale sont alors **supprimés** de la fiche PDF (et des exports
+  publier un diagnostic global honnête. Le t/R minimal et la classe
+  sont alors **supprimés** de la fiche PDF (et des exports
   XLSX/HTML/CSV), remplacés par un avertissement explicite ; saisir au
   moins 3 sondages dans des directions différentes pour obtenir un
   diagnostic global. Ce seuil de fiabilité est volontairement découplé
@@ -348,8 +349,8 @@ purement descriptif : n'impacte pas le diagnostic.
   Titre mission + identité de l'arbre en toutes lettres, puis les
   colonnes N° · Direction (N/NE/…) · Grade · Rayon · PRBS bois sain ·
   Bois altéré · t/R (color-codé par classe) · Classe · Compartimentation
-  ✓ / ✗ / –. Sous le tableau : une ligne **Diagnostic** (t/R moyen +
-  classe globale, alignée sur la fiche PDF), une légende des glyphes
+  ✓ / ✗ / –. Sous le tableau : une ligne **Diagnostic** (t/R minimal +
+  classe, alignée sur la fiche PDF), une légende des glyphes
   puis une légende des classes. Thème vert Pénétromètre, alternance de
   lignes, en-tête gelé. Nécessite
   [openpyxl](https://pypi.org/project/openpyxl/)

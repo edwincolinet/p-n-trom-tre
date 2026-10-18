@@ -658,10 +658,8 @@ class RepartitionClassesTests(unittest.TestCase):
         self.assertEqual(snap.vert.grades, 400)
         self.assertAlmostEqual(snap.vert.pct, 100.0)
 
-    def test_classe_globale_basee_sur_le_tR_moyen(self):
-        # On crée 2 sondages opposés très altérés : le t/R moyen tombe
-        # bas → classe globale Rouge même si certaines directions
-        # extrapolées peuvent être Orange.
+    def test_classe_globale_basee_sur_le_tR_min(self):
+        # 2 sondages opposés très altérés : t/R minimal bas → Rouge.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=18.0))
@@ -670,7 +668,27 @@ class RepartitionClassesTests(unittest.TestCase):
         # t/R = 0.10 < 0.15 → Rouge sur tout le pourtour
         self.assertEqual(snap.rouge.n, 16)
         self.assertEqual(snap.classe_globale, "Rouge")
-        self.assertAlmostEqual(snap.tR_moyen, 0.10)
+        self.assertAlmostEqual(snap.tR_min, 0.10)
+
+    def test_un_point_faible_local_pilote_la_classe_malgre_une_moyenne_haute(self):
+        # Régression biomécanique : une moyenne masquait un point faible.
+        # 15 directions saines + une paroi quasi rompue → la classe doit
+        # suivre le point faible (Rouge), pas la moyenne (Vert).
+        a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
+        for g in range(0, 400, 25):
+            a.sondages.append(Sondage(grade=g, bois_sain_cm=18.0,
+                                      bois_altere_cm=2.0))
+        # remplace la direction 100 gr par une paroi résiduelle de 1 cm
+        a.sondages = [s for s in a.sondages if s.grade != 100]
+        a.sondages.append(Sondage(grade=100, bois_sain_cm=1.0,
+                                  bois_altere_cm=19.0))
+        snap = repartition_classes(a)
+        moyenne = sum(snap.ratios) / len(snap.ratios)
+        from bareme import classer_prbs
+        self.assertEqual(classer_prbs(moyenne, "libre"), "Vert")  # piège d’hier
+        self.assertAlmostEqual(snap.tR_min, 0.05)
+        self.assertEqual(snap.tR_min_grade, 100)
+        self.assertEqual(snap.classe_globale, "Rouge")
 
     def test_tR_min_localise_sur_la_pire_direction(self):
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
@@ -697,7 +715,7 @@ class RepartitionClassesTests(unittest.TestCase):
     def test_diagnostic_non_fiable_avec_deux_sondages(self):
         # Seuil métier porté à 3 : 2 sondages ne suffisent plus à publier
         # un diagnostic global fiable (la cavité reste extrapolée, mais
-        # t/R moyen + classe globale sont masqués).
+        # t/R minimal + classe sont masqués).
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=5.0))
         a.sondages.append(Sondage(grade=200, bois_altere_cm=5.0))
@@ -750,10 +768,10 @@ class RepartitionClassesTests(unittest.TestCase):
         snap = repartition_classes(a)
         diag = snap.diagnostic_global
         self.assertIsNotNone(diag)
-        # Décomposition tuple — le contrat est (tR_moyen, classe_globale)
+        # Décomposition tuple — le contrat est (tR_min, classe_globale)
         assert diag is not None
-        tR_moyen, classe_globale = diag
-        self.assertAlmostEqual(tR_moyen, snap.tR_moyen)
+        tR_min, classe_globale = diag
+        self.assertAlmostEqual(tR_min, snap.tR_min)
         self.assertEqual(classe_globale, snap.classe_globale)
 
 
@@ -864,8 +882,9 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
         self.assertIn("t/R minimal", joined)
         # Répartition présente
         self.assertIn("Répartition", joined)
-        # Classe globale finale (avec arbre très altéré → Rouge)
-        self.assertIn("Classe globale", joined)
+        # Classe finale (t/R minimal ; arbre très altéré → Rouge)
+        self.assertIn("Classe (t/R minimal)", joined)
+        self.assertNotIn("t/R moyen", joined)
         self.assertIn("Rouge", joined)
 
     def test_inclut_extrapolation_summary_text_si_partiel(self):
@@ -879,15 +898,14 @@ class DiagnosticSummaryLinesTests(unittest.TestCase):
 
     def test_un_seul_sondage_masque_la_classe_globale(self):
         # Avec n=1, l'extrapolation est désactivée et toutes les autres
-        # directions sont supposées saines : le t/R moyen serait alors
+        # directions sont supposées saines : la classe serait alors
         # faussement Vert. On vérifie que ces deux indicateurs ne sont
         # PAS affichés et qu'un avertissement explicite les remplace.
         a = Arbre(rayon_tronc_cm=20.0, port_arbre="libre")
         a.sondages.append(Sondage(grade=0, bois_altere_cm=18.0))
         lines = diagnostic_summary_lines(a)
         joined = "\n".join(lines)
-        self.assertNotIn("t/R moyen", joined)
-        self.assertNotIn("Classe globale", joined)
+        self.assertNotIn("Classe (t/R minimal)", joined)
         self.assertIn("Diagnostic global indisponible", joined)
         # t/R minimal reste affiché : c'est une mesure réelle sur la
         # seule direction sondée.
@@ -1065,7 +1083,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         a._relabel_brins()
         txt = "\n".join(genet_summary_lines(a))
         self.assertIn("cépée à 2 brins", txt)
-        self.assertIn("Classe globale (pire brin fiable)", txt)
+        self.assertIn("Classe (pire brin fiable)", txt)
         self.assertIn("──── Brin a ────", txt)
         self.assertIn("──── Brin b ────", txt)
 
@@ -1081,8 +1099,9 @@ class GenetDiagnosticTests(unittest.TestCase):
         # 1 ligne genet (brin_label="") + 2 sous-lignes (a, b).
         self.assertEqual([r.brin_label for r in rows], ["", "a", "b"])
         genet = rows[0]
-        # Classe genet = pire brin ; t/R moyen non publié au niveau genet.
-        self.assertIsNone(genet.tR_moyen_pct)
+        # Classe genet = pire brin ; t/R minimal genet = celui du pire brin.
+        brin_mins = [r.tR_min_pct for r in rows[1:]]
+        self.assertAlmostEqual(genet.tR_min_pct, min(brin_mins))
         cls_brins = [r.classe_globale for r in rows[1:]]
         from diagnostic import pire_classe
         self.assertEqual(genet.classe_globale, pire_classe(cls_brins))
@@ -1228,7 +1247,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         self.assertEqual(s.n_sondees, 3)
         self.assertEqual(s.rayon_cm, 20.0)
         self.assertTrue(s.fiable)
-        self.assertIsNotNone(s.tR_moyen_pct)
+        self.assertIsNotNone(s.tR_min_pct)
 
     def test_arbre_compare_summary_non_fiable(self):
         a = Arbre(numero_arbre="2", rayon_tronc_cm=20.0, port_arbre="libre")

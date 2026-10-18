@@ -300,9 +300,8 @@ TRANSLATIONS = {
     "Arbre n°{n}":                        "Albero n°{n}",
     "Port {port}":                        "Portamento {port}",
     "Port":                               "Portamento",
-    "t/R moyen (%)":                       "t/R medio (%)",
+    "t/R minimal (%)":                     "t/R minimo (%)",
     "Direction critique":                 "Direzione critica",
-    "t/R critique (%)":                    "t/R critico (%)",
     "Validité suivi":                     "Validità monitoraggio",
     "Échéance suivi":                     "Scadenza monitoraggio",
     "Commentaire suivi":                  "Commento monitoraggio",
@@ -437,10 +436,9 @@ TRANSLATIONS = {
     "\nNote : « Résistographe » est une marque déposée.\nCe logiciel utilise le terme générique « pénétromètre ».":
         "\nNota: 'Resistografo' è un marchio registrato.\nQuesto software utilizza il termine generico 'penetrometro'.",
 
-    "t/R moyen sur le pourtour":           "t/R medio sul perimetro",
     "t/R minimal":                         "t/R minimo",
-    "Classe globale":                      "Classe globale",
-    "Classe globale (pire brin)":          "Classe globale (fusto peggiore)",
+    "Classe (t/R minimal)":                "Classe (t/R minimo)",
+    "Classe (pire brin)":                  "Classe (fusto peggiore)",
     "Aucune altération saisie.":           "Nessuna alterazione registrata.",
 
     # ── Sprint 6 — ultime stringhe ────────────────────────────────────

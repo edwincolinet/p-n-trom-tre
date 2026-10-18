@@ -303,7 +303,7 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     return img
 
 
-# Légende du « pts » de la ligne t/R moyen — partagée par la fenêtre Tk, la
+# Légende du « pts » de la ligne t/R minimal — partagée par la fenêtre Tk, la
 # page PDF et (en version courte) la carte PNG. Le « pts » = points de
 # pourcentage est correct mais jargonneux : un écart de 15 pts entre 45 % et
 # 30 % n'est PAS une baisse de 15 % (c'est −33 % en relatif). On l'explicite.
@@ -323,8 +323,8 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
     """Lignes du tableau chiffré : (libellé, référence, courant, évolution).
     Partagé par la fenêtre Tk et la page d'export."""
     rows: List[Tuple[str, str, str, str]] = []
-    # Classe globale
-    rows.append(("Classe globale", _classe_aff(detail.classe_ref),
+    # Classe (t/R minimal)
+    rows.append(("Classe (t/R minimal)", _classe_aff(detail.classe_ref),
                  _classe_aff(detail.classe_cur), ""))
     # Diamètre du tronc — un arbre croît en diamètre entre deux campagnes.
     # Le rendre explicite : chaque PRBS/t/R est déjà rapporté à SON rayon,
@@ -338,13 +338,13 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
         if detail.rayon_ref is not None and detail.rayon_cur is not None:
             evo_diam = f"{2 * (detail.rayon_cur - detail.rayon_ref):+.1f} cm"
         rows.append(("Diamètre du tronc", diam_ref, diam_cur, evo_diam))
-    # t/R moyen
+    # t/R minimal (point le plus faible — seul indicateur biomécanique)
     evo_tr = ""
-    if detail.tR_moy_ref is not None and detail.tR_moy_cur is not None:
-        dpts = detail.tR_moy_cur - detail.tR_moy_ref
+    if detail.tR_min_ref is not None and detail.tR_min_cur is not None:
+        dpts = detail.tR_min_cur - detail.tR_min_ref
         evo_tr = f"{dpts:+.1f} pts"
-    rows.append(("t/R moyen", _pct_aff(detail.tR_moy_ref),
-                 _pct_aff(detail.tR_moy_cur), evo_tr))
+    rows.append(("t/R minimal", _pct_aff(detail.tR_min_ref),
+                 _pct_aff(detail.tR_min_cur), evo_tr))
     # PRBS moyenne extrapolée (16 directions)
     evo_prbs = ""
     if detail.perte_moy_par_dir is not None:

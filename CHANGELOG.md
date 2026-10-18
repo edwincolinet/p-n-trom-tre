@@ -5,6 +5,19 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ## En développement (depuis 3.6.0)
 
+### Diagnostic
+
+- **Classe de risque sur le t/R minimal** (et non plus sur le t/R moyen) :
+  en biomécanique, la rupture d'un tronc creux part de la paroi la plus
+  mince ; une moyenne pouvait classer « Vert » un arbre quasi rompu en un
+  point. `DiagnosticSnapshot.tR_moyen` et `MissionSynthesisRow.tR_moyen_pct`
+  sont supprimés ; `diagnostic_global` renvoie `(tR_min, classe)`. Fiche
+  PDF, exports XLSX/HTML/CSV, synthèse mission et comparaison de missions
+  publient désormais le t/R minimal. Les libellés « Classe globale »
+  deviennent « Classe (t/R minimal) » / « Classe (pire brin) » (cépée).
+  **Attention** : les seuils Vert/Orange/Rouge par défaut n'ont pas été
+  modifiés ; appliqués à un minimum ils sont plus sévères — à revalider.
+
 ### Sécurité
 
 - **Chemins de photos confinés** (`photo_paths.py`, nouveau module pur) : un

@@ -308,9 +308,8 @@ TRANSLATIONS = {
     "Arbre n°{n}":                        "Tree #{n}",
     "Port {port}":                        "Growth habit {port}",
     "Port":                               "Growth habit",
-    "t/R moyen (%)":                       "Average t/R (%)",
+    "t/R minimal (%)":                     "Minimum t/R (%)",
     "Direction critique":                 "Critical direction",
-    "t/R critique (%)":                    "Critical t/R (%)",
     "Validité suivi":                     "Follow-up validity",
     "Échéance suivi":                     "Follow-up deadline",
     "Commentaire suivi":                  "Follow-up comment",
@@ -462,10 +461,9 @@ TRANSLATIONS = {
         "\nNote: 'Resistograph' is a registered trademark.\nThis software uses the generic term 'resistograph'.",
 
     # PDF labels
-    "t/R moyen sur le pourtour":           "Average t/R around perimeter",
     "t/R minimal":                         "Minimum t/R",
-    "Classe globale":                      "Overall class",
-    "Classe globale (pire brin)":          "Overall class (worst stem)",
+    "Classe (t/R minimal)":                "Class (minimum t/R)",
+    "Classe (pire brin)":                  "Class (worst stem)",
     "Aucune altération saisie.":           "No alteration recorded.",
 
     # ── Sprint 6 — dernières chaînes ──────────────────────────────────

@@ -18,9 +18,9 @@ Mise en page (propre à Pénétromètre, terminologie interne) :
 - UNE LIGNE PAR SONDAGE : N° · Direction (N/NE/…) · Grade · Rayon ·
   PRBS bois sain · Bois altéré · t/R coloré · Classe (en toutes
   lettres) · Compartimentation ✓/✗/–.
-- Une ligne « Diagnostic » (t/R moyen, classe globale, t/R min),
-  alignée sur la fiche PDF (classe publiée = celle du t/R moyen,
-  masquée si < 3 directions sondées).
+- Une ligne « Diagnostic » (t/R minimal + classe), alignée sur la fiche
+  PDF (classe publiée = celle du t/R minimal, masquée si < 3 directions
+  sondées).
 - Une légende compartimentation (✓ active / ✗ absente / – neutre) et
   une légende des classes (Vert/Orange/Rouge).
 
@@ -290,7 +290,7 @@ def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
     """(texte, classe|"") de la ligne « Diagnostic » sous le tableau.
 
     Aligne l'export sur la fiche PDF : la classe publiée est celle du
-    **t/R moyen** et elle est masquée si < 3 directions sondées
+    **t/R minimal** et elle est masquée si < 3 directions sondées
     (`DiagnosticSnapshot.diagnostic_global`). Une cépée reporte la pire
     classe parmi les brins fiables (`genet_diagnostic`). La 2ᵉ valeur du
     tuple = label de classe (ou "") pour coloriser la ligne."""
@@ -301,19 +301,18 @@ def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
         if gd.classe_globale is None:
             return ("⚠ Diagnostic global indisponible : aucun brin avec au "
                     "moins 3 directions sondées.", "")
-        return (f"Classe globale (pire brin fiable) : {gd.classe_globale}",
+        return (f"Classe (pire brin fiable) : {gd.classe_globale}",
                 gd.classe_globale)
     snap = _diag_repartition_classes(a)
     diag = snap.diagnostic_global
     if diag is None:
         return ("⚠ Diagnostic non fiable : au moins 3 directions sondées "
                 "sont requises pour publier une classe.", "")
-    tR_moyen, classe = diag
+    tR_min, classe = diag
     crit = (f"{snap.tR_min_dir} ({snap.tR_min_grade} gr)"
             if snap.tR_min_dir else f"{snap.tR_min_grade} gr")
-    return (f"Diagnostic — t/R moyen {100 * tR_moyen:.1f} %   ·   "
-            f"Classe globale {classe}   ·   "
-            f"t/R minimal {100 * snap.tR_min:.1f} %  ({crit})", classe)
+    return (f"Diagnostic — t/R minimal {100 * tR_min:.1f} %  ({crit})   ·   "
+            f"Classe {classe}", classe)
 
 
 # ----------------------------------------------------------------------
@@ -488,7 +487,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         ws.row_dimensions[row].height = 22
         row += 1
 
-    # --- Ligne « Diagnostic » (t/R moyen · classe globale · t/R min) ---
+    # --- Ligne « Diagnostic » (t/R minimal · classe) ---
     row += 1  # ligne vide
     diag_text, diag_classe = _diagnostic_summary(arbre)
     diag_hex = couleur_classe.get(diag_classe, "1A2E22").lstrip("#")

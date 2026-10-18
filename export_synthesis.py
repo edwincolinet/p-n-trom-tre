@@ -35,8 +35,8 @@ except ImportError:
 
 
 _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
-                  "t/R moyen (%)", "Classe globale", "Direction critique",
-                  "t/R critique (%)", "Urgence", "Échéance", "Préconisation",
+                  "Classe (t/R minimal)", "Direction critique",
+                  "t/R minimal (%)", "Urgence", "Échéance", "Préconisation",
                   "Validité suivi", "Échéance suivi", "Commentaire suivi"]
 
 # Couleur de la cellule « Urgence » dans le XLSX : (fond, police) en hexa.
@@ -50,7 +50,7 @@ _URGENCE_FILL = {
 
 
 def _synth_classe_text(row: "MissionSynthesisRow") -> str:
-    """Texte de la colonne « Classe globale ». Distingue les 3 cas :
+    """Texte de la colonne « Classe (t/R minimal) ». Distingue les 3 cas :
     classe publiée (Vert/Orange/Rouge), arbre sondé mais non fiable
     (1-2 sondages → « Non fiable »), ou non renseigné (« — »)."""
     if row.classe_globale is not None:
@@ -102,7 +102,6 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
             w.writerow([_defuse(v) for v in [
                 num, ess, port, r.n_sondees,
                 f"{r.rayon_cm:g}",
-                _synth_pct_text(r.tR_moyen_pct),
                 _synth_classe_text(r),
                 _synth_crit_text(r),
                 _synth_pct_text(r.tR_min_pct),
@@ -120,7 +119,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                           couleur_classe: Mapping[str, str],
                           bareme_desc: str = "") -> None:
     """Synthèse mission en .xlsx thémé Pénétromètre : une ligne par arbre,
-    cellule « Classe globale » colorée, autofiltre (tri par n'importe
+    cellule « Classe (t/R minimal) » colorée, autofiltre (tri par n'importe
     quelle colonne — p.ex. trier par classe = priorités d'intervention),
     en-tête gelé, ligne de bilan en pied."""
     if not HAS_OPENPYXL:
@@ -180,7 +179,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     ws.row_dimensions[header_row].height = 30
 
     # --- Une ligne par arbre ---
-    classe_col = 7  # colonne « Classe globale » → fond coloré
+    classe_col = 6  # colonne « Classe (t/R minimal) » → fond coloré
     r_idx = header_row
     for k, row in enumerate(rows):
         r_idx += 1
@@ -194,7 +193,6 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
         values = [
             num, ess, prt, row.n_sondees,
             f"{row.rayon_cm:g}",
-            _synth_pct_text(row.tR_moyen_pct),
             classe_txt,
             _synth_crit_text(row),
             _synth_pct_text(row.tR_min_pct),
@@ -255,7 +253,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     ws.merge_cells(start_row=footer_row, start_column=1,
                    end_row=footer_row, end_column=last)
 
-    # --- Barème appliqué : la colonne « Classe globale » n'est
+    # --- Barème appliqué : la colonne « Classe (t/R minimal) » n'est
     # interprétable qu'avec ses seuils (réglage de poste). ---
     if bareme_desc:
         bareme_row = footer_row + 1
@@ -265,7 +263,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                        end_row=bareme_row, end_column=last)
 
     # --- Largeurs de colonnes ---
-    widths = [6, 18, 13, 10, 11, 14, 15, 20, 14, 20, 12, 40, 14, 12, 40]
+    widths = [6, 18, 13, 10, 11, 15, 20, 14, 20, 12, 40, 14, 12, 40]
     for i, wdt in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = wdt
 
