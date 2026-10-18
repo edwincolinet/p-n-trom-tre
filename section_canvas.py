@@ -52,10 +52,12 @@ from palette import (
     COLOR_PANEL,
     COLOR_RENDER_ACCENT,
     COLOR_ROT,
+    COLOR_SIDE_PANEL,
     COLOR_SOND,
     COLOR_WOOD,
     COULEUR_CLASSE,
 )
+from ui_fonts import family_body, family_title, font
 
 
 class _CanvasHost(Protocol):
@@ -175,7 +177,7 @@ class SectionCanvas(tk.Canvas):
 
     # --- Infobulle de commentaire au survol ----------------------------
 
-    _TIP_BG = "#FFFFE0"  # jaune pâle d'infobulle (cf. tooltip.Tooltip)
+    _TIP_BG = COLOR_SIDE_PANEL  # cf. tooltip.Tooltip
 
     def _hovered_comment(self) -> str:
         """Commentaire (non vide, rogné) de l'objet métier sous le curseur,
@@ -217,7 +219,7 @@ class SectionCanvas(tk.Canvas):
         tip.wm_geometry(f"+{x}+{y}")
         tk.Label(tip, text=text, justify="left", background=self._TIP_BG,
                  foreground=COLOR_INK, relief="solid", borderwidth=1,
-                 font=("Helvetica", 9), padx=6, pady=3,
+                 font=font("Helvetica", 9), padx=6, pady=3,
                  wraplength=280).pack()
         self._tip = tip
 
@@ -614,9 +616,9 @@ class SectionCanvas(tk.Canvas):
         for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                        (-2, 0), (2, 0), (0, -2), (0, 2)):
             self.create_text(cx + dx, y + dy, text=brin.label,
-                             font=("Georgia", 13, "bold"), fill="white")
+                             font=(family_title(), 13, "bold"), fill="white")
         self.create_text(cx, y, text=brin.label,
-                         font=("Georgia", 13, "bold"), fill=COLOR_RENDER_ACCENT)
+                         font=(family_title(), 13, "bold"), fill=COLOR_RENDER_ACCENT)
 
     def _draw_cepee(self, A: Arbre) -> None:
         """Compose une cépée : N brins positionnés dans un cadrage commun.
@@ -680,9 +682,9 @@ class SectionCanvas(tk.Canvas):
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
-                                 font=("Georgia", 13, "bold"), fill="white")
+                                 font=(family_title(), 13, "bold"), fill="white")
             self.create_text(lx, ly, text=lbl,
-                             font=("Georgia", 13, "bold"), fill=COLOR_INK)
+                             font=(family_title(), 13, "bold"), fill=COLOR_INK)
         self._draw_titre(A, drawable[0].rayon_tronc_cm)
 
     def _draw_echelle_radiale(self, brin: "Brin", cx: float, cy: float,
@@ -732,9 +734,9 @@ class SectionCanvas(tk.Canvas):
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
-                                 font=("Helvetica", 8, "bold"), fill="white")
+                                 font=(family_body(), 8, "bold"), fill="white")
             self.create_text(lx, ly, text=lbl,
-                             font=("Helvetica", 8, "bold"), fill=COLOR_INK)
+                             font=(family_body(), 8, "bold"), fill=COLOR_INK)
 
     # ------------------------------------------------------------------
     # Helpers de dessin — un par couche logique.
@@ -770,12 +772,12 @@ class SectionCanvas(tk.Canvas):
         self.create_text(
             w / 2, h / 2 - 22,
             text="Sélectionnez un arbre dans la liste\nou créez-en un avec ＋ Ajouter",
-            font=("Georgia", 13, "italic"),
+            font=(family_title(), 13, "italic"),
             fill=COLOR_MUTED, justify="center")
         self.create_text(
             w / 2, h / 2 + 18,
             text="Ctrl+T  ·  nouvelle arbre vierge     Ctrl+O  ·  ouvrir une mission",
-            font=("Helvetica", 9),
+            font=(family_body(), 9),
             fill=COLOR_MUTED, justify="center")
 
     def _draw_placeholder(self) -> None:
@@ -783,7 +785,7 @@ class SectionCanvas(tk.Canvas):
         h = max(self.winfo_height(), 1)
         self.create_text(w/2, h/2,
                          text="Renseignez le rayon du tronc\npour afficher la section",
-                         font=("Georgia", 14, "italic"),
+                         font=(family_title(), 14, "italic"),
                          fill=COLOR_MUTED, justify="center")
 
     def _draw_bois_sain(self, brin: "Brin", cx: float, cy: float,
@@ -893,9 +895,9 @@ class SectionCanvas(tk.Canvas):
             for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1),
                            (-2, 0), (2, 0), (0, -2), (0, 2)):
                 self.create_text(lx + dx, ly + dy, text=lbl,
-                                 font=("Georgia", 13, "bold"), fill="white")
+                                 font=(family_title(), 13, "bold"), fill="white")
             self.create_text(lx, ly, text=lbl,
-                             font=("Georgia", 13, "bold"), fill=COLOR_INK)
+                             font=(family_title(), 13, "bold"), fill=COLOR_INK)
 
     def _draw_sondages(self, brin: "Brin", port: str, meche: float,
                        cx: float, cy: float, R: float, scale: float) -> None:
@@ -925,7 +927,7 @@ class SectionCanvas(tk.Canvas):
                              fill=item.classe_color, outline="white",
                              width=2, tags=tags)
             self.create_text(px, py, text=str(item.numero),
-                             font=("Helvetica", 10, "bold"), fill="white",
+                             font=(family_body(), 10, "bold"), fill="white",
                              tags=tags)
 
     def _draw_titre(self, A: Arbre, R: float) -> None:
@@ -935,4 +937,4 @@ class SectionCanvas(tk.Canvas):
         # s'aligne ainsi sur le PNG (`_pil_draw_titre`, titre seul).
         w = max(self.winfo_width(), 1)
         self.create_text(w/2, 16, text=A.display_name,
-                         font=("Georgia", 15, "bold"), fill=COLOR_RENDER_ACCENT)
+                         font=(family_title(), 15, "bold"), fill=COLOR_RENDER_ACCENT)

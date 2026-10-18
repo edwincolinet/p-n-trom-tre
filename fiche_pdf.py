@@ -64,9 +64,11 @@ from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
 from palette import (
     COLOR_BG,
+    COLOR_BRAND_ORANGE,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_RENDER_ACCENT,
+    COLOR_SIDE_PANEL,
     COULEUR_CLASSE,
 )
 from photo_paths import resolve_photo
@@ -92,10 +94,12 @@ _PX = 72.0 / 150.0
 _FONT_DIR = Path(__file__).parent / "assets" / "fonts"
 
 # Style logique (hérité de la factory PIL) → (famille fpdf2, style fpdf2).
+# Charte SILVAVENIR : Source Sans 3 (corps ; « gras » = demi-gras 600) et
+# Jost 700 (titres — rôle historiquement nommé « serif_bold »).
 _STYLE = {
-    "sans":       ("DejaVu", ""),
-    "sans_bold":  ("DejaVu", "B"),
-    "serif_bold": ("DejaVuSerif", "B"),
+    "sans":       ("SourceSans3", ""),
+    "sans_bold":  ("SourceSans3", "B"),
+    "serif_bold": ("Jost", "B"),
 }
 
 # Fractions de l'em pour poser la ligne de base et imiter les ancres PIL.
@@ -109,6 +113,9 @@ _MID = 0.35    # ancre milieu (lm, rm, mm)
 
 # Fallbacks système par variante, au cas où `assets/fonts/` serait retiré.
 _FONT_FALLBACK = {
+    "SourceSans3-Regular.ttf": [str(_FONT_DIR / "DejaVuSans.ttf")],
+    "SourceSans3-SemiBold.ttf": [str(_FONT_DIR / "DejaVuSans-Bold.ttf")],
+    "Jost-Bold.ttf": [str(_FONT_DIR / "DejaVuSerif-Bold.ttf")],
     "DejaVuSans.ttf": [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         r"C:\Windows\Fonts\arial.ttf",
@@ -129,9 +136,11 @@ _FONT_FALLBACK = {
 def _font_file(name: str) -> str:
     """Chemin de la police `name` : embarquée en priorité, sinon système.
 
-    DejaVu porte accents + ✓ (U+2713) + ✗ (U+2717) + – (U+2013) + Ø + ● →
-    tout ce qu'utilise la fiche (Helvetica de base est latin-1 → casserait
-    les accents et les glyphes de compartimentation)."""
+    Source Sans 3 / Jost (charte SILVAVENIR) portent accents + ✓ (U+2713)
+    + ✗ (U+2717) + – (U+2013) + Ø + ● → tout ce qu'utilise la fiche
+    (Helvetica de base est latin-1 → casserait les accents et les glyphes
+    de compartimentation). Pas de ⚠ (U+26A0), absent de ces polices : la
+    fiche utilise ▲. DejaVu reste embarquée en dernier recours."""
     embedded = _FONT_DIR / name
     if embedded.exists():
         return str(embedded)
@@ -142,9 +151,10 @@ def _font_file(name: str) -> str:
 
 
 def _register_fonts(pdf: FPDF) -> None:
-    pdf.add_font("DejaVu", "", _font_file("DejaVuSans.ttf"))
-    pdf.add_font("DejaVu", "B", _font_file("DejaVuSans-Bold.ttf"))
-    pdf.add_font("DejaVuSerif", "B", _font_file("DejaVuSerif-Bold.ttf"))
+    pdf.add_font("SourceSans3", "", _font_file("SourceSans3-Regular.ttf"))
+    pdf.add_font("SourceSans3", "B", _font_file("SourceSans3-SemiBold.ttf"))
+    pdf.add_font("SourceSans3", "I", _font_file("SourceSans3-Italic.ttf"))
+    pdf.add_font("Jost", "B", _font_file("Jost-Bold.ttf"))
 
 
 # --- Couleurs -------------------------------------------------------------
@@ -246,8 +256,8 @@ def _new_pdf() -> FPDF:
     pdf.set_margins(0, 0)
     pdf.set_margin(0)
     _register_fonts(pdf)
-    pdf.set_title("Fiche d'expertise Pénétromètre")
-    pdf.set_creator("Pénétromètre")
+    pdf.set_title("Fiche d'expertise Pénétromètre Silvavenir")
+    pdf.set_creator("Pénétromètre Silvavenir")
     return pdf
 
 
@@ -291,14 +301,12 @@ def _wrap_lines(pg: _Page, text: str, size: float, style: str,
     return lines
 
 
-# Couleur du badge d'urgence (fond plein, texte blanc) selon le délai —
-# gradient vert (peu urgent) → rouge (immédiat).
-_URGENCE_COLOR = {
-    "Immédiate": "#C0392B",
-    "< 6 mois":  "#E67E22",
-    "< 1 an":    "#B7950B",
-    "< 2 ans":   "#2D7A3E",
-}
+# Pastille d'urgence : NEUTRE (fond Sous-couche, filet, encre). Charte
+# SILVAVENIR : « le délai est une donnée d'échéance, pas un niveau de
+# risque — il se compose toujours en neutre ; seule la couleur de synthèse
+# (classe) porte la gravité ».
+_URGENCE_FOND = "#F4F2EC"
+_URGENCE_FILET = "#D9D7CF"
 
 
 def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
@@ -338,7 +346,7 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
 
 def _draw_footer(pg: _Page, chantier: "Chantier", cabinet_name: str,
                  margin: int) -> None:
-    """Filet + ligne barème + ligne Pénétromètre/date, en bas de la page
+    """Filet + ligne barème + ligne Pénétromètre Silvavenir/date, en bas de la page
     courante. Factorisé pour être rejoué identique sur chaque page d'une
     fiche qui déborde sur plusieurs pages (table PRBS d'une grosse cépée,
     cf. `render_fiche_arbre`)."""
@@ -348,7 +356,7 @@ def _draw_footer(pg: _Page, chantier: "Chantier", cabinet_name: str,
             12, "sans", COLOR_MUTED, anchor="mm")
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
     pg.text(W / 2, H - 22,
-            f"Pénétromètre{cab_suffix}   •   " + _("Édité le")
+            f"Pénétromètre Silvavenir{cab_suffix}   •   " + _("Édité le")
             + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
             14, "sans", COLOR_MUTED, anchor="mm")
 
@@ -386,6 +394,9 @@ def render_fiche_arbre(pdf: FPDF,
     # --- En-tête mission avec logo cabinet ---
     header_h = 116
     pg.rect(margin, y, W - margin, y + header_h, COLOR_RENDER_ACCENT)
+    # Filet orange de marque sous le bandeau (charte SILVAVENIR).
+    pg.rect(margin, y + header_h, W - margin, y + header_h + 4,
+            COLOR_BRAND_ORANGE)
     # Logo à droite (fond blanc pour le détacher du vert)
     logo_w = 0
     try:
@@ -406,7 +417,7 @@ def render_fiche_arbre(pdf: FPDF,
         pass
 
     header_text_w = W - margin * 2 - logo_w - 20
-    pg.text(margin + 20, y + 22, "Fiche d'expertise — Pénétromètre",
+    pg.text(margin + 20, y + 22, "Fiche d'expertise — Pénétromètre Silvavenir",
             30, "serif_bold", "white")
     _lbl_client = _("Client")
     mission_txt = _fit_text(
@@ -463,7 +474,7 @@ def render_fiche_arbre(pdf: FPDF,
         est_diag_h = 360  # majorant : t/R + bar + détail + classe
     est_legend_h = 56
     # Pied de page : filet (H-60) + ligne barème (H-44) + ligne
-    # Pénétromètre/date (H-22). Doit rester cohérent avec le bloc « Pied de
+    # Pénétromètre Silvavenir/date (H-22). Doit rester cohérent avec le bloc « Pied de
     # page » plus bas, sinon le contenu déborde sur le pied.
     footer_reserve = 76
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
@@ -677,7 +688,6 @@ def render_fiche_arbre(pdf: FPDF,
             if arbre.urgence and y_preco + 46 <= y_limit:
                 lbl = _("Urgence :") + " "
                 lbl_w = pg.sw(lbl, 16, "sans")
-                urg_color = _URGENCE_COLOR.get(arbre.urgence, COLOR_INK)
                 uw = pg.sw(arbre.urgence, 16, "sans_bold")
                 uh = _text_h(16)
                 bx, by = 12, 7
@@ -685,9 +695,12 @@ def render_fiche_arbre(pdf: FPDF,
                 badge_x = txt_x + lbl_w
                 pg.rect(badge_x, y_preco,
                         badge_x + uw + 2 * bx, y_preco + uh + 2 * by,
-                        urg_color)
+                        _URGENCE_FILET)
+                pg.rect(badge_x + 1, y_preco + 1,
+                        badge_x + uw + 2 * bx - 1, y_preco + uh + 2 * by - 1,
+                        _URGENCE_FOND)
                 pg.text(badge_x + bx, y_preco + by, arbre.urgence,
-                        16, "sans_bold", "white")
+                        16, "sans_bold", COLOR_INK)
                 y_preco += int(uh) + 2 * by + 12
 
             if arbre.echeance and y_preco + 26 <= y_limit:
@@ -769,7 +782,7 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
             y += 4
         if diag is None:
             pg.text(x_left, y,
-                    "⚠ Diagnostic global indisponible : il faut au moins",
+                    "▲ Diagnostic global indisponible : il faut au moins",
                     18, "sans_bold", (176, 0, 32))
             y += 26
             pg.text(x_left, y,
@@ -874,7 +887,7 @@ def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
         y += box_h + 16
     else:
         pg.text(x_left, y,
-                "⚠ Classe indisponible : aucun brin avec au moins "
+                "▲ Classe indisponible : aucun brin avec au moins "
                 "3 directions sondées.",
                 18, "sans_bold", (176, 0, 32))
         y += 36
@@ -928,6 +941,8 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
 
     header_h = 80
     pg.rect(margin, y, W - margin, y + header_h, COLOR_RENDER_ACCENT)
+    pg.rect(margin, y + header_h, W - margin, y + header_h + 4,
+            COLOR_BRAND_ORANGE)
     pg.text(margin + 20, y + header_h // 2,
             _("Photos") + f"   —   {arbre.display_name}",
             28, "serif_bold", "white", anchor="lm")
@@ -955,7 +970,7 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
         x0 = margin + col * (col_w + gap)
         y0 = y + row * (row_total_h + gap)
 
-        pg.rect(x0, y0, x0 + col_w, y0 + photo_h, "#F0F0F0")
+        pg.rect(x0, y0, x0 + col_w, y0 + photo_h, COLOR_SIDE_PANEL)
 
         try:
             img = Image.open(photo_path).convert("RGB")
@@ -971,7 +986,7 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
             py = y0 + (photo_h - new_h) // 2
             pg.image(img, px, py, new_w, new_h)
         except Exception:
-            pg.text(x0 + col_w // 2, y0 + photo_h // 2, "⚠ Photo illisible",
+            pg.text(x0 + col_w // 2, y0 + photo_h // 2, "▲ Photo illisible",
                     16, "sans", COLOR_MUTED, anchor="mm")
 
         caption = _("Photo {n}").format(n=idx + 1)

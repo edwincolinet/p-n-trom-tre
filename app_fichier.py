@@ -37,7 +37,7 @@ from bareme import description_seuils, get_groupes, seuils_depuis_brut
 from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
-from palette import COULEUR_CLASSE
+from palette import COLOR_BG, COULEUR_CLASSE
 from persistence import clear_recovery, load_chantier, save_chantier, write_backup
 from undo import UndoStack
 
@@ -139,7 +139,7 @@ class FichierMixin(_MixinBase):
                 return
         p = filedialog.askopenfilename(
             title=_("Ouvrir une mission"),
-            filetypes=[("Mission Pénétromètre", "*.json"),
+            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"),
                        ("Tous", "*.*")])
         if not p:
             return
@@ -191,7 +191,7 @@ class FichierMixin(_MixinBase):
         dlg = tk.Toplevel(self)
         dlg.title(_("Nouvelle mission depuis un modèle"))
         dlg.resizable(False, False)
-        dlg.configure(bg="#F5F7F5")
+        dlg.configure(bg=COLOR_BG)
 
         from ui_fonts import font_body, font_subheading
         frm = ttk.Frame(dlg, padding=16)
@@ -386,7 +386,7 @@ class FichierMixin(_MixinBase):
         dans la mission courante. Renvoie True si chargée."""
         p = filedialog.askopenfilename(
             title=_("Choisir la mission de référence (campagne antérieure)"),
-            filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
+            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"), ("Tous", "*.*")])
         if not p:
             return False
         try:
@@ -427,7 +427,7 @@ class FichierMixin(_MixinBase):
                 return
         p = filedialog.askopenfilename(
             title=_("Mission antérieure à ré-inspecter (servira de référence)"),
-            filetypes=[("Mission Pénétromètre", "*.json"), ("Tous", "*.*")])
+            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"), ("Tous", "*.*")])
         if not p:
             return
         try:
@@ -664,7 +664,7 @@ class FichierMixin(_MixinBase):
     def action_save_as(self) -> None:
         p = filedialog.asksaveasfilename(
             defaultextension=".json",
-            filetypes=[("Mission Pénétromètre", "*.json")])
+            filetypes=[("Mission Pénétromètre Silvavenir", "*.json")])
         if not p:
             return
         self.current_file = Path(p)

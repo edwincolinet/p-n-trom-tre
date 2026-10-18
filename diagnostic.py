@@ -356,7 +356,7 @@ def extrapolation_summary(arbre: "Section") -> Dict[str, int]:
 
     L'interprétation (« est-ce fiable ? ») est laissée au lecteur :
     l'app expose les chiffres bruts dans le diagnostic et la fiche
-    PDF/XLSX/HTML, libre à l'opérateur Pénétromètre d'en tirer la
+    PDF/XLSX/HTML, libre à l'opérateur Pénétromètre Silvavenir d'en tirer la
     conclusion adaptée à son cas.
     """
     grades_sondes = sorted({s.grade for s in arbre.sondages

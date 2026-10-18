@@ -728,7 +728,7 @@ class Arbre:
     @property
     def display_name(self) -> str:
         """Nom affiché : 'Arbre n°X' ou 'Arbre n°X — Essence'."""
-        base = f"Arbre n°{self.numero_arbre}" if self.numero_arbre else "Arbre"
+        base = f"Arbre n°\u00a0{self.numero_arbre}" if self.numero_arbre else "Arbre"
         if self.essence:
             return f"{base} — {self.essence}"
         return base

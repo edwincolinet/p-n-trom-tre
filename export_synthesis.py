@@ -39,14 +39,10 @@ _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
                   "t/R minimal (%)", "Urgence", "Échéance", "Préconisation",
                   "Validité suivi", "Échéance suivi", "Commentaire suivi"]
 
-# Couleur de la cellule « Urgence » dans le XLSX : (fond, police) en hexa.
-# Aligne la lecture du délai d'intervention sur celle de la classe de risque.
-_URGENCE_FILL = {
-    "Immédiate": ("C0392B", "FFFFFF"),
-    "< 6 mois":  ("E67E22", "FFFFFF"),
-    "< 1 an":    ("F1C40F", "1A2E22"),
-    "< 2 ans":   ("A9DFBF", "1A2E22"),
-}
+# Cellule « Urgence » : NEUTRE (fond Sous-couche, encre). Charte SILVAVENIR :
+# le délai est une donnée d'échéance, pas un niveau de risque — seule la
+# colonne Classe porte la gravité (couleur).
+_URGENCE_NEUTRE = ("F4F2EC", "404040")
 
 
 def _synth_classe_text(row: "MissionSynthesisRow") -> str:
@@ -118,7 +114,7 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                           chantier: ChantierLike, path: str,
                           couleur_classe: Mapping[str, str],
                           bareme_desc: str = "") -> None:
-    """Synthèse mission en .xlsx thémé Pénétromètre : une ligne par arbre,
+    """Synthèse mission en .xlsx thémé Pénétromètre Silvavenir : une ligne par arbre,
     cellule « Classe (t/R minimal) » colorée, autofiltre (tri par n'importe
     quelle colonne — p.ex. trier par classe = priorités d'intervention),
     en-tête gelé, ligne de bilan en pied."""
@@ -132,19 +128,20 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     ws.title = _("Synthèse")
 
     BORDER = Border(
-        left=Side(style="thin", color="999999"),
-        right=Side(style="thin", color="999999"),
-        top=Side(style="thin", color="999999"),
-        bottom=Side(style="thin", color="999999"),
+        left=Side(style="thin", color="D9D7CF"),
+        right=Side(style="thin", color="D9D7CF"),
+        top=Side(style="thin", color="D9D7CF"),
+        bottom=Side(style="thin", color="D9D7CF"),
     )
-    HEADER_FILL = PatternFill("solid", fgColor="2D7A3E")
-    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    TITLE_FONT = Font(name="Calibri", size=16, bold=True, color="2D7A3E")
-    SUBTITLE_FONT = Font(name="Calibri", size=10, color="6E7B73")
-    ROW_FONT = Font(name="Calibri", size=11, color="1A2E22")
-    ALT_ROW_FILL = PatternFill("solid", fgColor="F2F2F2")
+    HEADER_FILL = PatternFill("solid", fgColor="385623")
+    HEADER_FONT = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    TITLE_FONT = Font(name="Century Gothic", size=14, bold=True,
+                      color="F58101")
+    SUBTITLE_FONT = Font(name="Segoe UI", size=10, color="595959")
+    ROW_FONT = Font(name="Segoe UI", size=11, color="404040")
+    ALT_ROW_FILL = PatternFill("solid", fgColor="F4F2EC")
     MUTED_FILL = PatternFill("solid", fgColor="E0E0E0")
-    FOOTER_FONT = Font(name="Calibri", size=10, italic=True, color="6E7B73")
+    FOOTER_FONT = Font(name="Segoe UI", size=10, italic=True, color="595959")
     CENTER = Alignment(horizontal="center", vertical="center",
                        wrap_text=True)
     LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
@@ -153,7 +150,9 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
 
     # --- Titre + sous-titre mission ---
     ws.cell(row=1, column=1,
-            value=_defuse(_("Pénétromètre — Synthèse mission « {nom} »").format(nom=chantier.nom or _("Mission")))
+            value=_defuse(_(
+                "Pénétromètre Silvavenir — Synthèse mission « {nom} »"
+            ).format(nom=chantier.nom or _("Mission")))
             ).font = TITLE_FONT
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last)
     subtitle_parts = []
@@ -217,14 +216,14 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
                 hexa = couleur_classe.get(classe_txt, "").lstrip("#")
                 if hexa:
                     c.fill = PatternFill("solid", fgColor=hexa)
-                    c.font = Font(name="Calibri", size=11, bold=True,
+                    c.font = Font(name="Segoe UI", size=11, bold=True,
                                   color="FFFFFF")
                 else:
                     c.fill = MUTED_FILL
-            elif i == urgence_col and row.urgence in _URGENCE_FILL:
-                fill_hex, font_hex = _URGENCE_FILL[row.urgence]
+            elif i == urgence_col and row.urgence:
+                fill_hex, font_hex = _URGENCE_NEUTRE
                 c.fill = PatternFill("solid", fgColor=fill_hex)
-                c.font = Font(name="Calibri", size=11, bold=True,
+                c.font = Font(name="Segoe UI", size=11, bold=True,
                               color=font_hex)
             elif use_alt:
                 c.fill = ALT_ROW_FILL

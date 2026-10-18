@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pilote de l'app Pénétromètre (Pénétromètre) — lance la VRAIE App Tk et déclenche
+Pilote de l'app Pénétromètre Silvavenir — lance la VRAIE App Tk et déclenche
 un export réel, sans interaction manuelle.
 
 Le seul « faux » élément est la boîte « Enregistrer sous »
@@ -33,7 +33,7 @@ import sys
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Pilote d'export PDF Pénétromètre")
+    ap = argparse.ArgumentParser(description="Pilote d'export PDF Pénétromètre Silvavenir")
     ap.add_argument("--mission", default="exemples/mission_demo.json",
                     help="Fichier mission .json à charger")
     ap.add_argument("--arbre", default=None,

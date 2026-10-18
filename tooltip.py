@@ -19,13 +19,14 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional
 
-from palette import COLOR_INK
+from palette import COLOR_INK, COLOR_SIDE_PANEL
+from ui_fonts import font
 
 
 class Tooltip:
     """Infobulle au survol d'un widget. Une instance par widget."""
 
-    _BG = "#FFFFE0"  # jaune pâle classique d'infobulle
+    _BG = COLOR_SIDE_PANEL  # Sous-couche de la charte (plus de jaune pâle)
 
     def __init__(self, widget: tk.Widget, text: str,
                  delay_ms: int = 500, wraplength: int = 320) -> None:
@@ -61,7 +62,7 @@ class Tooltip:
         tip.wm_geometry(f"+{x}+{y}")
         tk.Label(tip, text=self.text, justify="left", background=self._BG,
                  foreground=COLOR_INK, relief="solid", borderwidth=1,
-                 font=("Helvetica", 9), padx=6, pady=3,
+                 font=font("Helvetica", 9), padx=6, pady=3,
                  wraplength=self.wraplength).pack()
         self._tip = tip
 

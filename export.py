@@ -9,7 +9,7 @@ Deux formats au choix :
   dépendance — ouvrable dans n'importe quel navigateur, imprimable en
   PDF via le navigateur.
 
-Mise en page (propre à Pénétromètre, terminologie interne) :
+Mise en page (propre au Pénétromètre Silvavenir, terminologie interne) :
 - Un titre mission + un sous-titre méta (adresse, opérateur, date…).
 - Deux lignes d'identité de l'arbre en toutes lettres (N°, essence,
   port ; puis Ø sous écorce, hauteur de sondage, hauteur de l'arbre) —
@@ -68,11 +68,13 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
+_NOM_PRODUIT = "Pénétromètre Silvavenir"
+
 
 # ----------------------------------------------------------------------
 # Protocols : surface attendue des objets métier passés en paramètre.
 # Évite un import direct vers `model.py` (qui marcherait, mais qui
-# rendrait `export.py` dépendant du modèle Pénétromètre ; les protocols
+# rendrait `export.py` dépendant du modèle Pénétromètre Silvavenir ; les protocols
 # le rendent réutilisable avec n'importe quel objet qui exposerait la
 # même surface, et donnent à mypy le contrat à vérifier côté caller).
 # ----------------------------------------------------------------------
@@ -266,7 +268,7 @@ def _value_or_dash(value: Any, unit: str = "") -> str:
 def _identity_line(arbre: ArbreLike) -> str:
     """Ligne d'identité de l'arbre, en toutes lettres (remplace l'ancienne
     bande méta fusionnée sur 7 colonnes)."""
-    parts = [_("Arbre n°{n}").format(n=arbre.numero_arbre)
+    parts = [_("Arbre n°\u00a0{n}").format(n=arbre.numero_arbre)
              if arbre.numero_arbre else _("Arbre")]
     if arbre.essence:
         parts.append(arbre.essence)
@@ -373,20 +375,21 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     ws.title = "PRBS"
 
     BORDER = Border(
-        left=Side(style="thin", color="999999"),
-        right=Side(style="thin", color="999999"),
-        top=Side(style="thin", color="999999"),
-        bottom=Side(style="thin", color="999999"),
+        left=Side(style="thin", color="D9D7CF"),
+        right=Side(style="thin", color="D9D7CF"),
+        top=Side(style="thin", color="D9D7CF"),
+        bottom=Side(style="thin", color="D9D7CF"),
     )
-    HEADER_FILL = PatternFill("solid", fgColor="2D7A3E")
-    HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    TITLE_FONT = Font(name="Calibri", size=16, bold=True, color="2D7A3E")
-    SUBTITLE_FONT = Font(name="Calibri", size=10, color="6E7B73")
-    IDENTITY_FONT = Font(name="Calibri", size=12, bold=True, color="1A2E22")
-    ROW_FONT = Font(name="Calibri", size=11, color="1A2E22")
-    ALT_ROW_FILL = PatternFill("solid", fgColor="F2F2F2")
-    LEGEND_FONT = Font(name="Calibri", size=10, italic=True,
-                       color="6E7B73")
+    HEADER_FILL = PatternFill("solid", fgColor="385623")
+    HEADER_FONT = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    TITLE_FONT = Font(name="Century Gothic", size=14, bold=True,
+                      color="F58101")
+    SUBTITLE_FONT = Font(name="Segoe UI", size=10, color="595959")
+    IDENTITY_FONT = Font(name="Segoe UI", size=12, bold=True, color="404040")
+    ROW_FONT = Font(name="Segoe UI", size=11, color="404040")
+    ALT_ROW_FILL = PatternFill("solid", fgColor="F4F2EC")
+    LEGEND_FONT = Font(name="Segoe UI", size=10, italic=True,
+                       color="595959")
 
     LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
     CENTER = Alignment(horizontal="center", vertical="center",
@@ -404,7 +407,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                        end_row=row, end_column=last)
 
     # --- Titre + sous-titre mission + identité arbre ---
-    _banner(1, f"Pénétromètre — {chantier.nom or _('Mission')}", TITLE_FONT)
+    _banner(1, f"Pénétromètre Silvavenir — {chantier.nom or _('Mission')}", TITLE_FONT)
     subtitle_parts = []
     if chantier.client:
         subtitle_parts.append(_("Client") + f" : {chantier.client}")
@@ -433,8 +436,8 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     if not rows_data:
         c_empty = ws.cell(row=row, column=1,
                           value=_("Aucun sondage enregistré."))
-        c_empty.font = Font(name="Calibri", size=10, italic=True,
-                            color="6E7B73")
+        c_empty.font = Font(name="Segoe UI", size=10, italic=True,
+                            color="595959")
         c_empty.alignment = LEFT
         c_empty.border = BORDER
         ws.merge_cells(start_row=row, start_column=1,
@@ -471,16 +474,16 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
                 c.fill = ALT_ROW_FILL
             if i == _COL_COMPART:
                 c.value = glyph
-                c.font = Font(name="Calibri", size=14, bold=True,
+                c.font = Font(name="Segoe UI", size=14, bold=True,
                               color=glyph_hex)
             elif i == _COL_TR:
                 c.value = v
                 c.fill = PatternFill("solid", fgColor=classe_hex)
-                c.font = Font(name="Calibri", size=11, bold=True,
+                c.font = Font(name="Segoe UI", size=11, bold=True,
                               color="FFFFFF")
             elif i == _COL_CLASSE:
                 c.value = v
-                c.font = Font(name="Calibri", size=11, bold=True,
+                c.font = Font(name="Segoe UI", size=11, bold=True,
                               color=classe_hex)
             else:
                 c.value = v
@@ -490,9 +493,9 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # --- Ligne « Diagnostic » (t/R minimal · classe) ---
     row += 1  # ligne vide
     diag_text, diag_classe = _diagnostic_summary(arbre)
-    diag_hex = couleur_classe.get(diag_classe, "1A2E22").lstrip("#")
+    diag_hex = couleur_classe.get(diag_classe, "404040").lstrip("#")
     _banner(row, diag_text,
-            Font(name="Calibri", size=12, bold=True, color=diag_hex))
+            Font(name="Segoe UI", size=12, bold=True, color=diag_hex))
     row += 2
 
     # --- Légende compartimentation (une bannière, glyphes en clair) ---
@@ -513,7 +516,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         else:
             label = f"Classe {class_key}"
         c = ws.cell(row=row, column=col, value=f"● {label}")
-        c.font = Font(name="Calibri", size=11, bold=True,
+        c.font = Font(name="Segoe UI", size=11, bold=True,
                       color=hex_.lstrip("#"))
         c.alignment = CENTER
         col += 1
@@ -530,9 +533,9 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     suffix = f" · {cabinet_name}" if cabinet_name else ""
     _banner(row,
             _("Édité le")
-            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre"
+            + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre Silvavenir"
             + suffix,
-            Font(name="Calibri", size=9, italic=True, color="6E7B73"))
+            Font(name="Segoe UI", size=9, italic=True, color="595959"))
 
     # --- Largeurs de colonnes fixes (contenu court et régulier) ---
     widths = [6, 11, 10, 11, 18, 15, 10, 11, 10]
@@ -552,33 +555,35 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
 _HTML_CSS = """
 * { box-sizing: border-box; }
 body {
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    color: #1A2E22;
-    background: #F7F3EA;
+    font-family: "Source Sans 3", "Segoe UI", -apple-system, Roboto, sans-serif;
+    color: #404040;
+    background: #FAF9F5;
     margin: 0;
     padding: 28px 36px;
 }
-h1 { font-size: 22px; color: #2D7A3E; margin: 0 0 4px 0; }
-.meta-mission { color: #6E7B73; font-size: 13px; margin-bottom: 10px; }
-.identity { font-size: 15px; font-weight: 700; color: #1A2E22;
+h1 { font-family: "Century Gothic", Jost, sans-serif; font-size: 22px;
+     color: #F58101; margin: 0 0 8px 0; padding-bottom: 8px;
+     border-bottom: 1px solid #F58101; }
+.meta-mission { color: #595959; font-size: 13px; margin-bottom: 10px; }
+.identity { font-size: 15px; font-weight: 700; color: #404040;
             margin-bottom: 2px; }
-.dimensions { color: #6E7B73; font-size: 13px; margin-bottom: 16px; }
+.dimensions { color: #595959; font-size: 13px; margin-bottom: 16px; }
 table {
     border-collapse: collapse; width: 100%; margin-top: 6px;
     background: #FFFFFF; font-size: 13px;
-    border: 1px solid #999999;
+    border: 1px solid #D9D7CF;
 }
 table th, table td {
-    border: 1px solid #999999;
+    border: 1px solid #D9D7CF;
     padding: 6px 10px;
 }
 thead th {
-    background: #2D7A3E; color: #FFFFFF;
+    background: #385623; color: #FFFFFF;
     text-align: center; font-weight: 700; font-size: 12px;
     line-height: 1.2;
 }
 tbody td { text-align: center; font-variant-numeric: tabular-nums; }
-tbody tr:nth-child(even) td { background: #F2F2F2; }
+tbody tr:nth-child(even) td { background: #F4F2EC; }
 td.tR {
     font-weight: 700; color: white;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
@@ -589,11 +594,11 @@ td.compart-absente { color: #C0392B; font-size: 18px; font-weight: 700; }
 td.compart-neutre { color: #55605A; }
 .diagnostic {
     margin-top: 14px; font-size: 15px; font-weight: 700;
-    padding: 8px 12px; border-left: 5px solid #2D7A3E;
+    padding: 8px 12px; border-left: 5px solid #385623;
     background: #FFFFFF;
 }
 .legend {
-    margin-top: 12px; color: #6E7B73; font-size: 12px; font-style: italic;
+    margin-top: 12px; color: #595959; font-size: 12px; font-style: italic;
 }
 .legend .ok { color: #2D7A3E; font-style: normal; font-weight: 700; }
 .legend .ko { color: #C0392B; font-style: normal; font-weight: 700; }
@@ -601,9 +606,9 @@ td.compart-neutre { color: #55605A; }
 .classe-legend { margin-top: 8px; display: flex; gap: 22px;
                  font-weight: 700; font-size: 13px; }
 .classe-legend .classe-item { white-space: nowrap; }
-.empty-row td { color: #6E7B73; font-style: italic; text-align: left; }
+.empty-row td { color: #595959; font-style: italic; text-align: left; }
 footer {
-    margin-top: 28px; color: #6E7B73; font-size: 11px;
+    margin-top: 28px; color: #595959; font-size: 11px;
     font-style: italic;
 }
 @media print {
@@ -628,7 +633,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     le CSS est embarqué. Mise en page alignée sur l'export XLSX
     (`bareme_desc` compris — cf. `export_prbs_xlsx`)."""
     rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
-    title = (f"Pénétromètre — {chantier.nom or _('Mission')} — "
+    title = (f"Pénétromètre Silvavenir — {chantier.nom or _('Mission')} — "
              f"{arbre.numero_arbre or ''}")
 
     # En-tête mission
@@ -681,7 +686,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # Ligne « Diagnostic » (mêmes valeurs et règle de fiabilité que le XLSX
     # et la fiche PDF).
     diag_text, diag_classe = _diagnostic_summary(arbre)
-    diag_color = couleur_classe.get(diag_classe, "#2D7A3E")
+    diag_color = couleur_classe.get(diag_classe, "#385623")
     diagnostic_html = (
         f'<div class="diagnostic" style="border-left-color:{diag_color}">'
         f'{_h(diag_text)}</div>')
@@ -714,7 +719,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 <style>{_HTML_CSS}</style>
 </head>
 <body>
-<h1>{_h('Pénétromètre — ' + (chantier.nom or _('Mission')))}</h1>
+<h1>{_h('Pénétromètre Silvavenir — ' + (chantier.nom or _('Mission')))}</h1>
 <div class="meta-mission">{meta_html}</div>
 <div class="identity">{_h(_identity_line(arbre))}</div>
 <div class="dimensions">{_h(_dimension_line(arbre))}</div>
@@ -734,7 +739,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 {bareme_html}
 
 <footer>
-Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Pénétromètre{' · ' + cabinet_name if cabinet_name else ''}.
+Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — {_NOM_PRODUIT}{' · ' + cabinet_name if cabinet_name else ''}.
 </footer>
 </body>
 </html>

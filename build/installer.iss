@@ -1,4 +1,4 @@
-; Inno Setup — Pénétromètre (Edwin Colinet)
+; Inno Setup — Pénétromètre Silvavenir (Edwin Colinet)
 ; Buildé par GitHub Actions (.github/workflows/build.yml).
 ; Usage local :
 ;   iscc /DMyAppVersion="3.6.0" build\installer.iss
@@ -9,7 +9,7 @@
   #define MyAppVersion "3.6.0"
 #endif
 
-#define MyAppName      "Pénétromètre"
+#define MyAppName      "Pénétromètre Silvavenir"
 #define MyAppExe       "Penetrometre.exe"
 #define MyAppPublisher "Edwin Colinet"
 #define MyAppURL       "https://github.com/edwincolinet/p-n-trom-tre"

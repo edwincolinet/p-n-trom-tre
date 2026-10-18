@@ -5,6 +5,32 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ## En développement (depuis 3.6.0)
 
+### Identité visuelle
+
+- **Le logiciel devient « Pénétromètre Silvavenir »** (ex-Pénétromètre) : titres
+  de fenêtre, en-tête, À propos, activation, fiche PDF, exports, guide,
+  installeur, traductions. Identifiants techniques renommés (aucune clé
+  n'avait été émise) : `SILVAVENIR_LICENSE_KEY`, `~/.silvavenir-keys/`
+  (ex-`~/.penetrometre-keys/`, à déplacer à la main sur un autre poste),
+  identifiant de bundle macOS `fr.edwincolinet.penetrometre`, skill
+  `run-penetrometre`. `AppId` de l'installeur (GUID) inchangé. `LICENSE` :
+  l'auteur reste Edwin Colinet. Garde-fou : `tests/test_branding.py`.
+- **Charte graphique SILVAVENIR** (dossier `design system SILVAVENIR/`) :
+  palette (orange de marque, vert forêt, neutres Papier/Encre), bouton
+  d'action principale orange, bandeau blanc à filet orange, familles de
+  polices Jost/Source Sans 3 (ou Century Gothic/Segoe UI) quand installées,
+  fiche PDF, exports XLSX/HTML et comparaison. Goldens PIL/Tk régénérés
+  (couleur d'encre `#404040`). `COULEUR_CLASSE` (Vert/Orange/Rouge)
+  inchangée volontairement.
+- **Polices de la charte embarquées** pour la fiche PDF et les rendus PIL
+  (Jost 700 en titres, Source Sans 3 en corps, licence OFL) à la place de
+  DejaVu ; ⚠ remplacé par ▲ dans ces rendus. Dessin de section : titres et
+  cardinales dans la famille « titres » résolue.
+- **Pastilles d'urgence neutres** (fiche PDF et XLSX de synthèse) : la
+  charte réserve la couleur à la gravité du diagnostic.
+- Boutons désactivés au gris de la charte, infobulles sur fond Sous-couche,
+  « n° » suivi d'une espace insécable.
+
 ### Diagnostic
 
 - **Classe de risque sur le t/R minimal** (et non plus sur le t/R moyen) :
@@ -45,7 +71,7 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 - **Émission de licences** : `--machine-id` devient **requis**
   (`--any-machine` pour y renoncer sciemment) — une clé non liée valait
   pour un nombre illimité de postes. La clé privée vit désormais hors du
-  dépôt (`~/.penetrometre-keys/`, ou `$PENETROMETRE_LICENSE_KEY`), `keygen` refuse
+  dépôt (`~/.silvavenir-keys/`, ou `$SILVAVENIR_LICENSE_KEY`), `keygen` refuse
   d'écrire dans un dépôt git, et le hook `pre-push` bloque tout fichier de
   clé suivi par git.
 - **Journal sans données personnelles** : l'email du titulaire est masqué
@@ -246,7 +272,7 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   ne fait que renforcer.
 - **Classe de risque dans la liste d'arbres** : dès qu'un arbre est
   fiable (≥3 sondages), la couleur de son `●` encode la **classe globale
-  Pénétromètre** (vert/orange/rouge) — on repère les arbres à risque d'un
+  Pénétromètre Silvavenir** (vert/orange/rouge) — on repère les arbres à risque d'un
   coup d'œil sans ouvrir l'onglet Diagnostic.
 - **Contraste du texte secondaire** : `COLOR_MUTED` assombri
   (`#6E7B73` → `#55605A`) pour repasser au-dessus du seuil WCAG AA

@@ -1,16 +1,16 @@
 ---
 name: run-penetrometre
 description: >
-  Lancer et piloter l'app desktop Pénétromètre (Pénétromètre, Tkinter) pour vérifier
+  Lancer et piloter l'app desktop Pénétromètre Silvavenir (Tkinter) pour vérifier
   un export réel — fiche d'expertise PDF (arbre ou mission), PNG, XLSX/CSV.
   Utiliser pour « lancer l'app », « vérifier l'export PDF », « screenshot de la
   fiche », « tester l'export » sans cliquer manuellement. Pilote = driver.py
   (charge une mission, déclenche l'action d'export, vérifie le PDF).
 ---
 
-# Lancer / piloter Pénétromètre
+# Lancer / piloter Pénétromètre Silvavenir
 
-Pénétromètre est une app **Tkinter** (mono-fenêtre, lancée par `python3 penetrometre.py`).
+Pénétromètre Silvavenir est une app **Tkinter** (mono-fenêtre, lancée par `python3 penetrometre.py`).
 On ne l'automatise pas au clic : on la pilote via
 `.claude/skills/run-penetrometre/driver.py`, qui instancie la **vraie `App`**, charge
 une mission comme le ferait *Fichier → Ouvrir* (`_open_path`), puis déclenche

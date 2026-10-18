@@ -36,7 +36,7 @@ from bareme import (
 from bareme_store import load_bareme, save_bareme
 from i18n import _, get_language
 from persistence import clear_recovery
-from ui_fonts import set_ui_scale
+from ui_fonts import resolve_brand_fonts, set_ui_scale
 
 log = logging.getLogger("penetrometre")
 
@@ -219,6 +219,7 @@ class ReglagesMixin(_MixinBase):
         indépendantes du scaling), on agit sur le **nombre de taille**
         de chaque police via `ui_fonts` : les styles ttk et les tuples
         de police explicites le lisent à leur création."""
+        resolve_brand_fonts(self)
         set_ui_scale(scale)
 
     def _apply_styles(self) -> None:
@@ -289,7 +290,8 @@ class ReglagesMixin(_MixinBase):
                 (int(pil.width * ratio), target_h),
                 PILImage.Resampling.LANCZOS)
             self._logo_image = ImageTk.PhotoImage(resized)
-            lbl = ttk.Label(self._logo_frame, image=self._logo_image)
+            lbl = ttk.Label(self._logo_frame, image=self._logo_image,
+                            style="Panel.TLabel")
             lbl.pack()
             lbl.bind("<Button-1>",
                      lambda e: self.action_cabinet_settings())

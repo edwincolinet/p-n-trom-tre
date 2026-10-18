@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec — Pénétromètre
+# PyInstaller spec — Pénétromètre Silvavenir
 #
 # Build :
 #   pip install pyinstaller

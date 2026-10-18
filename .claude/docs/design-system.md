@@ -29,30 +29,70 @@ ponctuels successifs (jamais une décision centralisée) :
    proche (`("Helvetica", 11, "bold")` ici, `("Georgia", 12, "bold")` là,
    pour un rôle visuel quasi identique).
 
+## Charte SILVAVENIR (2026-10-18)
+
+Source : dossier `design system SILVAVENIR/` (bundle HTML hors ligne, v1.0
+sept. 2026 — logo, couleurs, échelle diagnostic, typographie, composants).
+Le chrome, la fiche PDF, les exports XLSX/HTML et la comparaison en
+reprennent les tokens ; le produit s'appelle désormais **« Pénétromètre
+Silvavenir »** (l'éditeur/auteur reste Edwin Colinet — cf. `LICENSE`).
+
 ## Couleurs (`palette.py`)
 
-- `COLOR_ACCENT` = couleur de marque du **chrome interactif uniquement**
-  (boutons, titres de fenêtre, onglets actifs, sélections). Vert
-  historique `#2D7A3E` — IDENTIQUE à `COULEUR_CLASSE[CLASSE_VERT]`.
-  Plusieurs teintes distinctes ont été essayées pendant ce design system
-  pour lever la collision de sens (bouton actif ↔ arbre en bon état) : un
-  bleu pétrole désaturé (`#1E5F6B`, AAA mais jugé trop terne — « gris »,
-  « triste »), un cobalt franc (`#2563EB`, AA mais « le bleu pose
-  problème »), un violet améthyste (`#6B3FA0`, AAA mais non plus retenu à
-  l'usage). Aucune n'a convaincu : préférence assumée pour le vert
-  d'origine malgré le compromis de sens.
-- `COLOR_RENDER_ACCENT` = couleur d'accent des **rendus golden-testés**
-  (dessin de section, fiche PDF, comparaison inter-missions). Même valeur
-  que `COLOR_ACCENT` (`#2D7A3E`) — figée indépendamment pour que le chrome
-  UI puisse un jour reprendre une teinte distincte sans faire dévier un
-  pixel des golden-tests. **Ne jamais remplacer par `COLOR_ACCENT`** dans
-  `section_canvas.py`/`pil_render.py`/`comparaison_render.py`/
-  `fiche_pdf.py` — cela romprait leurs goldens.
-- `COULEUR_CLASSE` (Vert/Orange/Rouge) reste réservée à l'affichage du
-  **diagnostic de risque d'un arbre** (pastille, cellule, légende). Ne
-  jamais la réutiliser comme couleur de chrome générique.
+- **Marque** : `COLOR_BRAND_ORANGE` `#F58101` (titres ≥ 20 px, filets, action
+  principale), `COLOR_BRAND_ORANGE_DARK` `#E36C0A` (survol, orange lisible
+  en petit corps), `COLOR_BRAND_FOREST` `#385623` (sous-titres, actions
+  secondaires), `COLOR_BRAND_LEAF` `#40A838` (logo — marque, **jamais** un
+  état), `COLOR_BRAND_DEEP` `#24331B`, `COLOR_BRAND_SAND` `#FCE3C0`.
+- **Neutres** : fond `COLOR_BG` `#FAF9F5` (Papier), `COLOR_SIDE_PANEL`
+  `#F4F2EC` (Sous-couche), `COLOR_RULE` `#E3E1DA` (filets), corps
+  `COLOR_INK` `#404040` (jamais de noir pur), `COLOR_INK_STRONG` `#262625`,
+  secondaire `COLOR_MUTED` `#595959`.
+- `COLOR_ACCENT` = accent du **chrome interactif** (onglets actifs,
+  sélections, cases cochées, titres de section, texte des boutons
+  secondaires) = vert forêt. **Plus identique** à `COULEUR_CLASSE[Vert]`
+  (`#2D7A3E`) : la charte interdit d'employer le vert de marque comme
+  couleur d'état, ce qui lève la collision bouton actif ↔ arbre en bon état.
+- Action principale (`Accent.TButton`/`Accent.TMenubutton`) = **orange de
+  marque**, survol orange foncé, **une seule par écran** (charte).
+  Secondaire (`Ghost.*`) = contour + texte vert forêt. Focus d'un champ =
+  liseré orange. En-tête de la fenêtre = bandeau blanc + filet orange 3 px
+  (`Brand.*` dans `app_style`).
+- `COLOR_RENDER_ACCENT` = accent des **rendus** (dessin de section, fiche
+  PDF, comparaison) = vert forêt ; figé indépendamment de `COLOR_ACCENT`.
+  Les bandeaux de la fiche PDF et de la comparaison portent en plus un
+  filet orange de marque. **Ne jamais remplacer par `COLOR_ACCENT`** dans
+  `section_canvas.py`/`pil_render.py`/`comparaison_render.py`/`fiche_pdf.py`.
+- `COULEUR_CLASSE` (Vert/Orange/Rouge) reste réservée au **diagnostic de
+  risque** et **n'a PAS été alignée** sur l'échelle de la charte (vert
+  `#4C8B2B` / jaune `#F2B705` / rouge `#C62828`) : décision d'Edwin
+  (2026-10-18), pour ne pas migrer le libellé « Orange » persisté. Écart
+  assumé ; à rouvrir si la charte devait être appliquée strictement.
+- Exports XLSX/HTML : en-têtes forêt, titre orange, texte `#404040`, lignes
+  alternées `#F4F2EC`, polices Century Gothic (titres) / Segoe UI (corps).
+  Les glyphes de compartimentation (état) gardent leurs couleurs.
 
 ## Typographie (`ui_fonts.py`)
+
+**Familles de la charte** : titres Jost / Century Gothic, corps Source Sans 3 /
+Segoe UI. `ui_fonts.resolve_brand_fonts(root)` (appelé dans
+`App._apply_ui_scale` et à l'ouverture du dialogue d'activation) choisit la
+première famille **installée** ; les noms historiques « Helvetica » (corps)
+et « Georgia » (titres) passés à `ui_fonts.font()` sont des **rôles**
+traduits vers ces familles. Sans Jost/Century Gothic, les titres retombent
+sur la famille du corps (jamais un serif). Les polices ne sont **pas
+installables par l'app** côté Tk (impossible de charger un .ttf sans
+l'installer) ; en revanche **Jost 700, Source Sans 3 (400, 600, italique)**
+sont **embarquées** dans `assets/fonts/` (instances statiques tirées des
+variables Google Fonts, licence OFL — `OFL-*.txt`) et utilisées par la fiche
+PDF (`fiche_pdf._STYLE`) et tous les rendus PIL (`pil_render._pil_font_paths`,
+rôles `serif_bold`→Jost, `sans`/`sans_bold`→Source Sans 3 / demi-gras). Ni ⚠
+ni les glyphes d'emoji ne sont dans ces polices : les rendus PDF/PIL
+utilisent ▲. DejaVu reste embarquée en dernier recours.
+**Pastilles d'urgence NEUTRES** (fiche PDF, XLSX synthèse) : la charte
+interdit de colorer le délai (« seule la couleur de synthèse porte la
+gravité »). **n°** toujours suivi d'une espace insécable (« n° 272 »). Le dessin
+de section (`section_canvas`) garde ses polices en dur (golden-testé).
 
 Fonctions (pas des constantes — l'échelle utilisateur `_scale` n'est fixée
 qu'au démarrage, après l'import des modules) : `font_title()`,

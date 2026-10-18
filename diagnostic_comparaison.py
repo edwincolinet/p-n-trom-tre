@@ -80,7 +80,7 @@ def verdict_evolution(detail: "ComparaisonDetail") -> str:
     if evo is None:
         base = f"Évolution de classe non comparable (réf. {rc}, courant {cc})."
     elif evo > 0:
-        base = f"⚠ Aggravation : classe {rc} → {cc}."
+        base = f"▲ Aggravation : classe {rc} → {cc}."
     elif evo < 0:
         base = f"✓ Amélioration : classe {rc} → {cc}."
     else:

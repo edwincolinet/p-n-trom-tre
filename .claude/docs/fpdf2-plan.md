@@ -92,7 +92,7 @@ le rendu) :
 - Préconisation (urgence colorée `_URGENCE_COLOR`, échéance, texte libre).
 - `show_sondages` gouverne les pastilles **du dessin** (le tableau reste).
 - Page photos si `arbre.photos`.
-- Pied : « Pénétromètre • Édité le … » + `cabinet_name`.
+- Pied : « Pénétromètre Silvavenir • Édité le … » + `cabinet_name`.
 
 ## Appelants à mettre à jour (`app_exports.py`)
 

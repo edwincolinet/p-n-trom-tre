@@ -340,7 +340,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
     def _update_title(self) -> None:
         name = self.current_file.name if self.current_file else "Sans titre"
         dirty = " •" if self._dirty else ""
-        self.title(f"Pénétromètre — {name}{dirty}")
+        self.title(f"Pénétromètre Silvavenir — {name}{dirty}")
         self._update_save_indicator()
 
     def _update_compare_state(self) -> None:
@@ -1014,14 +1014,14 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
 
     def action_about(self) -> None:
         dlg = tk.Toplevel(self)
-        dlg.title("À propos d'Pénétromètre")
+        dlg.title("À propos du Pénétromètre Silvavenir")
         dlg.resizable(False, False)
         dlg.configure(bg=COLOR_BG)
         frm = ttk.Frame(dlg, padding=24)
         frm.pack(fill="both", expand=True)
 
         ttk.Label(frm,
-                  text="Pénétromètre",
+                  text="Pénétromètre Silvavenir",
                   font=ui_font("Georgia", 16, "bold")).pack(anchor="w")
         ttk.Label(frm,
                   text=_("Expertise arboricole au pénétromètre"),
@@ -1280,7 +1280,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         def _open_mail() -> None:
             import urllib.parse
             import webbrowser
-            subject = urllib.parse.quote(f"Support Pénétromètre {__version__}")
+            subject = urllib.parse.quote(f"Support Pénétromètre Silvavenir {__version__}")
             body = urllib.parse.quote(
                 f"Machine ID : {machine_id}\nVersion : {__version__}\n\n"
                 f"[Décrivez votre problème ici]")

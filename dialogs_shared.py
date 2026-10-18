@@ -31,7 +31,7 @@ COMPART_NR_LABEL = "–"
 # (U+2713 / U+2717, présentes dans DejaVu → rendu PDF garanti) : traits
 # légers, plus dans l'esprit épuré du logiciel que les « ballot » épais
 # (U+2714 / U+2718) d'avant, tout en gardant des formes bien distinctes.
-# Couleurs = accent vert Pénétromètre / rouge alerte / gris muted palette (hex
+# Couleurs = accent vert Pénétromètre Silvavenir / rouge alerte / gris muted palette (hex
 # avec « # » : PIL & CSS ; openpyxl attend sans « # » → `.lstrip("#")` côté
 # export).
 COMPART_GLYPH = {
@@ -127,7 +127,7 @@ def message_chevauchement(other: DegradationExterne,
     labels = ", ".join(f"{g} gr" for g in shared[:4])
     if len(shared) > 4:
         labels += ", …"
-    return (f"La dégradation n°{other.numero} ({other.grade_debut} gr → "
+    return (f"La dégradation n°\u00a0{other.numero} ({other.grade_debut} gr → "
             f"{other.grade_fin} gr) couvre déjà les directions "
             f"{labels}.\n\nLes arcs ne doivent pas se chevaucher.")
 

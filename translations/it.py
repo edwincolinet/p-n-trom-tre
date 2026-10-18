@@ -1,4 +1,4 @@
-"""Traduzioni italiane per Pénétromètre — lingua sorgente: francese."""
+"""Traduzioni italiane per Pénétromètre Silvavenir — lingua sorgente: francese."""
 
 TRANSLATIONS = {
     # ── Menu File ─────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ TRANSLATIONS = {
     "Mission non enregistrée":             "Progetto non salvato",
 
     # ── Informazioni ─────────────────────────────────────────────────
-    "Pénétromètre — Expertise arboricole":     "Pénétromètre — Perizia arboricola",
+    "Pénétromètre Silvavenir — Expertise arboricole":     "Pénétromètre Silvavenir — Perizia arboricola",
     "Version":                             "Versione",
     "Auteur":                              "Autore",
     "Contact":                             "Contatto",
@@ -297,7 +297,7 @@ TRANSLATIONS = {
     "Classe rouge":                       "Classe rossa",
     "Hauteur sondage":                    "Altezza sondaggio",
     "Hauteur arbre":                      "Altezza albero",
-    "Arbre n°{n}":                        "Albero n°{n}",
+    "Arbre n°\u00a0{n}":                        "Albero n°\u00a0{n}",
     "Port {port}":                        "Portamento {port}",
     "Port":                               "Portamento",
     "t/R minimal (%)":                     "t/R minimo (%)",
@@ -573,8 +573,8 @@ TRANSLATIONS = {
     "Synthèse mission CSV enregistrée":  "Sintesi missione CSV salvata",
     "Synthèse mission XLSX enregistrée": "Sintesi missione XLSX salvata",
     "Synthèse":                          "Sintesi",
-    "Pénétromètre — Synthèse mission « {nom} »":
-        "Pénétromètre — Sintesi missione « {nom} »",
+    "Pénétromètre Silvavenir — Synthèse mission « {nom} »":
+        "Pénétromètre Silvavenir — Sintesi missione « {nom} »",
     "pas de brin de référence — état courant seul":
         "nessun fusto di riferimento — solo stato corrente",
     "pas de brin de référence":          "nessun fusto di riferimento",
@@ -661,7 +661,7 @@ TRANSLATIONS = {
     "Écriture du fichier…":                  "Scrittura del file…",
     'Export PDF de la mission':             'Esportazione PDF del progetto',
     'Génération des fiches…':               'Generazione delle schede…',
-    'Arbre n°{num}':                        'Albero n. {num}',
+    'Arbre n°\u00a0{num}':                        'Albero n. {num}',
     'Export PDF annulé — aucun fichier écrit.': 'Esportazione PDF annullata — nessun file scritto.',
     "Le fichier a été déplacé ou supprimé.": "Il file è stato spostato o eliminato.",
 
@@ -709,7 +709,7 @@ TRANSLATIONS = {
         "Nessun aggiornamento disponibile o nessuna connessione di rete.",
 
     # ── Divers (clés isolées du source) ──────────────────────────────
-    "Pénétromètre":                            "Pénétromètre",
+    "Pénétromètre Silvavenir":                            "Pénétromètre Silvavenir",
     "  Expertise arboricole":              "  Perizia arboricola",
     "Annuler":                             "Annulla",
     "Préconisation":                       "Raccomandazione",

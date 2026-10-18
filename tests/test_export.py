@@ -185,7 +185,7 @@ class XlsxSmokeTests(unittest.TestCase):
                 os.unlink(path)
 
     def test_diagnostic_et_legendes_du_tableau(self):
-        """Verrouille la mise en page (propre à Pénétromètre) du tableau XLSX :
+        """Verrouille la mise en page (propre au Pénétromètre Silvavenir) du tableau XLSX :
 
         - une ligne « Diagnostic » (t/R minimal + classe) sous le
           tableau, alignée sur la fiche PDF ;

@@ -26,6 +26,42 @@ from typing import Any
 
 _scale: float = 1.0
 
+# Familles de la charte SILVAVENIR : géométrique pour les titres, humaniste
+# pour le texte courant et l'interface. Web : Jost / Source Sans 3 ;
+# bureautique : Century Gothic / Segoe UI. Ni l'une ni l'autre n'est
+# garantie sur le poste (Linux, macOS) : on prend la première INSTALLÉE de
+# chaque liste de préférence, avec en dernier recours les familles
+# historiques de l'app (« Georgia » titres → remplacée par Helvetica, qui
+# existe partout). Tant que `resolve_brand_fonts` n'a pas été appelé (tests
+# sans Tk), les familles historiques restent en vigueur.
+_TITLE_PREFS = ("Jost", "Century Gothic")
+_BODY_PREFS = ("Source Sans 3", "Segoe UI")
+_LEGACY_TITLE = "Georgia"
+_LEGACY_BODY = "Helvetica"
+_family_title: str = _LEGACY_TITLE
+_family_body: str = _LEGACY_BODY
+
+
+def resolve_brand_fonts(root: Any) -> None:
+    """Choisit les familles de titre/corps parmi celles installées.
+
+    À appeler une fois, après la création de la racine Tk et avant celle
+    des widgets. Sans Jost/Century Gothic, les titres retombent sur la
+    famille du corps (sans empattement) plutôt que sur l'ancien Georgia :
+    un titre à empattements jurerait avec le reste de la charte.
+    """
+    global _family_title, _family_body
+    try:
+        from tkinter import font as tkfont
+        installed = {f.casefold(): f for f in tkfont.families(root)}
+    except Exception:
+        return
+    body = next((installed[p.casefold()] for p in _BODY_PREFS
+                 if p.casefold() in installed), _LEGACY_BODY)
+    title = next((installed[p.casefold()] for p in _TITLE_PREFS
+                  if p.casefold() in installed), body)
+    _family_body, _family_title = body, title
+
 
 def set_ui_scale(scale: float) -> None:
     """Fixe le facteur d'échelle global (process-wide)."""
@@ -36,6 +72,17 @@ def set_ui_scale(scale: float) -> None:
 def get_ui_scale() -> float:
     """Facteur d'échelle courant."""
     return _scale
+
+
+def family_title() -> str:
+    """Famille « titres » résolue (non mise à l'échelle) — pour le dessin
+    de section, dont les polices ne suivent pas `ui_scale`."""
+    return _family_title
+
+
+def family_body() -> str:
+    """Famille « corps » résolue (non mise à l'échelle)."""
+    return _family_body
 
 
 def font(family: str, size: int, *options: str) -> tuple[Any, ...]:
@@ -50,6 +97,13 @@ def font(family: str, size: int, *options: str) -> tuple[Any, ...]:
     `tuple[Any, ...]` reste assignable au paramètre `font=` chez tous les
     appelants sans casser la CI 3.9.
     """
+    # Les noms historiques (« Helvetica » corps, « Georgia » titres) sont des
+    # RÔLES : ils sont traduits vers les familles de la charte résolues au
+    # démarrage (cf. `resolve_brand_fonts`).
+    if family == _LEGACY_BODY:
+        family = _family_body
+    elif family == _LEGACY_TITLE:
+        family = _family_title
     return (family, max(1, round(size * _scale)), *options)
 
 
@@ -69,15 +123,16 @@ def font(family: str, size: int, *options: str) -> tuple[Any, ...]:
 # ponctuelle sans autre occurrence dans la base) reste un `font(...)`
 # direct plutôt qu'un token à usage unique.
 #
-# - Familles : « Georgia » (serif) réservée aux titres de marque/section
-#   (`font_title`, `font_heading`) ; « Helvetica » (sans-serif) pour tout
-#   le reste (corps de texte, libellés, boutons).
+# - Familles : rôle « titre » (`font_title`, `font_heading`, nom historique
+#   « Georgia ») = Jost / Century Gothic ; rôle « corps » (nom historique
+#   « Helvetica ») = Source Sans 3 / Segoe UI pour tout le reste (corps de
+#   texte, libellés, boutons). Cf. `resolve_brand_fonts`.
 # - Ce sont des FONCTIONS (pas des constantes) : `_scale` n'est fixé par
 #   `App` qu'au démarrage, après l'import des modules — un tuple figé à
 #   l'import serait calculé avant que l'échelle utilisateur soit connue.
 
 def font_title() -> tuple[Any, ...]:
-    """Titre de marque (« Pénétromètre » du header et de l'écran d'accueil)."""
+    """Titre de marque (« Pénétromètre Silvavenir » du header et de l'écran d'accueil)."""
     return font("Georgia", 18, "bold")
 
 

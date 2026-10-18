@@ -138,7 +138,13 @@ def _pil_font_paths() -> Dict[str, Optional[str]]:
     embedded = Path(__file__).parent / "assets" / "fonts"
     # (variant, chemin) — premier trouvé pour chaque variant gagne.
     candidates: list[tuple[str, str]] = [
-        # Polices embarquées (source unique, reproductible)
+        # Polices embarquées (source unique, reproductible) : charte
+        # SILVAVENIR — Jost 700 (titres, rôle « serif_bold ») et Source
+        # Sans 3 (corps ; rôle « sans_bold » = demi-gras 600).
+        ("serif_bold", str(embedded / "Jost-Bold.ttf")),
+        ("sans",       str(embedded / "SourceSans3-Regular.ttf")),
+        ("sans_bold",  str(embedded / "SourceSans3-SemiBold.ttf")),
+        # DejaVu embarquée : dernier recours si les précédentes manquent
         ("serif_bold", str(embedded / "DejaVuSerif-Bold.ttf")),
         ("sans",       str(embedded / "DejaVuSans.ttf")),
         ("sans_bold",  str(embedded / "DejaVuSans-Bold.ttf")),

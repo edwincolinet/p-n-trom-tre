@@ -35,7 +35,7 @@ else:
 
 # Tags de classe de risque pour un arbre au diagnostic fiable (≥3
 # sondages) : la couleur du `●` plein encode alors la classe globale
-# Pénétromètre. Les couleurs hexa associées sont posées dans `App`
+# Pénétromètre Silvavenir. Les couleurs hexa associées sont posées dans `App`
 # (`tag_configure`, cf. penetrometre.py) — ici on ne nomme que les tags.
 _CLASSE_TAG = {
     CLASSE_VERT: "etat_ok_vert",

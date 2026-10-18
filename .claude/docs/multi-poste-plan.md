@@ -31,7 +31,7 @@ multi-agents devient un client réel (cf. priorité n°2 de l'analyse du
 Logiciel ne transmet aucune donnée à des serveurs tiers »**. C'est un
 argument de vente concret (RGPD zéro-collecte) pour des cabinets
 sensibles à la confidentialité des missions clients. Toute option
-impliquant un serveur/cloud propre à Pénétromètre **casse cette promesse** et
+impliquant un serveur/cloud propre au Pénétromètre Silvavenir **casse cette promesse** et
 doit être un choix produit assumé (changement de modèle, pas un ajout
 incrémental) — pas quelque chose à faire « en passant ».
 
@@ -39,7 +39,7 @@ incrémental) — pas quelque chose à faire « en passant ».
 
 ### Option 0 — Dossier réseau partagé (doc utilisateur, zéro code)
 Le cabinet pose ses fichiers `.json` sur un lecteur partagé existant (SMB,
-Google Drive, OneDrive…) déjà utilisé pour d'autres documents. Pénétromètre
+Google Drive, OneDrive…) déjà utilisé pour d'autres documents. Pénétromètre Silvavenir
 n'a rien à faire de spécial : `persistence.py` écrit déjà de façon atomique
 (`.tmp` + `os.replace`).
 
@@ -79,7 +79,7 @@ minimal (déjà un mini-backend), soit accepter la limite « un seul poste
 format, UI de sélection multi-mission.
 
 ### Option 3 — Vrai backend cloud (sync temps réel, comptes)
-Un service propre à Pénétromètre (serveur + comptes utilisateurs + sync).
+Un service propre au Pénétromètre Silvavenir (serveur + comptes utilisateurs + sync).
 Résout proprement le partage et la conurrence, mais :
 
 - Contredit frontalement le positionnement « 100 % offline, zéro
