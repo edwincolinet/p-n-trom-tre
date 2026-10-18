@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Pénétromètre
+Name=Pénétromètre Silvavenir
 Comment=Expertise arboricole — diagnostic de cavités par sondage
-Exec=python3 /home/edwin/Documents/Penetrometre/penetrometre.py
-Path=/home/edwin/Documents/Penetrometre
-Icon=/home/edwin/Documents/Penetrometre/assets/Icone.jpeg
+Exec=python3 /home/edwin/Documents/Penetrometre-Silvavenir/penetrometre.py
+Path=/home/edwin/Documents/Penetrometre-Silvavenir
+Icon=/home/edwin/Documents/Penetrometre-Silvavenir/assets/Icone.png
 Terminal=false
 Categories=Office;Science;
 StartupWMClass=Tk

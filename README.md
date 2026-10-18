@@ -172,8 +172,9 @@ mon-dossier/
 ├── docs/
 │   └── guide_demarrage.html    ← guide de démarrage autonome (2 pages A4)
 ├── assets/
-│   ├── Icone.jpeg              ← icône bureau (.desktop)
-│   └── fonts/                  ← DejaVu embarquée (rendu reproductible)
+│   ├── Icone.png               ← icône bureau (.desktop) et source des icônes natives
+│   ├── cropped-logo-silvavenir.png
+│   └── fonts/                  ← Jost, Source Sans 3 (charte) + DejaVu embarquées
 └── Lancer_Penetrometre.bat     ← double-clic Windows (optionnel)
 ```
 

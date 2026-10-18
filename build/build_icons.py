@@ -1,4 +1,4 @@
-"""Convertit assets/Icone.jpeg en icônes natives pour chaque plateforme.
+"""Convertit assets/Icone.png en icônes natives pour chaque plateforme.
 
 Usage :
     python build/build_icons.py
@@ -19,11 +19,17 @@ from PIL import Image
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-SRC = Path("assets/Icone.jpeg")
+SRC = Path("assets/Icone.png")
 OUT = Path("build/icons")
 OUT.mkdir(parents=True, exist_ok=True)
 
 img = Image.open(SRC).convert("RGBA")
+# La source (feuille du logo) n'est pas carrée : on la centre sur un canevas
+# carré transparent, sinon les redimensionnements ci-dessous la déformeraient.
+_side = max(img.size)
+_square = Image.new("RGBA", (_side, _side), (0, 0, 0, 0))
+_square.paste(img, ((_side - img.width) // 2, (_side - img.height) // 2))
+img = _square
 
 # PNG — Linux
 png_path = OUT / "Icone.png"
