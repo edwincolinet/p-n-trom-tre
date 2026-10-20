@@ -223,6 +223,27 @@ def description_seuils_mission(chantier: object) -> str:
     return description_seuils(seuils_depuis_brut(brut) if brut else None)
 
 
+def description_seuils_arbre(chantier: object, port_arbre: str) -> str:
+    """Seuils du **seul** groupe applicable à ce port, pour un livrable client.
+
+    Même source que `description_seuils_mission` (seuils enregistrés dans
+    la mission, sinon ceux du poste), mais restreinte au groupe de
+    l'arbre et **sans nom de groupe ni port** : « vert > 70 %, orange ≥ 40 % ».
+    Port sans groupe (config altérée) : repli sur `GROUPES_DEFAUT`, comme
+    `classer_prbs`.
+    """
+    brut = getattr(chantier, "bareme_seuils", None)
+    groupes = seuils_depuis_brut(brut) if brut else get_groupes()
+    p = port_arbre.lower().strip()
+    g = (next((x for x in groupes if p in x.ports), None)
+         or next((x for x in GROUPES_DEFAUT if p in x.ports), None))
+    if g is None:
+        return ""
+    return (f"vert > {g.seuil_vert * 100:.4g} %, "
+            f"orange ≥ {g.seuil_orange * 100:.4g} %, "
+            f"rouge < {g.seuil_orange * 100:.4g} %")
+
+
 def normaliser_port(value: object) -> str:
     """Normalise une valeur de port en sa forme canonique.
 
