@@ -11,13 +11,13 @@ permet, pour chaque arbre d'une mission, de :
 
 - saisir les caractéristiques (essence, rayon, port, longueur de mèche…) ;
 - enregistrer des sondages au pénétromètre dans 16 directions
-  (de 0 à 375 grades, par pas de 25 gr) ;
+    (de 0 à 375 grades, par pas de 25 gr — ou en degrés, au choix) ;
 - documenter les dégradations externes visibles (arcs sur l'écorce) ;
 - visualiser en temps réel la section transversale du tronc avec
   cernes de croissance, cavité d'altération et flèches de sondage ;
 - obtenir un diagnostic complet avec PRBS, ratio t/R, classification
   Vert / Orange / Rouge ;
-- exporter une fiche d'expertise PDF par arbre (ou un PDF global
+- exporter une fiche d'examen approfondis (PDF) par arbre (ou un PDF global
   regroupant tous les arbres), un PNG du dessin, un tableau PRBS XLSX
   ou HTML par arbre, ou un CSV de toute la mission.
 
@@ -154,7 +154,8 @@ mon-dossier/
 ├── bareme_store.py             ← barème configurable (bareme.json)
 ├── geometry.py                 ← géométrie pure (spline, contreforts, polaire)
 ├── pil_render.py               ← rendu PNG de la section
-├── fiche_pdf.py                ← fiche d'expertise PDF A4 vectorielle (fpdf2)
+├── fiche_pdf.py                ← fiche d'examen approfondis PDF A4 vectorielle (fpdf2)
+├── angle_units.py              ← unité d'affichage des angles (grades/degrés, pur)
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
 ├── license.py                  ← vérification/chargement licence offline Ed25519
@@ -232,7 +233,8 @@ et un séparateur décimal (`,` ou `.`) sont acceptés. Le format français
 
 ### Sondages
 
-Chaque sondage est associé à une direction (16 grades disponibles).
+Chaque sondage est associé à une direction (16 grades disponibles ; affichables en
+degrés, cf. « Unité des angles » plus bas).
 Une seule mesure par direction (doublon interdit). La PRBS (bois sain)
 et le bois altéré sont liés par le rayon (`sain + altéré = rayon`) avec
 calcul automatique. La compartimentation peut être renseignée
@@ -289,15 +291,23 @@ purement descriptif : n'impacte pas le diagnostic.
   **section d'évolution** où la couronne de bois sain **perdu depuis la
   référence** est surlignée en orange (sur la géométrie réelle, 16
   directions extrapolées). Un **tableau chiffré** quantifie l'aggravation :
-  **perte moyenne de bois sain par direction (cm)**, taux annualisé (cm/an,
+    **perte moyenne de bois sain par direction (cm)**, taux annualisé (cm/an,
   seulement si l'intervalle est suffisant), compartimentation perdue, t/R
-  moyen, classe, direction la plus aggravée ;
-  avec un **verdict** (aggravation / stable / amélioration). La comparaison
-  est **exportable en PNG et en PDF** (page A4 livrable au client). La
+  minimal, classe, direction la plus aggravée ;
+  avec un **verdict perte / gain / stable** fondé sur le **t/R minimal**
+  (stable = même t/R au dixième de pour cent ; la classe n'est qu'un
+  complément, deux arbres d'une même classe n'ayant pas le même t/R). La
+  comparaison est **exportable en PNG et en PDF** (A4 livrable au client :
+  même en-tête et même pied de page que la fiche d'examen — logo et nom du
+  cabinet, seuils vert/orange/rouge de l'arbre). **Photos de comparaison** :
+  la fenêtre permet d'ajouter des photos de la référence et du diagnostic
+  actuel ; elles forment une page « Photos » du PDF (4 par colonne au plus,
+  trait de séparation entre les deux états). Elles sont stockées sur l'arbre
+  courant, dans `<mission>_photos/` (mission à enregistrer d'abord). La
   mission de référence est chargée le temps de la session (rien n'est écrit
-  dans le fichier courant).
+  dans le fichier de référence).
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
-  écart angulaire maximal entre voisins : X gr » affichée dans le
+  écart angulaire maximal entre voisins : X gr (ou X°) » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la
   robustesse du diagnostic. Les exports XLSX/HTML ne reprennent pas ce
   bloc — il reste consultable dans l'onglet Diagnostic et sur la fiche
@@ -401,12 +411,23 @@ Le menu **Affichage → Langue** permet de basculer entre le **français**,
 l'**anglais** et l'**italien**. L'interface, les exports PDF/XLSX et les
 labels de diagnostic s'adaptent. Un redémarrage est requis.
 
+### Unité des angles (grades / degrés)
+
+Le menu **Affichage → Unité des angles** bascule l'affichage entre les
+**grades** (0 à 400, défaut) et les **degrés** (0 à 360 ; 25 gr = 22,5°).
+C'est une préférence de poste : le modèle, les fichiers de mission et le
+diagnostic restent **toujours en grades**. L'option s'applique aux grilles
+de saisie (Sondages, Contreforts, Dégradations — à chaud), aux dialogues
+(largeurs saisies dans l'unité choisie), au diagnostic et à tous les exports
+(fiche PDF, XLSX, HTML, CSV, synthèse, comparaison — colonne « Angle (°) »).
+
 ### Galerie photos
 
 L'onglet **Identification** accueille une galerie de photos par arbre.
 Les photos sont stockées dans un dossier compagnon `<mission>_photos/`
 à côté du fichier `.json`. Une **page photo dédiée** peut être incluse
-dans la fiche PDF.
+dans la fiche PDF (légendes « Photo N », jamais le nom de fichier ; en-tête
+identique à celui de la fiche, sans nom de mission).
 
 ### Modèles de mission
 

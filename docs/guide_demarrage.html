@@ -319,7 +319,7 @@
       <h2>4 · Onglet Dégradations (optionnel)</h2>
       <p style="font-size:12px; margin-bottom:5px;">
         Cliquez <strong>＋ Ajouter</strong> pour déclarer une zone de bois altérée en périphérie
-        (pourriture externe, blessure…). Définissez les grades début/fin et la profondeur.
+        (pourriture externe, blessure…). Définissez les angles début/fin (grades ou degrés, cf. § 11) et la profondeur.
         La dégradation est déduite du bois sain dans le diagnostic.
       </p>
 
@@ -360,9 +360,9 @@
 
   <div class="box box-tip">
     <div class="box-title">💡 Enchaîner les arbres rapidement</div>
-    Utilisez <strong>＋ Ajouter → Hériter du précédent</strong> pour reprendre l'essence,
-    le port et les paramètres de protocole (mèche, hauteur, épaisseur d'écorce) sans les re-saisir.
-    Naviguez entre les arbres avec <kbd>Ctrl+PgDown</kbd> / <kbd>Ctrl+PgUp</kbd>.
+    Utilisez <strong>Arbres → Dupliquer l'arbre courant</strong> pour cloner un arbre voisin
+    (mesures comprises) et corriger ce qui diffère, ou <strong>＋ Ajouter</strong> (<kbd>Ctrl+T</kbd>)
+    pour repartir d'un arbre vierge. Naviguez entre les arbres avec <kbd>Ctrl+PgDown</kbd> / <kbd>Ctrl+PgUp</kbd>.
   </div>
 
   <div class="footer">
@@ -420,19 +420,19 @@
     </tr>
     <tr>
       <td><span class="badge badge-vert">Vert</span></td>
-      <td>&gt; 0,33</td>
+      <td>&gt; 0,30 (libre) · &gt; 0,20 (architecturé)</td>
       <td>Paroi résiduelle satisfaisante</td>
       <td>● vert</td>
     </tr>
     <tr>
       <td><span class="badge badge-orange">Orange</span></td>
-      <td>0,20 – 0,33</td>
+      <td>0,15 – 0,30 · 0,10 – 0,20</td>
       <td>Vigilance — surveillance recommandée</td>
       <td>● orange</td>
     </tr>
     <tr>
       <td><span class="badge badge-rouge">Rouge</span></td>
-      <td>&lt; 0,20</td>
+      <td>&lt; 0,15 · &lt; 0,10</td>
       <td>Risque élevé — intervention à planifier</td>
       <td>● rouge</td>
     </tr>
@@ -453,14 +453,15 @@
         <div class="step">
           <div class="step-num"></div>
           <div class="step-body" style="font-size:12px;">
-            <strong>Fiche PDF</strong> : bouton <em>Exporter la fiche PDF</em> dans l'onglet
-            Diagnostic, ou <kbd>Ctrl+E</kbd>. Une page A4 avec dessin, tableau PRBS et préconisation.
+            <strong>Fiche PDF</strong> : menu <em>Export → Fiche PDF (arbre courant)</em>, ou <kbd>Ctrl+E</kbd>.
+            « Fiche d'examen approfondis » A4 : dessin, tableau PRBS, préconisation ; pied de page = seuils
+            vert / orange / rouge de l'arbre.
           </div>
         </div>
         <div class="step">
           <div class="step-num"></div>
           <div class="step-body" style="font-size:12px;">
-            <strong>Image PNG</strong> : bouton <em>Exporter PNG</em> — uniquement le dessin
+            <strong>Image PNG</strong> : <em>Export → PNG du dessin</em> — uniquement le dessin
             de section, sans tableau.
           </div>
         </div>
@@ -472,14 +473,14 @@
         <div class="step">
           <div class="step-num"></div>
           <div class="step-body" style="font-size:12px;">
-            <strong>Fiches PDF mission</strong> : <em>Fichier → Exporter toutes les fiches (PDF)</em> —
+            <strong>Fiches PDF mission</strong> : <em>Export → Exporter toutes les fiches (PDF)…</em> —
             un PDF multi-pages, une fiche par arbre.
           </div>
         </div>
         <div class="step">
           <div class="step-num"></div>
           <div class="step-body" style="font-size:12px;">
-            <strong>Synthèse XLSX</strong> : <em>Fichier → Exporter la synthèse mission (XLSX)</em> —
+            <strong>Synthèse XLSX</strong> : <em>Export → Exporter la synthèse mission (XLSX)…</em> —
             tableau de hiérarchisation du risque, trié, avec préconisations.
           </div>
         </div>
@@ -491,6 +492,16 @@
     <div class="box-title">📂 Après chaque export</div>
     La barre d'état (en bas) affiche le nom du fichier et propose deux boutons :
     <em>Ouvrir le fichier</em> et <em>Ouvrir le dossier</em> — sans avoir à naviguer dans l'Explorateur.
+  </div>
+
+  <div class="box box-tip" style="margin-top:6px; font-size:11.5px;">
+    <div class="box-title">🔁 Ré-inspection : comparer deux missions</div>
+    <em>Comparaison → Faire une comparaison</em> charge la mission précédente comme référence, puis
+    <em>Diagnostic de la comparaison</em> affiche référence · courant · évolution.
+    La conclusion dit <strong>perte, gain ou stable</strong> d'après le <strong>t/R minimal</strong>
+    (deux arbres de même classe n'ont pas le même t/R). Dans la fenêtre, ajoutez des
+    <strong>photos de la référence et du diagnostic actuel</strong> (mission enregistrée d'abord) :
+    elles forment la dernière page du PDF <em>Export → Comparaison — fiche PDF…</em>.
   </div>
 
   <!-- ----- Référence raccourcis ----- -->
@@ -536,7 +547,10 @@
         <div class="box-title">🌐 Accessibilité</div>
         <em>Affichage → Taille du texte</em> : Petit / Normal / Grand / Très grand.<br>
         <em>Affichage → Contraste élevé</em> : texte plus sombre pour plein soleil.<br>
-        <em>Affichage → Langue</em> : Français / English / Italiano.
+        <em>Affichage → Langue</em> : Français / English / Italiano.<br>
+        <em>Affichage → Unité des angles</em> : <strong>grades</strong> (0–400, 25 gr par direction) ou
+        <strong>degrés</strong> (0–360, 22,5° par direction) — affichage, saisie et exports ;
+        les fichiers restent en grades.
       </div>
     </div>
   </div>
