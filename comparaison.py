@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 from typing import Any, Callable, Mapping, Optional
 
@@ -69,7 +70,7 @@ from comparaison_render import (
 )
 from diagnostic_comparaison import (
     comparaison_par_brin,
-    evolution_classe,
+    evolution_tr,
     verdict_evolution,
 )
 from dialogs_shared import annees_entre, save_state_label
@@ -358,7 +359,8 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
         show_sondages = bool(var_show_sondages.get())
         # Mémo export (les pages sont recalculées à la demande dans le builder).
         state["builder_args"] = (reference.nom, ref_arbre, cur_arbre, annees,
-                                  ref_label, cur_label, show_sondages)
+                                  ref_label, cur_label, show_sondages,
+                                  _en_tete_export(parent, current))
         for w in inner.winfo_children():
             w.destroy()
         photos.clear()
@@ -368,6 +370,8 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
             _build_brin_block(inner, label if multi else None,
                               ref_arbre, cur_arbre, cur_b, ref_b, detail,
                               ref_label, cur_label, photos, show_sondages)
+        _build_photos_block(inner, parent, cur_arbre, ref_label, cur_label,
+                            _refresh_save_state)
         canvas.configure(scrollregion=canvas.bbox("all"))
         canvas.yview_moveto(0.0)
 
@@ -407,6 +411,48 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
 
     dlg.update_idletasks()
     dlg.focus_set()
+
+
+def _build_photos_block(parent: tk.Misc, app: Any, cur_arbre: Arbre,
+                        ref_label: str, cur_label: str,
+                        on_changed: Callable[[], None]) -> None:
+    """Photos de la comparaison : une galerie pour l'état de **référence**,
+    une pour l'état **actuel** — reprises sur une page « évolution
+    photographique » du PDF. Stockées sur l'arbre courant
+    (`photos_comparaison_ref/_cur`) et copiées dans le dossier photos de la
+    mission courante (mission à enregistrer d'abord, comme la galerie de
+    l'onglet Identification)."""
+    from comparaison_render import PHOTOS_COMPARAISON_MAX
+    from photo_gallery import PhotoGallery
+
+    block = ttk.Frame(parent, style="Panel.TFrame", padding=(12, 6))
+    block.pack(fill="x")
+    ttk.Label(block, text=_("Photos de la comparaison"), style="H.TLabel",
+              font=font("Georgia", 13, "bold")).pack(anchor="w")
+    ttk.Label(block,
+              text=_("Reprises dans le PDF (page « Évolution photographique », "
+                     "{n} photos maximum par colonne).").format(
+                         n=PHOTOS_COMPARAISON_MAX),
+              style="Muted.TLabel", wraplength=900, justify="left"
+              ).pack(anchor="w", pady=(0, 4))
+    row = ttk.Frame(block, style="Panel.TFrame")
+    row.pack(fill="x")
+
+    def _changed() -> None:
+        app.on_identification_changed(rayon_adjusted=False)
+        on_changed()
+
+    for titre, liste in (
+            (_("Photos de la référence — {r}").format(r=ref_label),
+             cur_arbre.photos_comparaison_ref),
+            (_("Photos du diagnostic actuel — {c}").format(c=cur_label),
+             cur_arbre.photos_comparaison_cur)):
+        g = PhotoGallery(
+            row, photos=liste, on_change=_changed,
+            get_mission_file=lambda: getattr(app, "current_file", None),
+            on_before_change=app.push_undo, title=titre)
+        g.pack(side="left", fill="both", expand=True, padx=(0, 12), anchor="n")
+    ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=2)
 
 
 def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
@@ -463,7 +509,7 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
 
     ttk.Label(block, text=verdict_evolution(detail), style="Panel.TLabel",
               font=font("Helvetica", 11, "bold"), wraplength=900, justify="left",
-              foreground=_verdict_color(detail.classe_ref, detail.classe_cur)
+              foreground=_verdict_color(detail)
               ).pack(anchor="w", padx=12, pady=(2, 6))
     ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=2)
 
@@ -475,6 +521,18 @@ def _build_image_col(parent: tk.Misc, titre: str) -> ttk.Label:
     img = ttk.Label(host, style="Panel.TLabel")
     img.pack(pady=4)
     return img
+
+
+def _en_tete_export(parent: Any, current: Chantier) -> "dict[str, Any]":
+    """Éléments de l'en-tête/pied de page de la page PDF (mission courante,
+    logo et nom du cabinet des réglages de l'App) — mêmes sources que la
+    fiche d'expertise (`app_exports._get_cabinet_info`)."""
+    settings = getattr(parent, "_settings", None)
+    cf = getattr(parent, "current_file", None)
+    return {"chantier": current,
+            "mission_dir": Path(cf).parent if cf else None,
+            "cabinet_name": getattr(settings, "cabinet_name", "") or "",
+            "logo_path": getattr(settings, "logo_path", None)}
 
 
 def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
@@ -493,18 +551,19 @@ def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
         if args is None:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
         (nom, ref_arbre, cur, annees, ref_label, cur_label,
-         show_sondages) = args
-        render = (render_evolution_pngs if fmt == "png"
-                  else render_comparison_pages)
-        return render(
+         show_sondages, en_tete) = args
+        if fmt == "png":
+            return render_evolution_pngs(
+                nom, ref_arbre, cur, annees, ref_label=ref_label,
+                cur_label=cur_label, show_sondages=show_sondages)
+        return render_comparison_pages(
             nom, ref_arbre, cur, annees, ref_label=ref_label,
-            cur_label=cur_label, show_sondages=show_sondages)
+            cur_label=cur_label, show_sondages=show_sondages, **en_tete)
     return _build
 
 
-def _verdict_color(ref_classe: Optional[str],
-                   cur_classe: Optional[str]) -> str:
-    evo = evolution_classe(ref_classe, cur_classe)
+def _verdict_color(detail: Any) -> str:
+    evo = evolution_tr(detail)
     if evo is None:
         return COLOR_MUTED
     if evo > 0:

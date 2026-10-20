@@ -54,10 +54,12 @@ from pil_render import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from PIL.Image import Image as PILImage
 
     from diagnostic_comparaison import ComparaisonDetail
-    from model import Arbre, Brin
+    from model import Arbre, Brin, Chantier
 
 # Grade → angle écran (radians, 0 à 3 h, sens horaire). 360/400 = 0.9 ; le
 # Nord (grade 0) est en haut → −90°.
@@ -291,18 +293,25 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         # déjà les dates en en-tête de colonne, pas besoin de la légende
         # complète ici, et le cadrage doit rester identique aux colonnes
         # voisines (cf. commentaire sur `margin_bottom` plus haut).
+        # Légende en bas À GAUCHE, sur deux lignes : centrée, elle passait
+        # sous la lettre cardinale « S » (police agrandie par le design
+        # system) ; dans le coin elle reste lisible sans toucher au cadrage.
         sf = f_base(int(size * 0.030), "sans")
-        cap_y = size * 0.95
+        line_h = int(size * 0.04)
+        x0 = int(size * 0.02)
         if ref_b is None:
-            d.text((size * 0.5, cap_y + 8),
-                   _("pas de brin de référence — état courant seul"),
-                   font=sf, fill=COLOR_MUTED, anchor="mm")
+            lines = [_("pas de brin de référence"), _("— état courant seul")]
         else:
-            d.rectangle([size * 0.14, cap_y, size * 0.14 + 20, cap_y + 16],
+            lines = ["= bois sain perdu", "depuis la référence"]
+        cap_y = size - len(lines) * line_h - 8
+        text_x = x0
+        if ref_b is not None:
+            d.rectangle([x0, cap_y, x0 + 20, cap_y + 16],
                         fill=_ORANGE, outline=(150, 150, 146))
-            d.text((size * 0.14 + 26, cap_y + 8),
-                   "= bois sain perdu depuis la référence",
-                   font=sf, fill=COLOR_MUTED, anchor="lm")
+            text_x = x0 + 26
+        for i, ln in enumerate(lines):
+            d.text((text_x, cap_y + 8 + i * line_h), ln, font=sf,
+                   fill=COLOR_MUTED, anchor="lm")
     return img
 
 
@@ -348,14 +357,6 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
         evo_tr = f"{dpts:+.1f} pts"
     rows.append(("t/R minimal", _pct_aff(detail.tR_min_ref),
                  _pct_aff(detail.tR_min_cur), evo_tr))
-    # PRBS moyenne extrapolée (16 directions)
-    evo_prbs = ""
-    if detail.perte_moy_par_dir is not None:
-        evo_prbs = f"{-detail.perte_moy_par_dir:+.2f} cm"
-    rows.append(("PRBS moyenne (16 directions)",
-                 f"{detail.prbs_moy_ref:.2f} cm" if detail.prbs_moy_ref is not None else "—",
-                 f"{detail.prbs_moy_cur:.2f} cm" if detail.prbs_moy_cur is not None else "—",
-                 evo_prbs))
     # Perte moyenne de bois sain PAR DIRECTION (cm) — la mesure de référence.
     if detail.perte_moy_par_dir is not None:
         rows.append(("Perte moyenne de bois sain", "—", "—",
@@ -401,31 +402,118 @@ def _blank_section(size: int, text: str) -> "PILImage":
     return img
 
 
+def _fit_pil(font: Any, text: str, max_w: float) -> str:
+    """Tronque `text` (avec « … ») pour tenir dans `max_w` pixels."""
+    if font.getlength(text) <= max_w:
+        return text
+    while text and font.getlength(text + "…") > max_w:
+        text = text[:-1]
+    return text + "…"
+
+
+_HEADER_TOP, _HEADER_H = 30, 116
+
+
+def _draw_page_header(page: "PILImage", d: Any, f: Any,
+                      chantier: "Optional[Chantier]",
+                      logo_path: "Optional[str]") -> None:
+    """Bandeau d'en-tête commun aux pages du PDF de comparaison."""
+    from pathlib import Path
+
+    from PIL import Image
+    margin, W = _PAGE_MARGIN, _PAGE_W
+    # En-tête : même bandeau que la fiche d'examen (vert, filet orange de
+    # marque, logo du cabinet à droite) — seul le titre dit « comparaison ».
+    top, header_h = _HEADER_TOP, _HEADER_H
+    d.rectangle([margin, top, W - margin, top + header_h],
+                fill=COLOR_RENDER_ACCENT)
+    d.rectangle([margin, top + header_h, W - margin, top + header_h + 4],
+                fill=COLOR_BRAND_ORANGE)
+    logo_w = 0
+    try:
+        if logo_path and Path(logo_path).exists():
+            logo = Image.open(logo_path).convert("RGBA")
+            target_h = header_h - 24
+            lw = int(logo.width * target_h / logo.height)
+            lx, ly = W - margin - lw - 12, top + 12
+            bg = Image.new("RGB", logo.size, "white")
+            bg.paste(logo, (0, 0), logo)
+            d.rectangle([lx, ly, lx + lw, ly + target_h], fill="white")
+            page.paste(bg.resize((lw, target_h)), (lx, ly))
+            logo_w = lw + 24
+    except Exception:
+        pass
+    text_w = W - 2 * margin - logo_w - 40
+    d.text((margin + 20, top + 22),
+           "Fiche d'examen approfondis — Pénétromètre — Comparaison",
+           font=f(30, "serif_bold"), fill="white")
+    if chantier is not None:
+        f19, f17 = f(19, "sans"), f(17, "sans")
+        ligne2 = "   •   ".join(t for t in (
+            chantier.adresse,
+            f"{_('Client')} : {chantier.client}" if chantier.client else ""
+        ) if t)
+        d.text((margin + 20, top + 64), _fit_pil(f19, ligne2, text_w),
+               font=f19, fill="white")
+        d.text((margin + 20, top + 92),
+               _fit_pil(f17, f"{chantier.date_releve}   •   {_('Opérateur')}"
+                        f" : {chantier.operateur}", text_w),
+               font=f17, fill="white")
+
+
+
+def _draw_page_footer(d: Any, f: Any, chantier: "Optional[Chantier]",
+                      port: str, cabinet_name: str) -> None:
+    """Pied de page commun (cf. `fiche_pdf._draw_footer`)."""
+    from datetime import datetime
+
+    from bareme import description_seuils_arbre
+    margin, W = _PAGE_MARGIN, _PAGE_W
+    if chantier is not None:
+        fy = _PAGE_H - 60
+        d.line([margin, fy, W - margin, fy], fill=COLOR_MUTED, width=1)
+        d.text((W / 2, fy + 16),
+               _("Barème appliqué") + " — "
+               + description_seuils_arbre(chantier, port),
+               font=f(12, "sans"), fill=COLOR_MUTED, anchor="mm")
+        cab = f"   •   {cabinet_name}" if cabinet_name else ""
+        d.text((W / 2, fy + 38),
+               f"Pénétromètre Silvavenir{cab}   •   " + _("Édité le")
+               + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+               font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
+
+
 def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
                              cur_label: str, ref_img: "PILImage",
                              cur_img: "PILImage", evo_img: "PILImage",
-                             detail: "ComparaisonDetail") -> "PILImage":
-    """Compose une page A4 paysage (en-tête, 3 dessins déjà rendus à
-    `_PAGE_SEC`, tableau chiffré, verdict). Partagé par la page **genet**
-    et les pages **par brin**."""
+                             detail: "ComparaisonDetail", *,
+                             chantier: "Optional[Chantier]" = None,
+                             port: str = "",
+                             logo_path: "Optional[str]" = None,
+                             cabinet_name: str = "") -> "PILImage":
+    """Compose une page A4 paysage (en-tête identique à la fiche d'examen,
+    3 dessins déjà rendus à `_PAGE_SEC`, tableau chiffré, verdict, pied de
+    page). Partagé par la page **genet** et les pages **par brin**.
+
+    `titre` = ligne d'identité de l'arbre (« Arbre 12 », « Arbre 12 — Brin
+    a »). Sans `chantier` (anciens appelants/tests), l'en-tête se limite au
+    bandeau et le pied de page est omis."""
     from PIL import Image, ImageDraw
+
     f = _pil_load_fonts()
     W, margin, gap, sec = _PAGE_W, _PAGE_MARGIN, _PAGE_GAP, _PAGE_SEC
     page = Image.new("RGB", (W, _PAGE_H), "white")
     d = ImageDraw.Draw(page)
 
-    # En-tête vert.
-    d.rectangle([0, 0, W, 92], fill=COLOR_RENDER_ACCENT)
-    d.rectangle([0, 92, W, 96], fill=COLOR_BRAND_ORANGE)  # filet de marque
-    d.text((margin, 20), titre, font=f(30, "serif_bold"), fill="white")
-    d.text((margin, 62),
-           f"Mission « {mission_nom or 'Mission'} »   •   "
-           f"Référence : {ref_label}   →   Courant : {cur_label}",
-           font=f(17, "sans"), fill="white")
+    _draw_page_header(page, d, f, chantier, logo_path)
+
+    # Identité de l'arbre (comme sous le bandeau de la fiche).
+    y_id = _HEADER_TOP + _HEADER_H + 18
+    d.text((margin, y_id), titre, font=f(35, "serif_bold"), fill=COLOR_INK)
 
     # Trois sections côte à côte (images déjà rendues).
-    y_lbl = 116
-    y_img = y_lbl + 34
+    y_lbl = y_id + 56
+    y_img = y_lbl + 30
     cols = ((_("Référence — {r}").format(r=ref_label), ref_img),
             (f"Courant — {cur_label}", cur_img),
             ("Évolution de l'altération", evo_img))
@@ -435,18 +523,19 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
         page.paste(img, (x, y_img))
 
     # Tableau chiffré.
-    y = y_img + sec + 24
+    y = y_img + sec + 18
+    y_table = y
     rows = metric_rows(detail)
     col_x = [margin, margin + 520, margin + 520 + 250,
              margin + 520 + 250 + 250]
     headers = ("Indicateur", "Référence", "Courant", "Évolution")
-    head_h = 38
+    head_h = 34
     d.rectangle([margin, y, W - margin, y + head_h], fill=COLOR_RENDER_ACCENT)
     for cx0, h in zip(col_x, headers):
         d.text((cx0 + 10, y + head_h / 2), h, font=f(16, "sans_bold"),
                fill="white", anchor="lm")
     y += head_h
-    row_h = 34
+    row_h = 30
     for k, row in enumerate(rows):
         if k % 2 == 1:
             d.rectangle([margin, y, W - margin, y + row_h], fill=COLOR_SIDE_PANEL)
@@ -454,23 +543,28 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
             d.text((cx0 + 10, y + row_h / 2), val, font=f(15, "sans"),
                    fill=COLOR_INK, anchor="lm")
         y += row_h
-    d.rectangle([margin, y_img + sec + 24, W - margin, y], outline=COLOR_FIELD_BORDER)
+    d.rectangle([margin, y_table, W - margin, y], outline=COLOR_FIELD_BORDER)
 
     # Note explicative du « pts » (sous le tableau).
     y += 8
     d.text((margin, y), PTS_LEGENDE, font=f(13, "sans"), fill=COLOR_MUTED)
 
     # Verdict.
-    y += 28
+    y += 26
     d.text((margin, y), verdict_evolution(detail),
            font=f(18, "sans_bold"), fill=COLOR_INK)
+
+    _draw_page_footer(d, f, chantier, port, cabinet_name)
     return page
 
 
 def render_comparison_page(mission_nom: str, ref_arbre: "Arbre",
                            cur_arbre: "Arbre", detail: "ComparaisonDetail",
                            *, ref_label: str, cur_label: str,
-                           show_sondages: bool = True) -> "PILImage":
+                           show_sondages: bool = True,
+                           chantier: "Optional[Chantier]" = None,
+                           logo_path: "Optional[str]" = None,
+                           cabinet_name: str = "") -> "PILImage":
     """Page A4 paysage **genet** (dessins de l'arbre entier + évolution du
     brin courant). Sortie inchangée — utilisée pour un mono-caule."""
     ref_img = render_arbre_to_pil_image(
@@ -481,26 +575,155 @@ def render_comparison_page(mission_nom: str, ref_arbre: "Arbre",
         show_title=False, show_legend=False)
     evo_img = render_evolution_section(ref_arbre, cur_arbre, _PAGE_SEC)
     return _compose_comparison_page(
-        mission_nom, f"Comparaison d'inspections — {cur_arbre.display_name}",
-        ref_label, cur_label, ref_img, cur_img, evo_img, detail)
+        mission_nom, cur_arbre.display_name,
+        ref_label, cur_label, ref_img, cur_img, evo_img, detail,
+        chantier=chantier, port=cur_arbre.port_arbre,
+        logo_path=logo_path, cabinet_name=cabinet_name)
+
+
+# Nombre max. de photos reprises par colonne dans le PDF (grille 2 × 2).
+PHOTOS_COMPARAISON_MAX = 4
+
+
+def _charger_photos(refs: List[str], mission_dir: "Optional[Path]"
+                    ) -> List["PILImage"]:
+    """Photos utilisables d'une colonne (`PHOTOS_COMPARAISON_MAX` au plus).
+
+    Même confinement que la fiche (`photo_paths.resolve_photo`) ; un fichier
+    refusé, introuvable ou non décodable comme image est **ignoré** (jamais
+    de crash d'export pour une photo déplacée)."""
+    from PIL import Image, ImageOps
+
+    from photo_paths import resolve_photo
+    out: List["PILImage"] = []
+    for ref in refs:
+        if len(out) >= PHOTOS_COMPARAISON_MAX:
+            break
+        path = resolve_photo(ref, mission_dir).path
+        if path is None:
+            continue
+        try:
+            with Image.open(path) as im:
+                out.append(ImageOps.exif_transpose(im).convert("RGB"))
+        except Exception:
+            continue
+    return out
+
+
+def _compose_photos_page(nom_arbre: str, ref_label: str, cur_label: str,
+                         ref_photos: List["PILImage"],
+                         cur_photos: List["PILImage"], *,
+                         chantier: "Optional[Chantier]", port: str,
+                         logo_path: "Optional[str]",
+                         cabinet_name: str) -> "PILImage":
+    """Page A4 paysage « évolution photographique » : photos de la
+    référence (gauche) et de l'état actuel (droite), séparées par un trait
+    vertical, avec l'en-tête de la page photos de la fiche classique et le
+    pied de page des pages de comparaison. Légendes « Photo N » — jamais un nom de
+    fichier (cf. CLAUDE.md, photos = entrée semi-fiable)."""
+    from PIL import Image, ImageDraw
+    f = _pil_load_fonts()
+    W, margin, gap = _PAGE_W, _PAGE_MARGIN, 56
+    page = Image.new("RGB", (W, _PAGE_H), "white")
+    d = ImageDraw.Draw(page)
+    # En-tête identique à la page photos de la fiche classique
+    # (`fiche_pdf._render_photos_page`) : bandeau vert de 80 px, filet
+    # orange de marque, « Photos — Arbre n° X » en serif gras blanc.
+    top, header_h = _HEADER_TOP, 80
+    d.rectangle([margin, top, W - margin, top + header_h],
+                fill=COLOR_RENDER_ACCENT)
+    d.rectangle([margin, top + header_h, W - margin, top + header_h + 4],
+                fill=COLOR_BRAND_ORANGE)
+    d.text((margin + 20, top + header_h // 2),
+           _("Photos") + f"   —   {nom_arbre}",
+           font=f(28, "serif_bold"), fill="white", anchor="lm")
+
+    col_w = (W - 2 * margin - gap) // 2
+    y_lbl = top + header_h + 28
+    y0 = y_lbl + 32
+    y_max = _PAGE_H - 60 - 16
+    avail_h = y_max - y0
+    cap_h = 26
+    cols = ((_("Référence — {r}").format(r=ref_label), ref_photos),
+            (f"Courant — {cur_label}", cur_photos))
+    for i, (titre_col, photos) in enumerate(cols):
+        x = margin + i * (col_w + gap)
+        d.text((x, y_lbl), titre_col, font=f(18, "sans_bold"), fill=COLOR_INK)
+        if not photos:
+            d.text((x, y0 + 8), _("Aucune photo"), font=f(16, "sans"),
+                   fill=COLOR_MUTED)
+            continue
+        n = len(photos)
+        n_cols, n_rows = (1, 1) if n == 1 else (1, 2) if n == 2 else (2, 2)
+        cell_w = (col_w - (n_cols - 1) * 16) // n_cols
+        cell_h = (avail_h - (n_rows - 1) * 16) // n_rows
+        for k, im in enumerate(photos):
+            r, c = divmod(k, n_cols)
+            cx = x + c * (cell_w + 16)
+            cy = y0 + r * (cell_h + 16)
+            box_w, box_h = cell_w, cell_h - cap_h
+            im = im.copy()
+            im.thumbnail((box_w, box_h))
+            page.paste(im, (cx + (box_w - im.width) // 2,
+                            cy + (box_h - im.height) // 2))
+            d.text((cx + cell_w / 2, cy + box_h + cap_h / 2 + 2),
+                   f"Photo {k + 1}", font=f(14, "sans"), fill=COLOR_MUTED,
+                   anchor="mm")
+    # Séparation physique référence | actuel : trait vertical au milieu de
+    # la gouttière, sur toute la hauteur de la zone photos.
+    sep_x = margin + col_w + gap // 2
+    d.line([sep_x, y_lbl, sep_x, y_max], fill=COLOR_FIELD_BORDER, width=3)
+    _draw_page_footer(d, f, chantier, port, cabinet_name)
+    return page
 
 
 def render_comparison_pages(mission_nom: str, ref_arbre: "Arbre",
                             cur_arbre: "Arbre", annees: Optional[float],
                             *, ref_label: str, cur_label: str,
-                            show_sondages: bool = True) -> List["PILImage"]:
+                            show_sondages: bool = True,
+                            chantier: "Optional[Chantier]" = None,
+                            logo_path: "Optional[str]" = None,
+                            cabinet_name: str = "",
+                            mission_dir: "Optional[Path]" = None
+                            ) -> List["PILImage"]:
     """Pages d'export de la comparaison : **une page par brin** pour une
     cépée (dessins du brin isolé + évolution brin-level + tableau/verdict du
     brin), une **page genet** pour un mono-caule (vue d'ensemble, inchangée).
     Le brin courant sans homologue de référence reçoit une colonne
     « Référence » vide (jamais d'appariement décalé). `show_sondages` suit la
-    case « Afficher sondages » sous le canevas."""
+    case « Afficher sondages » sous le canevas.
+
+    Si l'arbre courant porte des **photos de comparaison** (référence /
+    actuel, `Arbre.photos_comparaison_*`, résolues depuis `mission_dir`),
+    une page « évolution photographique » est ajoutée à la fin."""
+    pages = _pages_sondages(
+        mission_nom, ref_arbre, cur_arbre, annees, ref_label=ref_label,
+        cur_label=cur_label, show_sondages=show_sondages, chantier=chantier,
+        logo_path=logo_path, cabinet_name=cabinet_name)
+    ref_ph = _charger_photos(cur_arbre.photos_comparaison_ref, mission_dir)
+    cur_ph = _charger_photos(cur_arbre.photos_comparaison_cur, mission_dir)
+    if ref_ph or cur_ph:
+        pages.append(_compose_photos_page(
+            cur_arbre.display_name, ref_label, cur_label, ref_ph, cur_ph, chantier=chantier,
+            port=cur_arbre.port_arbre, logo_path=logo_path,
+            cabinet_name=cabinet_name))
+    return pages
+
+
+def _pages_sondages(mission_nom: str, ref_arbre: "Arbre", cur_arbre: "Arbre",
+                    annees: Optional[float], *, ref_label: str,
+                    cur_label: str, show_sondages: bool,
+                    chantier: "Optional[Chantier]",
+                    logo_path: "Optional[str]",
+                    cabinet_name: str) -> List["PILImage"]:
+    """Pages de comparaison chiffrée (genet ou une par brin)."""
     if len(cur_arbre.brins) <= 1:
         detail = comparaison_detaillee(ref_arbre, cur_arbre, annees)
         return [render_comparison_page(
             mission_nom, ref_arbre, cur_arbre, detail,
             ref_label=ref_label, cur_label=cur_label,
-            show_sondages=show_sondages)]
+            show_sondages=show_sondages, chantier=chantier,
+            logo_path=logo_path, cabinet_name=cabinet_name)]
     pages: List["PILImage"] = []
     for label, cur_b, ref_b, detail in comparaison_par_brin(
             ref_arbre, cur_arbre, annees):
@@ -511,11 +734,12 @@ def render_comparison_pages(mission_nom: str, ref_arbre: "Arbre",
         cur_img = render_brin_section(cur_arbre, cur_b, _PAGE_SEC,
                                       show_sondages=show_sondages)
         evo_img = render_evolution_section_brin(ref_b, cur_b, _PAGE_SEC)
-        titre = (f"Comparaison d'inspections — "
-                 f"{cur_arbre.display_name} — Brin {label}")
+        titre = f"{cur_arbre.display_name} — Brin {label}"
         pages.append(_compose_comparison_page(
             mission_nom, titre, ref_label, cur_label,
-            ref_img, cur_img, evo_img, detail))
+            ref_img, cur_img, evo_img, detail, chantier=chantier,
+            port=cur_arbre.port_arbre, logo_path=logo_path,
+            cabinet_name=cabinet_name))
     return pages
 
 

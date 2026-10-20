@@ -71,25 +71,44 @@ def evolution_classe(reference: Optional[str],
     return (gc > gr) - (gc < gr)
 
 
+def evolution_tr(detail: "ComparaisonDetail") -> Optional[int]:
+    """Évolution du **t/R minimal** (référence → courant) : `+1` perte
+    (le t/R baisse), `-1` gain, `0` stable, `None` si l'un des deux n'est
+    pas publié. « Stable » = même t/R **au pourcentage affiché** (0,1 %) :
+    deux arbres d'une même classe n'ont pas le même t/R, c'est donc lui
+    — et non la classe — qui dit si l'arbre a perdu ou gagné de la paroi."""
+    if detail.tR_min_ref is None or detail.tR_min_cur is None:
+        return None
+    ref = round(detail.tR_min_ref, 1)
+    cur = round(detail.tR_min_cur, 1)
+    return (cur < ref) - (cur > ref)
+
+
 def verdict_evolution(detail: "ComparaisonDetail") -> str:
-    """Phrase de verdict de la comparaison (classe + t/R minimal + taux de
-    perte cm/an). Partagée par la fenêtre et l'export."""
+    """Phrase de verdict de la comparaison : **perte / gain / stable** sur
+    le t/R minimal (et non sur la seule classe), puis la classe, puis le
+    bois sain perdu (cm/direction, cm/an). Partagée par la fenêtre et
+    l'export."""
     rc = detail.classe_ref or "non publié"
     cc = detail.classe_cur or "non publié"
-    evo = evolution_classe(detail.classe_ref, detail.classe_cur)
+    evo = evolution_tr(detail)
     if evo is None:
-        base = f"Évolution de classe non comparable (réf. {rc}, courant {cc})."
-    elif evo > 0:
-        base = f"▲ Aggravation : classe {rc} → {cc}."
+        return (f"Évolution non comparable : t/R minimal non publié "
+                f"(classe réf. {rc}, courant {cc}).")
+    assert detail.tR_min_ref is not None and detail.tR_min_cur is not None
+    ref, cur = detail.tR_min_ref, detail.tR_min_cur
+    delta = round(cur, 1) - round(ref, 1)
+    if evo > 0:
+        base = (f"▲ Perte : t/R minimal {ref:.1f} % → {cur:.1f} % "
+                f"({delta:+.1f} pts).")
     elif evo < 0:
-        base = f"✓ Amélioration : classe {rc} → {cc}."
+        base = (f"✓ Gain : t/R minimal {ref:.1f} % → {cur:.1f} % "
+                f"({delta:+.1f} pts).")
     else:
-        base = f"= Stable : classe {cc}."
-    if detail.tR_min_ref is not None and detail.tR_min_cur is not None:
-        delta = detail.tR_min_cur - detail.tR_min_ref
-        fl = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
-        base += (f"   t/R minimal : {detail.tR_min_ref:.1f} % → "
-                 f"{detail.tR_min_cur:.1f} % ({fl} {abs(delta):.1f} pts)")
+        base = f"= Stable : t/R minimal inchangé ({cur:.1f} %)."
+    if detail.classe_ref and detail.classe_cur:
+        base += (f"   Classe : {rc} → {cc}." if rc != cc
+                 else f"   Classe : {cc}.")
     if detail.perte_moy_par_dir is not None and detail.perte_moy_par_dir > 0.05:
         base += (f"   Perte de bois sain : "
                  f"{detail.perte_moy_par_dir:.1f} cm/direction")
@@ -135,8 +154,6 @@ class ComparaisonDetail(NamedTuple):
     l'intervalle ≥ `_TAUX_ANNEES_MIN` (sinon `None` → non pertinent)."""
     annees: Optional[float]
     directions: List[DirectionDelta]
-    prbs_moy_ref: Optional[float]
-    prbs_moy_cur: Optional[float]
     perte_moy_par_dir: Optional[float]
     taux_cm_an: Optional[float]
     pire: Optional[DirectionDelta]
@@ -177,14 +194,10 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
                 compart_ref=ref_comp.get(g, ""),
                 compart_cur=cur_comp.get(g, "")))
 
-    prbs_moy_ref: Optional[float] = None
-    prbs_moy_cur: Optional[float] = None
     perte_moy: Optional[float] = None
     pire: Optional[DirectionDelta] = None
     if directions:
         n = len(directions)
-        prbs_moy_ref = sum(d.prbs_ref for d in directions) / n
-        prbs_moy_cur = sum(d.prbs_cur for d in directions) / n
         # Perte moyenne PAR DIRECTION (cm, positif = bois sain perdu).
         perte_moy = sum(d.prbs_ref - d.prbs_cur for d in directions) / n
         pire_c = min(directions, key=lambda d: d.delta)
@@ -198,7 +211,6 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
 
     return ComparaisonDetail(
         annees=annees, directions=directions,
-        prbs_moy_ref=prbs_moy_ref, prbs_moy_cur=prbs_moy_cur,
         perte_moy_par_dir=perte_moy, taux_cm_an=taux_cm_an, pire=pire,
         compart_aggravees=sum(1 for d in directions if d.compart_aggravee),
         compart_changees=sum(1 for d in directions

@@ -275,3 +275,78 @@ class ExportsCitentLeBaremeTests(_SeuilsRestaures):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SeuilsArbreEtVerdictTests(unittest.TestCase):
+    def test_description_seuils_arbre_cite_les_trois_classes_sans_port(self):
+        from bareme import description_seuils_arbre
+        from model import Chantier
+        txt = description_seuils_arbre(Chantier(), "libre")
+        self.assertIn("vert >", txt)
+        self.assertIn("orange ≥", txt)
+        self.assertIn("rouge <", txt)
+        self.assertNotIn("libre", txt.lower())
+
+    def _detail(self, ref, cur):
+        from diagnostic_comparaison import ComparaisonDetail
+        return ComparaisonDetail(
+            annees=None, directions=[], perte_moy_par_dir=None,
+            taux_cm_an=None, pire=None, compart_aggravees=0,
+            compart_changees=0, classe_ref="Vert", classe_cur="Vert",
+            tR_min_ref=ref, tR_min_cur=cur)
+
+    def test_verdict_perte_gain_stable_sur_tr_meme_classe(self):
+        from diagnostic_comparaison import verdict_evolution
+        self.assertIn("Perte", verdict_evolution(self._detail(60.0, 52.0)))
+        self.assertIn("Gain", verdict_evolution(self._detail(52.0, 60.0)))
+        self.assertIn("Stable", verdict_evolution(self._detail(52.0, 52.04)))
+
+    def test_pas_de_ligne_prbs_moyenne(self):
+        from comparaison_render import metric_rows
+        libelles = [r[0] for r in metric_rows(self._detail(60.0, 52.0))]
+        self.assertFalse(any("PRBS moyenne" in x for x in libelles))
+
+
+class PhotosComparaisonTests(unittest.TestCase):
+    def _arbre(self, sain):
+        from model import Arbre, Sondage
+        a = Arbre(numero_arbre="1", port_arbre="libre")
+        a.brins[0].set_rayon(20.0)
+        for g in (0, 100, 200, 300):
+            a.brins[0].sondages.append(
+                Sondage(grade=g, bois_sain_cm=sain, bois_altere_cm=20 - sain))
+        return a
+
+    def test_page_photos_ajoutee_et_roundtrip(self):
+        from pathlib import Path
+
+        from PIL import Image
+
+        from comparaison_render import render_comparison_pages
+        from model import Chantier
+        from persistence import load_chantier, save_chantier
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "m_photos").mkdir()
+            Image.new("RGB", (400, 300), "green").save(d / "m_photos" / "a.jpg")
+            Image.new("RGB", (300, 400), "blue").save(d / "m_photos" / "b.png")
+            (d / "m_photos" / "x.desktop").write_text("[Desktop Entry]")
+            cur = self._arbre(5.0)
+            cur.photos_comparaison_ref = ["m_photos/a.jpg",
+                                          "m_photos/x.desktop",
+                                          "../../etc/passwd.png",
+                                          "m_photos/absente.jpg"]
+            cur.photos_comparaison_cur = ["m_photos/b.png"]
+            ch = Chantier()
+            ch.arbres.append(cur)
+            save_chantier(ch, d / "m.json")
+            cur2 = load_chantier(d / "m.json").arbres[0]
+            self.assertEqual(cur2.photos_comparaison_cur, ["m_photos/b.png"])
+            avec = render_comparison_pages(
+                "M", self._arbre(8.0), cur2, 2.0, ref_label="2024",
+                cur_label="2026", chantier=ch, mission_dir=d)
+            sans = render_comparison_pages(
+                "M", self._arbre(8.0), cur2, 2.0, ref_label="2024",
+                cur_label="2026", chantier=ch, mission_dir=None)
+            self.assertEqual(len(avec), 2)   # chiffrée + photos
+            self.assertEqual(len(sans), 1)   # relatifs non résolus → rien

@@ -52,7 +52,7 @@ except ImportError:   # pragma: no cover - fpdf2 est une dépendance déclarée
     FPDF = None       # type: ignore[assignment,misc]
     HAS_FPDF = False
 
-from bareme import classer_prbs, description_seuils_mission
+from bareme import classer_prbs, description_seuils_arbre
 from diagnostic import (
     degradation_externe_par_grade,
     genet_diagnostic,
@@ -256,7 +256,7 @@ def _new_pdf() -> FPDF:
     pdf.set_margins(0, 0)
     pdf.set_margin(0)
     _register_fonts(pdf)
-    pdf.set_title("Fiche d'expertise Pénétromètre Silvavenir")
+    pdf.set_title("Fiche d'examen approfondis Pénétromètre")
     pdf.set_creator("Pénétromètre Silvavenir")
     return pdf
 
@@ -344,15 +344,15 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
     return h
 
 
-def _draw_footer(pg: _Page, chantier: "Chantier", cabinet_name: str,
-                 margin: int) -> None:
-    """Filet + ligne barème + ligne Pénétromètre Silvavenir/date, en bas de la page
+def _draw_footer(pg: _Page, arbre: "Arbre", chantier: "Chantier",
+                 cabinet_name: str, margin: int) -> None:
+    """Filet + ligne barème (seuils du seul arbre, sans port) + ligne Pénétromètre Silvavenir/date, en bas de la page
     courante. Factorisé pour être rejoué identique sur chaque page d'une
     fiche qui déborde sur plusieurs pages (table PRBS d'une grosse cépée,
     cf. `render_fiche_arbre`)."""
     pg.line(margin, H - 60, W - margin, H - 60, COLOR_MUTED, width=1)
     pg.text(W / 2, H - 44,
-            _("Barème appliqué") + " — " + description_seuils_mission(chantier),
+            _("Barème appliqué") + " — " + description_seuils_arbre(chantier, arbre.port_arbre),
             12, "sans", COLOR_MUTED, anchor="mm")
     cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
     pg.text(W / 2, H - 22,
@@ -417,14 +417,15 @@ def render_fiche_arbre(pdf: FPDF,
         pass
 
     header_text_w = W - margin * 2 - logo_w - 20
-    pg.text(margin + 20, y + 22, "Fiche d'expertise — Pénétromètre Silvavenir",
+    pg.text(margin + 20, y + 22, "Fiche d'examen approfondis — Pénétromètre",
             30, "serif_bold", "white")
     _lbl_client = _("Client")
     mission_txt = _fit_text(
         pg,
-        (_("Mission") + f" : {chantier.nom}"
-         + (f"   •   {chantier.adresse}" if chantier.adresse else "")
-         + (f"   •   {_lbl_client} : {chantier.client}" if chantier.client else "")),
+        "   •   ".join(
+            t for t in (chantier.adresse,
+                        f"{_lbl_client} : {chantier.client}"
+                        if chantier.client else "") if t),
         19, "sans", header_text_w)
     pg.text(margin + 20, y + 64, mission_txt, 19, "sans", "white")
     pg.text(margin + 20, y + 92,
@@ -570,7 +571,7 @@ def render_fiche_arbre(pdf: FPDF,
             deg_ext_par_grade = degradation_externe_par_grade(b)
             for s in b.sondages:
                 if y + row_h > table_y_limit:
-                    _draw_footer(pg, chantier, cabinet_name, margin)
+                    _draw_footer(pg, arbre, chantier, cabinet_name, margin)
                     pdf.add_page()
                     pg = _Page(pdf)
                     y = margin
@@ -626,7 +627,7 @@ def render_fiche_arbre(pdf: FPDF,
     # laisser chevaucher le pied de page (même logique que la pagination
     # du tableau).
     if y + est_section_h > table_y_limit:
-        _draw_footer(pg, chantier, cabinet_name, margin)
+        _draw_footer(pg, arbre, chantier, cabinet_name, margin)
         pdf.add_page()
         pg = _Page(pdf)
         y = margin
@@ -744,7 +745,7 @@ def render_fiche_arbre(pdf: FPDF,
     # Barème effectivement appliqué : sans cette ligne, la classe
     # Vert/Orange/Rouge du document n'est pas reproductible (les seuils
     # sont un réglage de poste). Cf. `bareme.description_seuils`.
-    _draw_footer(pg, chantier, cabinet_name, margin)
+    _draw_footer(pg, arbre, chantier, cabinet_name, margin)
 
     # --- Page photos (si photos associées) ---
     # Confinement identique à la galerie (cf. `photo_paths`) : une
@@ -946,9 +947,6 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
     pg.text(margin + 20, y + header_h // 2,
             _("Photos") + f"   —   {arbre.display_name}",
             28, "serif_bold", "white", anchor="lm")
-    pg.text(W - margin - 20, y + header_h // 2,
-            _("Mission") + f" : {chantier.nom}",
-            17, "sans", "white", anchor="rm")
     y += header_h + 24
 
     n_cols = 2
@@ -993,4 +991,4 @@ def _render_photos_page(pdf: FPDF, photos: "List[Path]", arbre: "Arbre",
         pg.text(x0 + col_w // 2, y0 + photo_h + 6, caption,
                 15, "sans", COLOR_MUTED, anchor="mt")
 
-    _draw_footer(pg, chantier, cabinet_name, margin)
+    _draw_footer(pg, arbre, chantier, cabinet_name, margin)
