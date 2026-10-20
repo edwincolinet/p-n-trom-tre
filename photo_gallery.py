@@ -62,8 +62,10 @@ class PhotoGallery(ttk.Frame):
                  on_change: Callable[[], None],
                  get_mission_file: Callable[[], Optional[Path]],
                  on_before_change: Callable[[], None],
+                 title: Optional[str] = None,
                  **kw: Any) -> None:
         super().__init__(master, style="Panel.TFrame", **kw)
+        self._title = title
         self._photos = photos            # référence directe à Arbre.photos
         self._on_change = on_change
         self._get_mission_file = get_mission_file
@@ -108,7 +110,7 @@ class PhotoGallery(ttk.Frame):
     def _build(self) -> None:
         hdr = ttk.Frame(self, style="Panel.TFrame")
         hdr.pack(fill="x", pady=(0, 4))
-        ttk.Label(hdr, text=_("Photos"),
+        ttk.Label(hdr, text=self._title or _("Photos"),
                   font=font_body_bold(),
                   style="Panel.TLabel").pack(side="left")
         ttk.Button(hdr, text=_("＋ Photo"),

@@ -578,6 +578,13 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "nessun fusto di riferimento — solo stato corrente",
     "pas de brin de référence":          "nessun fusto di riferimento",
+    "— état courant seul":               "— solo stato corrente",
+    "Photos de la comparaison":          "Foto del confronto",
+    "Photos de la référence — {r}":      "Foto di riferimento — {r}",
+    "Photos du diagnostic actuel — {c}": "Foto della diagnosi attuale — {c}",
+    "Reprises dans le PDF (page « Évolution photographique », {n} photos maximum par colonne).":
+        "Incluse nel PDF (pagina « Evoluzione fotografica », max {n} foto per colonna).",
+    "Évolution photographique":          "Evoluzione fotografica",
 
     # ── Valori di enum ───────────────────────────────────────────────
 

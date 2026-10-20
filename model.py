@@ -524,6 +524,12 @@ class Arbre:
     suivi_echeance: str = "" # date de prochaine visite JJ/MM/AAAA, optionnelle
     suivi_texte: str = ""    # description du suivi, texte libre
     photos: List[str] = field(default_factory=list)  # chemins absolus des photos
+    # Photos de la **comparaison** (ré-inspection), ajoutées depuis la fenêtre
+    # de comparaison : l'état à la référence / l'état actuel du même arbre.
+    # Stockées sur l'arbre COURANT (la mission de référence n'est jamais
+    # réécrite) ; mêmes règles de chemin que `photos` (`photo_paths`).
+    photos_comparaison_ref: List[str] = field(default_factory=list)
+    photos_comparaison_cur: List[str] = field(default_factory=list)
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
 
     def __init__(
@@ -544,6 +550,8 @@ class Arbre:
         suivi_echeance: str = "",
         suivi_texte: str = "",
         photos: "Optional[List[str]]" = None,
+        photos_comparaison_ref: "Optional[List[str]]" = None,
+        photos_comparaison_cur: "Optional[List[str]]" = None,
         # --- Compat : kwargs de géométrie/mesures hérités de l'API pré-brins.
         # Routés vers le premier brin (brins[0]) pour la compatibilité fichiers.
         rayon_tronc_cm: "Optional[float]" = None,
@@ -570,6 +578,12 @@ class Arbre:
         self.suivi_echeance = suivi_echeance
         self.suivi_texte = suivi_texte
         self.photos: List[str] = list(photos) if photos is not None else []
+        self.photos_comparaison_ref: List[str] = (
+            list(photos_comparaison_ref) if photos_comparaison_ref is not None
+            else [])
+        self.photos_comparaison_cur: List[str] = (
+            list(photos_comparaison_cur) if photos_comparaison_cur is not None
+            else [])
         self.brins = list(brins) if brins is not None else [Brin()]
         b = self.brins[0]
         if rayon_tronc_cm is not None:

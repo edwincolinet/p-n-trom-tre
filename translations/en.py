@@ -608,6 +608,13 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "no reference stem — current state only",
     "pas de brin de référence":          "no reference stem",
+    "— état courant seul":               "— current state only",
+    "Photos de la comparaison":          "Comparison photos",
+    "Photos de la référence — {r}":      "Reference photos — {r}",
+    "Photos du diagnostic actuel — {c}": "Current assessment photos — {c}",
+    "Reprises dans le PDF (page « Évolution photographique », {n} photos maximum par colonne).":
+        "Included in the PDF (\"Photographic evolution\" page, up to {n} photos per column).",
+    "Évolution photographique":          "Photographic evolution",
 
     # ── Valeurs d'enum (ports, compartimentation, urgence, suivi) ────
 
