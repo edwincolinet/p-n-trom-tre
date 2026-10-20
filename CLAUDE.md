@@ -144,6 +144,23 @@ penetrometre.py  (Tk + main) ← undo.py
 
 - **Grades** : 0 à 375 par pas de 25 (16 directions). 0 = Nord, sens horaire.
   Afficher `100 gr` (pas de symbole °).
+  **Unité d'affichage (option, 2026-10-20)** : Affichage → *Unité des angles*
+  (Grades / Degrés), réglage de poste `SettingsStore.angle_unit`. **Le modèle,
+  les fichiers et le diagnostic restent TOUJOURS en grades** (400 gr = 360°,
+  25 gr = 22,5°) : l'option ne change que l'affichage, la saisie et les
+  exports. Source unique `angle_units.py` (pur) : toute chaîne d'angle passe
+  par `fmt`/`nombre`/`valeur`/`suffixe`/`titre_colonne` — **jamais de « gr » en
+  dur** — et toute saisie par `angle_units.parse`/`depuis_unite` (retour en
+  grades). `dialogs_shared.grade_choices`/`find_grade_choice`/`parse_grade`
+  (libellés `100 gr — E` ou `90° — E`), `angle_head`/`largeur_head`/
+  `largeur_label`/`largeur_grades_saisie` pour les champs. Bascule à chaud
+  (`App.action_set_angle_unit`) via `refresh_unit()` des panes Sondages/
+  Contreforts/Dégradations + `_redraw_all` (diagnostic) ; dialogues et exports
+  lisent l'unité à l'ouverture/génération. Les exports (PDF, XLSX, HTML, CSV,
+  synthèse, comparaison) suivent l'unité choisie. **Piège** : `_(variable)`
+  est invisible au test d'i18n — les libellés d'unité sont des littéraux dans
+  `angle_head`/`largeur_*`, mais l'en-tête d'export « Angle (°) » passe par
+  `_(h)` (vérifié à la main : traduction ajoutée en EN/IT).
 - **PRBS** = Paroi Résiduelle de Bois Sain (mesure physique invariante).
   Quand le rayon change, la PRBS reste, `bois_altéré` s'ajuste.
 - **t/R** = PRBS / Rayon **local** (0–1). **Classe** = barème sur le t/R **minimal** des 16 dir. (biomécanique : la rupture part de la paroi la plus mince — **aucun t/R moyen** n'est calculé ni publié ; décision 2026-10-18, remplace l'ancienne règle « moyen »). `classe_globale` reste le nom du champ (cépée : pire brin fiable). Les seuils Vert/Orange/Rouge par défaut ont été calibrés pour une moyenne → à revalider.

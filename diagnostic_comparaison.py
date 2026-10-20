@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
 
+import angle_units
 from diagnostic import (
     _GRAVITE_CLASSE,
     MissionSynthesisRow,
@@ -188,7 +189,7 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
         prbs_c = prbs_par_grade(cur_b)
         for i, g in enumerate(GRADES):
             directions.append(DirectionDelta(
-                grade=g, direction=DIRECTION_LABELS.get(g, f"{g} gr"),
+                grade=g, direction=DIRECTION_LABELS.get(g, angle_units.fmt(g)),
                 prbs_ref=prbs_r[i], prbs_cur=prbs_c[i],
                 delta=prbs_c[i] - prbs_r[i],
                 compart_ref=ref_comp.get(g, ""),

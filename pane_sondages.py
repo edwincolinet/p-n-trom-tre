@@ -52,6 +52,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
+import angle_units
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs_saisie import edit_sondage
@@ -60,6 +61,7 @@ from dialogs_shared import (
 )
 from dialogs_shared import (
     COMPART_NR,
+    angle_head,
     compart_choices,
     compart_from_label,
     compart_label,
@@ -197,7 +199,7 @@ class SondagesPane(ttk.Frame):
         # entre parenthèses pour le lien visuel avec le préfixe « ~ » que
         # portent les exports (PDF/XLSX/CSV) pour une mesure incertaine.
         _COL_INCERTAIN = 7
-        heads = [_("Direction"), _("Grade"), _("Ø local (cm)"),
+        heads = [_("Direction"), angle_head(), _("Ø local (cm)"),
                  _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
                  _("Commentaire"), _("Douteux (~)")]
         # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
@@ -206,10 +208,13 @@ class SondagesPane(ttk.Frame):
             "Reste compté dans le diagnostic, mais préfixé « ~ » dans les "
             "exports (PDF, XLSX, CSV) pour signaler la mesure comme moins "
             "fiable.")
+        self._lbls_gr: Dict[int, ttk.Label] = {}
         for c, h in enumerate(heads):
             lbl_head = ttk.Label(grid, text=h, style="Panel.TLabel",
                                  font=font_small_bold())
             lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            if c == 1:
+                self._lbl_head_angle = lbl_head
             if c == _COL_INCERTAIN:
                 Tooltip(lbl_head, _tip_incertain)
 
@@ -226,8 +231,9 @@ class SondagesPane(ttk.Frame):
                                 cursor="hand2",
                                 font=font_body_bold())
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
-            lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
-                               width=7, cursor="hand2")
+            lbl_gr = ttk.Label(grid, text=angle_units.fmt(g),
+                               style="Muted.TLabel", width=7, cursor="hand2")
+            self._lbls_gr[g] = lbl_gr
             lbl_gr.grid(row=r, column=1, sticky="w", padx=6, pady=1)
 
             ent_diam = ttk.Entry(grid, textvariable=var_diam, width=9,
@@ -371,6 +377,13 @@ class SondagesPane(ttk.Frame):
         return "break"
 
     # --- Refresh ------------------------------------------------------
+
+    def refresh_unit(self) -> None:
+        """Ré-applique l'unité d'angle (grades/degrés) : en-tête et
+        libellés de la colonne d'angle."""
+        self._lbl_head_angle.configure(text=angle_head())
+        for g, lbl in self._lbls_gr.items():
+            lbl.configure(text=angle_units.fmt(g))
 
     def refresh(self) -> None:
         """Recharge la grille depuis l'arbre courant. Suspend la synchro

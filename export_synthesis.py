@@ -19,6 +19,7 @@ from __future__ import annotations
 import csv
 from typing import TYPE_CHECKING, Mapping, Sequence
 
+import angle_units
 from export import ChantierLike, _defuse
 from i18n import _
 
@@ -60,8 +61,8 @@ def _synth_crit_text(row: "MissionSynthesisRow") -> str:
     if row.crit_grade is None:
         return "—"
     if row.crit_dir:
-        return f"{row.crit_dir} ({row.crit_grade} gr)"
-    return f"{row.crit_grade} gr"
+        return f"{row.crit_dir} ({angle_units.fmt(row.crit_grade)})"
+    return angle_units.fmt(row.crit_grade)
 
 
 def _synth_pct_text(v: object) -> str:

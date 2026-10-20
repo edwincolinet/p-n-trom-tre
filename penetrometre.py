@@ -26,6 +26,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any, Iterator, Optional
 
+import angle_units
 from app_arbres import (
     _COMPLET_FILTER_ALL,
     _ECHEANCE_FILTER_ALL,
@@ -148,6 +149,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # les paddings ne sont pas affectés.
         self._settings = SettingsStore(_SETTINGS_PATH)
         self._apply_ui_scale(self._settings.ui_scale)
+        # Unité d'affichage des angles (grades/degrés) : AVANT les widgets,
+        # les libellés de grille sont construits à l'unité courante.
+        angle_units.set_unite(self._settings.angle_unit)
         # Langue AVANT la création des widgets (les chaînes sont évaluées
         # à la création — un changement de langue nécessite un redémarrage).
         setup_language(self._settings.language())

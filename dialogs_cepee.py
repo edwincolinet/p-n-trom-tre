@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, List, Optional, Tuple
 
+import angle_units
 from dialogs import _make_modal
 from geometry import brins_layout, contour_polygon, ring_polygon_points
 from i18n import _
@@ -112,7 +113,7 @@ def ask_cepee_layout(parent: tk.Misc,
                 cv.create_polygon(*[c for p in inner for c in p],
                                   fill=fill, outline=outline, width=2)
             label = b.label or chr(ord("a") + i)
-            rot_txt = f" · {rotations[i]} gr" if rotations[i] else ""
+            rot_txt = f" · {angle_units.fmt(rotations[i])}" if rotations[i] else ""
             txt = (f"{label} · ancre{rot_txt}" if anchor
                    else f"{label}{rot_txt}")
             cv.create_text(cx, cy, text=txt, fill=COLOR_INK,
@@ -179,7 +180,8 @@ def ask_cepee_layout(parent: tk.Misc,
     ttk.Label(
         dlg,
         text=_("Glissez un brin pour le positionner")
-             + " ; molette au-dessus d'un brin pour le faire pivoter (pas de 25 gr).",
+             + " ; molette au-dessus d'un brin pour le faire pivoter "
+             f"(pas de {angle_units.fmt(25)}).",
         background=COLOR_PANEL, foreground=COLOR_MUTED,
         font=font_small_italic(),
         wraplength=int(W), justify="left").grid(

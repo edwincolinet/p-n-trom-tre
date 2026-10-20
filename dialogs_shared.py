@@ -11,6 +11,7 @@ import re
 from datetime import date
 from typing import List, Optional
 
+import angle_units
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _, untranslate_value
 from model import DegradationExterne
@@ -93,30 +94,62 @@ def compart_from_label(display: str) -> str:
     return untranslate_value(d, COMPART_FR)
 
 
+def angle_head() -> str:
+    """En-tête de colonne « Grade » / « Degrés » selon l'unité d'angle."""
+    return _("Degrés") if angle_units.est_degre() else _("Grade")
+
+
+def largeur_head() -> str:
+    """En-tête « Largeur (gr) » / « Largeur (°) »."""
+    return _("Largeur (°)") if angle_units.est_degre() else _("Largeur (gr)")
+
+
+def largeur_grades_saisie(texte: str) -> int:
+    """Largeur saisie dans l'unité courante → **grades** entiers (vide ou
+    nul → 25 gr, le pas minimal)."""
+    raw = to_float(texte)
+    return int(round(angle_units.depuis_unite(raw))) if raw else 25
+
+
+def largeur_label(multiple: bool = False) -> str:
+    """Libellé du champ de largeur angulaire d'un dialogue."""
+    if angle_units.est_degre():
+        return (_("Largeur en degrés (multiple de 22,5)") if multiple
+                else _("Largeur en degrés"))
+    return (_("Largeur en grades (multiple de 25)") if multiple
+            else _("Largeur en grades"))
+
+
 def grade_choices() -> list[str]:
-    """Libellés des 16 directions, format `"100 gr — E"`.
+    """Libellés des 16 directions, format `"100 gr — E"` (ou `"90° — E"`
+    selon l'unité d'angle choisie, cf. `angle_units`).
 
     Public (avec `find_grade_choice` / `parse_grade`) car réutilisé par
     les combobox de saisie en place de `pane_degradations`."""
     out = []
     for g in GRADES:
         lbl = DIRECTION_LABELS.get(g, "")
-        out.append(f"{g} gr" + (f" — {lbl}" if lbl else ""))
+        out.append(angle_units.fmt(g) + (f" — {lbl}" if lbl else ""))
     return out
 
 
 def find_grade_choice(choices: list[str], grade_value: int) -> str:
-    """Renvoie l'entrée de `choices` qui commence par `<grade_value> gr`."""
+    """Renvoie l'entrée de `choices` qui commence par la valeur d'angle de
+    `grade_value` (dans l'unité courante)."""
+    prefix = angle_units.fmt(grade_value)
     for c in choices:
-        if c.startswith(f"{grade_value} gr"):
+        if c == prefix or c.startswith(prefix + " "):
             return c
     return choices[0]
 
 
 def parse_grade(s: str) -> int:
-    """Extrait le grade entier d'une chaîne `"100 gr — E"` (tolère
-    aussi l'ancien format `"100° — E"`)."""
-    return int(s.replace("°", " ").split(" ")[0].strip())
+    """Extrait le **grade** entier d'une chaîne `"100 gr — E"` ou
+    `"90° — E"` (le suffixe présent prime sur l'unité courante)."""
+    v = angle_units.parse(s.split("—")[0])
+    if v is None:
+        raise ValueError(s)
+    return int(round(v))
 
 
 def message_chevauchement(other: DegradationExterne,
@@ -124,11 +157,11 @@ def message_chevauchement(other: DegradationExterne,
     """Texte d'avertissement quand un arc candidat chevauche `other`
     (cf. `model.degradations_chevauchements`). Partagé entre le dialogue
     `edit_degradation` et la saisie en place de `pane_degradations`."""
-    labels = ", ".join(f"{g} gr" for g in shared[:4])
+    labels = ", ".join(angle_units.fmt(g) for g in shared[:4])
     if len(shared) > 4:
         labels += ", …"
-    return (f"La dégradation n°\u00a0{other.numero} ({other.grade_debut} gr → "
-            f"{other.grade_fin} gr) couvre déjà les directions "
+    return (f"La dégradation n°\u00a0{other.numero} ({angle_units.fmt(other.grade_debut)} → "
+            f"{angle_units.fmt(other.grade_fin)}) couvre déjà les directions "
             f"{labels}.\n\nLes arcs ne doivent pas se chevaucher.")
 
 

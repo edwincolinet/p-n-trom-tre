@@ -49,6 +49,7 @@ from typing import (
     cast,
 )
 
+import angle_units
 from diagnostic import genet_diagnostic as _diag_genet_diagnostic
 from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from diagnostic import repartition_classes as _diag_repartition_classes
@@ -311,8 +312,8 @@ def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
         return ("⚠ Diagnostic non fiable : au moins 3 directions sondées "
                 "sont requises pour publier une classe.", "")
     tR_min, classe = diag
-    crit = (f"{snap.tR_min_dir} ({snap.tR_min_grade} gr)"
-            if snap.tR_min_dir else f"{snap.tR_min_grade} gr")
+    _ang = angle_units.fmt(snap.tR_min_grade)
+    crit = (f"{snap.tR_min_dir} ({_ang})" if snap.tR_min_dir else _ang)
     return (f"Diagnostic — t/R minimal {100 * tR_min:.1f} %  ({crit})   ·   "
             f"Classe {classe}", classe)
 
@@ -335,6 +336,12 @@ _HEADERS = [
     "Compart.",
 ]
 _NCOLS = len(_HEADERS)
+
+
+def _headers() -> "list[str]":
+    """`_HEADERS` avec la colonne d'angle dans l'unité courante."""
+    return [angle_units.titre_colonne() if h == "Grade (gr)" else h
+            for h in _HEADERS]
 
 # Index (1-based) des colonnes à traitement spécial.
 _COL_TR = 7        # fond coloré par classe (heatmap)
@@ -422,7 +429,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
 
     # --- En-tête tableau ---
     header_row = 6  # ligne 5 laissée vide
-    for i, h in enumerate(_HEADERS, start=1):
+    for i, h in enumerate(_headers(), start=1):
         c = ws.cell(row=header_row, column=i, value=_(h))
         c.font = HEADER_FONT
         c.fill = HEADER_FILL
@@ -453,7 +460,7 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
         values = [
             _id,
             WIND_LABELS.get(r["grade"], ""),
-            r["grade"],
+            angle_units.valeur(r["grade"]),
             round(r["rayon_cm"], 2),
             round(r["prbs_cm"], 2),
             round(r["bois_altere_cm"], 2),
@@ -647,7 +654,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     meta_chunks.append(_("Relevé du") + f" {_h(chantier.date_releve or '—')}")
     meta_html = " • ".join(meta_chunks)
 
-    headers_html = "".join(f'<th>{_h(_(h))}</th>' for h in _HEADERS)
+    headers_html = "".join(f'<th>{_h(_(h))}</th>' for h in _headers())
 
     # Données
     if not rows_data:
@@ -670,7 +677,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
                 "<tr>"
                 f'<td>{_h(r["sondage_id"])}</td>'
                 f'<td>{_h(WIND_LABELS.get(r["grade"], ""))}</td>'
-                f'<td>{r["grade"]}</td>'
+                f'<td>{angle_units.nombre(r["grade"])}</td>'
                 f'<td>{round(r["rayon_cm"], 2):g}</td>'
                 f'<td>{round(r["prbs_cm"], 2):g}</td>'
                 f'<td>{round(r["bois_altere_cm"], 2):g}</td>'

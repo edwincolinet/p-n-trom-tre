@@ -38,6 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union
 
+import angle_units as _angle_units
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT, classer_prbs
 from geometry import DIRECTION_LABELS, GRADES, polar_idx_to_xy, polar_to_xy
 from model import URGENCE_NIVEAUX, URGENCE_RANG
@@ -599,7 +600,7 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
     # fiable (< 3 sondages) ; quand le diagnostic global est publiable, il
     # est suivi de la classe qui en découle.
     tR_min_txt = (f"t/R minimal : {100*snap.tR_min:.1f} %  "
-                  f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})")
+                  f"({_angle_units.fmt(snap.tR_min_grade)} — {snap.tR_min_dir})")
 
     diag = snap.diagnostic_global
     if diag is None:
@@ -618,7 +619,7 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
             tag = _TAG_CLASSE[cls]
             lignes.append(
                 (f"  ● {cls:<7} : {r.n}/16 directions  "
-                 f"({r.grades} gr / {r.pct:.0f} % du pourtour)", tag))
+                 f"({_angle_units.fmt(r.grades)} / {r.pct:.0f} % du pourtour)", tag))
     lignes.append(("", ""))
     lignes.append((tR_min_txt, ""))
     lignes.append((f"→ Classe (t/R minimal) : {classe_globale}",

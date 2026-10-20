@@ -28,6 +28,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Optional
 
+import angle_units
 from bareme import classer_prbs, description_seuils_mission
 from diagnostic import (
     degradation_externe_par_grade,
@@ -262,7 +263,7 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                         f"{description_seuils_mission(chantier)}"])
             w.writerow(["N° arbre", "Brin", "Essence", "Rayon (cm)",
                         "Port",
-                        "N° sondage", "Grade (gr)", "Direction",
+                        "N° sondage", angle_units.titre_colonne(), "Direction",
                         "PRBS (cm)", "Bois altéré (cm)",
                         "t/R (%)",
                         "Classe",
@@ -290,7 +291,7 @@ def export_csv_mission(parent: tk.Misc, chantier: Chantier) -> None:
                         w.writerow([a.numero_arbre, label, a.essence,
                                     R, a.port_arbre,
                                     s.numero,
-                                    s.grade, d,
+                                    angle_units.valeur(s.grade), d,
                                     prbs_adj, s.bois_altere_cm + deg_ext,
                                     tR_pct,
                                     classe,

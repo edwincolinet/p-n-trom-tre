@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
+import angle_units
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
@@ -376,7 +377,7 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
     # Pire direction
     if detail.pire is not None:
         rows.append(("Direction la plus aggravée", "—", "—",
-                     f"{detail.pire.direction} ({detail.pire.grade} gr) : "
+                     f"{detail.pire.direction} ({angle_units.fmt(detail.pire.grade)}) : "
                      f"{detail.pire.delta:+.2f} cm"))
     return rows
 

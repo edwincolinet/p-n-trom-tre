@@ -35,9 +35,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Dict, Optional, Protocol
 
+import angle_units
 from aide_repliable import AideRepliable
 from dialogs_saisie import edit_contrefort
-from dialogs_shared import to_float, validate_numeric
+from dialogs_shared import angle_head, largeur_head, to_float, validate_numeric
 from geometry import GRADES, WIND_LABELS
 from i18n import _
 from model import Brin, Contrefort
@@ -45,8 +46,25 @@ from palette import COLOR_ACCENT
 from tooltip import Tooltip
 from ui_fonts import font_body_bold, font_small_bold, font_subheading
 
-# Largeur angulaire d'un contrefort : multiples de 25, de 25 à 400 gr.
-_LARGEUR_VALUES = [str(v) for v in range(25, 401, 25)]
+
+# Largeur angulaire d'un contrefort : multiples de 25, de 25 à 400 gr
+# (en degrés : 22,5° à 360°, mêmes 16 pas — cf. `_largeur_values`).
+def _largeur_values() -> "list[str]":
+    return [angle_units.nombre(v) for v in range(25, 401, 25)]
+
+
+def _larg_txt(grades: int) -> str:
+    """Largeur (grades, modèle) → texte de la combobox (unité courante)."""
+    return angle_units.nombre(grades)
+
+
+def _larg_val(texte: str) -> int:
+    """Texte de la combobox (unité courante) → grades entiers du modèle."""
+    v = angle_units.parse(texte)
+    if v is None:
+        raise ValueError(texte)
+    return int(round(v))
+
 # Largeur par défaut d'un contrefort créé depuis la grille (reprend le
 # pré-réglage de l'ancien bouton « ＋ Ajouter contrefort »).
 _LARGEUR_DEFAUT = 75
@@ -92,12 +110,15 @@ class ContrefortsPane(ttk.Frame):
         grid = ttk.Frame(self, style="Panel.TFrame")
         grid.pack(fill="both", expand=True)
 
-        heads = [_("Direction"), _("Grade"), _("Longueur (cm)"),
-                 _("Largeur (gr)"), _("Commentaire")]
+        heads = [_("Direction"), angle_head(), _("Longueur (cm)"),
+                 largeur_head(), _("Commentaire")]
+        self._heads: "list[ttk.Label]" = []
+        self._lbls_gr: "dict[int, ttk.Label]" = {}
         for c, h in enumerate(heads):
-            ttk.Label(grid, text=h, style="Panel.TLabel",
-                      font=font_small_bold()).grid(
-                row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            lbl_h = ttk.Label(grid, text=h, style="Panel.TLabel",
+                              font=font_small_bold())
+            lbl_h.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+            self._heads.append(lbl_h)
 
         vcmd = (self.register(validate_numeric), "%P")
         for r, g in enumerate(GRADES, start=1):
@@ -110,8 +131,9 @@ class ContrefortsPane(ttk.Frame):
                                 cursor="hand2",
                                 font=font_body_bold())
             lbl_dir.grid(row=r, column=0, sticky="w", padx=6, pady=1)
-            lbl_gr = ttk.Label(grid, text=f"{g} gr", style="Muted.TLabel",
-                               width=7, cursor="hand2")
+            lbl_gr = ttk.Label(grid, text=angle_units.fmt(g),
+                               style="Muted.TLabel", width=7, cursor="hand2")
+            self._lbls_gr[g] = lbl_gr
             lbl_gr.grid(row=r, column=1, sticky="w", padx=6, pady=1)
 
             ent = ttk.Entry(grid, textvariable=var_long, width=10,
@@ -120,7 +142,7 @@ class ContrefortsPane(ttk.Frame):
             ent.grid(row=r, column=2, sticky="w", padx=6, pady=1)
 
             cmb = ttk.Combobox(grid, textvariable=var_larg,
-                               values=_LARGEUR_VALUES, state="disabled",
+                               values=_largeur_values(), state="disabled",
                                width=8, justify="center")
             cmb.grid(row=r, column=3, sticky="w", padx=6, pady=1)
 
@@ -194,6 +216,17 @@ class ContrefortsPane(ttk.Frame):
 
     # --- Refresh ------------------------------------------------------
 
+    def refresh_unit(self) -> None:
+        """Ré-applique l'unité d'angle (grades/degrés) : en-têtes, libellés
+        de direction, valeurs de la combobox de largeur, puis relecture."""
+        self._heads[1].configure(text=angle_head())
+        self._heads[3].configure(text=largeur_head())
+        for g, lbl in self._lbls_gr.items():
+            lbl.configure(text=angle_units.fmt(g))
+        for row in self._rows.values():
+            row["combo"].configure(values=_largeur_values())
+        self.refresh()
+
     def refresh(self) -> None:
         """Recharge la grille depuis le brin courant. Suspend la synchro
         pour ne pas re-muter le modèle pendant qu'on écrit les vars."""
@@ -222,7 +255,7 @@ class ContrefortsPane(ttk.Frame):
                     row["com_entry"].configure(state="disabled")
                 else:
                     row["long"].set(f"{c.longueur_cm:g}")
-                    row["larg"].set(str(c.largeur_grades))
+                    row["larg"].set(_larg_txt(c.largeur_grades))
                     row["com"].set(c.commentaire)
                     row["combo"].configure(state="readonly")
                     row["com_entry"].configure(state="normal")
@@ -287,7 +320,7 @@ class ContrefortsPane(ttk.Frame):
         c.longueur_cm = max(0.0, longueur)
         self._suspend = True
         try:
-            row["larg"].set(str(c.largeur_grades))
+            row["larg"].set(_larg_txt(c.largeur_grades))
             row["com"].set(c.commentaire)
         finally:
             self._suspend = False
@@ -346,7 +379,7 @@ class ContrefortsPane(ttk.Frame):
                 self._suspend = False
             return
         try:
-            new = int(self._rows[g]["larg"].get())
+            new = _larg_val(self._rows[g]["larg"].get())
         except ValueError:
             return
         if new == c.largeur_grades:

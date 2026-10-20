@@ -42,6 +42,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
 
+import angle_units
+
 try:
     from fpdf import FPDF
     HAS_FPDF = True
@@ -581,8 +583,8 @@ def render_fiche_arbre(pdf: FPDF,
                     y = int(_draw_table_head(y))
                     k = 0
                 dir_lbl = DIRECTION_LABELS.get(s.grade, "")
-                direction = f"{dir_lbl} ({s.grade} gr)" if dir_lbl \
-                    else f"{s.grade} gr"
+                direction = (f"{dir_lbl} ({angle_units.fmt(s.grade)})"
+                             if dir_lbl else angle_units.fmt(s.grade))
                 idx_g = GRADES.index(s.grade) if s.grade in GRADES else 0
                 deg_ext = deg_ext_par_grade[idx_g]
                 prbs_adj = max(0.0, s.prbs_cm - deg_ext)
@@ -773,7 +775,7 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
     if R > 0 and not all(r >= 0.999 for r in snap.ratios):
         pg.text(x_left, y,
                 _("t/R minimal") + f" : {100 * snap.tR_min:.1f} %  "
-                f"(grade {snap.tR_min_grade} gr — {snap.tR_min_dir})",
+                f"({angle_units.fmt(snap.tR_min_grade)} — {snap.tR_min_dir})",
                 18, "sans_bold" if diag is not None else "sans", COLOR_INK)
         y += 28
         if snap.extrapolation_text:
