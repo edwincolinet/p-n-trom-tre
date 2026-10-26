@@ -156,10 +156,6 @@ TRANSLATIONS = {
     "Version":                             "Versione",
     "Auteur":                              "Autore",
     "Contact":                             "Contatto",
-    "Licence":                             "Licenza",
-    "Usage commercial soumis à licence":   "Uso commerciale soggetto a licenza",
-    "Licence (CLU)":                       "Licenza (EULA)",
-    "Confidentialité":                     "Privacy",
     "Fermer":                              "Chiudi",
 
     # ── Messaggi comuni ───────────────────────────────────────────────
@@ -747,7 +743,6 @@ TRANSLATIONS = {
         "senza di esso, il legno alterato non viene calcolato.",
     "Créez ou ouvrez une mission pour commencer.":
         "Crea o apri una missione per iniziare.",
-    "Activer une licence": "Attivare una licenza",
     "Guide de démarrage": "Guida rapida",
     "Guide de démarrage…": "Guida rapida…",
     "Guide introuvable : {p}": "Guida non trovata: {p}",
@@ -755,7 +750,6 @@ TRANSLATIONS = {
     "Contacter le support…": "Contattare il supporto…",
     "Copier": "Copia",
     "Email": "Email",
-    "Machine ID": "ID macchina",
     "Envoyer un email": "Invia un'email",
     "Ouvrir le log": "Aprire il log",
     "Pour tout signalement, joignez le fichier de log à votre message.":

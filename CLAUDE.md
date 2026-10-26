@@ -10,9 +10,9 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
   double-clic). **Empaquetage distribution** : PyInstaller (`penetrometre.spec`,
   installeurs Win/macOS/Linux via `.github/workflows/build.yml` sur tag `v*`)
   **ou** Nuitka (binaire compilé, `build/build_nuitka.py` — plus dur à
-  décompiler ; `license.is_bundled()` détecte les deux).
+  décompiler).
 - Dépendance optionnelle : openpyxl (export XLSX).
-- Dépendances runtime : cryptography (licence Ed25519 offline) ; **fpdf2**
+- Dépendance runtime : **fpdf2**
   (fiche d'expertise PDF **vectorielle** — texte sélectionnable, net au zoom,
   fichier ~3-4× plus léger ; cf. `fiche_pdf.py`).
 - **Outillage dev** (`requirements-dev.txt`, versions **épinglées** pour ruff
@@ -65,9 +65,6 @@ export_synthesis.py    ← synthèse mission (une ligne par arbre, XLSX/CSV)
 undo.py                ← pile undo/redo (Ctrl+Z / Ctrl+Y, 50 snapshots)
 tooltip.py             ← infobulle Tk légère (survol), n'importe quel widget
 aide_repliable.py      ← widget d'aide repliable (ⓘ Aide ▸/▾), réutilisable
-license.py             ← licence offline Ed25519 : vérification, repère de date monotone, essai (pur)
-dialogs_license.py     ← fenêtre d'activation bloquante (premier lancement sans licence valide)
-gen_license.py         ← outil interne d'émission de clés (NON distribué aux clients)
 tests/                 ← suite de tests (intégration, golden PIL + Tk, undo, persistence, App + mixins, ellipse, cépées)
 ```
 
@@ -408,28 +405,8 @@ penetrometre.py  (Tk + main) ← undo.py
   (80 ms, `_RESIZE_DEBOUNCE_MS`) comme `App._debounced_redraw`. Un glissement
   de poignée de la `PanedWindow` émet un `<Configure>` par pixel ; seule la
   dernière taille compte.
-- **Licence : portée réaliste.** La vérification est locale et hors-ligne ;
-  elle n'est pas inviolable et ne cherche pas à l'être. Ce qui est garanti :
-  signature Ed25519 non forgeable, refus d'une licence utilisée **avant sa
-  date d'émission** (date signée), et décisions de date prises sur
-  `license.today_effectif()` — plancherée par un repère monotone
-  (`state.json`) pour qu'un recul d'horloge ne ressuscite ni une licence
-  expirée ni un essai consommé. L'essai est écrit en double
-  (`trial.json` + `state.json`) et `essai_deja_consomme()` — et non
-  `get_trial_info()` — décide d'afficher le bouton « Essai gratuit »
-  (les deux valent `None` quand l'essai est **expiré**). Tous ces fichiers
-  sont en 0600 sous un dossier 0700, **y compris sur les installations
-  antérieures** au durcissement : `durcir_config_existante()`, appelée par
-  `main()` à chaque démarrage, resserre le dossier et les 3 fichiers privés
-  s'ils sont trop permissifs — sans quoi la `license.key` d'un client
-  resterait en 0644 indéfiniment (on ne la réécrit qu'à la réactivation).
-  Les autres fichiers (`bareme.json`, `recent.json`, le log) ne sont pas
-  touchés : le 0700 du **dossier** interdit déjà la traversée.
-  Émission : `--machine-id` est **requis**
-  (`--any-machine` pour y renoncer explicitement) et la clé privée vit hors
-  du dépôt (`~/.silvavenir-keys/`, `$SILVAVENIR_LICENSE_KEY`).
 - **Journal = artefact de support** : il est explicitement destiné à être
-  envoyé par le client. Pas d'email en clair (`license.masquer_email`), pas
+  envoyé par le client. Pas d'email en clair, pas
   de chemin complet de mission (nom de fichier seul).
 - Tout en français (UI + docstrings).
 - Pas de `print` — logger applicatif (`~/.penetrometre/penetrometre.log`).
@@ -557,38 +534,14 @@ Build / empaquetage (distribution uniquement — le dev tourne sans build) :
 
 **Fichiers embarqués (`datas` du spec / `--include-data-*` de Nuitka)** :
 `assets/`, `exemples/`, `docs/` (contient `guide_demarrage.html`, ouvert par
-`action_open_guide`), `LICENSE` et `PRIVACY.md` (à la racine du bundle,
-ouverts par `penetrometre._open_doc` depuis les boutons « Licence (CLU) »/
-« Confidentialité » de la fenêtre À propos). **Piège corrigé (2026-09-06)** :
-`LICENSE`/`PRIVACY.md`/`docs/` étaient absents des deux specs — l'app
-tournait normalement (`Path(__file__).parent / name` résout dans
-l'environnement de dev), mais dans le binaire empaqueté ces boutons
-affichaient « Fichier introuvable » (silencieux, pas de crash). Nuitka doit
+`action_open_guide`). Nuitka doit
 rester le **miroir exact** des `datas` du spec PyInstaller — toute
 modification de l'un doit être reportée sur l'autre.
 
-Gestion des licences (usage interne). La clé privée vit **hors du dépôt**,
-dans `~/.silvavenir-keys/private.key` (ou `$SILVAVENIR_LICENSE_KEY`) :
-
-```bash
-python3 gen_license.py machine-id                    # ID de CETTE machine (tests)
-# --machine-id est REQUIS (l'ID vient du client, via sa fenêtre d'activation)
-python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8
-python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8 --expires 2028-01-01
-python3 gen_license.py issue "Cabinet" "a@b.fr" --machine-id a3b4c5d6e7f8 --no-expires
-python3 gen_license.py issue "Cabinet" "a@b.fr" --any-machine   # clé TRANSFÉRABLE (rare)
-python3 gen_license.py verify "<clé>"                # support : pour qui / jusqu'à quand
-```
-
-Le check de licence ne s'active que dans un **binaire de production**
-(`is_bundled()` : PyInstaller *ou* Nuitka). En développement
-(`python3 penetrometre.py`), il est sauté automatiquement — la fenêtre
-d'activation ne s'affiche donc **pas**, c'est normal.
-
-La clé publique est dans `license.py` (`_PUBLIC_KEY_B64`) ; la clé privée ne
-doit jamais entrer dans le dépôt. `keygen` refuse d'écrire dans un dépôt git,
-`issue` avertit si la clé y traîne encore, et le hook `pre-push` bloque tout
-fichier de clé suivi par git.
+**Logiciel interne de cabinet** (2026-10-26) : plus de licence, d'essai ni
+de contenu de commercialisation (le système de licence Ed25519, la fenêtre
+d'activation, `gen_license.py`, la CLU/PRIVACY et le plan commercial ont été
+retirés). L'app se lance directement, en développement comme en binaire.
 
 ## Quand tu modifies l'app
 
@@ -613,8 +566,6 @@ fichier de clé suivi par git.
    - Préférences/réglages + mises à jour (langue, barème, taille, contraste, logo) → `app_reglages.py`
    - Fichiers récents → `app_recent.py`
    - Orchestration App (câblage évènements, synchro, undo) → `penetrometre.py`
-   - Vérification/chargement de licence → `license.py` ; dialogue d'activation → `dialogs_license.py`
-   - Émission de clés clients (usage interne) → `gen_license.py`
 2. **Géométrie partagée** : modifier `geometry.py` une fois, les deux renderers héritent. Pour le visuel spécifique (traits, polices, écorce) → modifier Tk **et** PIL.
 3. **Modèle** : ajout de champ = OK. Renommage/suppression → migration dans `persistence.py`.
 4. **Tests** : lancer la suite avant tout commit touchant modèle/géométrie/exports.

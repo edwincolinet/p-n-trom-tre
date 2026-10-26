@@ -12,11 +12,6 @@
 # revalider. NB : un correctif de sécurité Pillow impose donc un bump manuel.
 Pillow==12.2.0
 
-# cryptography est utilisée pour la vérification offline des licences
-# (signatures Ed25519). PyInstaller l'embarque automatiquement via ses
-# hooks intégrés (cryptography ≥ 38).
-cryptography>=41,<45
-
 # openpyxl est utilisée par l'export XLSX du tableau PRBS (menu Export
 # > Tableau XLSX). C'est une dépendance optionnelle : l'app démarre
 # et fonctionne sans, mais l'entrée de menu signale alors qu'elle

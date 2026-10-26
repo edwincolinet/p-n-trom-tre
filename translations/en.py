@@ -156,10 +156,6 @@ TRANSLATIONS = {
     "Version":                             "Version",
     "Auteur":                              "Author",
     "Contact":                             "Contact",
-    "Licence":                             "Licence",
-    "Usage commercial soumis à licence":   "Commercial use requires a licence",
-    "Licence (CLU)":                       "Licence (EULA)",
-    "Confidentialité":                     "Privacy",
     "Fermer":                              "Close",
 
     # ── Messages courants ─────────────────────────────────────────────
@@ -767,7 +763,6 @@ TRANSLATIONS = {
         "without it, altered wood cannot be calculated.",
     "Créez ou ouvrez une mission pour commencer.":
         "Create or open a project to get started.",
-    "Activer une licence": "Activate a licence",
     "Guide de démarrage": "Quick-start guide",
     "Guide de démarrage…": "Quick-start guide…",
     "Guide introuvable : {p}": "Guide not found: {p}",
@@ -775,7 +770,6 @@ TRANSLATIONS = {
     "Contacter le support…": "Contact support…",
     "Copier": "Copy",
     "Email": "Email",
-    "Machine ID": "Machine ID",
     "Envoyer un email": "Send an email",
     "Ouvrir le log": "Open log file",
     "Pour tout signalement, joignez le fichier de log à votre message.":

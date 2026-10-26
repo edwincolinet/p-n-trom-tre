@@ -33,21 +33,11 @@ a = Analysis(
         ("assets", "assets"),
         ("exemples", "exemples"),
         ("docs", "docs"),
-        # Boutons « Licence (CLU) »/« Confidentialité » de la fenêtre
-        # « À propos » (`penetrometre._open_doc`) : sans eux, ces boutons
-        # affichaient « Fichier introuvable » dans l'exécutable empaqueté
-        # (absent avant le 2026-09-06, repéré à l'usage).
-        ("LICENSE", "."),
-        ("PRIVACY.md", "."),
     ],
     hiddenimports=[
         "PIL._imaging",
         "openpyxl",
         "openpyxl.styles.stylesheet",
-        # Vérification de licence offline (Ed25519)
-        "cryptography",
-        "cryptography.hazmat.primitives.asymmetric.ed25519",
-        "cryptography.hazmat.backends",
     ],
     hookspath=[],
     runtime_hooks=[],

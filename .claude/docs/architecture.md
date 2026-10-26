@@ -634,8 +634,7 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   (`action_reinspection`/`action_compare_arbre`/`_export_comparison`).
   Fournit `_BACKUP_PATH` (sauvegardes glissantes).
 - **`app_layout.LayoutMixin`** — construction de l'UI (`_build_layout` /
-  `_build_left` / `_build_center` / `_build_right` / `_build_statusbar` + sash,
-  `_trial_banner`). Quasi-pur builder : crée et assigne la plupart des
+  `_build_left` / `_build_center` / `_build_right` / `_build_statusbar` + sash). Quasi-pur builder : crée et assigne la plupart des
   attributs UI d'`App` (`tree_arbres`, `nb`, `section`, `var_*`, les 5 panes…).
 - **`app_reglages.ReglagesMixin`** — préférences + mises à jour
   (`action_set_language` / `_set_ui_scale` / `_set_high_contrast` /
@@ -647,20 +646,6 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
 
 ## Modules annexes
 
-- **`license.py`** (pur) — vérification/chargement/sauvegarde de licence
-  offline Ed25519 (`_PUBLIC_KEY_B64`). `LicenseData` + `TrialInfo` (essai
-  30 jours). `get_machine_id()` = SHA-256[:12] de l'ID platform
-  (`/etc/machine-id` Linux, `ioreg` macOS, registre Windows). `is_bundled()`
-  : True en binaire de production **PyInstaller** (`sys.frozen`) **OU Nuitka**
-  (`__compiled__` dans les globals) — les contrôles de licence ne s'activent
-  qu'en bundle, jamais en dev. `get_trial_info()` / `start_trial()` / `save_license()`.
-- **`dialogs_license.py`** — fenêtre d'activation bloquante au démarrage
-  (si bundle sans licence). Retourne `Optional[Union[LicenseData, TrialInfo]]`.
-  Affiche l'identifiant machine + bouton Copier ; bouton « Essai 30 jours »
-  (caché si essai déjà démarré) ; contact `e.colinet@silvavenir.fr`.
-- **`gen_license.py`** — outil interne d'émission de clés (non distribué).
-  Sous-commandes : `issue` (name + email + expiration optionnelle +
-  `--machine-id ID12`), `verify`, `machine-id`. Non committé avec `private.key`.
 - **`i18n.py`** — internationalisation : `_("…")` wrapper autour de
   `gettext`. Catalogues dans `translations/` (`en.py`, `it.py`, `fr.py`).
   Sélecteur de langue persisté dans `settings.json`

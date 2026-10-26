@@ -51,19 +51,9 @@ from dialogs import (
     normaliser_date,
 )
 from dialogs_cepee import ask_cepee_layout
-from dialogs_license import show_activation_dialog
 from dialogs_saisie import edit_contrefort, edit_degradation, edit_sondage
 from dialogs_shared import message_chevauchement, save_state_label
 from i18n import _, setup_language, translate_values
-from license import (
-    LicenseData,
-    TrialInfo,
-    durcir_config_existante,
-    get_trial_info,
-    is_bundled,
-    load_license,
-    masquer_email,
-)
 from model import (
     URGENCE_NIVEAUX,
     Arbre,
@@ -158,41 +148,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._apply_bareme()
         self._apply_styles()
 
-        # Vérification de licence — seulement dans le bundle de distribution.
-        # En développement (python penetrometre.py), le check est sauté.
-        self._license: Optional[LicenseData] = None
-        self._trial: Optional[TrialInfo] = None
-        if is_bundled():
-            self.withdraw()
-            _lic: Optional[LicenseData] = load_license()
-            if _lic is None:
-                # Pas de licence valide : essai actif ?
-                _trial_existing = get_trial_info()
-                if _trial_existing is not None:
-                    self._trial = _trial_existing
-                else:
-                    # Dialogue d'activation (licence OU démarrage essai)
-                    result = show_activation_dialog(self)
-                    if isinstance(result, LicenseData):
-                        _lic = result
-                    elif isinstance(result, TrialInfo):
-                        self._trial = result
-                    else:
-                        self.destroy()
-                        sys.exit(0)
-            if _lic is None and self._trial is None:
-                self.destroy()
-                sys.exit(0)
-            self.deiconify()
-            self._license = _lic
-            if _lic is not None:
-                # Email masqué : le journal est destiné au support (cf.
-                # `license.masquer_email`).
-                log.info("Licence valide — %s <%s>", _lic.name,
-                         masquer_email(_lic.email))
-            elif self._trial is not None:
-                log.info("Mode essai — %d jours restants", self._trial.days_remaining)
-
         self.chantier = Chantier()
         self.current_idx = 0
         # Brin (ramet) actuellement piloté par les onglets de saisie
@@ -255,33 +210,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # démarrage (laisse le temps à l'UI de se stabiliser, et évite
         # de bloquer le démarrage si le réseau est lent).
         self.after(3000, self._check_for_update_async)
-        # Bannière mode essai — après deiconify pour ne pas flasher en blanc.
-        if self._trial is not None:
-            self.after(100, lambda: self._show_trial_banner(
-                self._trial.days_remaining if self._trial else 0))
-
-    def _show_trial_banner(self, days_remaining: int) -> None:
-        """Affiche la bannière d'essai avec le nombre de jours restants."""
-        if not hasattr(self, "_trial_banner"):
-            return
-        self._trial_banner_lbl.configure(
-            text=f"Mode essai — {days_remaining} jour(s) restant(s) sur 30"
-        )
-        if not self._trial_banner.winfo_ismapped():
-            self._trial_banner.pack(side="bottom", fill="x")
-
-    def _action_activate_from_trial(self) -> None:
-        """Ouvre le dialogue d'activation depuis la bannière essai."""
-        from dialogs_license import show_activation_dialog
-        result = show_activation_dialog(self)
-        if isinstance(result, LicenseData):
-            self._license = result
-            self._trial = None
-            if hasattr(self, "_trial_banner"):
-                self._trial_banner.pack_forget()
-            log.info("Licence activée depuis mode essai — %s <%s>",
-                     result.name, masquer_email(result.email))
-            self.set_status(f"✓ Licence activée — {result.name}")
 
     def _on_export_shortcut(self, _event: "tk.Event[tk.Misc]") -> None:
         """Ctrl+E → fiche PDF de l'arbre courant. Neutralisé quand un
@@ -321,7 +249,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         """Ouvre un fichier ou dossier avec l'application système par
         défaut (Explorateur, Finder, gestionnaire de fichiers Linux)."""
         import subprocess
-        import sys
         try:
             if sys.platform.startswith("win"):
                 os.startfile(str(path))  # type: ignore[attr-defined]
@@ -1032,33 +959,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                   style="Sub.TLabel").pack(anchor="w")
         ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=10)
 
-        from license import get_machine_id
-        if self._license:
-            lic_titulaire = self._license.name
-            if self._license.expires:
-                lic_expiration = self._license.expires.strftime("%d/%m/%Y")
-            else:
-                lic_expiration = "Illimitée"
-            lic_machine = self._license.machine_id or "toutes machines"
-            lic_mode = "Licence active"
-        elif self._trial:
-            lic_titulaire = "Mode essai"
-            lic_expiration = f"{self._trial.days_remaining} jour(s) restant(s)"
-            lic_machine = get_machine_id()
-            lic_mode = "Essai gratuit 30 jours"
-        else:
-            lic_titulaire = "Mode développement"
-            lic_expiration = "—"
-            lic_machine = get_machine_id()
-            lic_mode = "Développement (non bundlé)"
-
         infos = [
             ("Version",        __version__),
             ("Auteur",         "Edwin Colinet"),
-            ("Licence",        lic_mode),
-            ("Titulaire",      lic_titulaire),
-            ("Expiration",     lic_expiration),
-            ("Machine ID",     lic_machine),
         ]
         for lbl, val in infos:
             row = ttk.Frame(frm)
@@ -1079,30 +982,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         btns = ttk.Frame(frm)
         btns.pack(fill="x")
 
-        def _open_doc(name: str) -> None:
-            doc = Path(__file__).parent / name
-            if doc.exists():
-                import subprocess
-                import sys
-                if sys.platform == "win32":
-                    os.startfile(str(doc))
-                elif sys.platform == "darwin":
-                    subprocess.Popen(["open", str(doc)])
-                else:
-                    subprocess.Popen(["xdg-open", str(doc)])
-            else:
-                messagebox.showwarning(
-                    _("Fichier introuvable"),
-                    f"{name} est absent de l'installation.",
-                    parent=dlg)
-
-        ttk.Button(btns, text=_("Licence (CLU)"),
-                   style="Ghost.TButton",
-                   command=lambda: _open_doc("LICENSE")).pack(side="left")
-        ttk.Button(btns, text=_("Confidentialité"),
-                   style="Ghost.TButton",
-                   command=lambda: _open_doc("PRIVACY.md")).pack(side="left",
-                                                                  padx=(6, 0))
         ttk.Button(btns, text=_("Fermer"),
                    style="Accent.TButton",
                    command=dlg.destroy).pack(side="right")
@@ -1223,9 +1102,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self._open_in_system(guide)
 
     def action_contact_support(self) -> None:
-        """Dialogue de support : contact, Machine ID, lien vers le log."""
-        from license import get_machine_id
-        machine_id = get_machine_id()
+        """Dialogue de support : contact, version, lien vers le log."""
         log_path = Path.home() / ".penetrometre" / "penetrometre.log"
 
         dlg = tk.Toplevel(self)
@@ -1258,7 +1135,6 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
                            command=_copy).pack(side="left", padx=(8, 0))
 
         _row(_("Email"), _SUPPORT_EMAIL, copy=True)
-        _row(_("Machine ID"), machine_id, copy=True)
 
         _row(_("Version"), __version__)
 
@@ -1286,7 +1162,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             import webbrowser
             subject = urllib.parse.quote(f"Support Pénétromètre Silvavenir {__version__}")
             body = urllib.parse.quote(
-                f"Machine ID : {machine_id}\nVersion : {__version__}\n\n"
+                f"Version : {__version__}\n\n"
                 f"[Décrivez votre problème ici]")
             webbrowser.open(f"mailto:{_SUPPORT_EMAIL}?subject={subject}&body={body}")
 
@@ -1373,11 +1249,6 @@ def main() -> None:
     log_path = _setup_logging()
     log = logging.getLogger("penetrometre")
     log.info("Démarrage Pénétromètre v%s", __version__)
-    # Rattrape les installations antérieures au durcissement : dossier de
-    # config en 0700, licence/essai/repère en 0600. Ici plutôt que dans la
-    # branche licence, pour que le parc se corrige à TOUS les lancements —
-    # y compris en mode essai et en développement.
-    durcir_config_existante()
     try:
         App().mainloop()
     except Exception:

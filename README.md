@@ -110,8 +110,7 @@ GitHub Release. La signature de code est optionnelle (activée si les secrets
 correspondants sont configurés).
 
 **Nuitka** (option durcie) — binaire **compilé** (démarrage plus rapide, plus
-difficile à décompiler qu'un bundle PyInstaller, en complément de la licence
-Ed25519) :
+difficile à décompiler qu'un bundle PyInstaller) :
 
 ```bash
 python3 build/build_nuitka.py    # → dist-nuitka/  (nécessite un compilateur C)
@@ -143,7 +142,6 @@ mon-dossier/
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,
 │                                  Contrefort, Disposition de la cépée)
-├── dialogs_license.py          ← fenêtre d'activation bloquante (licence)
 ├── dialogs_settings.py         ← dialogs préférences avancées (barème, logo)
 ├── dialogs_shared.py           ← helpers partagés entre dialogues
 ├── model.py                    ← dataclasses + mutateurs de cohérence
@@ -158,7 +156,6 @@ mon-dossier/
 ├── angle_units.py              ← unité d'affichage des angles (grades/degrés, pur)
 ├── export.py                   ← exports XLSX/HTML
 ├── palette.py                  ← couleurs partagées Tk ↔ PIL
-├── license.py                  ← vérification/chargement licence offline Ed25519
 ├── i18n.py                     ← internationalisation (gettext, catalogues)
 ├── update_checker.py           ← vérification mises à jour GitHub Releases
 ├── template_store.py           ← modèles de mission réutilisables
@@ -449,11 +446,10 @@ cités dans les livrables (fiche PDF, exports XLSX/HTML/CSV) — deux
 opérateurs aux réglages différents savent ainsi toujours avec quel barème
 une classe Vert/Orange/Rouge a été obtenue.
 
-### Licence et mode essai
+### Usage interne
 
-Pénétromètre Silvavenir est un logiciel propriétaire. Un système de **licence offline**
-(Ed25519, binding machine optionnel) et un **mode essai gratuit 30 jours**
-sont intégrés. Pour obtenir une licence : `e.colinet@silvavenir.fr`.
+Pénétromètre Silvavenir est un logiciel interne de cabinet, développé par
+Edwin Colinet. Contact : `e.colinet@silvavenir.fr`.
 
 ## En cas de problème
 
