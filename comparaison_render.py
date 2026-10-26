@@ -20,7 +20,9 @@ import angle_units
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
-    verdict_evolution,
+    evolution_globale,
+    verdict_contraste,
+    verdict_lignes,
 )
 from geometry import (
     GRADES,
@@ -67,6 +69,29 @@ if TYPE_CHECKING:
 _GR_TO_DEG = 0.9
 _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
 _ORANGE_HEX = "#{:02X}{:02X}{:02X}".format(*_ORANGE)
+_VERT = (45, 122, 62)      # bois sain regagné (zone dégradée à la réf., plus maintenant)
+_VERT_HEX = "#{:02X}{:02X}{:02X}".format(*_VERT)
+
+
+def _peindre_evolution(img: "PILImage", ref_polys: List[Any],
+                       cur_polys: List[Any]) -> None:
+    """Peint sur `img` la différence entre deux ensembles de zones
+    dégradées (polygones écran) : **orange** = dégradé maintenant mais pas à
+    la référence (aggravation), **vert** = dégradé à la référence mais plus
+    maintenant (amélioration), `COLOR_ROT` = dégradé aux deux campagnes.
+    Par masques (et non par simple superposition) : seule façon de montrer
+    à la fois ce qui s'ajoute et ce qui disparaît."""
+    from PIL import Image as _Image
+    from PIL import ImageChops, ImageDraw
+    m_ref = _Image.new("L", img.size, 0)
+    m_cur = _Image.new("L", img.size, 0)
+    for mask, polys in ((m_ref, ref_polys), (m_cur, cur_polys)):
+        dm = ImageDraw.Draw(mask)
+        for pts in polys:
+            dm.polygon(pts, fill=255)
+    img.paste(_VERT, mask=ImageChops.subtract(m_ref, m_cur))
+    img.paste(_ORANGE, mask=ImageChops.subtract(m_cur, m_ref))
+    img.paste(COLOR_ROT, mask=ImageChops.multiply(m_ref, m_cur))
 
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
@@ -229,29 +254,30 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     # Cernes de graduation (même primitives que la section réelle).
     _pil_draw_cernes(d, cur_b, cx, cy, R, scale)
 
-    # Dégradation externe : profondeur COURANTE en orange, profondeur de
-    # RÉFÉRENCE en ROT par-dessus → orange = bande approfondie depuis la réf.
-    # Arcs EXACTS (`degradation_externe_outline`) : plus de débordement.
-    for deg in cur_b.degradations_externes:
-        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
-                                          cx, cy, scale, rotation_grades=rot)
-        if pts:
-            d.polygon(pts, fill=_ORANGE)
-    for deg in ref_degs:
-        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
-                                          cx, cy, scale, rotation_grades=rot)
-        if pts:
-            d.polygon(pts, fill=COLOR_ROT)
+    # Dégradation externe : arcs EXACTS (`degradation_externe_outline`),
+    # orange = approfondie depuis la réf., vert = résorbée depuis la réf.
+    def _ext_polys(degs: List[Any]) -> List[Any]:
+        polys = []
+        for deg in degs:
+            pts = degradation_externe_outline(
+                deg, cur_b.contreforts, R_of, ep, cx, cy, scale,
+                rotation_grades=rot)
+            if pts:
+                polys.append(pts)
+        return polys
 
-    # Cavité interne : courante en orange, référence en ROT par-dessus →
-    # orange = anneau creusé depuis la réf. `cavity_polygon` = primitive du
-    # rendu réel (Catmull-Rom centrée, pas de bord arc → lissage légitime).
-    if any(a > 0 for a in cur_alt):
-        d.polygon(cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot),
-                  fill=_ORANGE)
-    if any(a > 0 for a in ref_alt):
-        d.polygon(cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot),
-                  fill=COLOR_ROT)
+    _peindre_evolution(img, _ext_polys(ref_degs),
+                       _ext_polys(cur_b.degradations_externes))
+
+    # Cavité interne (`cavity_polygon` = primitive du rendu réel, Catmull-Rom
+    # centrée) : orange = anneau creusé depuis la réf., vert = cavité
+    # résorbée depuis la réf.
+    _peindre_evolution(
+        img,
+        [cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot)]
+        if any(a > 0 for a in ref_alt) else [],
+        [cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot)]
+        if any(a > 0 for a in cur_alt) else [])
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
@@ -271,7 +297,9 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
 
     if show_title:
         legend_y = size - caption_h + int(size * 0.012)
-        extra_items = (("Aggravation", _ORANGE_HEX),) if ref_b is not None else ()
+        extra_items = ((("Aggravation", _ORANGE_HEX),
+                        ("Amélioration", _VERT_HEX))
+                       if ref_b is not None else ())
         # `height` pilote la taille de police/pastille de la légende, PAS le
         # cadrage (qui reste `width=size`, le vrai canevas) : à `size` réel
         # (2400), les 5 items possibles (sain/dégradé/écorce/sondage/perdu)
@@ -303,15 +331,19 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         if ref_b is None:
             lines = [_("pas de brin de référence"), _("— état courant seul")]
         else:
-            lines = ["= bois sain perdu", "depuis la référence"]
-        cap_y = size - len(lines) * line_h - 8
-        text_x = x0
-        if ref_b is not None:
-            d.rectangle([x0, cap_y, x0 + 20, cap_y + 16],
-                        fill=_ORANGE, outline=(150, 150, 146))
-            text_x = x0 + 26
+            lines = []
+        entries = ([] if ref_b is None else
+                   [(_ORANGE, "aggravation"), (_VERT, "amélioration")])
+        n_lines = len(entries) or len(lines)
+        cap_y = size - n_lines * line_h - 8
+        for k, (col, libelle) in enumerate(entries):
+            y0 = cap_y + k * line_h
+            d.rectangle([x0, y0, x0 + 20, y0 + 16], fill=col,
+                        outline=(150, 150, 146))
+            d.text((x0 + 26, y0 + 8), libelle, font=sf, fill=COLOR_MUTED,
+                   anchor="lm")
         for i, ln in enumerate(lines):
-            d.text((text_x, cap_y + 8 + i * line_h), ln, font=sf,
+            d.text((x0, cap_y + 8 + i * line_h), ln, font=sf,
                    fill=COLOR_MUTED, anchor="lm")
     return img
 
@@ -477,9 +509,9 @@ def _draw_page_footer(d: Any, f: Any, chantier: "Optional[Chantier]",
                _("Barème appliqué") + " — "
                + description_seuils_arbre(chantier, port),
                font=f(12, "sans"), fill=COLOR_MUTED, anchor="mm")
-        cab = f"   •   {cabinet_name}" if cabinet_name else ""
+        cab = f"{cabinet_name}   •   " if cabinet_name else ""
         d.text((W / 2, fy + 38),
-               f"Pénétromètre Silvavenir{cab}   •   " + _("Édité le")
+               cab + _("Édité le")
                + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
                font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
 
@@ -552,11 +584,33 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
 
     # Verdict.
     y += 26
-    d.text((margin, y), verdict_evolution(detail),
-           font=f(18, "sans_bold"), fill=COLOR_INK)
+    titre, precisions = verdict_lignes(detail)
+    d.text((margin, y), titre, font=f(22, "sans_bold"),
+           fill=_verdict_fill(detail))
+    d.text((margin, y + 34), precisions, font=f(15, "sans"), fill=COLOR_INK)
 
     _draw_page_footer(d, f, chantier, port, cabinet_name)
     return page
+
+
+def verdict_couleur(detail: "ComparaisonDetail") -> Optional[str]:
+    """Couleur du verdict (source unique fenêtre ↔ export) : rouge =
+    aggravation, ambre = évolution contrastée, vert = amélioration,
+    `None` = stable / non comparable (à la charge de l'appelant)."""
+    evo = evolution_globale(detail)
+    if evo is None:
+        return None
+    if verdict_contraste(detail):
+        return "#B7791F"
+    if evo > 0:
+        return "#C0392B"
+    if evo < 0:
+        return "#2D7A3E"
+    return None
+
+
+def _verdict_fill(detail: "ComparaisonDetail") -> str:
+    return verdict_couleur(detail) or COLOR_INK
 
 
 def render_comparison_page(mission_nom: str, ref_arbre: "Arbre",

@@ -297,9 +297,31 @@ class SeuilsArbreEtVerdictTests(unittest.TestCase):
 
     def test_verdict_perte_gain_stable_sur_tr_meme_classe(self):
         from diagnostic_comparaison import verdict_evolution
-        self.assertIn("Perte", verdict_evolution(self._detail(60.0, 52.0)))
-        self.assertIn("Gain", verdict_evolution(self._detail(52.0, 60.0)))
-        self.assertIn("Stable", verdict_evolution(self._detail(52.0, 52.04)))
+        self.assertIn("AGGRAVATION", verdict_evolution(self._detail(60.0, 52.0)))
+        self.assertIn("AMÉLIORATION",
+                      verdict_evolution(self._detail(52.0, 60.0)))
+        self.assertIn("STABLE", verdict_evolution(self._detail(52.0, 52.04)))
+
+    def test_tr_min_stable_mais_perte_ailleurs_n_est_pas_stable(self):
+        from diagnostic_comparaison import DirectionDelta, evolution_globale, verdict_evolution
+        d = self._detail(5.0, 5.0)
+        perdues = [DirectionDelta(0, "N", 10.0, 10.0, 0.0, "", ""),
+                   DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "")]
+        d = d._replace(directions=perdues)
+        v = verdict_evolution(d)
+        self.assertNotIn("STABLE", v)
+        self.assertIn("AGGRAVATION LOCALISÉE", v)
+        self.assertIn("NE", v)
+        self.assertEqual(evolution_globale(d), 1)
+
+    def test_gain_tr_avec_perte_ailleurs_est_contraste_pas_ameliore(self):
+        from diagnostic_comparaison import DirectionDelta, verdict_contraste, verdict_evolution
+        d = self._detail(5.0, 8.0)._replace(directions=[
+            DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "")])
+        v = verdict_evolution(d)
+        self.assertIn("CONTRASTÉE", v)
+        self.assertNotIn("AMÉLIORATION", v)
+        self.assertTrue(verdict_contraste(d))
 
     def test_pas_de_ligne_prbs_moyenne(self):
         from comparaison_render import metric_rows

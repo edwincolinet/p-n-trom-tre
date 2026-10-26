@@ -67,10 +67,11 @@ from comparaison_render import (
     render_comparison_pages,
     render_evolution_pngs,
     render_evolution_section_brin,
+    verdict_couleur,
 )
 from diagnostic_comparaison import (
     comparaison_par_brin,
-    evolution_tr,
+    evolution_globale,
     verdict_evolution,
 )
 from dialogs_shared import annees_entre, save_state_label
@@ -563,11 +564,6 @@ def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
 
 
 def _verdict_color(detail: Any) -> str:
-    evo = evolution_tr(detail)
-    if evo is None:
+    if evolution_globale(detail) is None:
         return COLOR_MUTED
-    if evo > 0:
-        return "#C0392B"   # aggravation = rouge
-    if evo < 0:
-        return "#2D7A3E"   # amélioration = vert
-    return COLOR_INK
+    return verdict_couleur(detail) or COLOR_INK

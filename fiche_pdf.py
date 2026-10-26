@@ -348,7 +348,7 @@ def _estimate_preco_height(pg: _Page, arbre: "Arbre", txt_w: int,
 
 def _draw_footer(pg: _Page, arbre: "Arbre", chantier: "Chantier",
                  cabinet_name: str, margin: int) -> None:
-    """Filet + ligne barème (seuils du seul arbre, sans port) + ligne Pénétromètre Silvavenir/date, en bas de la page
+    """Filet + ligne barème (seuils du seul arbre, sans port) + ligne cabinet/date, en bas de la page
     courante. Factorisé pour être rejoué identique sur chaque page d'une
     fiche qui déborde sur plusieurs pages (table PRBS d'une grosse cépée,
     cf. `render_fiche_arbre`)."""
@@ -356,9 +356,9 @@ def _draw_footer(pg: _Page, arbre: "Arbre", chantier: "Chantier",
     pg.text(W / 2, H - 44,
             _("Barème appliqué") + " — " + description_seuils_arbre(chantier, arbre.port_arbre),
             12, "sans", COLOR_MUTED, anchor="mm")
-    cab_suffix = f"   •   {cabinet_name}" if cabinet_name else ""
+    cab_prefix = f"{cabinet_name}   •   " if cabinet_name else ""
     pg.text(W / 2, H - 22,
-            f"Pénétromètre Silvavenir{cab_suffix}   •   " + _("Édité le")
+            cab_prefix + _("Édité le")
             + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
             14, "sans", COLOR_MUTED, anchor="mm")
 
@@ -477,7 +477,7 @@ def render_fiche_arbre(pdf: FPDF,
         est_diag_h = 360  # majorant : t/R + bar + détail + classe
     est_legend_h = 56
     # Pied de page : filet (H-60) + ligne barème (H-44) + ligne
-    # Pénétromètre Silvavenir/date (H-22). Doit rester cohérent avec le bloc « Pied de
+    # cabinet/date (H-22). Doit rester cohérent avec le bloc « Pied de
     # page » plus bas, sinon le contenu déborde sur le pied.
     footer_reserve = 76
     has_intervention = bool(arbre.urgence or arbre.echeance or arbre.preconisation)
