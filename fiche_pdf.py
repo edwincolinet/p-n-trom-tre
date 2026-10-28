@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, NamedTuple, Sequence, Tuple
 
 import angle_units
 
@@ -364,35 +364,26 @@ def _draw_footer(pg: _Page, arbre: "Arbre", chantier: "Chantier",
             14, "sans", COLOR_MUTED, anchor="mm")
 
 
-def render_fiche_arbre(pdf: FPDF,
-                       arbre: "Arbre",
-                       chantier: "Chantier",
-                       *,
-                       show_sondages: bool = True,
-                       logo_path: "str | None" = None,
-                       cabinet_name: str = "",
-                       mission_file: "Path | None" = None) -> None:
-    """Ajoute au document `pdf` la/les page(s) de l'arbre.
+class _PlanFiche(NamedTuple):
+    """Dimensionnement de la page « fiche » d'un arbre (cf. `_plan_fiche`)."""
+    multi_brins: bool
+    is_cepee: bool
+    n_sond: int
+    row_h: int                 # hauteur d'une ligne du tableau PRBS
+    row_font_size: int
+    est_legend_h: int
+    est_section_h: int         # hauteur réservée Diagnostic / Préconisation
+    drawing_w: int
+    drawing_h: int
+    has_intervention: bool
+    has_suivi: bool
 
-    Une page « fiche » (en-tête mission, dessin, tableau PRBS, diagnostic,
-    préconisation) ; plus une page « photos » si des photos sont associées.
 
-    Les tailles de police, largeurs de colonnes et marges sont calibrées
-    pour rester lisibles à l'impression A4.
-
-    `show_sondages` reflète la case « Afficher l'emplacement des sondages
-    sur le dessin » : à `False`, les pastilles/flèches sont omises **du
-    dessin** (le tableau PRBS reste, lui, toujours présent — c'est la donnée).
-    """
-    from PIL import Image, ImageDraw
-
-    f = _pil_load_fonts()     # pour le dessin de section + la légende (PIL)
-
-    pdf.add_page()
-    pg = _Page(pdf)
-
-    margin = 60
-    y = margin
+def _draw_en_tete(pg: _Page, chantier: "Chantier", logo_path: "str | None",
+                  margin: int, y: float) -> float:
+    """Bandeau d'en-tête de la fiche (titre, adresse/client, date/opérateur,
+    logo du cabinet). Renvoie l'ordonnée sous le bandeau."""
+    from PIL import Image
 
     # --- En-tête mission avec logo cabinet ---
     header_h = 116
@@ -436,7 +427,12 @@ def render_fiche_arbre(pdf: FPDF,
             + f" : {chantier.operateur}",
             17, "sans", "white")
     y += header_h + 18
+    return y
 
+
+def _draw_identite(pg: _Page, arbre: "Arbre", margin: int, y: float) -> float:
+    """Nom de l'arbre, ligne de dimensions et commentaire. Renvoie
+    l'ordonnée suivante."""
     # --- Identité de l'arbre ---
     pg.text(margin, y, arbre.display_name, 35, "serif_bold", COLOR_INK)
     y += 50
@@ -453,7 +449,13 @@ def render_fiche_arbre(pdf: FPDF,
                          17, "sans", W - 2 * margin)
         pg.text(margin, y, comm, 17, "sans", COLOR_INK)
         y += 30
+    return y
 
+
+def _plan_fiche(pg: _Page, arbre: "Arbre", margin: int, y: float) -> _PlanFiche:
+    """Calcule le dimensionnement adaptatif de la page : le dessin occupe
+    ce que laissent le tableau PRBS, le diagnostic/la préconisation, la
+    légende et le pied de page (chacun réserve sa place)."""
     # --- Dessin (adaptatif : le reste de la page réserve sa place) ---
     multi_brins = len(arbre.brins) > 1
     # Cépée = même prédicat de routage que les renderers.
@@ -492,7 +494,7 @@ def render_fiche_arbre(pdf: FPDF,
     else:
         est_preco_h = 0
     est_section_h = max(est_diag_h, est_preco_h)
-    used_so_far = y - margin
+    used_so_far = int(y) - margin
     remaining = (H - margin - footer_reserve) - used_so_far \
         - est_table_h - est_section_h - est_legend_h - 22
     drawing_h = max(340, min(900, remaining))
@@ -509,6 +511,24 @@ def render_fiche_arbre(pdf: FPDF,
                 drawing_h = max(420, min(drawing_h, fitted))
     else:
         drawing_w = drawing_h
+    return _PlanFiche(
+        multi_brins=multi_brins, is_cepee=is_cepee, n_sond=n_sond,
+        row_h=row_h, row_font_size=row_font_size, est_legend_h=est_legend_h,
+        est_section_h=est_section_h, drawing_w=drawing_w,
+        drawing_h=drawing_h, has_intervention=has_intervention,
+        has_suivi=has_suivi)
+
+
+def _draw_dessin(pg: _Page, arbre: "Arbre", plan: _PlanFiche, y: float,
+                 show_sondages: bool) -> float:
+    """Dessin de la section (rendu Pillow collé en image) puis légende
+    horizontale. Renvoie l'ordonnée suivante."""
+    from PIL import Image, ImageDraw
+
+    f = _pil_load_fonts()     # pour le dessin de section + la légende (PIL)
+    R = arbre.rayon_tronc_cm
+    drawing_w, drawing_h = plan.drawing_w, plan.drawing_h
+    est_legend_h = plan.est_legend_h
     drawing = render_arbre_to_pil_image(arbre, drawing_w, drawing_h,
                                         show_sondages=show_sondages,
                                         show_title=False,
@@ -528,7 +548,17 @@ def render_fiche_arbre(pdf: FPDF,
                                     show_classes=False)
         pg.image(strip, 0, y, W, strip_h)
         y += est_legend_h
+    return y
 
+
+def _draw_tableau_prbs(pdf: FPDF, pg: _Page, arbre: "Arbre",
+                       chantier: "Chantier", cabinet_name: str, margin: int,
+                       plan: _PlanFiche, y: float) -> "Tuple[_Page, float]":
+    """Tableau PRBS ajustée par sondage, paginé si besoin. Peut ouvrir de
+    nouvelles pages (d'où le renvoi de la page courante `pg` et de `y`)."""
+    multi_brins, n_sond = plan.multi_brins, plan.n_sond
+    row_h, row_font_size = plan.row_h, plan.row_font_size
+    est_section_h = plan.est_section_h
     # --- Tableau PRBS ajustée par sondage (par brin pour une cépée) ---
     # Ligne basse que le tableau ne franchit JAMAIS (mêmes 8 px de marge
     # que `y_limit` de la préconisation, au-dessus du filet de pied de page
@@ -634,25 +664,15 @@ def render_fiche_arbre(pdf: FPDF,
         pdf.add_page()
         pg = _Page(pdf)
         y = margin
+    return pg, y
 
-    # --- Diagnostic (col. gauche) + Préconisation (col. droite) ---
-    has_preco = has_intervention or has_suivi
-    col_diag_left = margin
-    col_diag_right = (margin + 680) if has_preco else (W - margin)
-    col_preco_left = col_diag_right + 20
-    col_preco_right = W - margin
 
-    y_section = y
-    pg.text(col_diag_left, y_section, _("Diagnostic"),
-            22, "serif_bold", COLOR_RENDER_ACCENT)
-    y_diag = y_section + 36
-    if multi_brins:
-        y_diag = int(_draw_cepee_diagnostic(
-            pg, arbre, col_diag_left, col_diag_right, y_diag))
-    else:
-        y_diag = int(_draw_mono_diagnostic(
-            pg, arbre, col_diag_left, col_diag_right, R, y_diag))
-
+def _draw_preconisation(pg: _Page, arbre: "Arbre", y_section: float,
+                        col_preco_left: int, col_preco_right: int,
+                        has_preco: bool, has_intervention: bool,
+                        has_suivi: bool) -> float:
+    """Colonne « Préconisation » (intervention + suivi), bornée au-dessus
+    du pied de page. Renvoie l'ordonnée finale de la colonne."""
     y_preco = y_section
     if has_preco:
         pad = 12
@@ -668,7 +688,7 @@ def render_fiche_arbre(pdf: FPDF,
         # « Barème appliqué »).
         y_limit = (H - 60) - 8
 
-        def _preco_header(title: str, y0: int) -> int:
+        def _preco_header(title: str, y0: float) -> float:
             bar_h = 32
             pg.rect(col_preco_left, y0, col_preco_right, y0 + bar_h,
                     COLOR_RENDER_ACCENT)
@@ -676,7 +696,7 @@ def render_fiche_arbre(pdf: FPDF,
                     16, "sans_bold", "white", anchor="lm")
             return y0 + bar_h + 12
 
-        def _draw_preco_text(text: str, y0: int) -> int:
+        def _draw_preco_text(text: str, y0: float) -> float:
             avail = int((y_limit - y0) // 22)
             if avail < 1:
                 return y0
@@ -741,6 +761,66 @@ def render_fiche_arbre(pdf: FPDF,
             if arbre.suivi_texte:
                 y_preco = _draw_preco_text(arbre.suivi_texte, y_preco + 2)
             y_preco += 6
+    return y_preco
+
+
+def render_fiche_arbre(pdf: FPDF,
+                       arbre: "Arbre",
+                       chantier: "Chantier",
+                       *,
+                       show_sondages: bool = True,
+                       logo_path: "str | None" = None,
+                       cabinet_name: str = "",
+                       mission_file: "Path | None" = None) -> None:
+    """Ajoute au document `pdf` la/les page(s) de l'arbre.
+
+    Une page « fiche » (en-tête mission, dessin, tableau PRBS, diagnostic,
+    préconisation) ; plus une page « photos » si des photos sont associées.
+
+    Les tailles de police, largeurs de colonnes et marges sont calibrées
+    pour rester lisibles à l'impression A4.
+
+    `show_sondages` reflète la case « Afficher l'emplacement des sondages
+    sur le dessin » : à `False`, les pastilles/flèches sont omises **du
+    dessin** (le tableau PRBS reste, lui, toujours présent — c'est la donnée).
+    """
+    pdf.add_page()
+    pg = _Page(pdf)
+
+    margin = 60
+    y: float = margin
+
+    y = _draw_en_tete(pg, chantier, logo_path, margin, y)
+    y = _draw_identite(pg, arbre, margin, y)
+    plan = _plan_fiche(pg, arbre, margin, y)
+    y = _draw_dessin(pg, arbre, plan, y, show_sondages)
+    pg, y = _draw_tableau_prbs(pdf, pg, arbre, chantier, cabinet_name,
+                               margin, plan, y)
+
+    multi_brins = plan.multi_brins
+    has_intervention, has_suivi = plan.has_intervention, plan.has_suivi
+    R = arbre.rayon_tronc_cm
+    # --- Diagnostic (col. gauche) + Préconisation (col. droite) ---
+    has_preco = has_intervention or has_suivi
+    col_diag_left = margin
+    col_diag_right = (margin + 680) if has_preco else (W - margin)
+    col_preco_left = col_diag_right + 20
+    col_preco_right = W - margin
+
+    y_section = y
+    pg.text(col_diag_left, y_section, _("Diagnostic"),
+            22, "serif_bold", COLOR_RENDER_ACCENT)
+    y_diag = y_section + 36
+    if multi_brins:
+        y_diag = int(_draw_cepee_diagnostic(
+            pg, arbre, col_diag_left, col_diag_right, y_diag))
+    else:
+        y_diag = int(_draw_mono_diagnostic(
+            pg, arbre, col_diag_left, col_diag_right, R, y_diag))
+
+    y_preco = _draw_preconisation(
+        pg, arbre, y_section, col_preco_left, col_preco_right,
+        has_preco, has_intervention, has_suivi)
 
     y = max(y_diag, y_preco) + 10
 
@@ -761,6 +841,8 @@ def render_fiche_arbre(pdf: FPDF,
     if photos_valides:
         _render_photos_page(pdf, photos_valides, arbre, chantier, margin,
                            cabinet_name)
+
+
 
 
 def _draw_couverture_warning(pg: _Page, snap: Any, x_left: int,
