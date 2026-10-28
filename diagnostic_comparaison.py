@@ -116,7 +116,9 @@ def _n_directions(n: int) -> str:
 def verdict_lignes(detail: "ComparaisonDetail") -> Tuple[str, str]:
     """Verdict en deux niveaux : un **titre** lisible d'un coup d'œil par
     le client (conclusion en clair, sans jargon) et une ligne de **détail**
-    chiffrée (t/R minimal, classe, pire direction, perte de bois sain).
+    courte (t/R minimal, direction la plus touchée, directions mesurées).
+    Ni la classe ni la perte moyenne n'y figurent : la première relève du
+    tableau PRBS exporté, la seconde du tableau de la comparaison.
 
     La conclusion tient compte de TOUTES les directions : un t/R minimal
     stable (la paroi la plus mince ne bouge pas) ne vaut pas « stable » si
@@ -148,28 +150,17 @@ def verdict_lignes(detail: "ComparaisonDetail") -> Tuple[str, str]:
         titre = "= STABLE — aucune perte de bois sain constatée"
 
     if delta:
-        parts = [f"Paroi la plus mince (t/R minimal) : {ref:.1f} % → "
-                 f"{cur:.1f} % ({delta:+.1f} pts)."]
+        parts = [f"t/R minimal : {ref:.1f} % → {cur:.1f} % ({delta:+.1f} pts)."]
     else:
-        parts = [f"Paroi la plus mince (t/R minimal) : inchangée "
-                 f"({cur:.1f} %)."]
-    if detail.classe_ref and detail.classe_cur:
-        parts.append(f"Classe : {rc} → {cc}." if rc != cc
-                     else f"Classe : {cc}.")
+        parts = [f"t/R minimal : inchangé ({cur:.1f} %)."]
     if pertes:
         extrap = ("" if pertes[0].mesuree_2_dates
                   else ", valeur extrapolée")
         parts.append(f"Direction la plus touchée : {pertes[0].direction} "
                      f"({pertes[0].delta:+.1f} cm{extrap}).")
-    if detail.perte_moy_par_dir is not None and detail.perte_moy_par_dir > 0.05:
-        txt = (f"Perte moyenne de bois sain : "
-               f"{detail.perte_moy_par_dir:.1f} cm/direction")
-        if detail.taux_cm_an is not None:
-            txt += f" (≈ {detail.taux_cm_an:.2f} cm/an)"
-        parts.append(txt + ".")
     if detail.n_mesurees_2_dates is not None:
-        parts.append(f"Directions mesurées aux deux dates : "
-                     f"{detail.n_mesurees_2_dates}/16 (autres extrapolées).")
+        parts.append(f"Mesurées aux deux dates : "
+                     f"{detail.n_mesurees_2_dates}/16 directions.")
     return titre, "   ".join(parts)
 
 

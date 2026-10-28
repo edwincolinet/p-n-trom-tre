@@ -72,7 +72,7 @@ from comparaison_render import (
 from diagnostic_comparaison import (
     comparaison_par_brin,
     evolution_globale,
-    verdict_evolution,
+    verdict_lignes,
 )
 from dialogs_shared import annees_entre, save_state_label
 from i18n import _
@@ -541,10 +541,14 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
               wraplength=900, justify="left").pack(anchor="w", padx=12,
                                                    pady=(2, 0))
 
-    ttk.Label(block, text=verdict_evolution(detail), style="Panel.TLabel",
+    titre, precisions = verdict_lignes(detail)
+    ttk.Label(block, text=titre, style="Panel.TLabel",
               font=font("Helvetica", 11, "bold"), wraplength=900, justify="left",
               foreground=_verdict_color(detail)
-              ).pack(anchor="w", padx=12, pady=(2, 6))
+              ).pack(anchor="w", padx=12, pady=(2, 0))
+    ttk.Label(block, text=precisions, style="Panel.TLabel",
+              wraplength=900, justify="left"
+              ).pack(anchor="w", padx=12, pady=(0, 6))
     ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=2)
 
 
