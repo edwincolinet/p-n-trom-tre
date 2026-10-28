@@ -403,14 +403,19 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
                      "intervalle trop court (< 6 mois)"))
     else:
         rows.append(("Taux annualisé", "—", "—", "missions non datées"))
+    # Part réellement mesurée de la comparaison (le reste est extrapolé).
+    if detail.n_mesurees_2_dates is not None:
+        rows.append(("Directions mesurées aux 2 dates", "—", "—",
+                     f"{detail.n_mesurees_2_dates}/16"))
     # Compartimentation
     rows.append(("Compartimentation perdue (active→absente)", "—", "—",
                  f"{detail.compart_aggravees} direction(s)"))
     # Pire direction
     if detail.pire is not None:
+        extrap = "" if detail.pire.mesuree_2_dates else " (extrapolée)"
         rows.append(("Direction la plus aggravée", "—", "—",
                      f"{detail.pire.direction} ({angle_units.fmt(detail.pire.grade)}) : "
-                     f"{detail.pire.delta:+.2f} cm"))
+                     f"{detail.pire.delta:+.2f} cm{extrap}"))
     return rows
 
 
@@ -568,7 +573,9 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
         d.text((cx0 + 10, y + head_h / 2), h, font=f(16, "sans_bold"),
                fill="white", anchor="lm")
     y += head_h
-    row_h = 30
+    # Tableau plus dense quand il a beaucoup de lignes (sinon le verdict, qui
+    # peut tenir sur 2 lignes de détail, mordrait sur le pied de page).
+    row_h = 30 if len(rows) <= 7 else 26
     for k, row in enumerate(rows):
         if k % 2 == 1:
             d.rectangle([margin, y, W - margin, y + row_h], fill=COLOR_SIDE_PANEL)
@@ -587,7 +594,19 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
     titre, precisions = verdict_lignes(detail)
     d.text((margin, y), titre, font=f(22, "sans_bold"),
            fill=_verdict_fill(detail))
-    d.text((margin, y + 34), precisions, font=f(15, "sans"), fill=COLOR_INK)
+    f_det = f(15, "sans")
+    ligne = ""
+    y_det = y + 34
+    for mot in precisions.split(" "):
+        essai = f"{ligne} {mot}" if ligne else mot
+        if ligne and f_det.getlength(essai) > W - 2 * margin:
+            d.text((margin, y_det), ligne, font=f_det, fill=COLOR_INK)
+            y_det += 22
+            ligne = mot
+        else:
+            ligne = essai
+    if ligne:
+        d.text((margin, y_det), ligne, font=f_det, fill=COLOR_INK)
 
     _draw_page_footer(d, f, chantier, port, cabinet_name)
     return page

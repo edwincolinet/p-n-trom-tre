@@ -323,6 +323,38 @@ class SeuilsArbreEtVerdictTests(unittest.TestCase):
         self.assertNotIn("AMÉLIORATION", v)
         self.assertTrue(verdict_contraste(d))
 
+    def test_comparaison_signale_les_directions_mesurees_aux_deux_dates(self):
+        from comparaison_render import metric_rows
+        from diagnostic_comparaison import comparaison_detaillee
+        from model import Arbre, Sondage
+
+        def mk(grades_sains):
+            a = Arbre(numero_arbre="1", port_arbre="libre")
+            a.brins[0].set_rayon(20.0)
+            for g, sain in grades_sains.items():
+                a.brins[0].sondages.append(
+                    Sondage(grade=g, bois_sain_cm=sain,
+                            bois_altere_cm=20 - sain))
+            return a
+
+        ref = mk({0: 10, 100: 10, 200: 10, 300: 10})
+        cur = mk({0: 10, 100: 10, 200: 6, 350: 10})   # 200 et 350 ≠ réf
+        d = comparaison_detaillee(ref, cur, 2.0)
+        # Mesurées aux 2 dates : 0, 100, 200 (350 n'est sondé qu'au courant,
+        # 300 qu'à la référence).
+        self.assertEqual(d.n_mesurees_2_dates, 3)
+        from diagnostic_comparaison import verdict_evolution
+        self.assertIn("3/16", verdict_evolution(d))
+        self.assertTrue(any(r[0].startswith("Directions mesurées")
+                            for r in metric_rows(d)))
+
+    def test_pire_direction_extrapolee_est_signalee(self):
+        from diagnostic_comparaison import DirectionDelta, verdict_evolution
+        d = self._detail(5.0, 5.0)._replace(directions=[
+            DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "",
+                           mesuree_2_dates=False)])
+        self.assertIn("extrapolée", verdict_evolution(d))
+
     def test_pas_de_ligne_prbs_moyenne(self):
         from comparaison_render import metric_rows
         libelles = [r[0] for r in metric_rows(self._detail(60.0, 52.0))]

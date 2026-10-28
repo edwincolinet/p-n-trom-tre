@@ -157,14 +157,19 @@ def verdict_lignes(detail: "ComparaisonDetail") -> Tuple[str, str]:
         parts.append(f"Classe : {rc} → {cc}." if rc != cc
                      else f"Classe : {cc}.")
     if pertes:
+        extrap = ("" if pertes[0].mesuree_2_dates
+                  else ", valeur extrapolée")
         parts.append(f"Direction la plus touchée : {pertes[0].direction} "
-                     f"({pertes[0].delta:+.1f} cm).")
+                     f"({pertes[0].delta:+.1f} cm{extrap}).")
     if detail.perte_moy_par_dir is not None and detail.perte_moy_par_dir > 0.05:
         txt = (f"Perte moyenne de bois sain : "
                f"{detail.perte_moy_par_dir:.1f} cm/direction")
         if detail.taux_cm_an is not None:
             txt += f" (≈ {detail.taux_cm_an:.2f} cm/an)"
         parts.append(txt + ".")
+    if detail.n_mesurees_2_dates is not None:
+        parts.append(f"Directions mesurées aux deux dates : "
+                     f"{detail.n_mesurees_2_dates}/16 (autres extrapolées).")
     return titre, "   ".join(parts)
 
 
@@ -191,6 +196,10 @@ class DirectionDelta(NamedTuple):
     delta: float
     compart_ref: str
     compart_cur: str
+    # Direction réellement sondée aux DEUX campagnes (sinon, au moins une
+    # des deux PRBS est extrapolée : l'écart peut être du bruit
+    # d'interpolation plutôt qu'une évolution mesurée).
+    mesuree_2_dates: bool = False
 
     @property
     def compart_aggravee(self) -> bool:
@@ -230,6 +239,9 @@ class ComparaisonDetail(NamedTuple):
     # pris en compte dans les calculs (chaque PRBS/t/R utilise SON rayon).
     rayon_ref: Optional[float] = None
     rayon_cur: Optional[float] = None
+    # Nombre de directions (sur 16) sondées aux deux campagnes ; `None` =
+    # non calculé. Les autres sont comparées sur des valeurs extrapolées.
+    n_mesurees_2_dates: Optional[int] = None
 
 
 def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
@@ -254,7 +266,8 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
                 prbs_ref=prbs_r[i], prbs_cur=prbs_c[i],
                 delta=prbs_c[i] - prbs_r[i],
                 compart_ref=ref_comp.get(g, ""),
-                compart_cur=cur_comp.get(g, "")))
+                compart_cur=cur_comp.get(g, ""),
+                mesuree_2_dates=g in ref_comp and g in cur_comp))
 
     perte_moy: Optional[float] = None
     pire: Optional[DirectionDelta] = None
@@ -281,7 +294,9 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
         tR_min_ref=s_ref.tR_min_pct, tR_min_cur=s_cur.tR_min_pct,
         rayon_ref=(ref_b.rayon_tronc_cm if ref_b is not None
                    and ref_b.rayon_tronc_cm > 0 else None),
-        rayon_cur=(cur_b.rayon_tronc_cm if cur_b.rayon_tronc_cm > 0 else None))
+        rayon_cur=(cur_b.rayon_tronc_cm if cur_b.rayon_tronc_cm > 0 else None),
+        n_mesurees_2_dates=(sum(1 for d in directions if d.mesuree_2_dates)
+                            if directions else None))
 
 
 def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
