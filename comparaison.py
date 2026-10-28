@@ -143,52 +143,9 @@ def show_export_feedback(text: str, *, on_open_file: Callable[[], None],
         btn_folder.configure(state="normal", command=on_open_folder)
 
 
-def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
-                    *, default_arbre: Arbre, cur_date: str,
-                    couleur_classe: Mapping[str, str],
-                    on_save: Callable[[], None]) -> None:
-    """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
-    avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
-    se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
-    = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
-    `on_save` est appelé par le bouton « Enregistrer » (= `App.action_save`,
-    la mission reste enregistrable sans fermer la fenêtre).
-
-    `parent` est l'App principale : sa barre de menu (`parent._menubar`,
-    posée par `app_menu.build_menu`) est réutilisée **telle quelle** comme
-    bandeau de cette fenêtre (un `tk.Menu` Tk peut servir de menu à
-    plusieurs fenêtres à la fois) — ce qui donne accès à Fichier/
-    Comparaison/Arbres/Affichage/Export/Aide sans quitter la comparaison,
-    au lieu d'un sous-ensemble reconstruit à la main. Les entrées Export de
-    la comparaison (« Comparaison — fiche PDF… »/« … évolution (PNG)… »)
-    s'activent d'elles-mêmes dès qu'une sélection est faite ici, via
-    `is_comparison_active`.
-
-    **Case « Afficher sondages » partagée** (2026-09-06, plus de paramètre
-    `show_sondages`) : la fenêtre pose sa PROPRE case à cocher sur
-    `parent.var_show_sondages` — la MÊME `tk.BooleanVar` que celle de la
-    fenêtre principale (un seul interpréteur Tcl pour toute l'app, comme le
-    menu partagé ci-dessus) — pour ne plus avoir à changer de fenêtre pour
-    afficher/masquer les sondages. Une trace sur cette variable redessine
-    les blocs à chaque bascule, d'où qu'elle vienne (cette fenêtre ou la
-    principale) ; la variable et sa trace, `App`-level, redessinent aussi le
-    canevas principal (`App._build_right`). Une seule fenêtre de comparaison
-    à la fois (singleton) : ré-ouvrir ferme la précédente et ouvre une
-    nouvelle avec la sélection courante."""
-    global _comparison_window, _comparison_state
-    if _comparison_window is not None and _comparison_window.winfo_exists():
-        _comparison_window.destroy()
-    curs = current.arbres
-    refs = reference.arbres
-    annees = annees_entre(reference.date_releve, cur_date)
-    ref_label = reference.date_releve or reference.nom or "référence"
-    cur_label = cur_date or "courant"
-
-    dlg = tk.Toplevel(parent)
-    _comparison_window = dlg
-    dlg.title("Comparaison d'inspections")
-    dlg.configure(bg=COLOR_PANEL)
-    dlg.minsize(1000, 720)
+def _preparer_fenetre(dlg: tk.Toplevel, parent: tk.Misc) -> None:
+    """Menu partagé avec la fenêtre principale, géométrie (grande, centrée)
+    et tentative de maximisation de la fenêtre de comparaison."""
     # Même bandeau que la fenêtre principale (littéralement le même widget
     # `tk.Menu`) : avant, cette fenêtre reconstruisait un menu local réduit
     # à « Export », ce qui coupait l'accès à Fichier/Comparaison/Arbres/
@@ -217,10 +174,14 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
         except tk.TclError:
             pass
 
-    state: dict[str, Any] = {}
-    _comparison_state = state
-    photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
 
+def _build_selecteurs(dlg: tk.Toplevel, parent: tk.Misc, curs: list,
+                      refs: list, ref_label: str, cur_label: str,
+                      state: dict[str, Any]
+                      ) -> "tuple[ttk.Combobox, ttk.Combobox, tk.BooleanVar]":
+    """Bandeau haut : choix de l'arbre courant et de l'arbre de référence,
+    case « Afficher sondages » (variable partagée avec la fenêtre
+    principale). Renvoie `(cmb_cur, cmb_ref, var_show_sondages)`."""
     # --- Sélecteurs : arbre courant (cette mission) ET arbre de référence,
     # tous deux modifiables (avant, le courant était figé au lancement). ---
     def _labels(arbres: list) -> list:
@@ -258,7 +219,13 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
         top, text=_("Afficher l'emplacement des sondages sur le dessin"),
         variable=var_show_sondages, style="Panel.TCheckbutton",
     ).pack(side="right")
+    return cmb_cur, cmb_ref, var_show_sondages
 
+
+def _build_zone_defilante(dlg: tk.Toplevel) -> "tuple[tk.Canvas, ttk.Frame]":
+    """Zone centrale défilante (scrollbar + molette confinée au canvas).
+    Renvoie `(canvas, inner)` ; les blocs de comparaison se posent dans
+    `inner`."""
     # --- Zone centrale défilante : un bloc par brin (cépée). Mono-caule
     # = un seul bloc, sans en-tête de brin. Scrollbar seule (pas de binding
     # molette global, qui casserait le défilement de l'app). ---
@@ -299,7 +266,14 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
 
     canvas.bind("<Enter>", _bind_wheel)
     canvas.bind("<Leave>", _unbind_wheel)
+    return canvas, inner
 
+
+def _build_pied(dlg: tk.Toplevel, parent: tk.Misc, on_save: Callable[[], None],
+                state: dict[str, Any]) -> Callable[[], None]:
+    """Pied de fenêtre (même bandeau que la barre d'état principale) :
+    bouton Enregistrer, indicateur d'enregistrement, message d'export et
+    boutons « Ouvrir le fichier/dossier ». Renvoie `_refresh_save_state`."""
     # --- Pied de fenêtre = MÊME bandeau que la barre d'état principale
     # (même styles Side.TFrame/Side.TLabel/Ghost.TButton, même disposition :
     # bouton Enregistrer + indicateur d'enregistrement à gauche, message à
@@ -351,6 +325,65 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
     state["_lbl_msg"] = lbl_msg
     state["_btn_open_file"] = btn_open_file
     state["_btn_open_folder"] = btn_open_folder
+    return _refresh_save_state
+
+
+def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
+                    *, default_arbre: Arbre, cur_date: str,
+                    couleur_classe: Mapping[str, str],
+                    on_save: Callable[[], None]) -> None:
+    """Fenêtre de comparaison d'un arbre de la mission `current` (courante)
+    avec un arbre de la mission `reference` (antérieure). Les **deux** arbres
+    se choisissent dans la fenêtre (combobox) ; sélection courante par défaut
+    = `default_arbre`. `cur_date` = date de la mission courante (taux cm/an).
+    `on_save` est appelé par le bouton « Enregistrer » (= `App.action_save`,
+    la mission reste enregistrable sans fermer la fenêtre).
+
+    `parent` est l'App principale : sa barre de menu (`parent._menubar`,
+    posée par `app_menu.build_menu`) est réutilisée **telle quelle** comme
+    bandeau de cette fenêtre (un `tk.Menu` Tk peut servir de menu à
+    plusieurs fenêtres à la fois) — ce qui donne accès à Fichier/
+    Comparaison/Arbres/Affichage/Export/Aide sans quitter la comparaison,
+    au lieu d'un sous-ensemble reconstruit à la main. Les entrées Export de
+    la comparaison (« Comparaison — fiche PDF… »/« … évolution (PNG)… »)
+    s'activent d'elles-mêmes dès qu'une sélection est faite ici, via
+    `is_comparison_active`.
+
+    **Case « Afficher sondages » partagée** (2026-09-06, plus de paramètre
+    `show_sondages`) : la fenêtre pose sa PROPRE case à cocher sur
+    `parent.var_show_sondages` — la MÊME `tk.BooleanVar` que celle de la
+    fenêtre principale (un seul interpréteur Tcl pour toute l'app, comme le
+    menu partagé ci-dessus) — pour ne plus avoir à changer de fenêtre pour
+    afficher/masquer les sondages. Une trace sur cette variable redessine
+    les blocs à chaque bascule, d'où qu'elle vienne (cette fenêtre ou la
+    principale) ; la variable et sa trace, `App`-level, redessinent aussi le
+    canevas principal (`App._build_right`). Une seule fenêtre de comparaison
+    à la fois (singleton) : ré-ouvrir ferme la précédente et ouvre une
+    nouvelle avec la sélection courante."""
+    global _comparison_window, _comparison_state
+    if _comparison_window is not None and _comparison_window.winfo_exists():
+        _comparison_window.destroy()
+    curs = current.arbres
+    refs = reference.arbres
+    annees = annees_entre(reference.date_releve, cur_date)
+    ref_label = reference.date_releve or reference.nom or "référence"
+    cur_label = cur_date or "courant"
+
+    dlg = tk.Toplevel(parent)
+    _comparison_window = dlg
+    dlg.title("Comparaison d'inspections")
+    dlg.configure(bg=COLOR_PANEL)
+    dlg.minsize(1000, 720)
+    _preparer_fenetre(dlg, parent)
+
+    state: dict[str, Any] = {}
+    _comparison_state = state
+    photos: list[Any] = []  # garde les PhotoImage du GC (multi-brin)
+
+    cmb_cur, cmb_ref, var_show_sondages = _build_selecteurs(
+        dlg, parent, curs, refs, ref_label, cur_label, state)
+    canvas, inner = _build_zone_defilante(dlg)
+    _refresh_save_state = _build_pied(dlg, parent, on_save, state)
 
     def _on_select(_e: Any = None) -> None:
         ci, ri = cmb_cur.current(), cmb_ref.current()
