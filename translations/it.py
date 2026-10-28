@@ -301,6 +301,13 @@ TRANSLATIONS = {
     "Validité suivi":                     "Validità monitoraggio",
     "Échéance suivi":                     "Scadenza monitoraggio",
     "Commentaire suivi":                  "Commento monitoraggio",
+    "Couverture sondages":                "Copertura sondaggi",
+    "Insuffisante : secteur > {a} sans sondage": "Insufficiente: settore > {a} senza sondaggi",
+    "couverture angulaire insuffisante":  "copertura angolare insufficiente",
+    ("Couverture angulaire insuffisante : un secteur de plus de {a} "
+     "n'a aucun sondage, une altération pourrait y échapper."):
+        ("Copertura angolare insufficiente: un settore più ampio di {a} "
+         "non ha sondaggi, un'alterazione potrebbe sfuggire."),
     "Aucun sondage enregistré.":          "Nessun sondaggio rilevato.",
     "Intervention":                       "Intervento",
     "Suivi":                              "Monitoraggio",

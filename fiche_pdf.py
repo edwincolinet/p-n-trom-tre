@@ -56,6 +56,7 @@ except ImportError:   # pragma: no cover - fpdf2 est une dépendance déclarée
 
 from bareme import classer_prbs, description_seuils_arbre
 from diagnostic import (
+    COUVERTURE_ECART_MAX_GRADES,
     degradation_externe_par_grade,
     genet_diagnostic,
     repartition_classes,
@@ -762,6 +763,23 @@ def render_fiche_arbre(pdf: FPDF,
                            cabinet_name)
 
 
+def _draw_couverture_warning(pg: _Page, snap: Any, x_left: int,
+                             x_right: int, y: float) -> float:
+    """Avertissement de couverture angulaire (≥ 3 sondages mais un secteur
+    > 180° sans sondage), en ambre sous le diagnostic. Sans effet si la
+    couverture est suffisante. Renvoie l'ordonnée suivante."""
+    if not snap.couverture_insuffisante:
+        return y
+    texte = _("Couverture angulaire insuffisante : un secteur de plus de {a} "
+              "n'a aucun sondage, une altération pourrait y échapper."
+              ).format(a=angle_units.fmt(COUVERTURE_ECART_MAX_GRADES))
+    for ligne in _wrap_lines(pg, "▲ " + texte, 15, "sans_bold",
+                             x_right - x_left, max_lines=3):
+        pg.text(x_left, y, ligne, 15, "sans_bold", (176, 96, 0))
+        y += 22
+    return y + 6
+
+
 def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
                           x_left: int, x_right: int, R: float,
                           y: float) -> float:
@@ -864,10 +882,12 @@ def _draw_mono_diagnostic(pg: _Page, arbre: "Arbre",
                     _("Classe (t/R minimal)") + f" : {classe_g}",
                     24, "sans_bold", "white", anchor="mm")
             y += box_h + 8
+            y = _draw_couverture_warning(pg, snap, x_left, x_right, y)
     else:
         pg.text(x_left, y, _("Aucune altération saisie."),
                 18, "sans", COLOR_INK)
         y += 28
+        y = _draw_couverture_warning(pg, snap, x_left, x_right, y)
     return y
 
 
@@ -911,6 +931,11 @@ def _draw_cepee_diagnostic(pg: _Page, arbre: "Arbre",
             tR_min_b, classe_b = diag
             txt = f"{classe_b}   •   t/R minimal {100 * tR_min_b:.1f} %"
             pg.text(px, y, txt, 17, "sans", COULEUR_CLASSE[classe_b])
+            if snap.couverture_insuffisante:
+                y += 24
+                pg.text(px, y,
+                        "▲ " + _("couverture angulaire insuffisante"),
+                        15, "sans_bold", (176, 96, 0))
         else:
             pg.text(px, y,
                     _("non fiable ({n}/16 directions sondées).").format(

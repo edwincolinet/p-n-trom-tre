@@ -309,6 +309,12 @@ TRANSLATIONS = {
     "Validité suivi":                     "Follow-up validity",
     "Échéance suivi":                     "Follow-up deadline",
     "Commentaire suivi":                  "Follow-up comment",
+    "Couverture sondages":                "Sounding coverage",
+    "Insuffisante : secteur > {a} sans sondage": "Insufficient: sector > {a} without sounding",
+    "couverture angulaire insuffisante":  "insufficient angular coverage",
+    ("Couverture angulaire insuffisante : un secteur de plus de {a} "
+     "n'a aucun sondage, une altération pourrait y échapper."):
+        "Insufficient angular coverage: a sector wider than {a} has no sounding, so an alteration could be missed.",
     "Aucun sondage enregistré.":          "No sounding recorded.",
     "Intervention":                       "Action",
     "Suivi":                              "Follow-up",

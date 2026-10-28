@@ -20,6 +20,7 @@ import csv
 from typing import TYPE_CHECKING, Mapping, Sequence
 
 import angle_units
+from diagnostic import COUVERTURE_ECART_MAX_GRADES
 from export import ChantierLike, _defuse
 from i18n import _
 
@@ -38,7 +39,8 @@ except ImportError:
 _SYNTH_HEADERS = ["N°", "Essence", "Port", "Sondages", "Rayon (cm)",
                   "Classe (t/R minimal)", "Direction critique",
                   "t/R minimal (%)", "Urgence", "Échéance", "Préconisation",
-                  "Validité suivi", "Échéance suivi", "Commentaire suivi"]
+                  "Validité suivi", "Échéance suivi", "Commentaire suivi",
+                  "Couverture sondages"]
 
 # Cellule « Urgence » : NEUTRE (fond Sous-couche, encre). Charte SILVAVENIR :
 # le délai est une donnée d'échéance, pas un niveau de risque — seule la
@@ -54,6 +56,15 @@ def _synth_classe_text(row: "MissionSynthesisRow") -> str:
         return row.classe_globale
     if row.n_sondees > 0 and row.rayon_cm > 0:
         return _("Non fiable")
+    return "—"
+
+
+def _synth_couverture_text(row: "MissionSynthesisRow") -> str:
+    """Avertissement de couverture angulaire (cf.
+    `diagnostic.couverture_insuffisante`), « — » si rien à signaler."""
+    if row.couverture_insuffisante:
+        return _("Insuffisante : secteur > {a} sans sondage").format(
+            a=angle_units.fmt(COUVERTURE_ECART_MAX_GRADES))
     return "—"
 
 
@@ -108,6 +119,7 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
                 _synth_or_dash(r.suivi_validite),
                 _synth_or_dash(r.suivi_echeance),
                 _synth_or_dash(r.suivi_texte),
+                _synth_couverture_text(r),
             ]])
 
 
@@ -202,17 +214,21 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
             _synth_or_dash(row.suivi_validite),
             _synth_or_dash(row.suivi_echeance),
             _synth_or_dash(row.suivi_texte),
+            _synth_couverture_text(row),
         ]
         values = [_defuse(v) for v in values]
-        urgence_col = 10
-        preco_col = 12
-        suivi_texte_col = 15
+        # Colonnes repérées par leur en-tête (et non en dur : un ajout de
+        # colonne décalait silencieusement les couleurs/alignements).
+        urgence_col = _SYNTH_HEADERS.index("Urgence") + 1
+        preco_col = _SYNTH_HEADERS.index("Préconisation") + 1
+        suivi_texte_col = _SYNTH_HEADERS.index("Commentaire suivi") + 1
         use_alt = k % 2 == 1
         for i, v in enumerate(values, start=1):
             c = ws.cell(row=r_idx, column=i, value=v)
             c.border = BORDER
             c.font = ROW_FONT
-            c.alignment = LEFT if i in (2, preco_col, suivi_texte_col) else CENTER
+            c.alignment = (LEFT if i in (2, preco_col, suivi_texte_col)
+                           else CENTER)
             if i == classe_col:
                 hexa = couleur_classe.get(classe_txt, "").lstrip("#")
                 if hexa:

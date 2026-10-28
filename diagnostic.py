@@ -112,6 +112,10 @@ class DiagnosticSnapshot:
     n_sondees: int
     diagnostic_fiable: bool
     extrapolation_text: str
+    # ≥ 3 sondages mais un secteur > `COUVERTURE_ECART_MAX_GRADES` sans
+    # aucun sondage : la classe reste publiée, mais une altération pourrait
+    # se cacher dans ce secteur (cf. `couverture_insuffisante`).
+    couverture_insuffisante: bool = False
 
     def par_classe(self, classe: str) -> ClasseRepartition:
         """Accès indexé par label (`"Vert"`, `"Orange"`, `"Rouge"`).
@@ -391,6 +395,33 @@ def extrapolation_summary_text(arbre: "Section") -> str:
     return f"{n}/16 directions sondées."
 
 
+# Plus grand secteur (gr) sans sondage au-delà duquel la couverture du
+# pourtour est jugée insuffisante : 200 gr = 180° (un demi-tour). Simple
+# **avertissement** (décision d'Edwin, 2026-10-28) : la classe reste publiée
+# dès 3 sondages, rien n'est masqué.
+COUVERTURE_ECART_MAX_GRADES = 200
+
+
+def couverture_insuffisante(arbre: "Section") -> bool:
+    """Vrai si le diagnostic est publiable (≥ 3 directions sondées) mais
+    qu'un secteur de plus de 180° n'a aucun sondage (3 sondages adjacents,
+    par exemple) : la cavité y est extrapolée, jamais mesurée, et une
+    altération pourrait y échapper. Sous 3 sondages, c'est déjà
+    « non fiable » : pas d'avertissement supplémentaire."""
+    info = extrapolation_summary(arbre)
+    return (info["n_sondees"] >= 3
+            and info["ecart_max_grades"] > COUVERTURE_ECART_MAX_GRADES)
+
+
+def couverture_avertissement() -> str:
+    """Texte (sans glyphe) de l'avertissement de couverture angulaire —
+    source unique pour l'UI, la fiche PDF et les exports. L'écart est
+    exprimé dans l'unité d'angle choisie (180° / 200 gr)."""
+    return (f"Couverture angulaire insuffisante : un secteur de plus de "
+            f"{_angle_units.fmt(COUVERTURE_ECART_MAX_GRADES)} n'a aucun "
+            f"sondage, une altération pourrait y échapper.")
+
+
 def repartition_classes(arbre: "Arbre") -> DiagnosticSnapshot:
     """Diagnostic du **brin courant** du genet (compat : `brins[0]` + port
     du genet). Point d'entrée historique, inchangé pour tous les appelants
@@ -482,6 +513,7 @@ def repartition_classes_brin(section: "Section", port: str) -> DiagnosticSnapsho
         n_sondees=n_sondees,
         diagnostic_fiable=n_sondees >= 3,
         extrapolation_text=extrapolation_summary_text(arbre),
+        couverture_insuffisante=couverture_insuffisante(arbre),
     )
 
 
@@ -525,6 +557,8 @@ class GenetDiagnostic(NamedTuple):
     brins: List[BrinDiagnostic]
     classe_globale: Optional[str]
     fiable: bool
+    # Un brin fiable au moins a une couverture angulaire insuffisante.
+    couverture_insuffisante: bool = False
 
 
 def genet_diagnostic(arbre: "Arbre") -> GenetDiagnostic:
@@ -546,7 +580,11 @@ def genet_diagnostic(arbre: "Arbre") -> GenetDiagnostic:
                if bd.fiable and bd.snapshot.diagnostic_global is not None]
     return GenetDiagnostic(brins=brins_diag,
                            classe_globale=pire_classe(classes),
-                           fiable=any(bd.fiable for bd in brins_diag))
+                           fiable=any(bd.fiable for bd in brins_diag),
+                           couverture_insuffisante=any(
+                               bd.fiable
+                               and bd.snapshot.couverture_insuffisante
+                               for bd in brins_diag))
 
 
 def diagnostic_summary_lines(arbre: "Arbre") -> List[str]:
@@ -594,6 +632,8 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
 
     if all(r >= 0.999 for r in snap.ratios):
         lignes.append(("Aucune altération saisie (interne ou externe).", ""))
+        if snap.couverture_insuffisante:
+            lignes.append(("⚠ " + couverture_avertissement(), "warn"))
         return lignes
 
     # Direction critique = mesure réelle → montrée même en diagnostic non
@@ -624,6 +664,8 @@ def _section_summary_tagged(section: "Section", port: str, titre: str, *,
     lignes.append((tR_min_txt, ""))
     lignes.append((f"→ Classe (t/R minimal) : {classe_globale}",
                    _TAG_CLASSE.get(classe_globale, "")))
+    if snap.couverture_insuffisante:
+        lignes.append(("⚠ " + couverture_avertissement(), "warn"))
     return lignes
 
 
@@ -719,6 +761,8 @@ class MissionSynthesisRow(NamedTuple):
     suivi_validite: str = ""
     suivi_echeance: str = ""
     suivi_texte: str = ""
+    # Avertissement de couverture angulaire (cf. `couverture_insuffisante`).
+    couverture_insuffisante: bool = False
 
 
 def _synthesis_row_for_section(numero: str, essence: str, port: str,
@@ -755,7 +799,8 @@ def _synthesis_row_for_section(numero: str, essence: str, port: str,
         fiable=snap.diagnostic_fiable,
         classe_globale=classe,
         tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
-        brin_label=brin_label)
+        brin_label=brin_label,
+        couverture_insuffisante=snap.couverture_insuffisante)
 
 
 def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
@@ -787,7 +832,7 @@ def _synthesis_genet_row(arbre: "Arbre") -> MissionSynthesisRow:
         n_sondees=n_total, rayon_cm=rayon, fiable=gd.fiable,
         classe_globale=gd.classe_globale,
         tR_min_pct=tR_min_pct, crit_grade=crit_grade, crit_dir=crit_dir,
-        brin_label="")
+        brin_label="", couverture_insuffisante=gd.couverture_insuffisante)
 
 
 # Rang de tri pour la classe de risque : Rouge = priorité haute, None/inconnu

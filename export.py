@@ -50,6 +50,7 @@ from typing import (
 )
 
 import angle_units
+from diagnostic import couverture_avertissement as _diag_couverture_avertissement
 from diagnostic import genet_diagnostic as _diag_genet_diagnostic
 from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from diagnostic import repartition_classes as _diag_repartition_classes
@@ -304,8 +305,10 @@ def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
         if gd.classe_globale is None:
             return ("⚠ Diagnostic global indisponible : aucun brin avec au "
                     "moins 3 directions sondées.", "")
-        return (f"Classe (pire brin fiable) : {gd.classe_globale}",
-                gd.classe_globale)
+        txt = f"Classe (pire brin fiable) : {gd.classe_globale}"
+        if gd.couverture_insuffisante:
+            txt += f"   ·   ⚠ {_diag_couverture_avertissement()}"
+        return (txt, gd.classe_globale)
     snap = _diag_repartition_classes(a)
     diag = snap.diagnostic_global
     if diag is None:
@@ -314,8 +317,11 @@ def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
     tR_min, classe = diag
     _ang = angle_units.fmt(snap.tR_min_grade)
     crit = (f"{snap.tR_min_dir} ({_ang})" if snap.tR_min_dir else _ang)
-    return (f"Diagnostic — t/R minimal {100 * tR_min:.1f} %  ({crit})   ·   "
-            f"Classe {classe}", classe)
+    txt = (f"Diagnostic — t/R minimal {100 * tR_min:.1f} %  ({crit})   ·   "
+           f"Classe {classe}")
+    if snap.couverture_insuffisante:
+        txt += f"   ·   ⚠ {_diag_couverture_avertissement()}"
+    return (txt, classe)
 
 
 # ----------------------------------------------------------------------
