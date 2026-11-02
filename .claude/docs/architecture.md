@@ -163,11 +163,11 @@ genet-level étant passé explicitement quand il intervient.
   `sondage_render_data(section, port, meche, …)` calcule pastille + t/R au rayon
   local du grade sondé.
 - `repartition_classes_brin(section, port)` → `DiagnosticSnapshot` (self-contained :
-  répartition, ratios, direction critique, t/R moyen, classe globale,
+  répartition, ratios, direction critique, t/R minimal, classe globale,
   `diagnostic_fiable`, `extrapolation_text`). `repartition_classes(arbre)`
   **délègue** au brin courant (compat mono-brin).
   - `snap.diagnostic_global` → `Optional[Tuple[float, str]]` — point
-    d'entrée unique ; renvoie `None` (t/R moyen + classe masqués) tant
+    d'entrée unique ; renvoie `None` (t/R minimal + classe masqués) tant
     que `diagnostic_fiable` est faux, c.-à-d. **< 3 directions sondées**
     (seuil métier, découplé du minimum d'extrapolation de la cavité = 2).
   - `snap.par_classe(cls)` — accès indexé par label.
@@ -185,8 +185,9 @@ genet-level étant passé explicitement quand il intervient.
   une cépée = **ligne de tête** (classe globale = pire brin) + une **sous-ligne
   par brin** (`MissionSynthesisRow.brin_label`).
 
-Convention : classe globale d'un **brin** = t/R **moyen** (confirmé Edwin
-Colinet mai 2026) ; classe globale d'un **genet** = **pire classe** parmi ses
+Convention : chaque direction est classée individuellement ; la classe
+globale d'un **brin** = classe du t/R **minimal** (décision Edwin Colinet
+2026-10-18, remplace la règle « moyen » de mai 2026) ; classe globale d'un **genet** = **pire classe** parmi ses
 brins fiables (jamais une moyenne inter-brins — repères polaires distincts).
 
 ## `persistence.py` — I/O JSON des missions
@@ -373,7 +374,7 @@ visible sur l'arbre courant (fond vert pâle `COLOR_ACCENT_SOFT`).
   **tableau PRBS reste** (c'est la donnée).
 - Assemble : en-tête + logo, identité arbre, dessin section (collé, via
   `pil_render`), légende (bande PIL collée), tableau PRBS, diagnostic
-  (t/R moyen+min, barre répartition, classe), préconisation/suivi, pied.
+  (t/R minimal, barre répartition, classe), préconisation/suivi, pied.
   **Barre répartition = UNE lecture (2026-09-05)** : `_draw_mono_diagnostic`
   n'affiche plus, sous la barre colorée, la ligne fractionnaire « Vert N/16
   (X gr) • … » — même information que les pourcentages déjà sur la barre,
@@ -450,7 +451,7 @@ est ignoré. Clic au-delà de l'anneau des cardinales → ignoré.
   9 colonnes N° · Direction · Grade · Rayon · PRBS · Bois altéré · t/R
   (coloré par classe) · Classe (texte coloré) · Compart. (glyphe coloré),
   alternance de lignes, en-tête gelé. Sous le tableau : une ligne
-  **Diagnostic** (t/R moyen + classe globale, alignée sur la fiche PDF,
+  **Diagnostic** (t/R minimal + classe globale, alignée sur la fiche PDF,
   masquée si < 3 sondées via `DiagnosticSnapshot.diagnostic_global`), une
   légende compartimentation ✓/✗/– puis une légende des classes colorée.
   Verrouillé par `test_diagnostic_et_legendes_du_tableau`.
