@@ -117,8 +117,6 @@ class LayoutMixin(_MixinBase):
         def _dismiss_update_banner(self) -> None: ...
         def action_restart(self) -> None: ...
         def _dismiss_restart_banner(self) -> None: ...
-        def _show_trial_banner(self, days_remaining: int) -> None: ...
-        def _action_activate_from_trial(self) -> None: ...
         def _on_brin_bar_configure(
             self, event: "tk.Event[tk.Misc]") -> None: ...
         def _meta_focus_in(self) -> None: ...
@@ -272,11 +270,21 @@ class LayoutMixin(_MixinBase):
         self._restore_sash_positions()
 
     def _build_left(self, parent: tk.PanedWindow) -> None:
+        """Panneau gauche : liste des arbres, filtres, boutons, triage."""
         frame = ttk.Frame(parent, style="Side.TFrame", padding=10)
         parent.add(frame, minsize=280, width=340, stretch="never")
         ttk.Label(frame, text=_("Arbres de la mission"), style="Side.TLabel",
                   font=font_heading()).pack(anchor="w", pady=(0, 8))
 
+        self._build_left_filtre(frame)
+        self._build_left_filtres_avances(frame)
+        self._build_left_liste(frame)
+        self._build_left_boutons(frame)
+        self._lst_frame.pack(fill="both", expand=True)
+
+
+    def _build_left_filtre(self, frame: ttk.Frame) -> None:
+        """Champ de filtre texte (n° / essence)."""
         # Filtre de la liste (par n°, essence ou commentaire) — utile dès que la
         # mission compte beaucoup d'arbres. N'altère PAS le modèle : ne
         # fait que masquer les lignes non concordantes (les iid `a{i}`
@@ -299,6 +307,10 @@ class LayoutMixin(_MixinBase):
         # Échap dans le champ = vider le filtre.
         ent_filter.bind("<Escape>", lambda e: self.var_filter.set(""))
 
+    def _build_left_filtres_avances(self, frame: ttk.Frame) -> None:
+        """Filtres avancés repliables (risque, urgence, échéance, sondages)
+        + bandeau « filtre actif » (informatif, posé par le rafraîchissement
+        de la liste)."""
         # Filtres « avancés » (risque / urgence / échéance / complétude des
         # sondages) : repliés par défaut derrière un en-tête cliquable —
         # même principe que `AideRepliable` (flèche ▸/▾, sans emoji : la
@@ -400,6 +412,10 @@ class LayoutMixin(_MixinBase):
             font=font_small_italic())
         self._lbl_filtre_actif.pack(side="left", padx=(0, 6))
 
+    def _build_left_liste(self, frame: ttk.Frame) -> None:
+        """Treeview des arbres (colonnes, tags de couleur, scrollbar, menu
+        contextuel). Le conteneur `_lst_frame` est packé en dernier par
+        `_build_left` (après les éléments `side="bottom"`)."""
         lst_frame = ttk.Frame(frame, style="Side.TFrame")
         self._lst_frame = lst_frame
         self.tree_arbres = ttk.Treeview(
@@ -467,6 +483,9 @@ class LayoutMixin(_MixinBase):
                 _("Ctrl+PgBas / Ctrl+PgHaut → arbre suivant / précédent\n"
                 "Double-clic → renommer · Clic droit → menu contextuel"))
 
+    def _build_left_boutons(self, frame: ttk.Frame) -> None:
+        """Boutons du bas (Ajouter/Dupliquer/Supprimer), « Prochain arbre à
+        finir » et footer de triage. Packés `side="bottom"` AVANT la liste."""
         # Éléments du bas packés en side="bottom" AVANT lst_frame (sinon
         # lst_frame avec expand=True les pousserait hors de l'écran quand le
         # bandeau filtre actif agrandit la zone des filtres). Ordre inverse
@@ -507,8 +526,6 @@ class LayoutMixin(_MixinBase):
             frame, text="", style="Side.TLabel", wraplength=250,
             justify="left", font=font_small_italic())
         self.lbl_etat_footer.pack(side="bottom", anchor="w", pady=(6, 0))
-
-        lst_frame.pack(fill="both", expand=True)
 
     def _count_filtres_avances_actifs(self) -> int:
         """Nombre de filtres « avancés » actifs (hors recherche texte,
@@ -774,22 +791,6 @@ class LayoutMixin(_MixinBase):
             self._restart_banner, text=ICON_DELETE, style="Ghost.TButton",
             command=self._dismiss_restart_banner,
         ).pack(side="right")
-
-        # Bannière mode essai : affichée durant les 30 jours d'essai, non
-        # dismissable (rappel permanent de l'état non-licencié). Packée
-        # side="bottom" par _show_trial_banner.
-        self._trial_banner = ttk.Frame(self, style="Side.TFrame",
-                                       padding=(10, 3))
-        self._trial_banner_lbl = ttk.Label(
-            self._trial_banner, text="",
-            style="Side.TLabel", foreground=COLOR_WARN,
-            font=font_small_bold())
-        self._trial_banner_lbl.pack(side="left")
-        ttk.Button(
-            self._trial_banner, text=_("Activer une licence"),
-            style="Accent.TButton",
-            command=self._action_activate_from_trial,
-        ).pack(side="left", padx=(12, 0))
 
         bar = ttk.Frame(self, style="Side.TFrame")
         bar.pack(side="bottom", fill="x")

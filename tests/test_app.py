@@ -362,6 +362,35 @@ class TestAppMixins(unittest.TestCase):
         except tk.TclError:
             pass
 
+    def test_unite_angle_s_applique_a_chaud_aux_panneaux(self) -> None:
+        """Grades → degrés : en-têtes, libellés de direction, valeurs de
+        largeur des contreforts et choix des dégradations suivent ; le
+        modèle reste en grades."""
+        import angle_units
+        with TemporaryDirectory() as tmp:
+            self.app._settings = SettingsStore(Path(tmp) / "s.json")
+            a = self.app._current_arbre()
+            assert a is not None
+            try:
+                self.app.action_set_angle_unit("degre")
+                self.app.update_idletasks()
+                self.assertEqual(self.app.pane_s._lbls_gr[100].cget("text"),
+                                 "90°")
+                self.assertEqual(self.app.pane_s._lbl_head_angle.cget("text"),
+                                 "Degrés")
+                self.assertEqual(self.app.pane_cf._lbls_gr[25].cget("text"),
+                                 "22.5°")
+                self.assertIn("22.5",
+                              self.app.pane_cf._rows[0]["combo"].cget("values"))
+                self.assertTrue(
+                    self.app.pane_de._grade_choices[4].startswith("90° — E"))
+                self.assertEqual(self.app.get_angle_unit(), "degre")
+            finally:
+                self.app.action_set_angle_unit("grade")
+                angle_units.set_unite("grade")
+            self.assertEqual(self.app.pane_s._lbls_gr[100].cget("text"),
+                             "100 gr")
+
     # --- ArbreListMixin ---
 
     def test_action_new_cree_un_arbre(self) -> None:

@@ -156,10 +156,6 @@ TRANSLATIONS = {
     "Version":                             "Version",
     "Auteur":                              "Author",
     "Contact":                             "Contact",
-    "Licence":                             "Licence",
-    "Usage commercial soumis à licence":   "Commercial use requires a licence",
-    "Licence (CLU)":                       "Licence (EULA)",
-    "Confidentialité":                     "Privacy",
     "Fermer":                              "Close",
 
     # ── Messages courants ─────────────────────────────────────────────
@@ -313,6 +309,12 @@ TRANSLATIONS = {
     "Validité suivi":                     "Follow-up validity",
     "Échéance suivi":                     "Follow-up deadline",
     "Commentaire suivi":                  "Follow-up comment",
+    "Couverture sondages":                "Sounding coverage",
+    "Insuffisante : secteur > {a} sans sondage": "Insufficient: sector > {a} without sounding",
+    "couverture angulaire insuffisante":  "insufficient angular coverage",
+    ("Couverture angulaire insuffisante : un secteur de plus de {a} "
+     "n'a aucun sondage, une altération pourrait y échapper."):
+        "Insufficient angular coverage: a sector wider than {a} has no sounding, so an alteration could be missed.",
     "Aucun sondage enregistré.":          "No sounding recorded.",
     "Intervention":                       "Action",
     "Suivi":                              "Follow-up",
@@ -684,6 +686,16 @@ TRANSLATIONS = {
     "Photos":                             "Photos",
     "Photo {n}":                          "Photo {n}",
     "＋ Photo":                           "＋ Photo",
+    "Degrés":                             "Degrees",
+    "Largeur (°)":                        "Width (°)",
+    "Largeur en degrés":                  "Width in degrees",
+    "Largeur en degrés (multiple de 22,5)": "Width in degrees (multiple of 22.5)",
+    "Angles affichés en degrés.":         "Angles shown in degrees.",
+    "Angles affichés en grades.":         "Angles shown in gradians.",
+    "Unité des angles":                   "Angle unit",
+    "Grades (0 à 400)":                   "Gradians (0 to 400)",
+    "Degrés (0 à 360)":                   "Degrees (0 to 360)",
+    "Angle (°)":                          "Angle (°)",
     "Aucune photo":                       "No photos",
     "Ajouter des photos":                 "Add photos",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
@@ -757,7 +769,6 @@ TRANSLATIONS = {
         "without it, altered wood cannot be calculated.",
     "Créez ou ouvrez une mission pour commencer.":
         "Create or open a project to get started.",
-    "Activer une licence": "Activate a licence",
     "Guide de démarrage": "Quick-start guide",
     "Guide de démarrage…": "Quick-start guide…",
     "Guide introuvable : {p}": "Guide not found: {p}",
@@ -765,7 +776,6 @@ TRANSLATIONS = {
     "Contacter le support…": "Contact support…",
     "Copier": "Copy",
     "Email": "Email",
-    "Machine ID": "Machine ID",
     "Envoyer un email": "Send an email",
     "Ouvrir le log": "Open log file",
     "Pour tout signalement, joignez le fichier de log à votre message.":

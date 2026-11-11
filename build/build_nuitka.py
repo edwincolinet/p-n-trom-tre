@@ -2,8 +2,7 @@
 
 Nuitka traduit le Python en C puis le compile : le binaire est plus rapide
 au démarrage et **nettement plus dur à décompiler** qu'un bundle PyInstaller
-(qui n'embarque que des `.pyc` triviaux à extraire) — utile en complément de
-la vérification de licence Ed25519.
+(qui n'embarque que des `.pyc` triviaux à extraire).
 
 Ce driver **réplique** `penetrometre.spec` (mêmes données embarquées, mêmes
 paquets, mode fenêtré, icône par plateforme). PyInstaller reste le build de
@@ -75,15 +74,8 @@ def main() -> int:
         "--include-data-dir=assets=assets",
         "--include-data-dir=exemples=exemples",
         "--include-data-dir=docs=docs",
-        # Boutons « Licence (CLU) »/« Confidentialité » de la fenêtre
-        # « À propos » (`penetrometre._open_doc`) : sans eux, ces boutons
-        # affichaient « Fichier introuvable » dans l'exécutable empaqueté
-        # (absent avant le 2026-09-06, repéré à l'usage).
-        "--include-data-files=LICENSE=LICENSE",
-        "--include-data-files=PRIVACY.md=PRIVACY.md",
         # Imports parfois chargés dynamiquement (miroir des `hiddenimports`).
         "--include-package=openpyxl",
-        "--include-package=cryptography",
         # Catalogues i18n : modules Python (pas des données) importés
         # statiquement par i18n.py ; on force le package pour garantir que
         # toute langue (présente ou future) soit embarquée.

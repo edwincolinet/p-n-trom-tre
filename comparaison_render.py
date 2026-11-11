@@ -16,10 +16,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
+import angle_units
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
-    verdict_evolution,
+    evolution_globale,
+    verdict_contraste,
+    verdict_lignes,
 )
 from geometry import (
     GRADES,
@@ -66,6 +69,29 @@ if TYPE_CHECKING:
 _GR_TO_DEG = 0.9
 _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
 _ORANGE_HEX = "#{:02X}{:02X}{:02X}".format(*_ORANGE)
+_VERT = (45, 122, 62)      # bois sain regagné (zone dégradée à la réf., plus maintenant)
+_VERT_HEX = "#{:02X}{:02X}{:02X}".format(*_VERT)
+
+
+def _peindre_evolution(img: "PILImage", ref_polys: List[Any],
+                       cur_polys: List[Any]) -> None:
+    """Peint sur `img` la différence entre deux ensembles de zones
+    dégradées (polygones écran) : **orange** = dégradé maintenant mais pas à
+    la référence (aggravation), **vert** = dégradé à la référence mais plus
+    maintenant (amélioration), `COLOR_ROT` = dégradé aux deux campagnes.
+    Par masques (et non par simple superposition) : seule façon de montrer
+    à la fois ce qui s'ajoute et ce qui disparaît."""
+    from PIL import Image as _Image
+    from PIL import ImageChops, ImageDraw
+    m_ref = _Image.new("L", img.size, 0)
+    m_cur = _Image.new("L", img.size, 0)
+    for mask, polys in ((m_ref, ref_polys), (m_cur, cur_polys)):
+        dm = ImageDraw.Draw(mask)
+        for pts in polys:
+            dm.polygon(pts, fill=255)
+    img.paste(_VERT, mask=ImageChops.subtract(m_ref, m_cur))
+    img.paste(_ORANGE, mask=ImageChops.subtract(m_cur, m_ref))
+    img.paste(COLOR_ROT, mask=ImageChops.multiply(m_ref, m_cur))
 
 
 def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
@@ -143,8 +169,6 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     le dessin lui-même, comme la section réelle."""
     from PIL import Image, ImageDraw
 
-    from diagnostic import compute_alteration_par_grade
-
     img = Image.new("RGB", (size, size), "white")
     d = ImageDraw.Draw(img, "RGBA")          # mode RGBA, comme le rendu réel
     f_base = _pil_load_fonts()
@@ -153,13 +177,76 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     # trait) — même formule que `render_arbre_to_pil_image` : sans lui, un
     # export haute résolution (2400 px, cf. `render_evolution_pngs`) garde
     # des lettres/tirets calibrés pour un aperçu ~460-532 px, minuscules et
-    # se chevauchant avec la légende. La légende elle-même (`sf` plus bas)
-    # reste dimensionnée directement en fraction de `size`, DÉJÀ
-    # proportionnelle : elle utilise `f_base`, pas ce `f` mis à l'échelle.
+    # se chevauchant avec la légende. La légende elle-même reste
+    # dimensionnée directement en fraction de `size`, DÉJÀ proportionnelle :
+    # elle utilise `f_base`, pas ce `f` mis à l'échelle.
     ds = max(1.0, size / 1200.0)
 
     def f(sz: int, variant: str = "sans") -> Any:
         return f_base(max(1, int(sz * ds)), variant)
+
+    cx, cy, scale, caption_h = _evo_cadrage(
+        cur_b, size, ds, show_title=show_title, sans_ref=ref_b is None)
+
+    if show_title:
+        d.text((size / 2, _titre_y(size)), titre,
+               font=f(54, "serif_bold"), fill=COLOR_RENDER_ACCENT,
+               anchor="mm")
+
+    _evo_couches(img, d, f, ref_b, cur_b, cx, cy, scale, ds, port=port,
+                 meche=meche, show_sondages=show_sondages)
+
+    if show_title:
+        _evo_legende_complete(d, f_base, cur_b, size, caption_h,
+                              avec_ref=ref_b is not None,
+                              show_sondages=show_sondages)
+    else:
+        _evo_legende_compacte(d, f_base, size, avec_ref=ref_b is not None)
+    return img
+
+
+def _evo_cadrage(cur_b: "Brin", size: int, ds: float, *, show_title: bool,
+                 sans_ref: bool) -> Tuple[float, float, float, int]:
+    """Cadrage `(cx, cy, scale, caption_h)` de la section d'évolution.
+
+    Identique à `render_arbre_to_pil_image(show_title=False,
+    show_legend=False)` pour que la section d'évolution ait exactement le
+    même grossissement que les sections réf/courant — SAUF avec
+    `show_title=True` (export PNG « rapport » autonome, pas de colonne
+    voisine à aligner) : une bande basse dédiée (`caption_h`) est alors
+    réservée pour la légende, comme `render_arbre_to_pil_image(
+    show_legend=True)` — sans elle, la légende empiète sur la lettre
+    cardinale « S » (constaté à haute résolution, où sa police — mise à
+    l'échelle par `ds` — grandit sans que son décalage au bord du tronc, un
+    pixel-constant, ne suive)."""
+    ep = max(0.0, cur_b.epaisseur_ecorce_cm)
+    R_of = cur_b.rayon_a_grade
+    expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
+    r_ext_max = max(R_of(g) for g in GRADES) + expansion
+    margin_top = _margin_top_titre(size, ds) if show_title else 70
+    base_bottom = max(80, int(size * 0.06))
+    caption_h = max(70, int(size * 0.09)) if show_title else 0
+    if show_title and sans_ref:
+        caption_h += int(size * 0.045)   # 2e ligne : note « sans référence »
+    margin_bottom = base_bottom + caption_h
+    margin_side = max(60, int(size * 0.055))
+    radius_px_max = min((size - 2 * margin_side) / 2,
+                        (size - margin_top - margin_bottom) / 2)
+    cx = size / 2.0
+    cy = margin_top + radius_px_max
+    scale = radius_px_max / (r_ext_max if r_ext_max > 0 else 1.0)
+    return cx, cy, scale, caption_h
+
+
+def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
+                 cur_b: "Brin", cx: float, cy: float, scale: float,
+                 ds: float, *, port: str, meche: float,
+                 show_sondages: bool) -> None:
+    """Peint les couches de la section d'évolution, du fond vers le premier
+    plan : écorce + bois sain, cernes, dégradations externes (diff réf →
+    courant), cavité interne (diff), repères (ticks, cardinales), sondages,
+    échelle radiale."""
+    from diagnostic import compute_alteration_par_grade
 
     rot = cur_b.rotation_grades
     ep = max(0.0, cur_b.epaisseur_ecorce_cm)
@@ -174,41 +261,11 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         ref_alt = list(cur_alt)
         ref_degs = cur_b.degradations_externes
 
-    # Cadrage identique à render_arbre_to_pil_image(show_title=False,
-    # show_legend=False) pour que la section d'évolution ait exactement
-    # le même grossissement que les sections réf/courant — SAUF avec
-    # `show_title=True` (export PNG « rapport » autonome, pas de colonne
-    # voisine à aligner) : une bande basse dédiée est alors réservée pour
-    # la légende, comme `render_arbre_to_pil_image(show_legend=True)` — sans
-    # elle, la légende empiète sur la lettre cardinale « S » (constaté à
-    # haute résolution, où sa police — mise à l'échelle par `ds` — grandit
-    # sans que son décalage au bord du tronc, un pixel-constant, ne suive).
-    expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
-    r_ext_max = max(R_of(g) for g in GRADES) + expansion
-    margin_top = _margin_top_titre(size, ds) if show_title else 70
-    base_bottom = max(80, int(size * 0.06))
-    caption_h = max(70, int(size * 0.09)) if show_title else 0
-    if show_title and ref_b is None:
-        caption_h += int(size * 0.045)   # 2e ligne : note « sans référence »
-    margin_bottom = base_bottom + caption_h
-    margin_side = max(60, int(size * 0.055))
-    radius_px_max = min((size - 2 * margin_side) / 2,
-                        (size - margin_top - margin_bottom) / 2)
-    cx = size / 2.0
-    cy = margin_top + radius_px_max
-    scale = radius_px_max / (r_ext_max if r_ext_max > 0 else 1.0)
-
-    if show_title:
-        d.text((size / 2, _titre_y(size)), titre,
-               font=f(54, "serif_bold"), fill=COLOR_RENDER_ACCENT,
-               anchor="mm")
-
     R = cur_b.rayon_tronc_cm   # grand axe (= rayon si circulaire)
 
     def r_ext_of(g: float) -> float:
         return R_of(g) + ep
 
-    # --- Couches, du fond vers le premier plan ---
     # Écorce + bois sain : cercle = ellipse native (nette), ovale = contour
     # lissé — exactement comme `_pil_draw_bois_sain` / `_pil_draw_ecorce`.
     if cur_b.a_rayon_variable:
@@ -228,29 +285,30 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     # Cernes de graduation (même primitives que la section réelle).
     _pil_draw_cernes(d, cur_b, cx, cy, R, scale)
 
-    # Dégradation externe : profondeur COURANTE en orange, profondeur de
-    # RÉFÉRENCE en ROT par-dessus → orange = bande approfondie depuis la réf.
-    # Arcs EXACTS (`degradation_externe_outline`) : plus de débordement.
-    for deg in cur_b.degradations_externes:
-        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
-                                          cx, cy, scale, rotation_grades=rot)
-        if pts:
-            d.polygon(pts, fill=_ORANGE)
-    for deg in ref_degs:
-        pts = degradation_externe_outline(deg, cur_b.contreforts, R_of, ep,
-                                          cx, cy, scale, rotation_grades=rot)
-        if pts:
-            d.polygon(pts, fill=COLOR_ROT)
+    # Dégradation externe : arcs EXACTS (`degradation_externe_outline`),
+    # orange = approfondie depuis la réf., vert = résorbée depuis la réf.
+    def _ext_polys(degs: List[Any]) -> List[Any]:
+        polys = []
+        for deg in degs:
+            pts = degradation_externe_outline(
+                deg, cur_b.contreforts, R_of, ep, cx, cy, scale,
+                rotation_grades=rot)
+            if pts:
+                polys.append(pts)
+        return polys
 
-    # Cavité interne : courante en orange, référence en ROT par-dessus →
-    # orange = anneau creusé depuis la réf. `cavity_polygon` = primitive du
-    # rendu réel (Catmull-Rom centrée, pas de bord arc → lissage légitime).
-    if any(a > 0 for a in cur_alt):
-        d.polygon(cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot),
-                  fill=_ORANGE)
-    if any(a > 0 for a in ref_alt):
-        d.polygon(cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot),
-                  fill=COLOR_ROT)
+    _peindre_evolution(img, _ext_polys(ref_degs),
+                       _ext_polys(cur_b.degradations_externes))
+
+    # Cavité interne (`cavity_polygon` = primitive du rendu réel, Catmull-Rom
+    # centrée) : orange = anneau creusé depuis la réf., vert = cavité
+    # résorbée depuis la réf.
+    _peindre_evolution(
+        img,
+        [cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot)]
+        if any(a > 0 for a in ref_alt) else [],
+        [cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot)]
+        if any(a > 0 for a in cur_alt) else [])
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
@@ -268,51 +326,63 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     _pil_draw_echelle_radiale(d, f, cur_b, cx, cy, scale, ds,
                               show_sondages=show_sondages)
 
-    if show_title:
-        legend_y = size - caption_h + int(size * 0.012)
-        extra_items = (("Aggravation", _ORANGE_HEX),) if ref_b is not None else ()
-        # `height` pilote la taille de police/pastille de la légende, PAS le
-        # cadrage (qui reste `width=size`, le vrai canevas) : à `size` réel
-        # (2400), les 5 items possibles (sain/dégradé/écorce/sondage/perdu)
-        # débordent du canevas si la police suit `size` — même artifice que
-        # `fiche_pdf` (légende dimensionnée sur une hauteur fixe, collée sur
-        # une page plus large qu'elle).
-        legend_font_h = int(size * 0.6)
-        _draw_horizontal_legend_pil(d, cur_b, y_top=legend_y, width=size,
-                                    height=legend_font_h, font_fn=f_base,
-                                    show_sondage_item=show_sondages,
-                                    show_classes=False, extra_items=extra_items)
-        if ref_b is None:
-            note_font = f_base(int(size * 0.022), "sans")
-            d.text((size * 0.5, legend_y + int(size * 0.06)),
-                   _("pas de brin de référence — état courant seul"),
-                   font=note_font, fill=COLOR_MUTED, anchor="mm")
+
+def _evo_legende_complete(d: Any, f_base: Any, cur_b: "Brin", size: int,
+                          caption_h: int, *, avec_ref: bool,
+                          show_sondages: bool) -> None:
+    """Légende complète de l'export PNG « rapport » (`show_title=True`) :
+    Bois sain / dégradé / écorce / sondage + « Aggravation » (orange) et
+    « Amélioration » (vert) ; note si pas de brin de référence."""
+    legend_y = size - caption_h + int(size * 0.012)
+    extra_items = ((("Aggravation", _ORANGE_HEX),
+                    ("Amélioration", _VERT_HEX))
+                   if avec_ref else ())
+    # `height` pilote la taille de police/pastille de la légende, PAS le
+    # cadrage (qui reste `width=size`, le vrai canevas) : à `size` réel
+    # (2400), les 5 items possibles (sain/dégradé/écorce/sondage/perdu)
+    # débordent du canevas si la police suit `size` — même artifice que
+    # `fiche_pdf` (légende dimensionnée sur une hauteur fixe, collée sur
+    # une page plus large qu'elle).
+    legend_font_h = int(size * 0.6)
+    _draw_horizontal_legend_pil(d, cur_b, y_top=legend_y, width=size,
+                                height=legend_font_h, font_fn=f_base,
+                                show_sondage_item=show_sondages,
+                                show_classes=False, extra_items=extra_items)
+    if not avec_ref:
+        note_font = f_base(int(size * 0.022), "sans")
+        d.text((size * 0.5, legend_y + int(size * 0.06)),
+               _("pas de brin de référence — état courant seul"),
+               font=note_font, fill=COLOR_MUTED, anchor="mm")
+
+
+def _evo_legende_compacte(d: Any, f_base: Any, size: int, *,
+                          avec_ref: bool) -> None:
+    """Légende d'origine, compacte, conservée pour les usages existants
+    (fenêtre de comparaison, cartes 3-colonnes) : ces vues affichent déjà
+    les dates en en-tête de colonne, pas besoin de la légende complète ici,
+    et le cadrage doit rester identique aux colonnes voisines. En bas À
+    GAUCHE : centrée, elle passait sous la lettre cardinale « S » ; dans le
+    coin elle reste lisible sans toucher au cadrage."""
+    sf = f_base(int(size * 0.030), "sans")
+    line_h = int(size * 0.04)
+    x0 = int(size * 0.02)
+    if avec_ref:
+        lines: List[str] = []
+        entries = [(_ORANGE, "aggravation"), (_VERT, "amélioration")]
     else:
-        # Légende d'origine, compacte, conservée pour les usages existants
-        # (fenêtre de comparaison, cartes 3-colonnes) : ces vues affichent
-        # déjà les dates en en-tête de colonne, pas besoin de la légende
-        # complète ici, et le cadrage doit rester identique aux colonnes
-        # voisines (cf. commentaire sur `margin_bottom` plus haut).
-        # Légende en bas À GAUCHE, sur deux lignes : centrée, elle passait
-        # sous la lettre cardinale « S » (police agrandie par le design
-        # system) ; dans le coin elle reste lisible sans toucher au cadrage.
-        sf = f_base(int(size * 0.030), "sans")
-        line_h = int(size * 0.04)
-        x0 = int(size * 0.02)
-        if ref_b is None:
-            lines = [_("pas de brin de référence"), _("— état courant seul")]
-        else:
-            lines = ["= bois sain perdu", "depuis la référence"]
-        cap_y = size - len(lines) * line_h - 8
-        text_x = x0
-        if ref_b is not None:
-            d.rectangle([x0, cap_y, x0 + 20, cap_y + 16],
-                        fill=_ORANGE, outline=(150, 150, 146))
-            text_x = x0 + 26
-        for i, ln in enumerate(lines):
-            d.text((text_x, cap_y + 8 + i * line_h), ln, font=sf,
-                   fill=COLOR_MUTED, anchor="lm")
-    return img
+        lines = [_("pas de brin de référence"), _("— état courant seul")]
+        entries = []
+    n_lines = len(entries) or len(lines)
+    cap_y = size - n_lines * line_h - 8
+    for k, (col, libelle) in enumerate(entries):
+        y0 = cap_y + k * line_h
+        d.rectangle([x0, y0, x0 + 20, y0 + 16], fill=col,
+                    outline=(150, 150, 146))
+        d.text((x0 + 26, y0 + 8), libelle, font=sf, fill=COLOR_MUTED,
+               anchor="lm")
+    for i, ln in enumerate(lines):
+        d.text((x0, cap_y + 8 + i * line_h), ln, font=sf,
+               fill=COLOR_MUTED, anchor="lm")
 
 
 # Légende du « pts » de la ligne t/R minimal — partagée par la fenêtre Tk, la
@@ -370,14 +440,19 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
                      "intervalle trop court (< 6 mois)"))
     else:
         rows.append(("Taux annualisé", "—", "—", "missions non datées"))
+    # Part réellement mesurée de la comparaison (le reste est extrapolé).
+    if detail.n_mesurees_2_dates is not None:
+        rows.append(("Directions mesurées aux 2 dates", "—", "—",
+                     f"{detail.n_mesurees_2_dates}/16"))
     # Compartimentation
     rows.append(("Compartimentation perdue (active→absente)", "—", "—",
                  f"{detail.compart_aggravees} direction(s)"))
     # Pire direction
     if detail.pire is not None:
+        extrap = "" if detail.pire.mesuree_2_dates else " (extrapolée)"
         rows.append(("Direction la plus aggravée", "—", "—",
-                     f"{detail.pire.direction} ({detail.pire.grade} gr) : "
-                     f"{detail.pire.delta:+.2f} cm"))
+                     f"{detail.pire.direction} ({angle_units.fmt(detail.pire.grade)}) : "
+                     f"{detail.pire.delta:+.2f} cm{extrap}"))
     return rows
 
 
@@ -476,9 +551,9 @@ def _draw_page_footer(d: Any, f: Any, chantier: "Optional[Chantier]",
                _("Barème appliqué") + " — "
                + description_seuils_arbre(chantier, port),
                font=f(12, "sans"), fill=COLOR_MUTED, anchor="mm")
-        cab = f"   •   {cabinet_name}" if cabinet_name else ""
+        cab = f"{cabinet_name}   •   " if cabinet_name else ""
         d.text((W / 2, fy + 38),
-               f"Pénétromètre Silvavenir{cab}   •   " + _("Édité le")
+               cab + _("Édité le")
                + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
                font=f(14, "sans"), fill=COLOR_MUTED, anchor="mm")
 
@@ -535,7 +610,9 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
         d.text((cx0 + 10, y + head_h / 2), h, font=f(16, "sans_bold"),
                fill="white", anchor="lm")
     y += head_h
-    row_h = 30
+    # Tableau plus dense quand il a beaucoup de lignes (sinon le verdict, qui
+    # peut tenir sur 2 lignes de détail, mordrait sur le pied de page).
+    row_h = 30 if len(rows) <= 7 else 26
     for k, row in enumerate(rows):
         if k % 2 == 1:
             d.rectangle([margin, y, W - margin, y + row_h], fill=COLOR_SIDE_PANEL)
@@ -551,11 +628,45 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
 
     # Verdict.
     y += 26
-    d.text((margin, y), verdict_evolution(detail),
-           font=f(18, "sans_bold"), fill=COLOR_INK)
+    titre, precisions = verdict_lignes(detail)
+    d.text((margin, y), titre, font=f(22, "sans_bold"),
+           fill=_verdict_fill(detail))
+    f_det = f(15, "sans")
+    ligne = ""
+    y_det = y + 34
+    for mot in precisions.split(" "):
+        essai = f"{ligne} {mot}" if ligne else mot
+        if ligne and f_det.getlength(essai) > W - 2 * margin:
+            d.text((margin, y_det), ligne, font=f_det, fill=COLOR_INK)
+            y_det += 22
+            ligne = mot
+        else:
+            ligne = essai
+    if ligne:
+        d.text((margin, y_det), ligne, font=f_det, fill=COLOR_INK)
 
     _draw_page_footer(d, f, chantier, port, cabinet_name)
     return page
+
+
+def verdict_couleur(detail: "ComparaisonDetail") -> Optional[str]:
+    """Couleur du verdict (source unique fenêtre ↔ export) : rouge =
+    aggravation, ambre = évolution contrastée, vert = amélioration,
+    `None` = stable / non comparable (à la charge de l'appelant)."""
+    evo = evolution_globale(detail)
+    if evo is None:
+        return None
+    if verdict_contraste(detail):
+        return "#B7791F"
+    if evo > 0:
+        return "#C0392B"
+    if evo < 0:
+        return "#2D7A3E"
+    return None
+
+
+def _verdict_fill(detail: "ComparaisonDetail") -> str:
+    return verdict_couleur(detail) or COLOR_INK
 
 
 def render_comparison_page(mission_nom: str, ref_arbre: "Arbre",

@@ -25,6 +25,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Optional, Protocol
 
+import angle_units
 from bareme import classer_prbs
 from chrome_icons import calendar_icon
 from diagnostic import (
@@ -558,7 +559,7 @@ class DiagnosticPane(ttk.Frame):
                            else str(s.numero))
                     self.tbl_prbs.insert(
                         "", "end",
-                        values=(num, f"{direction} ({s.grade} gr)",
+                        values=(num, f"{direction} ({angle_units.fmt(s.grade)})",
                                 prbs_txt,
                                 f"{100*ratio:.1f}",
                                 classe),

@@ -2,16 +2,14 @@
 
 > **Statut** : 📋 **CADRAGE UNIQUEMENT** (08/07/2026). Ce document ne décide
 > rien et n'implémente rien — il pose les options pour trancher plus tard,
-> à la demande d'un client réel. Suite à `.claude/docs/commercialisation.md`
-> (section 5).
+> à la demande d'un besoin réel du cabinet.
 
 ## Constat
 
-L'analyse commercialisation du 08/07/2026 relève qu'un cabinet à plusieurs
+Une analyse du 08/07/2026 relève qu'un cabinet à plusieurs
 experts n'a aujourd'hui aucun moyen de **partager une mission** ou une base
 d'arbres entre postes : chaque mission est un fichier `.json` isolé, ouvert
-par un seul poste à la fois. `commercialisation.md` (P2-C) a déjà traité un
-besoin voisin mais plus léger — le **profil opérateur** (nom affiché dans les
+par un seul poste à la fois. Un besoin voisin mais plus léger a été envisagé — le **profil opérateur** (nom affiché dans les
 exports, historique local) — qui ne couvre pas le partage réel de données
 entre plusieurs personnes.
 
@@ -27,10 +25,9 @@ multi-agents devient un client réel (cf. priorité n°2 de l'analyse du
 
 ## Tension à préserver : le positionnement vie privée
 
-`PRIVACY.md` et l'EULA (`LICENSE`, §5) affirment aujourd'hui : **« Le
-Logiciel ne transmet aucune donnée à des serveurs tiers »**. C'est un
-argument de vente concret (RGPD zéro-collecte) pour des cabinets
-sensibles à la confidentialité des missions clients. Toute option
+Le logiciel ne transmet aucune donnée à des serveurs tiers (hors
+vérification de version). C'est un atout concret (RGPD zéro-collecte)
+pour la confidentialité des missions clients. Toute option
 impliquant un serveur/cloud propre au Pénétromètre Silvavenir **casse cette promesse** et
 doit être un choix produit assumé (changement de modèle, pas un ajout
 incrémental) — pas quelque chose à faire « en passant ».
@@ -83,15 +80,12 @@ Un service propre au Pénétromètre Silvavenir (serveur + comptes utilisateurs 
 Résout proprement le partage et la conurrence, mais :
 
 - Contredit frontalement le positionnement « 100 % offline, zéro
-  transmission » actuel — à retraiter dans `PRIVACY.md`/l'EULA/le
-  discours commercial, pas juste techniquement ;
-- Change le modèle économique (coût d'infra récurrent, hébergement,
-  responsabilité sur des données clients hébergées) ;
-- Chantier de plusieurs mois, non raisonnable avant d'avoir des clients
-  payants qui le demandent explicitement.
+  transmission » actuel — à retraiter au-delà du seul aspect technique ;
+- Ajoute un coût d'infra récurrent, de l'hébergement et une
+  responsabilité sur des données clients hébergées ;
+- Chantier de plusieurs mois, non raisonnable avant un besoin explicite.
 
-**Non retenu tant qu'aucun client réel ne le réclame** (cf. décision
-existante dans `commercialisation.md`).
+**Non retenu tant qu'aucun besoin réel ne le réclame.**
 
 ## Recommandation
 

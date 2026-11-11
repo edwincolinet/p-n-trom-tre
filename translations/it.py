@@ -156,10 +156,6 @@ TRANSLATIONS = {
     "Version":                             "Versione",
     "Auteur":                              "Autore",
     "Contact":                             "Contatto",
-    "Licence":                             "Licenza",
-    "Usage commercial soumis à licence":   "Uso commerciale soggetto a licenza",
-    "Licence (CLU)":                       "Licenza (EULA)",
-    "Confidentialité":                     "Privacy",
     "Fermer":                              "Chiudi",
 
     # ── Messaggi comuni ───────────────────────────────────────────────
@@ -305,6 +301,13 @@ TRANSLATIONS = {
     "Validité suivi":                     "Validità monitoraggio",
     "Échéance suivi":                     "Scadenza monitoraggio",
     "Commentaire suivi":                  "Commento monitoraggio",
+    "Couverture sondages":                "Copertura sondaggi",
+    "Insuffisante : secteur > {a} sans sondage": "Insufficiente: settore > {a} senza sondaggi",
+    "couverture angulaire insuffisante":  "copertura angolare insufficiente",
+    ("Couverture angulaire insuffisante : un secteur de plus de {a} "
+     "n'a aucun sondage, une altération pourrait y échapper."):
+        ("Copertura angolare insufficiente: un settore più ampio di {a} "
+         "non ha sondaggi, un'alterazione potrebbe sfuggire."),
     "Aucun sondage enregistré.":          "Nessun sondaggio rilevato.",
     "Intervention":                       "Intervento",
     "Suivi":                              "Monitoraggio",
@@ -654,6 +657,16 @@ TRANSLATIONS = {
     "Photos":                             "Foto",
     "Photo {n}":                          "Foto {n}",
     "＋ Photo":                           "＋ Foto",
+    "Degrés":                             "Gradi sessagesimali",
+    "Largeur (°)":                        "Larghezza (°)",
+    "Largeur en degrés":                  "Larghezza in gradi",
+    "Largeur en degrés (multiple de 22,5)": "Larghezza in gradi (multiplo di 22,5)",
+    "Angles affichés en degrés.":         "Angoli mostrati in gradi.",
+    "Angles affichés en grades.":         "Angoli mostrati in gon.",
+    "Unité des angles":                   "Unità degli angoli",
+    "Grades (0 à 400)":                   "Gon (da 0 a 400)",
+    "Degrés (0 à 360)":                   "Gradi (da 0 a 360)",
+    "Angle (°)":                          "Angolo (°)",
     "Aucune photo":                       "Nessuna foto",
     "Ajouter des photos":                 "Aggiungi foto",
     "Enregistrez d'abord la mission (Ctrl+S) pour pouvoir ajouter des photos.":
@@ -737,7 +750,6 @@ TRANSLATIONS = {
         "senza di esso, il legno alterato non viene calcolato.",
     "Créez ou ouvrez une mission pour commencer.":
         "Crea o apri una missione per iniziare.",
-    "Activer une licence": "Attivare una licenza",
     "Guide de démarrage": "Guida rapida",
     "Guide de démarrage…": "Guida rapida…",
     "Guide introuvable : {p}": "Guida non trovata: {p}",
@@ -745,7 +757,6 @@ TRANSLATIONS = {
     "Contacter le support…": "Contattare il supporto…",
     "Copier": "Copia",
     "Email": "Email",
-    "Machine ID": "ID macchina",
     "Envoyer un email": "Invia un'email",
     "Ouvrir le log": "Aprire il log",
     "Pour tout signalement, joignez le fichier de log à votre message.":

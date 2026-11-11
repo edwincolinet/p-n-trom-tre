@@ -5,6 +5,37 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ## En développement (depuis 3.6.0)
 
+### Unité des angles (grades / degrés)
+
+- **Affichage → Unité des angles** : grades (défaut) ou degrés, réglage de
+  poste. Le modèle, les fichiers et le diagnostic restent en grades (25 gr =
+  22,5°). Source unique `angle_units.py` ; bascule à chaud des grilles
+  Sondages/Contreforts/Dégradations ; dialogues, diagnostic et exports (PDF,
+  XLSX, HTML, CSV, synthèse, comparaison) suivent l'unité. Tests :
+  `tests/test_angle_units.py`.
+
+### Fiche PDF et comparaison
+
+- **Fiche d'examen approfondis** : nouveau titre « Fiche d'examen approfondis
+  — Pénétromètre » ; le nom de la mission n'apparaît plus (fiche et page
+  photos) ; pied de page = seuils **vert / orange / rouge du seul groupe de
+  l'arbre**, sans nom de groupe ni port (`bareme.description_seuils_arbre`).
+- **PDF de comparaison aligné sur la fiche** : même bandeau (logo du cabinet,
+  adresse, client, date, opérateur) et même pied de page (barème de l'arbre,
+  cabinet, date d'édition) ; ligne « PRBS moyenne » retirée du tableau (PDF et
+  fenêtre) ; légende « bois sain perdu depuis la référence » déplacée en bas à
+  gauche (elle chevauchait la lettre cardinale S).
+- **Verdict de comparaison = perte / gain / stable sur le t/R minimal**, et
+  non plus sur la seule classe (deux arbres d'une même classe n'ont pas le
+  même t/R) ; stable = même t/R au dixième de pour cent ; la classe est citée
+  en complément.
+- **Photos de comparaison** : la fenêtre de comparaison permet d'ajouter des
+  photos de la référence et du diagnostic actuel (`Arbre.photos_comparaison_ref`
+  / `_cur`, champs optionnels — fichiers antérieurs inchangés) ; elles forment
+  une page « Photos » du PDF (en-tête de la page photos de la fiche, 4 photos
+  par colonne, séparation entre les deux états).
+
+
 ### Identité visuelle
 
 - **Le logiciel devient « Pénétromètre Silvavenir »** (ex-Pénétromètre) : titres

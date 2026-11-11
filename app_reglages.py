@@ -23,6 +23,8 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Any, Optional
 
+import angle_units
+
 # `_RECOVERY_PATH` : effacé avant un redémarrage (cf. `action_restart`).
 from app_recovery import _RECOVERY_PATH
 from app_style import apply_ttk_styles
@@ -56,6 +58,9 @@ class ReglagesMixin(_MixinBase):
     if TYPE_CHECKING:
         # Fournis par App / les autres mixins (déclarés pour le type-check).
         _settings: SettingsStore
+        pane_s: Any
+        pane_cf: Any
+        pane_de: Any
         _dirty: bool
         _logo_frame: tk.Frame
         _logo_image: Optional[Any]
@@ -252,6 +257,25 @@ class ReglagesMixin(_MixinBase):
             _("Contraste élevé activé.") if on
             else _("Contraste élevé désactivé."))
         self._show_restart_banner()
+
+    def action_set_angle_unit(self, unite: str) -> None:
+        """Choisit l'unité d'affichage des angles (menu Affichage : grades /
+        degrés). Pure préférence de poste : le modèle et les fichiers
+        restent en grades. Applique à chaud aux grilles de saisie et au
+        diagnostic ; les dialogues et exports lisent l'unité à l'ouverture."""
+        self._settings.set_angle_unit(unite)
+        angle_units.set_unite(self._settings.angle_unit)
+        for pane in (self.pane_s, self.pane_cf):
+            pane.refresh_unit()
+        self.pane_de.refresh_unit()
+        self._redraw_all()
+        self.set_status(
+            _("Angles affichés en degrés.") if angle_units.est_degre()
+            else _("Angles affichés en grades."))
+
+    def get_angle_unit(self) -> str:
+        """Unité d'angle courante (pour cocher l'item de menu)."""
+        return self._settings.angle_unit
 
     def get_high_contrast(self) -> bool:
         """État courant du contraste élevé (pour cocher l'item de menu)."""

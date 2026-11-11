@@ -64,6 +64,18 @@ class SettingsStore:
         self._data["high_contrast"] = bool(value)
         self._save()
 
+    @property
+    def angle_unit(self) -> str:
+        """Unité d'affichage des angles : « grade » (défaut) ou « degre »
+        (cf. `angle_units`). Valeur inconnue → grade."""
+        raw = str(self._data.get("angle_unit", "grade"))
+        return raw if raw in ("grade", "degre") else "grade"
+
+    def set_angle_unit(self, value: str) -> None:
+        """Fixe et persiste l'unité d'angle (grade/degre)."""
+        self._data["angle_unit"] = value if value in ("grade", "degre") else "grade"
+        self._save()
+
     def language(self) -> str:
         """Code de langue de l'interface (fr/en/it). Défaut : fr."""
         return str(self._data.get("language", "fr"))

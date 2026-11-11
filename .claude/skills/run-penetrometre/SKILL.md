@@ -127,8 +127,7 @@ python3 -m pytest tests/test_export.py -k FichePdf -q   # ciblé fiche PDF
 - **`PYTHONPATH=$PWD` obligatoire** : le driver vit dans `.claude/skills/…`, donc
   `sys.path[0]` = ce dossier, pas la racine → sans `PYTHONPATH` les imports
   projet (`penetrometre`, `app_exports`) échouent.
-- **Pas de xvfb ici** → on passe par `DISPLAY=:0`. Le check de licence est sauté
-  hors bundle PyInstaller (`license.is_bundled()` faux en dev) → aucun blocage.
+- **Pas de xvfb ici** → on passe par `DISPLAY=:0`.
 
 ## Troubleshooting
 

@@ -33,6 +33,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import List, Optional
 
+import angle_units
 from dialogs import Section, _make_modal, _numeric_entry
 from dialogs_shared import (
     COMPART_NR_LABEL,
@@ -43,6 +44,8 @@ from dialogs_shared import (
     compart_label,
     find_grade_choice,
     grade_choices,
+    largeur_grades_saisie,
+    largeur_label,
     message_chevauchement,
     parse_grade,
     to_float,
@@ -185,7 +188,7 @@ def edit_sondage(parent: tk.Misc, arbre: Optional[Section],
                         messagebox.showwarning(
                             _("Direction déjà sondée"),
                             f"Un sondage existe déjà au grade "
-                            f"{new_grade} gr{direction}.\n\n"
+                            f"{angle_units.fmt(new_grade)}{direction}.\n\n"
                             "Chaque direction ne peut être sondée "
                             "qu'une seule fois.",
                             parent=dlg)
@@ -255,7 +258,8 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
 
     v_debut = tk.StringVar()
     v_fin = tk.StringVar()
-    v_largeur_gr = tk.StringVar(value=str(deg.largeur_grades()))
+    v_largeur_gr = tk.StringVar(
+        value=angle_units.nombre(deg.largeur_grades()))
     v_largeur_cm = tk.StringVar(value=f"{deg.largeur_cm(R):.1f}")
     v_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
     v_ecorce = tk.StringVar(value=zone_degradee_label(deg.comprend_ecorce))
@@ -287,7 +291,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
               foreground=COLOR_MUTED, font=font_small_italic()
               ).grid(row=2, column=0, columnspan=2, pady=(2, 2))
 
-    ttk.Label(dlg, text=_("Largeur en grades"),
+    ttk.Label(dlg, text=largeur_label(),
               background=COLOR_PANEL).grid(row=3, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_gr, width=12
@@ -334,7 +338,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             if largeur == 0:
                 largeur = 25
             syncing[0] = True
-            v_largeur_gr.set(str(largeur))
+            v_largeur_gr.set(angle_units.nombre(largeur))
             if R > 0:
                 v_largeur_cm.set(
                     f"{R * largeur * math.pi / 200:.1f}")
@@ -346,8 +350,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
         if syncing[0]:
             return
         try:
-            raw = to_float(v_largeur_gr.get()) or 25
-            gr = _round_to_25(int(raw))
+            gr = _round_to_25(largeur_grades_saisie(v_largeur_gr.get()))
             if gr == 0:
                 gr = 25
             d = parse_grade(v_debut.get())
@@ -372,7 +375,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             d = parse_grade(v_debut.get())
             f = (d + gr) % 400
             syncing[0] = True
-            v_largeur_gr.set(str(gr))
+            v_largeur_gr.set(angle_units.nombre(gr))
             v_fin.set(find_grade_choice(choices, f))
             syncing[0] = False
         except (ValueError, IndexError, ZeroDivisionError):
@@ -445,7 +448,8 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
     R = arbre.rayon_tronc_cm if arbre else 0.0
 
     v_centre = tk.StringVar()
-    v_largeur_gr = tk.StringVar(value=str(cf.largeur_grades))
+    v_largeur_gr = tk.StringVar(
+        value=angle_units.nombre(cf.largeur_grades))
     v_largeur_cm = tk.StringVar(value=f"{cf.largeur_cm(R):.1f}")
     v_long = tk.StringVar(value=f"{cf.longueur_cm:g}")
     v_com = tk.StringVar(value=cf.commentaire)
@@ -464,7 +468,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
                                 state="readonly", width=24)
     combo_centre.grid(row=0, column=1, sticky="we", padx=10, pady=6)
 
-    ttk.Label(dlg, text=_("Largeur en grades (multiple de 25)"),
+    ttk.Label(dlg, text=largeur_label(multiple=True),
               background=COLOR_PANEL).grid(row=1, column=0,
                                            sticky="w", padx=10, pady=6)
     _numeric_entry(dlg, v_largeur_gr, width=12
@@ -492,9 +496,8 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
         if syncing[0]:
             return
         try:
-            raw = to_float(v_largeur_gr.get()) or 25
-            gr = _round_to_25(int(raw),
-                                min_v=25, max_v=400, wrap=False)
+            gr = _round_to_25(largeur_grades_saisie(v_largeur_gr.get()),
+                              min_v=25, max_v=400, wrap=False)
             syncing[0] = True
             if R > 0:
                 v_largeur_cm.set(f"{R * gr * math.pi / 200:.1f}")
@@ -510,7 +513,7 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
             gr = _round_to_25(int(cm * 200 / (R * math.pi)),
                                 min_v=25, max_v=400, wrap=False)
             syncing[0] = True
-            v_largeur_gr.set(str(gr))
+            v_largeur_gr.set(angle_units.nombre(gr))
             syncing[0] = False
         except (ValueError, IndexError, ZeroDivisionError):
             pass
@@ -529,12 +532,12 @@ def edit_contrefort(parent: tk.Misc, arbre: Optional[Section],
                         messagebox.showwarning(
                             _("Contrefort en double"),
                             f"Un contrefort existe déjà au grade "
-                            f"{new_centre} gr{direction}.",
+                            f"{angle_units.fmt(new_centre)}{direction}.",
                             parent=dlg)
                         return
             cf.grade_centre = new_centre
             cf.largeur_grades = _round_to_25(
-                int(to_float(v_largeur_gr.get()) or 25),
+                largeur_grades_saisie(v_largeur_gr.get()),
                 min_v=25, max_v=400, wrap=False)
             cf.longueur_cm = max(0.0, to_float(v_long.get()))
             cf.commentaire = v_com.get()

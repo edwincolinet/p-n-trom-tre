@@ -35,7 +35,7 @@ Source : dossier `design system SILVAVENIR/` (bundle HTML hors ligne, v1.0
 sept. 2026 — logo, couleurs, échelle diagnostic, typographie, composants).
 Le chrome, la fiche PDF, les exports XLSX/HTML et la comparaison en
 reprennent les tokens ; le produit s'appelle désormais **« Pénétromètre
-Silvavenir »** (l'éditeur/auteur reste Edwin Colinet — cf. `LICENSE`).
+Silvavenir »** (l'éditeur/auteur reste Edwin Colinet).
 
 ## Couleurs (`palette.py`)
 

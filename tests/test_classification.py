@@ -129,3 +129,52 @@ class CouleurClasseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CouvertureAngulaireTests(unittest.TestCase):
+    """Avertissement (et non masquage) quand ≥ 3 sondages laissent un
+    secteur de plus de 180° sans mesure."""
+
+    def _brin(self, grades):
+        from model import Arbre, Sondage
+        a = Arbre(numero_arbre="1", port_arbre="libre")
+        a.brins[0].set_rayon(20.0)
+        for g in grades:
+            a.brins[0].sondages.append(
+                Sondage(grade=g, bois_sain_cm=15.0, bois_altere_cm=5.0))
+        return a
+
+    def test_trois_sondages_adjacents_avertissent_sans_masquer(self):
+        from diagnostic import repartition_classes
+        snap = repartition_classes(self._brin([0, 25, 50]))
+        self.assertTrue(snap.diagnostic_fiable)
+        self.assertTrue(snap.couverture_insuffisante)
+        self.assertIsNotNone(snap.diagnostic_global)   # classe toujours publiée
+
+    def test_quatre_sondages_repartis_sans_avertissement(self):
+        from diagnostic import repartition_classes
+        snap = repartition_classes(self._brin([0, 100, 200, 300]))
+        self.assertFalse(snap.couverture_insuffisante)
+
+    def test_ecart_exactement_180_degres_ok(self):
+        from diagnostic import repartition_classes
+        # 0, 25, 50, 200 : écart max = 150 → 200 gr (180°) : toléré
+        snap = repartition_classes(self._brin([0, 25, 50, 250]))
+        self.assertFalse(snap.couverture_insuffisante)
+
+    def test_sous_trois_sondages_pas_d_avertissement_supplementaire(self):
+        from diagnostic import repartition_classes
+        snap = repartition_classes(self._brin([0, 25]))
+        self.assertFalse(snap.diagnostic_fiable)
+        self.assertFalse(snap.couverture_insuffisante)
+
+    def test_avertissement_dans_le_resume_et_la_synthese(self):
+        from diagnostic import _section_summary_lines, mission_synthesis_rows
+        from model import Chantier
+        a = self._brin([0, 25, 50])
+        self.assertTrue(any("Couverture angulaire insuffisante" in t
+                            for t in _section_summary_lines(
+                                a.brins[0], a.port_arbre, "x")))
+        c = Chantier()
+        c.arbres.append(a)
+        self.assertTrue(mission_synthesis_rows(c)[0].couverture_insuffisante)

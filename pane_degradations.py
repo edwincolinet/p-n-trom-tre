@@ -33,6 +33,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any, Dict, Optional, Protocol
 
+import angle_units
 from aide_repliable import AideRepliable
 from diagnostic import FUSION_WARN_TEXT, degradation_ecretee
 from dialogs_saisie import edit_degradation
@@ -130,6 +131,12 @@ class DegradationsPane(ttk.Frame):
         ).pack(anchor="w", pady=(8, 0))
 
     # --- Refresh ------------------------------------------------------
+
+    def refresh_unit(self) -> None:
+        """Ré-applique l'unité d'angle : choix des combobox début/fin et
+        largeur sont reconstruits avec les libellés de la nouvelle unité."""
+        self._grade_choices = grade_choices()
+        self.refresh()
 
     def refresh(self) -> None:
         """Reconstruit les lignes du tableau depuis le brin courant."""
@@ -338,7 +345,7 @@ class DegradationsPane(ttk.Frame):
                            deg: DegradationExterne) -> None:
         b = self._host._current_brin()
         R = b.rayon_tronc_cm if b else 0.0
-        txt = f"{deg.largeur_grades()} gr"
+        txt = angle_units.fmt(deg.largeur_grades())
         if R > 0:
             txt += f" · {deg.largeur_cm(R):.1f} cm"
         row["larg"].set(txt)
