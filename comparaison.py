@@ -395,6 +395,11 @@ def open_comparison(parent: tk.Misc, current: Chantier, reference: Chantier,
         state["builder_args"] = (reference.nom, ref_arbre, cur_arbre, annees,
                                   ref_label, cur_label, show_sondages,
                                   _en_tete_export(parent, current))
+        # L'en-tête est RECALCULÉ à l'export : la mission peut avoir été
+        # enregistrée (ou enregistrée sous) APRÈS cette sélection — sans quoi
+        # `mission_dir` resterait figé à None et les photos de comparaison,
+        # dont les chemins sont relatifs à la mission, seraient ignorées.
+        state["en_tete_fn"] = lambda: _en_tete_export(parent, current)
         for w in inner.winfo_children():
             w.destroy()
         photos.clear()
@@ -590,6 +595,9 @@ def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
             raise RuntimeError("Aucun arbre de référence sélectionné.")
         (nom, ref_arbre, cur, annees, ref_label, cur_label,
          show_sondages, en_tete) = args
+        en_tete_fn = state.get("en_tete_fn")
+        if en_tete_fn is not None:
+            en_tete = en_tete_fn()
         if fmt == "png":
             return render_evolution_pngs(
                 nom, ref_arbre, cur, annees, ref_label=ref_label,
