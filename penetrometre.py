@@ -46,6 +46,7 @@ from app_recovery import (
 )
 from app_reglages import ReglagesMixin
 from app_settings import SettingsStore
+from bareme_store import bareme_existe, save_bareme
 from dialogs import (
     ask_date,
     normaliser_date,
@@ -80,6 +81,7 @@ from persistence import (
     chantier_to_dict,
     clear_recovery,
 )
+from profil_cabinet import appliquer_profil_initial
 from ui_fonts import font as ui_font
 from ui_fonts import font_small_bold
 from undo import UndoStack
@@ -138,6 +140,11 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # inopérant sur plusieurs builds Tk/Linux. Le canvas (pixels) et
         # les paddings ne sont pas affectés.
         self._settings = SettingsStore(_SETTINGS_PATH)
+        # Profil du cabinet (nom, logo, barème, dossier des mises à jour) :
+        # appliqué une seule fois, avant toute lecture des réglages.
+        appliquer_profil_initial(
+            self._settings, Path(__file__).parent / "assets" / "profil_cabinet",
+            _SETTINGS_PATH.parent, bareme_existe, save_bareme)
         self._apply_ui_scale(self._settings.ui_scale)
         # Unité d'affichage des angles (grades/degrés) : AVANT les widgets,
         # les libellés de grille sont construits à l'unité courante.
@@ -156,6 +163,10 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # de brin (cépée) le repointe via `set_current_brin`.
         self._current_brin_idx = 0
         self.current_file: Optional[Path] = None
+        # Empreinte du fichier à l'ouverture / au dernier enregistrement
+        # (chemin, (mtime_ns, taille)) — garde-fou multi-poste, cf.
+        # `FichierMixin._confirmer_ecrasement`.
+        self._file_stamp: Optional[tuple[Path, tuple[int, int]]] = None
         self._dirty = False
         self._suspend_sync = False
         self._redraw_id: Optional[str] = None

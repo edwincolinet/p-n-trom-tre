@@ -13,6 +13,16 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   (`update_checker.check_for_update_folder`, réglage de poste
   `update_folder`). Dossier vide = releases GitHub (comportement historique).
   La bannière « Nouvelle version » ouvre alors le dossier.
+- **Profil du cabinet au premier lancement** (`profil_cabinet.py`,
+  `assets/profil_cabinet/profil.json`) : nom du cabinet (Silvavenir) et logo
+  pré-réglés sur chaque poste, une seule fois, sans jamais écraser un réglage
+  existant. Peut aussi porter un barème et le dossier des mises à jour.
+- **Garde-fou anti-écrasement multi-poste** : à l'enregistrement, si le
+  fichier a changé sur le disque depuis son ouverture (autre poste sur un
+  dossier partagé), le logiciel propose d'écraser (l'autre version est
+  d'abord sauvegardée), d'enregistrer sous un autre nom, ou d'annuler
+  (`persistence.file_stamp`, `FichierMixin._confirmer_ecrasement`).
+- **Guide d'installation Windows** : `docs/installation_windows.md`.
 - **CI Windows** : test de démarrage de l'installeur (installation
   silencieuse, lancement, contrôle du journal) ; la release ne dépend plus
   que du build Windows (macOS/Linux restent disponibles en lancement manuel).

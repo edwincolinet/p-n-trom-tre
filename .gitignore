@@ -50,6 +50,8 @@ missions/
 !tests/fixtures/*.json
 # Missions d'exemple versionnées
 !exemples/*.json
+# Profil du cabinet livré avec l'installeur (réglages du 1er lancement)
+!assets/profil_cabinet/profil.json
 
 # OS
 Thumbs.db

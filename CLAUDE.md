@@ -54,7 +54,8 @@ dialogs_cepee.py       ← éditeur de disposition d'une cépée (ask_cepee_layo
 model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
 diagnostic_comparaison.py ← comparaison inter-missions (ré-inspection), fonctions pures
-persistence.py         ← I/O JSON (save/load + migration ; v3 = brins)
+persistence.py         ← I/O JSON (save/load + migration ; v3 = brins ; `file_stamp` = garde-fou multi-poste)
+profil_cabinet.py      ← profil cabinet appliqué au 1er lancement (nom, logo, barème, dossier MàJ ; pur)
 geometry.py            ← briques géométriques pures (spline, polaire, cernes, ellipse)
 bareme.py              ← barème métier (classer_prbs, ports)
 pil_render.py          ← rendu PNG de la section transversale
@@ -297,7 +298,7 @@ venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py 
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
-  template_store.py update_checker.py photo_paths.py icons.py chrome_icons.py
+  template_store.py update_checker.py profil_cabinet.py photo_paths.py icons.py chrome_icons.py
 ```
 
 > NB mypy : la liste ci-dessus passe **proprement (exit 0)** sous mypy

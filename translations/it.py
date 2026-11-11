@@ -64,6 +64,18 @@ TRANSLATIONS = {
     "Dossier des mises à jour…":          "Cartella degli aggiornamenti…",
     "Dossier des mises à jour":           "Cartella degli aggiornamenti",
     "Dossier des mises à jour enregistré.": "Cartella degli aggiornamenti salvata.",
+    "Annuler : ne rien enregistrer":
+        "Annulla: non salvare nulla",
+    "Ce fichier a été modifié depuis son ouverture (par un autre poste ou une autre fenêtre) :":
+        "Questo file è stato modificato dopo l'apertura (da un'altra postazione o finestra):",
+    "Enregistrement annulé.":
+        "Salvataggio annullato.",
+    "Mission modifiée ailleurs":
+        "Missione modificata altrove",
+    "Non : enregistrer ma version sous un autre nom":
+        "No: salva la mia versione con un altro nome",
+    "Oui : écraser avec ma version (l'autre version est conservée dans les sauvegardes)":
+        "Sì: sovrascrivi con la mia versione (l'altra versione resta nei backup)",
     "Vérifier les mises à jour":           "Verifica aggiornamenti",
     "Vérification automatique au démarrage":
                                            "Verifica automatica all'avvio",

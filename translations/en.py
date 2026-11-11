@@ -64,6 +64,18 @@ TRANSLATIONS = {
     "Dossier des mises à jour…":          "Update folder…",
     "Dossier des mises à jour":           "Update folder",
     "Dossier des mises à jour enregistré.": "Update folder saved.",
+    "Annuler : ne rien enregistrer":
+        "Cancel: save nothing",
+    "Ce fichier a été modifié depuis son ouverture (par un autre poste ou une autre fenêtre) :":
+        "This file was modified since you opened it (by another workstation or window):",
+    "Enregistrement annulé.":
+        "Save cancelled.",
+    "Mission modifiée ailleurs":
+        "Mission modified elsewhere",
+    "Non : enregistrer ma version sous un autre nom":
+        "No: save my version under another name",
+    "Oui : écraser avec ma version (l'autre version est conservée dans les sauvegardes)":
+        "Yes: overwrite with my version (the other version is kept in the backups)",
     "Vérifier les mises à jour":           "Check for updates",
     "Vérification automatique au démarrage":
                                            "Auto-check for updates at startup",

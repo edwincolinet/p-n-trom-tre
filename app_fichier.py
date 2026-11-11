@@ -38,7 +38,13 @@ from comparaison import open_comparison
 from i18n import _
 from model import Arbre, Chantier
 from palette import COLOR_BG, COULEUR_CLASSE
-from persistence import clear_recovery, load_chantier, save_chantier, write_backup
+from persistence import (
+    clear_recovery,
+    file_stamp,
+    load_chantier,
+    save_chantier,
+    write_backup,
+)
 from undo import UndoStack
 
 log = logging.getLogger("penetrometre")
@@ -69,6 +75,7 @@ class FichierMixin(_MixinBase):
         chantier: Chantier
         current_idx: int
         current_file: Optional[Path]
+        _file_stamp: Optional[tuple[Path, tuple[int, int]]]
         _dirty: bool
         _reference_chantier: Optional[Chantier]
         _recent: RecentFilesStore
@@ -603,6 +610,7 @@ class FichierMixin(_MixinBase):
             clear_recovery(_RECOVERY_PATH)
             self.chantier = load_chantier(p)
             self.current_file = Path(p)
+            self._memoriser_empreinte()
             self._install_chantier_ui()
             self._recent.push(p)
         except FileNotFoundError:
@@ -635,11 +643,60 @@ class FichierMixin(_MixinBase):
     # `self._recent.remove`, qui rafraîchissent le sous-menu via le
     # callback `on_change` câblé dans `__init__`.
 
+    def _memoriser_empreinte(self) -> None:
+        """Retient l'empreinte du fichier courant (ouverture / enregistrement)."""
+        st = file_stamp(self.current_file) if self.current_file else None
+        self._file_stamp = (
+            (self.current_file, st) if self.current_file and st else None)
+
+    def _fichier_modifie_ailleurs(self) -> bool:
+        """Vrai si le fichier courant a changé sur le disque depuis qu'on
+        l'a ouvert / enregistré (autre poste sur un dossier partagé, autre
+        instance). Faux si on ne sait pas (pas d'empreinte, autre chemin)."""
+        if not self.current_file or self._file_stamp is None:
+            return False
+        chemin, ancienne = self._file_stamp
+        if chemin != self.current_file:
+            return False
+        actuelle = file_stamp(self.current_file)
+        return actuelle is not None and actuelle != ancienne
+
+    def _confirmer_ecrasement(self) -> str:
+        """Garde-fou anti-écrasement silencieux. Renvoie `"ecraser"`,
+        `"copie"` (Enregistrer sous…) ou `"annuler"`. Quand l'utilisateur
+        choisit d'écraser, la version présente sur le disque est d'abord
+        sauvegardée (`write_backup`), pour ne rien perdre."""
+        if not self._fichier_modifie_ailleurs():
+            return "ecraser"
+        assert self.current_file is not None
+        rep = messagebox.askyesnocancel(
+            _("Mission modifiée ailleurs"),
+            _("Ce fichier a été modifié depuis son ouverture (par un autre "
+              "poste ou une autre fenêtre) :") + f"\n{self.current_file.name}\n\n"
+            + _("Oui : écraser avec ma version (l'autre version est "
+                "conservée dans les sauvegardes)") + "\n"
+            + _("Non : enregistrer ma version sous un autre nom") + "\n"
+            + _("Annuler : ne rien enregistrer"),
+            icon="warning", parent=self)
+        if rep is None:
+            return "annuler"
+        if rep is False:
+            return "copie"
+        write_backup(self.current_file, _BACKUP_PATH)
+        return "ecraser"
+
     def action_save(self) -> None:
         if not self.current_file:
             return self.action_save_as()
+        choix = self._confirmer_ecrasement()
+        if choix == "annuler":
+            self.set_status(_("Enregistrement annulé."))
+            return
+        if choix == "copie":
+            return self.action_save_as()
         try:
             save_chantier(self.chantier, self.current_file)
+            self._memoriser_empreinte()
             self._dirty = False
             self._update_title()
             self._recent.push(str(self.current_file))

@@ -43,6 +43,11 @@ def load_bareme() -> List[Dict[str, Any]]:
         return get_defaults()
 
 
+def bareme_existe() -> bool:
+    """Vrai si ce poste a déjà un barème personnalisé enregistré."""
+    return _BAREME_PATH.exists()
+
+
 def save_bareme(data: List[Dict[str, Any]]) -> None:
     """Sauvegarde le barème. Écriture atomique (.tmp → replace)."""
     try:

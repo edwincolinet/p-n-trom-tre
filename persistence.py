@@ -34,7 +34,7 @@ import tempfile
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from bareme import get_groupes, groupes_vers_brut, normaliser_port, seuils_depuis_brut
 from model import (
@@ -108,6 +108,18 @@ def save_chantier(chantier: Chantier, path: Union[str, Path]) -> None:
         except OSError:
             pass
         raise
+
+
+def file_stamp(path: Union[str, Path]) -> Optional[Tuple[int, int]]:
+    """Empreinte légère d'un fichier (mtime en ns, taille) ou `None` s'il
+    est absent/inaccessible. Sert au garde-fou multi-poste : si l'empreinte
+    a changé entre l'ouverture et l'enregistrement, un autre poste (ou une
+    autre session) a écrit le fichier entre-temps."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
 
 
 # --- Sauvegardes glissantes (anti-écrasement / anti-corruption) --------
