@@ -23,6 +23,16 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   d'abord sauvegardée), d'enregistrer sous un autre nom, ou d'annuler
   (`persistence.file_stamp`, `FichierMixin._confirmer_ecrasement`).
 - **Guide d'installation Windows** : `docs/installation_windows.md`.
+- **Icône Windows nette** : le `.ico` ne contenait que la taille 16×16
+  (Pillow ignore `append_images` pour l'ICO) et la source n'avait que 62×100 px
+  → raccourci pixélisé. `build/build_icons.py` part maintenant de 256 px
+  (7 tailles : 16 → 256) et `assets/Icone.png` est régénérée en 1024×1024
+  (`build/tools/regenerer_icone.py`, source conservée dans
+  `assets/Icone_source_62x100.png`).
+- **PDF de comparaison : photos embarquées** : le dossier de la mission était
+  figé à la sélection des arbres ; une mission enregistrée ensuite (depuis la
+  fenêtre de comparaison) faisait ignorer les photos. L'en-tête d'export est
+  recalculé à l'export.
 - **CI Windows** : test de démarrage de l'installeur (installation
   silencieuse, lancement, contrôle du journal) ; la release ne dépend plus
   que du build Windows (macOS/Linux restent disponibles en lancement manuel).

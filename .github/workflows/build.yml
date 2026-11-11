@@ -76,6 +76,12 @@ jobs:
       - name: Build PyInstaller
         run: pyinstaller penetrometre.spec
 
+      # Garde-fou : l'exe doit embarquer une icône multi-tailles (256 px
+      # inclus), sinon raccourcis/explorateur affichent une icône pixélisée.
+      - name: Vérifier l'icône de l'exe
+        run: |
+          python -c "import pefile,sys; pe=pefile.PE('dist/Penetrometre/Penetrometre.exe'); pe.parse_data_directories(); icones=[e for t in pe.DIRECTORY_ENTRY_RESOURCE.entries if t.id==3 for n in t.directory.entries for e in n.directory.entries]; sizes=sorted({(e.data.struct.Size) for e in icones}); print('RT_ICON (octets):', sizes, 'entrees:', len(icones)); sys.exit(0 if len(icones)>=6 else 'icône exe incomplète')"
+
       # Signature optionnelle — activée seulement si CODESIGN_P12_BASE64
       # est configuré dans les secrets du dépôt.
       - name: Signer l'exécutable (Windows)
