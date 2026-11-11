@@ -18,6 +18,7 @@ note d'architecture dans CLAUDE.md).
 from __future__ import annotations
 
 import logging
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -85,16 +86,36 @@ class ReglagesMixin(_MixinBase):
         import threading
 
         from penetrometre import __version__
-        from update_checker import check_for_update
 
         def _worker() -> None:
-            result = check_for_update(__version__)
+            result = self._chercher_mise_a_jour(__version__)
             if result is not None:
                 tag, url = result
                 self.after(0, lambda: self._on_update_result(tag, url))
 
         threading.Thread(target=_worker, daemon=True,
                          name="update-check").start()
+
+    def _chercher_mise_a_jour(self, version: str, timeout: float = 3.0
+                              ) -> Optional[tuple[str, str]]:
+        """Interroge la source configurée : dossier partagé du cabinet s'il
+        est défini (réglage `update_folder`), sinon les releases GitHub."""
+        from update_checker import check_for_update, check_for_update_folder
+        dossier = self._settings.update_folder()
+        if dossier:
+            return check_for_update_folder(version, dossier)
+        return check_for_update(version, timeout=timeout)
+
+    def action_set_update_folder(self) -> None:
+        """Aide → Dossier des mises à jour… : choisit le dossier partagé
+        contenant les installeurs (vide = releases GitHub)."""
+        from tkinter import filedialog
+        dossier = filedialog.askdirectory(
+            parent=self, title=_("Dossier des mises à jour"),
+            initialdir=self._settings.update_folder() or None)
+        if dossier:
+            self._settings.set_update_folder(dossier)
+            self.set_status(_("Dossier des mises à jour enregistré."))
 
     def _on_update_result(self, tag: str, url: str) -> None:
         """Affiche la bannière de mise à jour (appelé depuis le thread de vérification)."""
@@ -114,12 +135,22 @@ class ReglagesMixin(_MixinBase):
         navigateur — le contrôle vit donc aussi au point d'usage, pour ne
         pas dépendre du chemin par lequel `_update_banner_url` a été posé.
         """
+        import os
         import webbrowser
 
         from update_checker import url_de_release_sure
         url = getattr(self, "_update_banner_url", "")
-        if url:
-            webbrowser.open(url_de_release_sure(url))
+        if not url:
+            return
+        if url == self._settings.update_folder() and os.path.isdir(url):
+            # Dossier partagé du cabinet (réglage de poste) : on l'ouvre
+            # dans l'explorateur ; jamais une URL issue du réseau.
+            if sys.platform == "win32":
+                os.startfile(url)  # type: ignore[attr-defined]
+            else:
+                webbrowser.open(Path(url).as_uri())
+            return
+        webbrowser.open(url_de_release_sure(url))
 
     def _dismiss_update_banner(self) -> None:
         """Ferme la bannière pour la session courante (ne désactive pas le check)."""
@@ -144,9 +175,8 @@ class ReglagesMixin(_MixinBase):
     def action_check_updates(self) -> None:
         """Vérifie manuellement les mises à jour (Aide → Vérifier les mises à jour)."""
         from penetrometre import __version__
-        from update_checker import check_for_update
         self.set_status(_("Vérification des mises à jour…"))
-        result = check_for_update(__version__, timeout=5.0)
+        result = self._chercher_mise_a_jour(__version__, timeout=5.0)
         if result is None:
             from tkinter import messagebox as _mb
             _mb.showinfo(

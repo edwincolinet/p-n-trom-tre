@@ -1,12 +1,12 @@
 ; Inno Setup — Pénétromètre Silvavenir (Edwin Colinet)
 ; Buildé par GitHub Actions (.github/workflows/build.yml).
 ; Usage local :
-;   iscc /DMyAppVersion="3.6.0" build\installer.iss
+;   iscc /DMyAppVersion="3.7.0" build\installer.iss
 ;
 ; La version est injectée via /DMyAppVersion par le workflow CI ;
 ; la valeur ci-dessous sert uniquement de fallback local.
 #ifndef MyAppVersion
-  #define MyAppVersion "3.6.0"
+  #define MyAppVersion "3.7.0"
 #endif
 
 #define MyAppName      "Pénétromètre Silvavenir"

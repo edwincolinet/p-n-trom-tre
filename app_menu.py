@@ -94,6 +94,7 @@ class AppLike(Protocol):
     def action_open_log(self) -> None: ...
     def action_check_updates(self) -> None: ...
     def action_toggle_check_updates(self) -> None: ...
+    def action_set_update_folder(self) -> None: ...
     def get_check_updates(self) -> bool: ...
 
     # Récents — l'App ouvre directement le chemin sans dialogue.
@@ -333,6 +334,8 @@ def build_menu(app: AppLike) -> None:
         label=_("Vérification automatique au démarrage"),
         variable=chk_var,
         command=app.action_toggle_check_updates)
+    h.add_command(label=_("Dossier des mises à jour…"),
+                  command=app.action_set_update_folder)
     h.add_separator()
     h.add_command(label=_("Redémarrer l'application"),
                   command=app.action_restart)

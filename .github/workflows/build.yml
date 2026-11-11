@@ -1,6 +1,6 @@
 name: Build & Release
 
-# Déclenché sur les tags vX.Y.Z (ex: v3.6.0), ou manuellement (test d'un
+# Déclenché sur les tags vX.Y.Z (ex: v3.7.0), ou manuellement (test d'un
 # build sans créer de tag ni de Release publique — cf. job `release` plus
 # bas, qui ne se déclenche que sur un push de tag).
 on:
@@ -113,6 +113,26 @@ jobs:
       - name: Build installeur Inno Setup
         run: iscc /DMyAppVersion="${{ steps.version.outputs.VERSION }}" build\installer.iss
 
+      # Test de démarrage de l'installeur : installation silencieuse (par
+      # utilisateur, sans UAC), lancement, vérification que le processus
+      # tourne encore après 10 s et que le journal d'application a été écrit.
+      - name: Smoke test — installer puis lancer l'application
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "dist\installer\Penetrometre-*-Setup.exe" | Select-Object -First 1
+          $dir = Join-Path $env:RUNNER_TEMP "PenetrometreSmoke"
+          Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$dir" -Wait
+          $exe = Join-Path $dir "Penetrometre.exe"
+          if (-not (Test-Path $exe)) { Write-Error "Installation : exe absent"; exit 1 }
+          $p = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { Write-Error "Crash au démarrage (exit $($p.ExitCode))"; exit 1 }
+          Stop-Process $p -Force
+          $log = Join-Path $env:USERPROFILE ".penetrometre\penetrometre.log"
+          if (-not (Select-String -Path $log -Pattern "marrage" -Quiet)) {
+            Write-Error "Journal absent ou sans ligne de démarrage"; exit 1 }
+          Get-Content $log -Tail 20
+
       # Signer aussi l'installeur .exe (optionnel, même secret)
       - name: Signer l'installeur Setup.exe (Windows)
         if: env.HAS_WIN_SIGNING == 'true'
@@ -154,6 +174,7 @@ jobs:
   # Pour Intel x86_64 : dupliquer ce job avec runs-on: macos-13
   # ──────────────────────────────────────────────
   build-macos:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     # Cf. build-windows : `secrets` interdit dans `if:` → drapeaux booléens
     # au niveau job, testés via `env.<flag>` dans les étapes.
@@ -272,6 +293,7 @@ jobs:
   # Linux — AppImage portable (x86_64)
   # ──────────────────────────────────────────────
   build-linux:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -318,7 +340,7 @@ jobs:
   # Publication GitHub Release
   # ──────────────────────────────────────────────
   release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:

@@ -92,6 +92,16 @@ class SettingsStore:
         self._data["check_updates"] = bool(value)
         self._save()
 
+    def update_folder(self) -> str:
+        """Dossier partagé où chercher les installeurs plus récents
+        (dépôt GitHub privé). Chaîne vide = non configuré."""
+        v = self._data.get("update_folder", "")
+        return v if isinstance(v, str) else ""
+
+    def set_update_folder(self, value: str) -> None:
+        self._data["update_folder"] = str(value)
+        self._save()
+
     def get_sash_positions(self) -> list[int]:
         """Positions X (px) des poignées de la disposition 3 colonnes,
         ou `[]` si jamais réglées / valeur corrompue. Tolérant."""

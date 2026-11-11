@@ -25,6 +25,7 @@ import logging
 import re
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Optional, Tuple
 
 log = logging.getLogger("penetrometre")
@@ -112,3 +113,37 @@ def check_for_update(
         return None
 
     return tag, url_de_release_sure(data.get("html_url"))
+
+
+_RE_INSTALLEUR = re.compile(r"Penetrometre-(\d+\.\d+\.\d+)-Setup\.exe", re.IGNORECASE)
+
+
+def check_for_update_folder(
+        current_version: str,
+        folder: str,
+) -> Optional[Tuple[str, str]]:
+    """Cherche un installeur plus récent dans un dossier partagé du cabinet.
+
+    Alternative à `check_for_update` quand le dépôt GitHub est privé : les
+    installeurs `Penetrometre-X.Y.Z-Setup.exe` sont déposés dans un dossier
+    commun. Retourne `("vX.Y.Z", dossier)` pour la version la plus récente
+    strictement supérieure à `current_version`, `None` sinon (dossier
+    absent/inaccessible, aucun installeur, déjà à jour). Jamais d'exception."""
+    current = _parse_version(current_version)
+    if current is None or not folder:
+        return None
+    try:
+        meilleure: Optional[Tuple[int, ...]] = None
+        for f in Path(folder).iterdir():
+            m = _RE_INSTALLEUR.fullmatch(f.name)
+            if m is None:
+                continue
+            v = tuple(int(x) for x in m.group(1).split("."))
+            if v > current and (meilleure is None or v > meilleure):
+                meilleure = v
+    except OSError:
+        log.debug("update_checker: dossier de mises à jour inaccessible")
+        return None
+    if meilleure is None:
+        return None
+    return "v" + ".".join(str(x) for x in meilleure), str(folder)

@@ -56,5 +56,33 @@ class VersionTests(unittest.TestCase):
         self.assertIsNone(_parse_version("pas-une-version"))
 
 
+class DossierPartageTests(unittest.TestCase):
+    def _dossier(self, *noms):
+        import tempfile
+        from pathlib import Path
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        for n in noms:
+            (Path(d.name) / n).write_bytes(b"")
+        return d.name
+
+    def test_plus_recent_trouve(self):
+        from update_checker import check_for_update_folder
+        d = self._dossier("Penetrometre-3.7.0-Setup.exe",
+                          "Penetrometre-3.10.0-Setup.exe", "notes.txt")
+        self.assertEqual(check_for_update_folder("3.7.0", d), ("v3.10.0", d))
+
+    def test_a_jour_ou_vide(self):
+        from update_checker import check_for_update_folder
+        d = self._dossier("Penetrometre-3.7.0-Setup.exe")
+        self.assertIsNone(check_for_update_folder("3.7.0", d))
+        self.assertIsNone(check_for_update_folder("3.7.0", self._dossier()))
+
+    def test_dossier_inaccessible_ou_non_configure(self):
+        from update_checker import check_for_update_folder
+        self.assertIsNone(check_for_update_folder("3.7.0", "/inexistant/xyz"))
+        self.assertIsNone(check_for_update_folder("3.7.0", ""))
+
+
 if __name__ == "__main__":
     unittest.main()

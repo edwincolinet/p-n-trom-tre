@@ -61,6 +61,9 @@ TRANSLATIONS = {
     "Support":                             "Supporto",
     "Raccourcis clavier…":                 "Scorciatoie da tastiera…",
     "Ouvrir le fichier de log":            "Apri file di log",
+    "Dossier des mises à jour…":          "Cartella degli aggiornamenti…",
+    "Dossier des mises à jour":           "Cartella degli aggiornamenti",
+    "Dossier des mises à jour enregistré.": "Cartella degli aggiornamenti salvata.",
     "Vérifier les mises à jour":           "Verifica aggiornamenti",
     "Vérification automatique au démarrage":
                                            "Verifica automatica all'avvio",

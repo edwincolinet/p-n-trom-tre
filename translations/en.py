@@ -61,6 +61,9 @@ TRANSLATIONS = {
     "Support":                             "Support",
     "Raccourcis clavier…":                 "Keyboard shortcuts…",
     "Ouvrir le fichier de log":            "Open log file",
+    "Dossier des mises à jour…":          "Update folder…",
+    "Dossier des mises à jour":           "Update folder",
+    "Dossier des mises à jour enregistré.": "Update folder saved.",
     "Vérifier les mises à jour":           "Check for updates",
     "Vérification automatique au démarrage":
                                            "Auto-check for updates at startup",

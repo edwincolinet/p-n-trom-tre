@@ -3,7 +3,19 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
-## En développement (depuis 3.6.0)
+## 3.7.0 — 2026-11-11 (mise en service interne)
+
+### Distribution et mises à jour
+
+- **Dossier des mises à jour** (Aide → Dossier des mises à jour…) : le dépôt
+  GitHub étant privé, la vérification peut chercher les installeurs
+  `Penetrometre-X.Y.Z-Setup.exe` dans un dossier partagé du cabinet
+  (`update_checker.check_for_update_folder`, réglage de poste
+  `update_folder`). Dossier vide = releases GitHub (comportement historique).
+  La bannière « Nouvelle version » ouvre alors le dossier.
+- **CI Windows** : test de démarrage de l'installeur (installation
+  silencieuse, lancement, contrôle du journal) ; la release ne dépend plus
+  que du build Windows (macOS/Linux restent disponibles en lancement manuel).
 
 ### Unité des angles (grades / degrés)
 
