@@ -18,7 +18,9 @@ _SKIP_DIRS = {"venv", ".venv", ".git", ".hypothesis", "__pycache__",
               "design system SILVAVENIR", "build", "dist", ".mypy_cache",
               ".ruff_cache", ".pytest_cache"}
 # Seule survivance tolérée : la référence à un fichier de mémoire de l'agent.
-_TOLERES = ("project_penetrometre_perso",)
+# L'ancien nom est assemblé : ce fichier ne doit pas le contenir en clair.
+_ANCIEN = "arbo" + "lyse"
+_TOLERES = (f"project_{_ANCIEN}_perso",)
 
 
 class NomProduitTests(unittest.TestCase):
@@ -40,7 +42,7 @@ class NomProduitTests(unittest.TestCase):
             # Le journal des versions cite l'ancien nom (historique).
             if path.name in {"test_branding.py", "CHANGELOG.md"}:
                 continue
-            if re.search(r"penetrometre", texte, re.IGNORECASE):
+            if re.search(_ANCIEN, texte, re.IGNORECASE):
                 fautes.append(str(path.relative_to(_ROOT)))
         self.assertEqual(fautes, [])
 

@@ -60,7 +60,7 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 
 ### Identité visuelle
 
-- **Le logiciel devient « Pénétromètre Silvavenir »** (ex-Pénétromètre) : titres
+- **Le logiciel devient « Pénétromètre Silvavenir »** (changement de nom) : titres
   de fenêtre, en-tête, À propos, activation, fiche PDF, exports, guide,
   installeur, traductions. Identifiants techniques renommés (aucune clé
   n'avait été émise) : `SILVAVENIR_LICENSE_KEY`, `~/.silvavenir-keys/`
