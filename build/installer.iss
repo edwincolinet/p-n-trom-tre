@@ -37,7 +37,7 @@ SetupIconFile=build\icons\Icone.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\{#MyAppExe}
+UninstallDisplayIcon={app}\Penetrometre.ico
 ; Empêche l'ouverture de plusieurs instances de l'installeur
 AppMutex=PenetrometerSetupMutex
 
@@ -49,11 +49,16 @@ Name: "desktopicon"; Description: "Créer une icône sur le Bureau"; GroupDescri
 
 [Files]
 Source: "dist\Penetrometre\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Icône multi-tailles (16 → 256 px) livrée À PART : les raccourcis la
+; référencent directement (IconFilename) au lieu de dépendre de l'icône
+; embarquée dans l'exe — et un nouveau chemin évite le cache d'icônes Windows
+; qui conservait l'ancienne (pixélisée) après une réinstallation.
+Source: "build\icons\Icone.ico"; DestDir: "{app}"; DestName: "Penetrometre.ico"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; IconFilename: "{app}\Penetrometre.ico"
 Name: "{group}\Désinstaller {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; IconFilename: "{app}\Penetrometre.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExe}"; Description: "Lancer {#MyAppName}"; Flags: nowait postinstall skipifsilent

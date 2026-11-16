@@ -37,15 +37,14 @@ img.save(png_path)
 print(f"  ✓ {png_path}")
 
 # ICO — Windows (multi-résolution)
-ico_sizes = [16, 32, 48, 64, 128, 256]
-ico_imgs = [img.resize((s, s), Image.LANCZOS) for s in ico_sizes]
+# PIEGE : Pillow ne produit que les tailles <= à celle de l'image BASE
+# (`append_images` est ignoré pour l'ICO). Partir de la plus petite (16 px)
+# donnait un .ico à UNE seule taille 16×16 → icône du raccourci/de l'exe
+# énorme et pixélisée sous Windows. On part donc de la plus GRANDE (256 px).
+ico_sizes = [16, 24, 32, 48, 64, 128, 256]
 ico_path = OUT / "Icone.ico"
-ico_imgs[0].save(
-    ico_path,
-    format="ICO",
-    sizes=[(s, s) for s in ico_sizes],
-    append_images=ico_imgs[1:],
-)
+img.resize((256, 256), Image.LANCZOS).save(
+    ico_path, format="ICO", sizes=[(s, s) for s in ico_sizes])
 print(f"  ✓ {ico_path}")
 
 # ICNS — macOS uniquement (requiert iconutil, fourni par Xcode Command Line Tools)
