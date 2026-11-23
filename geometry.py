@@ -42,6 +42,14 @@ def _radius_at(R: "RadiusSpec", grade: float) -> float:
     return R(grade) if callable(R) else R
 
 
+def _ep_present(ep: "RadiusSpec") -> bool:
+    """Vrai s'il y a une couche d'écorce à dessiner. L'épaisseur peut être un
+    scalaire (écorce uniforme) ou une fonction `grade -> cm` (épaisseur locale
+    par direction) ; l'appelant ne passe une fonction que si l'épaisseur
+    maximale est > 0."""
+    return True if callable(ep) else ep > 0
+
+
 # Recouvrement (en px) du bord externe d'une dégradation qui comprend
 # l'écorce, pour souder la couture d'anti-aliasing avec le bord de l'écorce
 # (deux remplissages jointifs laissent sinon ~1 px de fond visible).
@@ -300,7 +308,7 @@ def cavity_polygon(alteration_par_grade: List[float],
 
 def contrefort_zone_outline(zone: Tuple[float, float],
                             contreforts: List[Any],
-                            R: "RadiusSpec", ep_cm: float,
+                            R: "RadiusSpec", ep_cm: "RadiusSpec",
                             cx: float, cy: float, scale: float,
                             R_inner: Any = None,
                             rotation_grades: float = 0.0
@@ -337,9 +345,10 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         r_wood = _radius_at(R, g) + bell
         wood_outer.append(polar_to_xy(cx, cy, scale, r_wood,
                                       g + rotation_grades))
-        if ep_cm > 0:
-            bark_outer.append(polar_to_xy(cx, cy, scale, r_wood + ep_cm,
-                                          g + rotation_grades))
+        if _ep_present(ep_cm):
+            bark_outer.append(polar_to_xy(
+                cx, cy, scale, r_wood + _radius_at(ep_cm, g),
+                g + rotation_grades))
 
     base: List[Tuple[float, float]] = []
     for k in range(n_steps, -1, -1):
@@ -352,7 +361,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
         base.append(polar_to_xy(cx, cy, scale, r_in, g + rotation_grades))
 
     out = {"wood_outer": wood_outer, "base": base}
-    if ep_cm > 0:
+    if _ep_present(ep_cm):
         bark_inner: List[Tuple[float, float]] = []
         for k in range(n_steps, -1, -1):
             t = a + k * span / n_steps
@@ -366,7 +375,7 @@ def contrefort_zone_outline(zone: Tuple[float, float],
 
 def degradation_externe_outline(deg: Any,
                                 contreforts: List[Any],
-                                R: "RadiusSpec", ep_cm: float,
+                                R: "RadiusSpec", ep_cm: "RadiusSpec",
                                 cx: float, cy: float, scale: float,
                                 rotation_grades: float = 0.0
                                 ) -> List[Tuple[float, float]]:
@@ -408,7 +417,7 @@ def degradation_externe_outline(deg: Any,
         # Surface du bois (suit la saillie des contreforts), puis écorce.
         r_surface = _radius_at(R, g) + bell_max_at_grade(g, contreforts)
         if comprend_ecorce:
-            r_surface += ep_cm
+            r_surface += _radius_at(ep_cm, g)
         # Profondeur creusée depuis la surface réelle ; le recouvrement ne
         # déborde que vers l'extérieur (ne change pas la profondeur creusée).
         r_in = max(0.0, r_surface - deg.profondeur_cm)

@@ -433,6 +433,42 @@ class TestAppMixins(unittest.TestCase):
         self.app.remove_last_brin()
         self.assertEqual(len(a.brins), 1)
 
+    # --- Ø sur écorce / épaisseur d'écorce (saisie terrain) ---
+
+    def test_identification_diametre_sur_ecorce(self) -> None:
+        """Ø saisi SUR écorce : le Ø sous écorce et le rayon en sont déduits ;
+        changer l'épaisseur GARDE le Ø mesuré et recalcule le bois."""
+        a = self.app.chantier.arbres[0]
+        b = a.brins[0]
+        pi = self.app.pane_id
+        pi.var_ep_ecorce.set("1.5")
+        pi.var_diam.set("43")
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 40.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 20.0)
+        self.assertEqual(pi.var_rayon.get(), "20")
+        pi.var_ep_ecorce.set("2")
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 39.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 19.5)
+        self.assertEqual(pi.var_diam.get(), "43")       # mesure inchangée
+        self.assertEqual(pi.var_rayon.get(), "19.5")
+
+    def test_sondages_diametre_et_ecorce_locaux(self) -> None:
+        b = self.app.chantier.arbres[0].brins[0]
+        b.rayon_tronc_cm = 20.0
+        b.epaisseur_ecorce_cm = 1.5
+        ps = self.app.pane_s
+        ps.refresh()
+        ps._rows[100]["diam"].set("43")                 # Ø sur écorce
+        self.assertAlmostEqual(b.diametres_locaux[100], 40.0)
+        ps._rows[100]["ep"].set("3")                    # écorce locale
+        self.assertAlmostEqual(b.epaisseurs_ecorce_locales[100], 3.0)
+        self.assertAlmostEqual(b.diametres_locaux[100], 37.0)
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(100), 43.0)
+        ps._rows[100]["ep"].set("")                     # retombe sur la générale
+        self.assertNotIn(100, b.epaisseurs_ecorce_locales)
+        self.assertAlmostEqual(b.diametres_locaux[100], 40.0)
+        self.app.update_idletasks()
+
     # --- Brin courant / sélecteur de cépée ---
 
     def test_current_brin_est_brins0_pour_mono_caule(self) -> None:

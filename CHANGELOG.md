@@ -3,6 +3,24 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## Non publié
+
+### Saisie « terrain » : diamètre sur écorce, écorce locale
+
+- **Diamètre saisi SUR écorce** (onglet Identification et Ø local de l'onglet
+  Sondages) : c'est ce que l'on lit au ruban sur le terrain. Le Ø sous écorce
+  et le rayon du bois sont déduits (`Ø sur − 2 × épaisseur d'écorce`). Le
+  fichier et le diagnostic restent **sous écorce** (aucune migration).
+- **Changer l'épaisseur d'écorce garde la mesure de terrain** : le Ø sur
+  écorce ne bouge pas, le bois sous l'écorce est recalculé (PRBS préservée).
+  Une épaisseur qui ne laisserait plus de bois est refusée et signalée.
+- **Épaisseur d'écorce locale par direction** (colonne « Ép. écorce (cm) » de
+  l'onglet Sondages, `Brin.epaisseurs_ecorce_locales`) : vide = épaisseur
+  générale. Prise en compte par le dessin (Tk, PNG, PDF, comparaison, cépées)
+  et par le diagnostic (bois perdu d'une dégradation = profondeur − écorce
+  de SA direction). Sans valeur locale, rendu et calculs strictement inchangés.
+- Colonne Commentaire de la grille Sondages raccourcie pour faire de la place.
+
 ## 3.7.0 — 2026-11-11 (mise en service interne)
 
 ### Distribution et mises à jour

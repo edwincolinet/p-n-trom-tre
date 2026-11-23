@@ -232,13 +232,12 @@ def degradation_externe_par_grade(arbre: "Section") -> List[float]:
     `DegradationExterne.profondeur_bois_cm`) — l'écorce n'entre pas dans le
     calcul de la PRBS.
     """
-    ep = max(0.0, arbre.epaisseur_ecorce_cm)
     out = [0.0] * 16
     for deg in arbre.degradations_externes:
-        prof_bois = deg.profondeur_bois_cm(ep)
         for i, g in enumerate(GRADES):
             if deg.couvre_grade(g):
-                out[i] = max(out[i], prof_bois)
+                # Épaisseur d'écorce de CETTE direction (locale si mesurée).
+                out[i] = max(out[i], deg.profondeur_bois_cm(arbre.ep_a_grade(g)))
     return out
 
 
@@ -313,14 +312,17 @@ def degradation_ecretee(arbre: "Section",
     peu profonde d'un arc mitoyen profond (les deux couvrent le
     grade-frontière). Ici on ne teste que la profondeur de `deg`.
     """
-    prof_bois = deg.profondeur_bois_cm(max(0.0, arbre.epaisseur_ecorce_cm))
-    if arbre.rayon_tronc_cm <= 0 or prof_bois <= 0:
+    if arbre.rayon_tronc_cm <= 0:
         return False
     rayons = rayon_par_grade(arbre)
     alt_int = compute_alteration_par_grade(arbre)
-    return any(deg.couvre_grade(g)
-               and alt_int[i] + prof_bois > rayons[i] + 1e-9
-               for i, g in enumerate(GRADES))
+    for i, g in enumerate(GRADES):
+        if not deg.couvre_grade(g):
+            continue
+        prof_bois = deg.profondeur_bois_cm(arbre.ep_a_grade(g))
+        if prof_bois > 0 and alt_int[i] + prof_bois > rayons[i] + 1e-9:
+            return True
+    return False
 
 
 def ratio_tR_par_grade(arbre: "Section") -> List[float]:

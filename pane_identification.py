@@ -49,6 +49,9 @@ class _IdentificationHost(Protocol):
     def _current_brin(self) -> Optional[Brin]: ...
     def on_identification_changed(self, *, rayon_adjusted: bool) -> None: ...
     def push_undo(self) -> None: ...
+    def capture_undo_snapshot(self) -> dict: ...
+    def push_undo_snapshot(self, snap: dict) -> None: ...
+    def set_status(self, text: str) -> None: ...
     def add_brin(self) -> None: ...
     def remove_last_brin(self) -> None: ...
     def edit_cepee_layout(self) -> None: ...
@@ -68,6 +71,9 @@ class IdentificationPane(ttk.Frame):
         self._entry_widgets: Dict[str, tk.Widget] = {}
         self._rayon_at_focus_in: Optional[float] = None
         self._diam_at_focus_in: Optional[float] = None
+        # Undo de l'épaisseur d'écorce (qui recalcule Ø sous écorce / rayon).
+        self._ep_undo_snap: Optional[dict] = None
+        self._ep_at_focus_in: Optional[float] = None
         self._numeric_snapshots: Dict[str, str] = {}
 
         self.var_num = tk.StringVar()
@@ -147,9 +153,9 @@ class IdentificationPane(ttk.Frame):
                 (_("Port de l'arbre"),           self.var_port, translate_values(PORTS_ARBRE)),
             ]),
             (_("Tronc"), [
-                (_("Diamètre sous écorce (cm)"), self.var_diam, None),
-                (_("Rayon du tronc (cm)"),       self.var_rayon, None),
+                (_("Diamètre sur écorce (cm)"),  self.var_diam, None),
                 (_("Épaisseur de l'écorce (cm)"), self.var_ep_ecorce, None),
+                (_("Rayon sous écorce (cm)"),    self.var_rayon, None),
             ]),
             (_("Sondage"), [
                 (_("Longueur de la mèche (cm)"), self.var_meche, None),
@@ -234,8 +240,11 @@ class IdentificationPane(ttk.Frame):
                     "La nouvelle tige hérite la forme de la précédente et se "
                     "place à l'Est ; ses mesures sont à relever séparément."))
 
-        for var in (self.var_meche, self.var_ep_ecorce,
-                    self.var_h_s, self.var_h_arb):
+        ep_w = self._entry_widgets[str(self.var_ep_ecorce)]
+        ep_w.bind("<FocusIn>", lambda e: self._on_ep_focus_in())
+        ep_w.bind("<FocusOut>", lambda e: self._on_ep_focus_out())
+
+        for var in (self.var_meche, self.var_h_s, self.var_h_arb):
             key = str(var)
             w = self._entry_widgets[key]
             w.bind("<FocusIn>", lambda e, k=key, v=var: self._numeric_snapshots.__setitem__(k, v.get()))
@@ -260,12 +269,15 @@ class IdentificationPane(ttk.Frame):
 
         AideRepliable(
             content,
-            _("Saisir le diamètre calcule le rayon (÷ 2). "
-              "PRBS inchangée si rayon corrigé après sondages : "
-              "le bois altéré seul est recalculé."),
+            _("Saisissez le diamètre tel que mesuré SUR l'écorce : le rayon "
+              "du bois (sous écorce) s'en déduit (Ø − 2 × écorce) ÷ 2. "
+              "Modifier l'épaisseur d'écorce conserve le diamètre mesuré et "
+              "recalcule le bois. PRBS inchangée si rayon corrigé après "
+              "sondages : le bois altéré seul est recalculé."),
             _("Le tronc n'est pas parfaitement cylindrique ? Saisissez un "
-              "diamètre local dans l'onglet Sondages, direction par "
-              "direction — vide = diamètre général ci-dessus."),
+              "diamètre local (et, si besoin, une épaisseur d'écorce locale) "
+              "dans l'onglet Sondages, direction par direction — vide = "
+              "valeur générale ci-dessus."),
         ).grid(row=len(groupes) + 1, column=0, sticky="we", pady=(6, 0))
         content.columnconfigure(0, weight=1)
 
@@ -299,8 +311,7 @@ class IdentificationPane(ttk.Frame):
             self.var_comm.set(a.commentaire)
             # Géométrie → brin courant (`Brin`).
             self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
-            self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}"
-                               if b.diametre_sous_ecorce_cm else "")
+            self.var_diam.set(self._fmt_diam_sur(b))
             self.var_ep_ecorce.set(f"{b.epaisseur_ecorce_cm:g}"
                                     if b.epaisseur_ecorce_cm else "0")
         self.refresh_brin_buttons()
@@ -400,6 +411,45 @@ class IdentificationPane(ttk.Frame):
             self._mark_field(var, False)
             return None
 
+    @staticmethod
+    def _fmt_diam_sur(b: Brin) -> str:
+        """Ø **sur écorce** affiché (ce que l'opérateur lit au ruban) :
+        Ø sous écorce stocké + 2 × épaisseur d'écorce. Vide si non saisi."""
+        if not b.diametre_sous_ecorce_cm:
+            return ""
+        sur = b.diametre_sous_ecorce_cm + 2.0 * max(0.0, b.epaisseur_ecorce_cm)
+        return f"{round(sur, 6):g}"
+
+    def _on_ep_focus_in(self) -> None:
+        b = self._host._current_brin()
+        self._numeric_snapshots[str(self.var_ep_ecorce)] = self.var_ep_ecorce.get()
+        self._ep_undo_snap = self._host.capture_undo_snapshot()
+        self._ep_at_focus_in = b.epaisseur_ecorce_cm if b else None
+
+    def _on_ep_focus_out(self) -> None:
+        """Normalise le champ d'épaisseur à la valeur réellement appliquée
+        (une valeur refusée — plus de bois — est signalée et annulée) et
+        empile l'undo si l'épaisseur a changé."""
+        self._revert_if_invalid(self.var_ep_ecorce, str(self.var_ep_ecorce))
+        b = self._host._current_brin()
+        if b is not None:
+            typed = self._parse_float(self.var_ep_ecorce)
+            if typed is not None and abs(max(0.0, typed)
+                                         - b.epaisseur_ecorce_cm) > 1e-9:
+                self._host.set_status(
+                    _("Épaisseur d'écorce refusée : elle dépasserait le "
+                      "diamètre mesuré (plus de bois sous l'écorce)."))
+            with self._suspend_sync_block():
+                self.var_ep_ecorce.set(f"{b.epaisseur_ecorce_cm:g}"
+                                       if b.epaisseur_ecorce_cm else "0")
+            if (self._ep_undo_snap is not None
+                    and self._ep_at_focus_in is not None
+                    and abs(b.epaisseur_ecorce_cm
+                            - self._ep_at_focus_in) > 1e-9):
+                self._host.push_undo_snapshot(self._ep_undo_snap)
+        self._ep_undo_snap = None
+        self._ep_at_focus_in = None
+
     def _on_rayon_field_focus_in(self) -> None:
         b = self._host._current_brin()
         if b:
@@ -433,7 +483,7 @@ class IdentificationPane(ttk.Frame):
             b.diametre_sous_ecorce_cm = old_D if old_D is not None else old_R * 2
             with self._suspend_sync_block():
                 self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
-                self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}")
+                self.var_diam.set(self._fmt_diam_sur(b))
             self._host.on_identification_changed(rayon_adjusted=False)
             return
 
@@ -472,29 +522,44 @@ class IdentificationPane(ttk.Frame):
             if meche is not None:
                 a.meche_cm = meche
             # Écorce + diamètre + rayon → brin courant (géométrie propre).
-            if ep is not None:
-                b.epaisseur_ecorce_cm = max(0.0, ep)
-
-            new_diam = self._parse_float(self.var_diam)
-            new_rayon = self._parse_float(self.var_rayon)
-
-            if new_diam is not None and new_rayon is not None:
-                diam_changed = abs(new_diam - b.diametre_sous_ecorce_cm) > 1e-9
-                rayon_changed = abs(new_rayon - b.rayon_tronc_cm) > 1e-9
-                b.diametre_sous_ecorce_cm = new_diam
-                if diam_changed and not rayon_changed:
-                    b.rayon_tronc_cm = max(0.0, new_diam / 2.0)
+            # Saisie « terrain » : le Ø est lu SUR écorce ; le Ø sous écorce
+            # stocké (et le rayon du bois) en sont déduits. Changer
+            # l'épaisseur garde donc le Ø mesuré et recalcule le bois.
+            if ep is not None and abs(max(0.0, ep)
+                                      - b.epaisseur_ecorce_cm) > 1e-9:
+                if b.set_epaisseur_ecorce(ep):
                     with self._suspend_sync_block():
                         self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
+                    self._host.on_identification_changed(rayon_adjusted=True)
+                # Refusée (plus de bois) : modèle intact, champ corrigé au
+                # focus-out (`_on_ep_focus_out`).
+                return
+
+            ep_cm = max(0.0, b.epaisseur_ecorce_cm)
+            new_sur = self._parse_float(self.var_diam)
+            new_rayon = self._parse_float(self.var_rayon)
+            sur_model = b.diametre_sous_ecorce_cm + 2.0 * ep_cm
+
+            if new_sur is not None and new_rayon is not None:
+                diam_changed = abs(new_sur - sur_model) > 1e-9
+                rayon_changed = abs(new_rayon - b.rayon_tronc_cm) > 1e-9
+                if diam_changed and not rayon_changed:
+                    sous = new_sur - 2.0 * ep_cm
+                    if sous > 0:
+                        b.diametre_sous_ecorce_cm = round(sous, 6)
+                        b.rayon_tronc_cm = sous / 2.0
+                        with self._suspend_sync_block():
+                            self.var_rayon.set(f"{b.rayon_tronc_cm:g}")
                 elif rayon_changed and not diam_changed:
                     b.rayon_tronc_cm = max(0.0, new_rayon)
                     b.diametre_sous_ecorce_cm = new_rayon * 2.0
                     with self._suspend_sync_block():
-                        self.var_diam.set(f"{b.diametre_sous_ecorce_cm:g}")
+                        self.var_diam.set(self._fmt_diam_sur(b))
                 else:
                     b.rayon_tronc_cm = max(0.0, new_rayon)
-            elif new_diam is not None:
-                b.diametre_sous_ecorce_cm = new_diam
+            elif new_sur is not None:
+                if new_sur - 2.0 * ep_cm > 0:
+                    b.diametre_sous_ecorce_cm = round(new_sur - 2.0 * ep_cm, 6)
             elif new_rayon is not None:
                 b.rayon_tronc_cm = max(0.0, new_rayon)
         except Exception:

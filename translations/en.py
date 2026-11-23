@@ -857,4 +857,51 @@ TRANSLATIONS = {
         "Selects the next tree with an unreliable diagnosis "
         "(missing radius or < 3 soundings), looping around. "
         "Clears the filters if needed.",
+    'Diamètre sur écorce (cm)':
+        'Diameter over bark (cm)',
+    'Rayon sous écorce (cm)':
+        'Radius under bark (cm)',
+    'Ép. écorce (cm)':
+        'Bark thick. (cm)',
+    'Ø sur écorce (cm)':
+        'Ø over bark (cm)',
+    "Diamètre mesuré au ruban SUR l'écorce, à cette direction. Vide = diamètre général.":
+        'Diameter measured with a tape ON the bark, at this direction. Empty = general diameter.',
+    "Épaisseur de l'écorce à cette direction. Vide = épaisseur générale (onglet "
+    'Identification).':
+        'Bark thickness at this direction. Empty = general thickness (Identification tab).',
+    "Ø sur écorce : diamètre mesuré au ruban SUR l'écorce, à CETTE direction (un tronc n'est "
+    'jamais parfaitement cylindrique). Laissez vide pour utiliser le diamètre général de '
+    "l'onglet Identification.":
+        'Ø over bark: diameter measured with a tape ON the bark, at THIS direction (a trunk is '
+        'never perfectly cylindrical). Leave empty to use the general diameter from the '
+        'Identification tab.',
+    "Ép. écorce : épaisseur d'écorce propre à cette direction (vide = épaisseur générale). La"
+    " modifier conserve le Ø sur écorce mesuré : c'est le bois sous l'écorce qui est "
+    'recalculé.':
+        'Bark thick.: bark thickness specific to this direction (empty = general thickness). '
+        'Changing it keeps the measured Ø over bark: the wood under the bark is recalculated.',
+    "Ø sur écorce ignoré : il doit dépasser 2 × l'épaisseur d'écorce ({d:g} cm).":
+        'Ø over bark ignored: it must exceed 2 × the bark thickness ({d:g} cm).',
+    "Épaisseur d'écorce refusée : elle dépasserait le Ø mesuré à cette direction (plus de "
+    "bois sous l'écorce).":
+        'Bark thickness rejected: it would exceed the Ø measured at this direction (no wood left '
+        'under the bark).',
+    "Épaisseur d'écorce refusée : elle dépasserait le diamètre mesuré (plus de bois sous "
+    "l'écorce).":
+        'Bark thickness rejected: it would exceed the measured diameter (no wood left under the '
+        'bark).',
+    "Saisissez le diamètre tel que mesuré SUR l'écorce : le rayon du bois (sous écorce) s'en "
+    "déduit (Ø − 2 × écorce) ÷ 2. Modifier l'épaisseur d'écorce conserve le diamètre mesuré "
+    'et recalcule le bois. PRBS inchangée si rayon corrigé après sondages : le bois altéré '
+    'seul est recalculé.':
+        'Enter the diameter as measured ON the bark: the wood radius (under bark) is derived as '
+        '(Ø − 2 × bark) ÷ 2. Changing the bark thickness keeps the measured diameter and '
+        'recalculates the wood. PRBS unchanged if the radius is corrected after soundings: only '
+        'the altered wood is recalculated.',
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un diamètre local (et, si "
+    "besoin, une épaisseur d'écorce locale) dans l'onglet Sondages, direction par direction —"
+    ' vide = valeur générale ci-dessus.':
+        'Trunk not perfectly cylindrical? Enter a local diameter (and, if needed, a local bark '
+        'thickness) in the Soundings tab, direction by direction — empty = general value above.',
 }

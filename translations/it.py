@@ -838,4 +838,55 @@ TRANSLATIONS = {
         "Seleziona il prossimo albero con diagnosi non affidabile "
         "(raggio mancante o < 3 sondaggi), in modo ciclico. "
         "Svuota i filtri se necessario.",
+    'Diamètre sur écorce (cm)':
+        'Diametro sopra la corteccia (cm)',
+    'Rayon sous écorce (cm)':
+        'Raggio sotto corteccia (cm)',
+    'Ép. écorce (cm)':
+        'Sp. corteccia (cm)',
+    'Ø sur écorce (cm)':
+        'Ø sopra corteccia (cm)',
+    "Diamètre mesuré au ruban SUR l'écorce, à cette direction. Vide = diamètre général.":
+        'Diametro misurato con il nastro SULLA corteccia, in questa direzione. Vuoto = diametro '
+        'generale.',
+    "Épaisseur de l'écorce à cette direction. Vide = épaisseur générale (onglet "
+    'Identification).':
+        'Spessore della corteccia in questa direzione. Vuoto = spessore generale (scheda '
+        'Identificazione).',
+    "Ø sur écorce : diamètre mesuré au ruban SUR l'écorce, à CETTE direction (un tronc n'est "
+    'jamais parfaitement cylindrique). Laissez vide pour utiliser le diamètre général de '
+    "l'onglet Identification.":
+        'Ø sopra corteccia: diametro misurato con il nastro SULLA corteccia, in QUESTA direzione '
+        '(un tronco non è mai perfettamente cilindrico). Lasciare vuoto per usare il diametro '
+        'generale della scheda Identificazione.',
+    "Ép. écorce : épaisseur d'écorce propre à cette direction (vide = épaisseur générale). La"
+    " modifier conserve le Ø sur écorce mesuré : c'est le bois sous l'écorce qui est "
+    'recalculé.':
+        'Sp. corteccia: spessore della corteccia proprio di questa direzione (vuoto = spessore '
+        'generale). Modificarlo mantiene il Ø sopra corteccia misurato: viene ricalcolato il '
+        'legno sotto la corteccia.',
+    "Ø sur écorce ignoré : il doit dépasser 2 × l'épaisseur d'écorce ({d:g} cm).":
+        'Ø sopra corteccia ignorato: deve superare 2 × lo spessore della corteccia ({d:g} cm).',
+    "Épaisseur d'écorce refusée : elle dépasserait le Ø mesuré à cette direction (plus de "
+    "bois sous l'écorce).":
+        'Spessore della corteccia rifiutato: supererebbe il Ø misurato in questa direzione '
+        '(nessun legno sotto la corteccia).',
+    "Épaisseur d'écorce refusée : elle dépasserait le diamètre mesuré (plus de bois sous "
+    "l'écorce).":
+        'Spessore della corteccia rifiutato: supererebbe il diametro misurato (nessun legno sotto'
+        ' la corteccia).',
+    "Saisissez le diamètre tel que mesuré SUR l'écorce : le rayon du bois (sous écorce) s'en "
+    "déduit (Ø − 2 × écorce) ÷ 2. Modifier l'épaisseur d'écorce conserve le diamètre mesuré "
+    'et recalcule le bois. PRBS inchangée si rayon corrigé après sondages : le bois altéré '
+    'seul est recalculé.':
+        'Inserire il diametro misurato SULLA corteccia: il raggio del legno (sotto corteccia) ne '
+        'deriva come (Ø − 2 × corteccia) ÷ 2. Modificare lo spessore della corteccia mantiene il '
+        'diametro misurato e ricalcola il legno. PRBS invariata se il raggio viene corretto dopo '
+        'i sondaggi: viene ricalcolato solo il legno alterato.',
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un diamètre local (et, si "
+    "besoin, une épaisseur d'écorce locale) dans l'onglet Sondages, direction par direction —"
+    ' vide = valeur générale ci-dessus.':
+        'Il tronco non è perfettamente cilindrico? Inserire un diametro locale (e, se necessario,'
+        ' uno spessore di corteccia locale) nella scheda Sondaggi, direzione per direzione — '
+        'vuoto = valore generale sopra.',
 }

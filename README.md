@@ -217,9 +217,11 @@ Le formulaire est groupé en 4 blocs pour clarifier les unités :
   « 12 bis » acceptés ; « bis » seul refusé), essence, hauteur de
   l'arbre (m), port (libre / semi-libre / délaissé / architecturé /
   traumatique)
-- **Tronc** : diamètre sous écorce (cm) ↔ rayon (cm) (synchro
-  bidirectionnelle : Ø ÷ 2 = rayon, rayon × 2 = Ø), épaisseur
-  d'écorce (cm, purement visuelle)
+- **Tronc** : diamètre **sur écorce** (cm, tel que mesuré au ruban) ↔ rayon
+  sous écorce (cm) (synchro bidirectionnelle : rayon = (Ø − 2 × écorce) ÷ 2),
+  épaisseur d'écorce (cm). Modifier l'épaisseur garde le Ø mesuré et recalcule
+  le bois. Une épaisseur d'écorce et un Ø propres à chaque direction se
+  saisissent dans l'onglet Sondages
 - **Sondage** : longueur de mèche (cm, limite la profondeur des
   flèches), hauteur du sondage (cm)
 - **Notes** : commentaire libre

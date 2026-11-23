@@ -1299,3 +1299,100 @@ class GenetDiagnosticTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EcorceSurSousTests(unittest.TestCase):
+    """Ø saisi SUR écorce, épaisseur d'écorce générale et locale."""
+
+    def _brin(self) -> Brin:
+        return Brin(rayon_tronc_cm=20.0, epaisseur_ecorce_cm=1.5,
+                    diametre_sous_ecorce_cm=40.0)
+
+    def test_diametre_local_saisi_sur_ecorce(self) -> None:
+        b = self._brin()
+        self.assertTrue(b.set_diametre_local_sur_ecorce(0, 43.0))
+        self.assertAlmostEqual(b.diametres_locaux[0], 40.0)        # sous écorce
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(0), 43.0)
+
+    def test_diametre_local_sur_ecorce_trop_petit_refuse(self) -> None:
+        b = self._brin()
+        self.assertFalse(b.set_diametre_local_sur_ecorce(0, 3.0))
+        self.assertEqual(b.diametres_locaux, {})
+
+    def test_epaisseur_generale_garde_le_diametre_mesure(self) -> None:
+        b = self._brin()
+        b.set_diametre_local_sur_ecorce(0, 43.0)
+        self.assertTrue(b.set_epaisseur_ecorce(2.0))
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 39.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 19.5)
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(0), 43.0)
+
+    def test_epaisseur_inadmissible_ne_modifie_rien(self) -> None:
+        b = self._brin()
+        self.assertFalse(b.set_epaisseur_ecorce(30.0))
+        self.assertAlmostEqual(b.epaisseur_ecorce_cm, 1.5)
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 40.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 20.0)
+
+    def test_prbs_preservee_quand_lecorce_change(self) -> None:
+        b = self._brin()
+        b.sondages.append(Sondage(numero=1, grade=0, bois_sain_cm=12.0,
+                                  bois_altere_cm=8.0))
+        b.set_epaisseur_ecorce(2.5)
+        self.assertAlmostEqual(b.sondages[0].bois_sain_cm, 12.0)
+
+    def test_epaisseur_locale_garde_le_diametre_sur_ecorce(self) -> None:
+        b = self._brin()
+        b.set_diametre_local_sur_ecorce(100, 43.0)
+        self.assertTrue(b.set_epaisseur_locale(100, 3.0))
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(100), 43.0)
+        self.assertAlmostEqual(b.diametres_locaux[100], 37.0)
+        self.assertAlmostEqual(b.ep_a_grade(100), 3.0)
+        self.assertAlmostEqual(b.ep_a_grade(0), 1.5)       # générale ailleurs
+        self.assertTrue(b.a_ecorce_variable)
+        self.assertAlmostEqual(b.ep_max_cm, 3.0)
+
+    def test_epaisseur_locale_effacee_retombe_sur_la_generale(self) -> None:
+        b = self._brin()
+        b.set_diametre_local_sur_ecorce(100, 43.0)
+        b.set_epaisseur_locale(100, 3.0)
+        self.assertTrue(b.set_epaisseur_locale(100, None))
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(100), 43.0)
+        self.assertAlmostEqual(b.diametres_locaux[100], 40.0)
+        self.assertFalse(b.a_ecorce_variable)
+
+    def test_epaisseur_generale_n_ecrase_pas_une_direction_a_ecorce_propre(
+            self) -> None:
+        b = self._brin()
+        b.set_diametre_local_sur_ecorce(100, 43.0)
+        b.set_epaisseur_locale(100, 3.0)
+        b.set_epaisseur_ecorce(2.0)
+        self.assertAlmostEqual(b.diametres_locaux[100], 37.0)
+
+    def test_sans_locale_comportement_historique(self) -> None:
+        b = self._brin()
+        self.assertFalse(b.a_ecorce_variable)
+        self.assertEqual(b.ep_a_grade(12.5), 1.5)
+        self.assertAlmostEqual(b.rayon_ext_a_grade(0), 21.5)
+
+    def test_diagnostic_utilise_lecorce_de_la_direction(self) -> None:
+        from diagnostic import degradation_externe_par_grade
+        b = self._brin()
+        b.set_epaisseur_locale(0, 3.0)
+        b.degradations_externes.append(DegradationExterne(
+            grade_debut=0, grade_fin=50, profondeur_cm=4.0))
+        par_grade = degradation_externe_par_grade(b)
+        self.assertAlmostEqual(par_grade[0], 1.0)    # 4 − 3 (écorce locale)
+        self.assertAlmostEqual(par_grade[1], 2.5)    # 4 − 1,5 (générale)
+
+    def test_persistance_aller_retour(self) -> None:
+        from model import Chantier
+        from persistence import chantier_from_dict, chantier_to_dict
+        a = Arbre(numero_arbre="1")
+        a.brins[0].epaisseur_ecorce_cm = 1.5
+        a.brins[0].epaisseurs_ecorce_locales = {100: 3.0}
+        d = chantier_to_dict(Chantier(arbres=[a]))
+        import json
+        ch = chantier_from_dict(json.loads(json.dumps(d)))
+        self.assertEqual(ch.arbres[0].brins[0].epaisseurs_ecorce_locales,
+                         {100: 3.0})

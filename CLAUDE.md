@@ -176,6 +176,16 @@ penetrometre.py  (Tk + main) ← undo.py
   Sondages/Dégradations/Contreforts et la géométrie d'Identification éditent le
   brin courant, l'identité reste genet. Rotation d'un brin = purement visuelle
   (le diagnostic ne change pas). Détail et plan : `.claude/docs/archives/cepees-plan.md`.
+- **Diamètre SUR écorce (saisie)** : le terrain mesure sur écorce ; l'UI
+  (Identification + Ø local des Sondages) saisit/affiche le Ø **sur** écorce,
+  le modèle stocke toujours le Ø **sous** écorce (`sur − 2 × ép`) — pas de
+  migration. **Changer l'épaisseur garde le Ø sur écorce mesuré** et recalcule
+  le bois (`Brin.set_epaisseur_ecorce`/`set_epaisseur_locale`, qui refusent
+  sans rien modifier une valeur ne laissant plus de bois). **Épaisseur
+  d'écorce locale** : `Brin.epaisseurs_ecorce_locales` (grade → cm, vide =
+  générale), lue via `ep_a_grade` (interpolation cosinus), `ep_max_cm`,
+  `rayon_ext_a_grade` ; `geometry` accepte `ep` scalaire OU callable
+  (`_ep_present`). Écorce uniforme ⟹ chemin historique (goldens intacts).
 - **Diamètre local par direction** : `Brin.diametres_locaux` (grade → Ø cm),
   **indépendant de tout sondage** ; direction absente → diamètre général.
   Source unique `Brin.rayon_a_grade` (interpolation cosinus entre directions
