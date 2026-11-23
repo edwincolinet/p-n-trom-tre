@@ -267,7 +267,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
         return img
 
     R = arbre.rayon_tronc_cm
-    ep = max(0.0, arbre.epaisseur_ecorce_cm)
+    ep = arbre.ep_max_cm   # plus forte épaisseur d'écorce (cadrage, présence)
     # Marges adaptées à la taille (responsive) :
     # - haut : titre + lettre N hors écorce (empilés, cf. _margin_top_titre)
     # - bas : lettre S + halo (l'échelle est radiale, DANS la section —
@@ -336,8 +336,7 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
     R_ext = R + ep
     # Fournisseur de rayon par direction : constant pour une section
     # circulaire (rendu identique à l'ancien), variable pour une ellipse.
-    r_ext_of = (lambda g: brin.rayon_a_grade(g) + ep) if ep \
-        else brin.rayon_a_grade
+    r_ext_of = brin.rayon_ext_a_grade if ep else brin.rayon_a_grade
     _pil_draw_bois_sain(d, brin, cx, cy, R, scale)
     _pil_draw_cernes(d, brin, cx, cy, R, scale)
     _pil_draw_cavite(d, brin, cx, cy, scale)
@@ -428,7 +427,7 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
     for b in drawable:
         cxb = origin_x + b.pos_x_cm * scale
         cyb = origin_y + b.pos_y_cm * scale
-        epb = max(0.0, b.epaisseur_ecorce_cm)
+        epb = b.ep_max_cm
         _pil_draw_brin(d, f, b, port, meche, cxb, cyb, b.rayon_tronc_cm, epb,
                        scale, show_sondages=show_sondages, bullet_r=bullet_r,
                        ds=ds, draw_cardinales=False)
@@ -501,7 +500,7 @@ def _pil_draw_echelle_radiale(d: "ImageDraw.ImageDraw", f: FontFn,
     if brin.a_rayon_variable and R < brin.rayon_tronc_cm * 0.5:
         gw = float(brin.rotation_grades % 400)
         R = brin.rayon_tronc_cm
-    ep = max(0.0, brin.epaisseur_ecorce_cm)
+    ep = brin.ep_a_grade(gw - brin.rotation_grades)  # écorce LOCALE à l'échelle
     step = adaptive_ruler_step_cm(scale, min_gap_px=int(60 * ds))
     data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
                              tick_len_px=int(16 * ds),
@@ -634,15 +633,12 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                      cx: float, cy: float,
                      R: float, ep: float, R_ext: float,
                      scale: float) -> None:
-    if brin.a_rayon_variable:
+    if brin.a_rayon_variable or brin.a_ecorce_variable:
         rot = brin.rotation_grades
         inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                 rotation_grades=rot)
         if ep > 0:
-            def r_outer(g: float) -> float:
-                return brin.rayon_a_grade(g) + ep
-
-            outer = contour_polygon(r_outer, cx, cy, scale,
+            outer = contour_polygon(brin.rayon_ext_a_grade, cx, cy, scale,
                                     rotation_grades=rot)
             # Anneau d'écorce : contour externe + contour interne inversé,
             # technique du trou de serrure (cf. `geometry.ring_polygon_points`
@@ -669,6 +665,13 @@ def _pil_draw_ecorce(d: "ImageDraw.ImageDraw", brin: "Brin",
                   outline=COLOR_BARK, width=4)
 
 
+def _ep_spec(brin: "Brin", ep: float) -> "RadiusSpec":
+    """Épaisseur d'écorce pour les primitives de `geometry` : le scalaire `ep`
+    (chemin historique, goldens intacts) ou, si l'écorce varie selon la
+    direction, la fonction `grade -> cm` du brin."""
+    return brin.ep_a_grade if brin.a_ecorce_variable else ep
+
+
 def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", brin: "Brin",
                           cx: float, cy: float,
                           ep: float, scale: float) -> None:
@@ -678,7 +681,7 @@ def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", brin: "Brin",
     # rayon LOCAL (constant si circulaire, ellipse sinon).
     for zone in contrefort_zones(brin.contreforts):
         poly = contrefort_zone_outline(zone, brin.contreforts,
-                                        brin.rayon_a_grade, ep,
+                                        brin.rayon_a_grade, _ep_spec(brin, ep),
                                         cx, cy, scale,
                                         rotation_grades=brin.rotation_grades)
         wood_outer = poly["wood_outer"]
@@ -698,7 +701,8 @@ def _pil_draw_degradations(d: "ImageDraw.ImageDraw", brin: "Brin",
     # concurrence de sa profondeur.
     for deg in brin.degradations_externes:
         pts_arc = degradation_externe_outline(deg, brin.contreforts,
-                                               brin.rayon_a_grade, ep,
+                                               brin.rayon_a_grade,
+                                               _ep_spec(brin, ep),
                                                cx, cy, scale,
                                                rotation_grades=brin.rotation_grades)
         if pts_arc:
@@ -807,7 +811,7 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre | Brin",
     `comparaison_render` pour l'item « Bois perdu » (couronne orange de la
     section d'évolution), sans dupliquer l'algorithme de centrage/layout.
     """
-    ep = max(0.0, arbre.epaisseur_ecorce_cm)
+    ep = arbre.ep_max_cm
     has_decay = (
         bool(arbre.degradations_externes)
         or any(s.bois_altere_cm > 0 for s in arbre.sondages)

@@ -3,6 +3,45 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## Non publié
+
+### Saisie « terrain » : diamètre sur écorce, écorce locale
+
+- **Diamètre saisi SUR écorce** (onglet Identification et Ø local de l'onglet
+  Sondages) : c'est ce que l'on lit au ruban sur le terrain. Le Ø sous écorce
+  et le rayon du bois sont déduits (`Ø sur − 2 × épaisseur d'écorce`). Le
+  fichier et le diagnostic restent **sous écorce** (aucune migration).
+- **Changer l'épaisseur d'écorce garde la mesure de terrain** : le Ø sur
+  écorce ne bouge pas, le bois sous l'écorce est recalculé (PRBS préservée).
+  Une épaisseur qui ne laisserait plus de bois est refusée et signalée.
+- **Épaisseur d'écorce locale par direction** (colonne « Ép. écorce (cm) » de
+  l'onglet Sondages, `Brin.epaisseurs_ecorce_locales`) : vide = épaisseur
+  générale. Prise en compte par le dessin (Tk, PNG, PDF, comparaison, cépées)
+  et par le diagnostic (bois perdu d'une dégradation = profondeur − écorce
+  de SA direction). Sans valeur locale, rendu et calculs strictement inchangés.
+- Colonne Commentaire de la grille Sondages raccourcie pour faire de la place.
+
+### Menu Export par type d'export
+
+- Le menu **Export** liste des **types** (Fiche d'expertise, Dessin de la
+  section, Tableau PRBS, Sondages de la mission, Synthèse de la mission,
+  Comparaison) au lieu de blocs par format : plus de doublons. Un clic ouvre un
+  dialogue unique (portée arbre/mission + format), omis quand il n'y a rien à
+  choisir ; le dernier choix est mémorisé pour la session.
+- Registre pur `export_registry.py` : ajouter un format = une ligne.
+- **Tableau PRBS** : export **ODS** (LibreOffice/OpenOffice, écrit sans
+  dépendance : `ods_writer.py`) en plus du XLSX et du HTML, et export de
+  **toute la mission en un seul fichier** : XLSX/ODS = une feuille par arbre
+  (« Arbre 12 », noms valides et uniques) précédée d'une feuille « Synthèse » ;
+  HTML = une page avec sommaire et une section par arbre. Chaque tableau est
+  celui de l'export d'un seul arbre (mêmes fonctions de remplissage). La
+  **Synthèse de la mission** s'exporte aussi en ODS.
+- **Dessin de la section** : export **JPEG** (qualité 95) en plus du PNG, et
+  export de **tous les dessins de la mission** d'un coup : un fichier par
+  arbre (`arbre_<n°>.png|jpg`) dans un dossier choisi, avec barre de
+  progression annulable. N° identiques ou caractères interdits gérés (suffixe
+  `_2`, assainissement) ; confirmation avant d'écraser des fichiers existants.
+
 ## 3.7.0 — 2026-11-11 (mise en service interne)
 
 ### Distribution et mises à jour

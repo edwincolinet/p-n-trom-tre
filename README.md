@@ -124,6 +124,10 @@ mon-dossier/
 ├── app_arbres.py               ← ArbreListMixin (liste d'arbres, filtres, CRUD)
 ├── app_recovery.py             ← RecoveryMixin (autosave anti-crash)
 ├── app_export_actions.py       ← ExportActionsMixin (action_export_*)
+├── export_registry.py          ← registre des exports (type → portée → formats)
+├── export_mission.py           ← tableaux PRBS de toute la mission (un fichier)
+├── ods_writer.py               ← écriture ODS sans dépendance
+├── dialogs_export.py           ← dialogue de choix portée + format
 ├── app_fichier.py              ← FichierMixin (cycle de vie fichier mission)
 ├── app_layout.py               ← LayoutMixin (construction de l'UI)
 ├── app_reglages.py             ← ReglagesMixin (préférences, mises à jour)
@@ -217,9 +221,11 @@ Le formulaire est groupé en 4 blocs pour clarifier les unités :
   « 12 bis » acceptés ; « bis » seul refusé), essence, hauteur de
   l'arbre (m), port (libre / semi-libre / délaissé / architecturé /
   traumatique)
-- **Tronc** : diamètre sous écorce (cm) ↔ rayon (cm) (synchro
-  bidirectionnelle : Ø ÷ 2 = rayon, rayon × 2 = Ø), épaisseur
-  d'écorce (cm, purement visuelle)
+- **Tronc** : diamètre **sur écorce** (cm, tel que mesuré au ruban) ↔ rayon
+  sous écorce (cm) (synchro bidirectionnelle : rayon = (Ø − 2 × écorce) ÷ 2),
+  épaisseur d'écorce (cm). Modifier l'épaisseur garde le Ø mesuré et recalcule
+  le bois. Une épaisseur d'écorce et un Ø propres à chaque direction se
+  saisissent dans l'onglet Sondages
 - **Sondage** : longueur de mèche (cm, limite la profondeur des
   flèches), hauteur du sondage (cm)
 - **Notes** : commentaire libre

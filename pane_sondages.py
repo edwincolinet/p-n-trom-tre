@@ -19,13 +19,17 @@ Sémantique de la grille :
   direction (décidé au focus-out, pas à la frappe — vider la case sans en
   sortir, pour retaper une valeur, ne supprime rien).
 - **Altéré** = rayon LOCAL − bois sain (lecture seule, recalculé en direct).
-- **Ø local** = diamètre sous écorce mesuré à cette direction, optionnel,
-  **indépendant du sondage** de la ligne (utilisable même sans bois sain
-  saisi — p. ex. pour capter un méplat entre deux sondages sans multiplier
-  les mesures au résistographe) ; vide = la direction retombe sur le
-  diamètre général de l'onglet Identification (approche la vraie forme du
-  tronc, jamais parfaitement cylindrique, sans passer par une ellipse
-  globale).
+- **Ø local** = diamètre **sur écorce** (celui que l'on lit au ruban sur le
+  terrain) mesuré à cette direction, optionnel, **indépendant du sondage**
+  de la ligne (utilisable même sans bois sain saisi — p. ex. pour capter un
+  méplat entre deux sondages sans multiplier les mesures au résistographe) ;
+  vide = la direction retombe sur le diamètre général de l'onglet
+  Identification (approche la vraie forme du tronc, jamais parfaitement
+  cylindrique, sans passer par une ellipse globale). Le modèle stocke le Ø
+  SOUS écorce : `Ø sur − 2 × épaisseur d'écorce de la direction`.
+- **Ép. écorce** = épaisseur d'écorce LOCALE de la direction, optionnelle ;
+  vide = épaisseur générale de l'onglet Identification. La modifier garde
+  le Ø sur écorce mesuré (le bois sous l'écorce est recalculé).
 - **Compartimentation** = liste déroulante, active uniquement quand un
   sondage existe sur la ligne.
 - **Double-clic sur la direction/grade** ouvre le dialogue détaillé
@@ -103,12 +107,16 @@ class SondagesPane(ttk.Frame):
         # Idem pour le champ Ø local.
         self._diam_undo_snap: Optional[dict] = None
         self._diam_focus_in_value = ""
+        # Idem pour le champ Ép. écorce (locale).
+        self._ep_undo_snap: Optional[dict] = None
+        self._ep_focus_in_value = ""
         # Par grade : {"sain","alt","comp","com","diam": StringVar ;
         # "entry","combo","com_entry","diam_entry","alt_lbl","inc","chk_inc"}.
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._entries_order: list[ttk.Entry] = []
         self._com_entries_order: list[ttk.Entry] = []
         self._diam_entries_order: list[ttk.Entry] = []
+        self._ep_entries_order: list[ttk.Entry] = []
         self._build()
 
     def _build(self) -> None:
@@ -198,8 +206,9 @@ class SondagesPane(ttk.Frame):
         # à cocher se cache derrière un tiret). Le symbole reste affiché
         # entre parenthèses pour le lien visuel avec le préfixe « ~ » que
         # portent les exports (PDF/XLSX/CSV) pour une mesure incertaine.
-        _COL_INCERTAIN = 7
-        heads = [_("Direction"), angle_head(), _("Ø local (cm)"),
+        _COL_INCERTAIN = 8
+        heads = [_("Direction"), angle_head(), _("Ø sur écorce (cm)"),
+                 _("Ép. écorce (cm)"),
                  _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
                  _("Commentaire"), _("Douteux (~)")]
         # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
@@ -217,10 +226,19 @@ class SondagesPane(ttk.Frame):
                 self._lbl_head_angle = lbl_head
             if c == _COL_INCERTAIN:
                 Tooltip(lbl_head, _tip_incertain)
+            if c == 2:
+                Tooltip(lbl_head, _(
+                    "Diamètre mesuré au ruban SUR l'écorce, à cette "
+                    "direction. Vide = diamètre général."))
+            if c == 3:
+                Tooltip(lbl_head, _(
+                    "Épaisseur de l'écorce à cette direction. Vide = "
+                    "épaisseur générale (onglet Identification)."))
 
         vcmd = (self.register(validate_numeric), "%P")
         for r, g in enumerate(GRADES, start=1):
             var_diam = tk.StringVar()
+            var_ep = tk.StringVar()
             var_sain = tk.StringVar()
             var_alt = tk.StringVar(value="—")
             var_comp = tk.StringVar(value=compart_label(COMPART_NR))
@@ -241,24 +259,29 @@ class SondagesPane(ttk.Frame):
                                  justify="center")
             ent_diam.grid(row=r, column=2, sticky="w", padx=6, pady=1)
 
+            ent_ep = ttk.Entry(grid, textvariable=var_ep, width=7,
+                               validate="key", validatecommand=vcmd,
+                               justify="center")
+            ent_ep.grid(row=r, column=3, sticky="w", padx=6, pady=1)
+
             ent = ttk.Entry(grid, textvariable=var_sain, width=10,
                             validate="key", validatecommand=vcmd,
                             justify="center")
-            ent.grid(row=r, column=3, sticky="w", padx=6, pady=1)
+            ent.grid(row=r, column=4, sticky="w", padx=6, pady=1)
 
             lbl_alt = ttk.Label(grid, textvariable=var_alt,
                                 style="Panel.TLabel", width=9,
                                 anchor="center")
-            lbl_alt.grid(row=r, column=4, sticky="w", padx=6, pady=1)
+            lbl_alt.grid(row=r, column=5, sticky="w", padx=6, pady=1)
 
             cmb = ttk.Combobox(grid, textvariable=var_comp,
                                values=_COMPART_VALUES, state="disabled",
                                width=14)
-            cmb.grid(row=r, column=5, sticky="w", padx=6, pady=1)
+            cmb.grid(row=r, column=6, sticky="w", padx=6, pady=1)
 
-            com = ttk.Entry(grid, textvariable=var_com, width=18,
+            com = ttk.Entry(grid, textvariable=var_com, width=10,
                             state="disabled")
-            com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
+            com.grid(row=r, column=7, sticky="we", padx=6, pady=1)
 
             var_inc = tk.BooleanVar(value=False)
             # `textvariable` (et non `variable` seul) affichait la valeur du
@@ -268,7 +291,7 @@ class SondagesPane(ttk.Frame):
             # pilote l'état coché/décoché ; pas de texte affiché.
             chk_inc = ttk.Checkbutton(grid, variable=var_inc,
                                       style="Panel.TCheckbutton")
-            chk_inc.grid(row=r, column=7, sticky="w", padx=2, pady=1)
+            chk_inc.grid(row=r, column=8, sticky="w", padx=2, pady=1)
             chk_inc.configure(state="disabled")
             Tooltip(chk_inc, _tip_incertain)
             var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
@@ -278,7 +301,8 @@ class SondagesPane(ttk.Frame):
                              "alt_lbl": lbl_alt, "inc": var_inc,
                              "chk_inc": chk_inc, "com": var_com,
                              "com_entry": com, "diam": var_diam,
-                             "diam_entry": ent_diam}
+                             "diam_entry": ent_diam, "ep": var_ep,
+                             "ep_entry": ent_ep}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -317,6 +341,17 @@ class SondagesPane(ttk.Frame):
                           lambda e, i=row_idx: self._focus_diam_entry(i + 1))
             ent_diam.bind("<Up>",
                           lambda e, i=row_idx: self._focus_diam_entry(i - 1))
+            var_ep.trace_add(
+                "write", lambda *a, gr=g: self._on_ep_write(gr))
+            ent_ep.bind("<FocusIn>", lambda e, gr=g: self._on_ep_focus_in(gr))
+            ent_ep.bind("<FocusOut>", lambda e, gr=g: self._on_ep_focus_out(gr))
+            self._ep_entries_order.append(ent_ep)
+            ent_ep.bind("<Return>",
+                        lambda e, i=row_idx: self._focus_ep_entry(i + 1))
+            ent_ep.bind("<Down>",
+                        lambda e, i=row_idx: self._focus_ep_entry(i + 1))
+            ent_ep.bind("<Up>",
+                        lambda e, i=row_idx: self._focus_ep_entry(i - 1))
             # Détail (redirection de grade) via double-clic sur les
             # libellés non éditables — l'Entry garde le double-clic natif
             # (sélection de mot).
@@ -325,7 +360,7 @@ class SondagesPane(ttk.Frame):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
                 Tooltip(w, _tip)
 
-        grid.columnconfigure(6, weight=1)  # la colonne Commentaire s'étire
+        grid.columnconfigure(7, weight=1)  # la colonne Commentaire s'étire
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une direction est écrêtée.
@@ -338,9 +373,13 @@ class SondagesPane(ttk.Frame):
             _("Laissez vide une direction non sondée. Effacer supprime le sondage "
               "(commentaire, compartimentation et Ø local compris). "
               "Double-cliquez pour le détail."),
-            _("Ø local : diamètre sous écorce mesuré à CETTE direction (un "
-              "tronc n'est jamais parfaitement cylindrique). Laissez vide "
-              "pour utiliser le diamètre général de l'onglet Identification."),
+            _("Ø sur écorce : diamètre mesuré au ruban SUR l'écorce, à CETTE "
+              "direction (un tronc n'est jamais parfaitement cylindrique). "
+              "Laissez vide pour utiliser le diamètre général de l'onglet "
+              "Identification."),
+            _("Ép. écorce : épaisseur d'écorce propre à cette direction "
+              "(vide = épaisseur générale). La modifier conserve le Ø sur "
+              "écorce mesuré : c'est le bois sous l'écorce qui est recalculé."),
             _("Case « Douteux (~) » : marque un sondage incertain (angle de "
               "mèche, pression, accès difficile…). La valeur reste comptée "
               "dans le diagnostic, mais est préfixée « ~ » dans les exports "
@@ -364,6 +403,14 @@ class SondagesPane(ttk.Frame):
         """Même chose que `_focus_entry`, pour la colonne Commentaire."""
         if 0 <= i < len(self._com_entries_order):
             e = self._com_entries_order[i]
+            e.focus_set()
+            e.select_range(0, "end")
+        return "break"
+
+    def _focus_ep_entry(self, i: int) -> str:
+        """Même chose que `_focus_entry`, pour la colonne Ép. écorce."""
+        if 0 <= i < len(self._ep_entries_order):
+            e = self._ep_entries_order[i]
             e.focus_set()
             e.select_range(0, "end")
         return "break"
@@ -415,8 +462,10 @@ class SondagesPane(ttk.Frame):
             for g, row in self._rows.items():
                 s: Optional[Sondage] = by_grade.get(g)
                 # Ø local : indépendant du sondage, toujours actif.
-                d = b.diametres_locaux.get(g, 0.0) if b else 0.0
+                d = b.diametre_local_sur_ecorce(g) if b else 0.0
                 row["diam"].set(f"{d:g}" if d else "")
+                e_loc = b.epaisseurs_ecorce_locales.get(g) if b else None
+                row["ep"].set("" if e_loc is None else f"{e_loc:g}")
                 if s is None:
                     row["sain"].set("")
                     row["alt"].set("—")
@@ -712,8 +761,9 @@ class SondagesPane(ttk.Frame):
         R = b.rayon_tronc_cm
         s = self._find_sondage(b, g)
         if diam > 0 and R > 0 and s is not None:
-            diam = max(diam, s.bois_sain_cm * 2.0)
-        b.set_diametre_local(g, diam)
+            # Rayon local ≥ bois sain ⟺ Ø sur écorce ≥ 2 × sain + 2 × écorce.
+            diam = max(diam, s.bois_sain_cm * 2.0 + 2.0 * b.ep_a_grade(g))
+        b.set_diametre_local_sur_ecorce(g, diam)
         if s is not None:
             self._suspend = True
             try:
@@ -730,16 +780,20 @@ class SondagesPane(ttk.Frame):
     def _on_diam_focus_out(self, g: int) -> None:
         b = self._host._current_brin()
         raised_to: Optional[float] = None
+        too_small: Optional[float] = None
         # Normalise l'affichage à la valeur réellement stockée — ex. un Ø
         # local trop petit a été relevé au minimum valide dès la frappe
         # (`_on_diam_write`) ; ici on détecte que ça a joué pour le
         # SIGNALER (sinon le relèvement est muet), comme pour « Bois sain ».
         if b is not None:
-            stored = b.diametres_locaux.get(g, 0.0)
+            stored = b.diametre_local_sur_ecorce(g)
             typed = self._rows[g]["diam"].get().strip()
             if typed:
                 try:
-                    if to_float(typed) < stored:
+                    typed_v = to_float(typed)
+                    if typed_v > 0 and typed_v <= 2.0 * b.ep_a_grade(g):
+                        too_small = 2.0 * b.ep_a_grade(g)
+                    elif typed_v < stored:
                         raised_to = stored
                 except ValueError:
                     pass
@@ -752,11 +806,72 @@ class SondagesPane(ttk.Frame):
         if self._diam_undo_snap is not None and cur != self._diam_focus_in_value:
             self._host.push_undo_snapshot(self._diam_undo_snap)
         self._diam_undo_snap = None
+        if too_small is not None:
+            self._host.set_status(
+                _("Ø sur écorce ignoré : il doit dépasser 2 × l'épaisseur "
+                  "d'écorce ({d:g} cm).").format(d=too_small))
         if raised_to is not None:
             self._host.set_status(
                 _("Ø local relevé à {d:g} cm : ne peut pas donner un rayon "
                   "local inférieur au bois sain déjà saisi.")
                 .format(d=raised_to))
+
+    def _on_ep_write(self, g: int) -> None:
+        """Frappe dans Ép. écorce : épaisseur d'écorce LOCALE de la direction
+        (vide = épaisseur générale). Le Ø sur écorce mesuré à cette direction
+        est conservé (le bois sous l'écorce est recalculé). Une valeur
+        inadmissible (plus de bois) est ignorée et signalée au focus-out."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b:
+            return
+        row = self._rows[g]
+        raw = row["ep"].get().strip()
+        try:
+            val: Optional[float] = to_float(raw) if raw else None
+        except ValueError:
+            return
+        b.set_epaisseur_locale(g, val)
+        s = self._find_sondage(b, g)
+        if s is not None:
+            self._suspend = True
+            try:
+                row["alt"].set(f"{s.bois_altere_cm:g}"
+                               if b.rayon_tronc_cm > 0 else "—")
+            finally:
+                self._suspend = False
+        self._host.on_sondages_changed()
+
+    def _on_ep_focus_in(self, g: int) -> None:
+        self._ep_undo_snap = self._host.capture_undo_snapshot()
+        self._ep_focus_in_value = self._rows[g]["ep"].get()
+
+    def _on_ep_focus_out(self, g: int) -> None:
+        b = self._host._current_brin()
+        refused = False
+        if b is not None:
+            stored = b.epaisseurs_ecorce_locales.get(g)
+            typed = self._rows[g]["ep"].get().strip()
+            if typed:
+                try:
+                    refused = (stored is None
+                               or abs(to_float(typed) - stored) > 1e-9)
+                except ValueError:
+                    refused = True
+            self._suspend = True
+            try:
+                self._rows[g]["ep"].set("" if stored is None else f"{stored:g}")
+            finally:
+                self._suspend = False
+        cur = self._rows[g]["ep"].get()
+        if self._ep_undo_snap is not None and cur != self._ep_focus_in_value:
+            self._host.push_undo_snapshot(self._ep_undo_snap)
+        self._ep_undo_snap = None
+        if refused:
+            self._host.set_status(
+                _("Épaisseur d'écorce refusée : elle dépasserait le Ø mesuré "
+                  "à cette direction (plus de bois sous l'écorce)."))
 
     # --- Détail (dialogue) --------------------------------------------
 

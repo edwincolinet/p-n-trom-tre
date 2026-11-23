@@ -219,7 +219,7 @@ def _evo_cadrage(cur_b: "Brin", size: int, ds: float, *, show_title: bool,
     cardinale « S » (constaté à haute résolution, où sa police — mise à
     l'échelle par `ds` — grandit sans que son décalage au bord du tronc, un
     pixel-constant, ne suive)."""
-    ep = max(0.0, cur_b.epaisseur_ecorce_cm)
+    ep = cur_b.ep_max_cm
     R_of = cur_b.rayon_a_grade
     expansion = ep + max((c.longueur_cm for c in cur_b.contreforts), default=0.0)
     r_ext_max = max(R_of(g) for g in GRADES) + expansion
@@ -249,7 +249,8 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
     from diagnostic import compute_alteration_par_grade
 
     rot = cur_b.rotation_grades
-    ep = max(0.0, cur_b.epaisseur_ecorce_cm)
+    ep = cur_b.ep_max_cm                      # plus forte épaisseur d'écorce
+    ep_spec = cur_b.ep_a_grade if cur_b.a_ecorce_variable else ep
     R_of = cur_b.rayon_a_grade               # callable grade→rayon (cm)
     cur_alt = compute_alteration_par_grade(cur_b)
     if ref_b is not None:
@@ -264,13 +265,13 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
     R = cur_b.rayon_tronc_cm   # grand axe (= rayon si circulaire)
 
     def r_ext_of(g: float) -> float:
-        return R_of(g) + ep
+        return cur_b.rayon_ext_a_grade(g)
 
     # Écorce + bois sain : cercle = ellipse native (nette), ovale = contour
     # lissé — exactement comme `_pil_draw_bois_sain` / `_pil_draw_ecorce`.
-    if cur_b.a_rayon_variable:
+    if cur_b.a_rayon_variable or cur_b.a_ecorce_variable:
         if ep > 0:
-            d.polygon(contour_polygon(lambda g: R_of(g) + ep, cx, cy, scale,
+            d.polygon(contour_polygon(cur_b.rayon_ext_a_grade, cx, cy, scale,
                                       rotation_grades=rot), fill=COLOR_BARK)
         d.polygon(contour_polygon(R_of, cx, cy, scale, rotation_grades=rot),
                   fill=COLOR_WOOD)
@@ -291,7 +292,7 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         polys = []
         for deg in degs:
             pts = degradation_externe_outline(
-                deg, cur_b.contreforts, R_of, ep, cx, cy, scale,
+                deg, cur_b.contreforts, R_of, ep_spec, cx, cy, scale,
                 rotation_grades=rot)
             if pts:
                 polys.append(pts)

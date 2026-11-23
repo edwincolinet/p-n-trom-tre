@@ -17,12 +17,13 @@ appliqué en amont (champs `None`) ; ici on ne fait que présenter.
 from __future__ import annotations
 
 import csv
-from typing import TYPE_CHECKING, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence
 
 import angle_units
 from diagnostic import COUVERTURE_ECART_MAX_GRADES
 from export import ChantierLike, _defuse
 from i18n import _
+from ods_writer import Cell, Sheet, write_ods
 
 if TYPE_CHECKING:
     from diagnostic import MissionSynthesisRow  # noqa: F401
@@ -123,23 +124,13 @@ def export_synthesis_csv(rows: "Sequence[MissionSynthesisRow]",
             ]])
 
 
-def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
-                          chantier: ChantierLike, path: str,
+def _fill_synthesis_sheet(ws: Any, rows: "Sequence[MissionSynthesisRow]",
+                          chantier: ChantierLike,
                           couleur_classe: Mapping[str, str],
                           bareme_desc: str = "") -> None:
-    """Synthèse mission en .xlsx thémé Pénétromètre Silvavenir : une ligne par arbre,
-    cellule « Classe (t/R minimal) » colorée, autofiltre (tri par n'importe
-    quelle colonne — p.ex. trier par classe = priorités d'intervention),
-    en-tête gelé, ligne de bilan en pied."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError(
-            "openpyxl n'est pas installé. Lancer "
-            "`pip install -r requirements.txt`.")
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = _("Synthèse")
-
+    """Remplit la feuille openpyxl `ws` avec la synthèse de mission. Partagée
+    par `export_synthesis_xlsx` et par l'export PRBS de mission (feuille
+    « Synthèse » en tête)."""
     BORDER = Border(
         left=Side(style="thin", color="D9D7CF"),
         right=Side(style="thin", color="D9D7CF"),
@@ -283,4 +274,117 @@ def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
     for i, wdt in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = wdt
 
+
+
+def export_synthesis_xlsx(rows: "Sequence[MissionSynthesisRow]",
+                          chantier: ChantierLike, path: str,
+                          couleur_classe: Mapping[str, str],
+                          bareme_desc: str = "") -> None:
+    """Synthèse mission en .xlsx thémé Pénétromètre Silvavenir : une ligne par arbre,
+    cellule « Classe (t/R minimal) » colorée, autofiltre (tri par n'importe
+    quelle colonne — p.ex. trier par classe = priorités d'intervention),
+    en-tête gelé, ligne de bilan en pied."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError(
+            "openpyxl n'est pas installé. Lancer "
+            "`pip install -r requirements.txt`.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = _("Synthèse")
+    _fill_synthesis_sheet(ws, rows, chantier, couleur_classe, bareme_desc)
     wb.save(path)
+
+
+
+_SYNTH_WIDTHS_CM = [1.4, 3.6, 2.6, 2.0, 2.2, 3.0, 4.0, 2.8, 4.0, 2.4, 8.0,
+                    2.8, 2.4, 8.0, 4.0]
+
+
+def synthesis_sheet(rows: "Sequence[MissionSynthesisRow]",
+                    chantier: ChantierLike,
+                    couleur_classe: Mapping[str, str],
+                    bareme_desc: str = "") -> Sheet:
+    """Feuille ODS de la synthèse mission — mêmes colonnes et mêmes valeurs
+    que `export_synthesis_xlsx` (sans l'autofiltre ni le gel de l'en-tête,
+    que le format ODS minimal de `ods_writer` ne porte pas)."""
+    last = len(_SYNTH_HEADERS)
+    out: List[List[Any]] = []
+    out.append([Cell(_("Pénétromètre Silvavenir — Synthèse mission « {nom} »")
+                     .format(nom=chantier.nom or _("Mission")),
+                     bold=True, size=14, fg="F58101", font="Century Gothic",
+                     align="left", span=last)])
+    sub = []
+    if chantier.client:
+        sub.append(_("Client") + f" : {chantier.client}")
+    if chantier.adresse:
+        sub.append(chantier.adresse)
+    if chantier.operateur:
+        sub.append(_("Opérateur") + f" : {chantier.operateur}")
+    sub.append(_("Relevé du") + f" {chantier.date_releve or '—'}")
+    out.append([Cell(" • ".join(sub), size=10, fg="595959", align="left",
+                     span=last)])
+    out.append([])
+    out.append([Cell(_(h), bg="385623", fg="FFFFFF", bold=True, size=11,
+                     border=True) for h in _SYNTH_HEADERS])
+    left_cols = {2, _SYNTH_HEADERS.index("Préconisation") + 1,
+                 _SYNTH_HEADERS.index("Commentaire suivi") + 1}
+    urgence_col = _SYNTH_HEADERS.index("Urgence") + 1
+    for k, row in enumerate(rows):
+        classe_txt = _synth_classe_text(row)
+        if row.brin_label:
+            num: Any = f"↳ brin {row.brin_label}"
+            ess, prt = "", ""
+        else:
+            num, ess, prt = row.numero, row.essence, row.port
+        values: List[Any] = [num, ess, prt, row.n_sondees, f"{row.rayon_cm:g}",
+                  classe_txt, _synth_crit_text(row),
+                  _synth_pct_text(row.tR_min_pct),
+                  _synth_or_dash(row.urgence), _synth_or_dash(row.echeance),
+                  _synth_or_dash(row.preconisation),
+                  _synth_or_dash(row.suivi_validite),
+                  _synth_or_dash(row.suivi_echeance),
+                  _synth_or_dash(row.suivi_texte),
+                  _synth_couverture_text(row)]
+        alt = "F4F2EC" if k % 2 == 1 else None
+        cells: List[Any] = []
+        for i, v in enumerate(values, start=1):
+            kw: Dict[str, Any] = dict(border=True, size=11, fg="404040", bg=alt,
+                            align="left" if i in left_cols else "center")
+            if i == 6:
+                hexa = couleur_classe.get(classe_txt, "").lstrip("#")
+                if hexa:
+                    kw.update(bg=hexa, fg="FFFFFF", bold=True)
+                else:
+                    kw.update(bg="E0E0E0")
+            elif i == urgence_col and row.urgence:
+                kw.update(bg=_URGENCE_NEUTRE[0], fg=_URGENCE_NEUTRE[1],
+                          bold=True)
+            cells.append(Cell(v, **kw))
+        out.append(cells)
+    genets = [r for r in rows if not r.brin_label]
+    n_v = sum(1 for r in genets if r.classe_globale == "Vert")
+    n_o = sum(1 for r in genets if r.classe_globale == "Orange")
+    n_r = sum(1 for r in genets if r.classe_globale == "Rouge")
+    out.append([])
+    out.append([Cell(f"{len(genets)} arbre(s)  •  "
+                     f"{sum(1 for r in genets if r.fiable)} diagnostic(s) "
+                     f"fiable(s)  •  Vert : {n_v}   Orange : {n_o}   "
+                     f"Rouge : {n_r}", italic=True, size=10, fg="595959",
+                     align="left", span=last)])
+    if bareme_desc:
+        out.append([Cell(f"Barème appliqué : {bareme_desc}", italic=True,
+                         size=10, fg="595959", align="left", span=last)])
+    return Sheet(name=_("Synthèse"), rows=out,
+                 col_widths_cm=list(_SYNTH_WIDTHS_CM),
+                 row_heights_cm={3: 0.9})
+
+
+def export_synthesis_ods(rows: "Sequence[MissionSynthesisRow]",
+                         chantier: ChantierLike, path: str,
+                         couleur_classe: Mapping[str, str],
+                         bareme_desc: str = "") -> None:
+    """Synthèse mission en .ods (sans dépendance, cf. `ods_writer`)."""
+    write_ods(path, [synthesis_sheet(rows, chantier, couleur_classe,
+                                     bareme_desc)],
+              title=_("Synthèse mission"))

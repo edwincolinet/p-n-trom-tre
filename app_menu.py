@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import tkinter as tk
 from functools import partial
-from typing import Any, Callable, Optional, Protocol, Sequence, Tuple, cast
+from typing import Any, Callable, Protocol, cast
 
+from export_registry import export_types
 from i18n import LANGUAGES, _
 
 
@@ -50,19 +51,10 @@ class AppLike(Protocol):
     def action_compare_arbre(self) -> None: ...
     def action_reinspection(self) -> None: ...
 
-    # Exports — menu dédié, groupé par format (PDF/PNG/XLSX/CSV/HTML) ;
-    # chaque action précise dans son libellé si elle porte sur l'arbre
-    # courant ou sur la mission (cf. `app_export_actions.ExportActionsMixin`).
-    def action_export_pdf_arbre(self) -> None: ...
-    def action_export_pdf_mission(self) -> None: ...
-    def action_export_png(self) -> None: ...
-    def action_export_comparison_pdf(self) -> None: ...
-    def action_export_comparison_png(self) -> None: ...
-    def action_export_prbs_xlsx(self) -> None: ...
-    def action_export_prbs_html(self) -> None: ...
-    def action_export_csv(self) -> None: ...
-    def action_export_synthesis_xlsx(self) -> None: ...
-    def action_export_synthesis_csv(self) -> None: ...
+    # Exports — menu dédié, une entrée par TYPE d'export ; portée et format
+    # sont choisis dans un dialogue (cf. `export_registry`,
+    # `app_export_actions.ExportActionsMixin`).
+    def action_export_choose(self, type_key: str) -> None: ...
 
     # Actions Arbres
     def action_add_arbre(self) -> None: ...
@@ -100,29 +92,6 @@ class AppLike(Protocol):
     # Récents — l'App ouvre directement le chemin sans dialogue.
     def action_open_recent(self, path: str) -> None: ...
     def get_recent_files(self) -> list[str]: ...
-
-
-# Une entrée du menu Export = (libellé, commande, accélérateur|None).
-_ExportItem = Tuple[str, Callable[[], None], Optional[str]]
-
-
-def _add_export_section(menu: tk.Menu, titre: str,
-                        items: Sequence[_ExportItem], *,
-                        last: bool = False) -> None:
-    """Ajoute un bloc d'un format (PDF/PNG/XLSX/CSV/HTML) au menu Export :
-    un en-tête désactivé nommant le format, ses entrées, puis un
-    séparateur (omis après le dernier bloc). Factorisé pour que les 5
-    blocs restent visuellement identiques sans dupliquer la plomberie
-    `add_command`/`add_separator`."""
-    menu.add_command(label=f"— {titre} —", state="disabled")
-    for label, command, accelerator in items:
-        if accelerator:
-            menu.add_command(label=label, accelerator=accelerator,
-                             command=command)
-        else:
-            menu.add_command(label=label, command=command)
-    if not last:
-        menu.add_separator()
 
 
 def _section(menu: tk.Menu, titre: str, *, first: bool = False) -> None:
@@ -255,60 +224,34 @@ def build_menu(app: AppLike) -> None:
     v.add_cascade(label=_("Langue"), menu=lang_menu)
     m.add_cascade(label=_("Affichage"), menu=v)
 
-    # Export — point d'entrée UNIQUE des exports (2026-09-05) : avant,
-    # dispersés entre ce menu (exports mission) et l'onglet Diagnostic
-    # (exports arbre). Regroupés ici PAR FORMAT (un bloc par
-    # PDF/PNG/XLSX/CSV/HTML, en-tête désactivé) plutôt que par portée —
-    # chaque libellé précise s'il porte sur l'arbre courant ou la mission.
+    # Export — point d'entrée UNIQUE des exports. Organisé par TYPE d'export
+    # (fiche, dessin, tableau PRBS…) et non par format de fichier : un même
+    # export n'apparaît qu'une fois. Un clic ouvre un dialogue unique qui
+    # demande la portée (arbre / mission) et le format (cf. `export_registry`,
+    # `dialogs_export`) — ajouter un format ne touche ni ce menu ni le
+    # dialogue. Les types sans choix à faire partent directement.
+    # La comparaison (« Diagnostic de la comparaison… ») n'est exportable que
+    # tant qu'elle est ouverte : son entrée est grisée sinon, état tenu à jour
+    # par `postcommand` juste avant l'affichage du menu
+    # (`_refresh_export_comparison_state`) plutôt que par un callback explicite.
     x = tk.Menu(m, tearoff=0)
-    _add_export_section(x, "PDF", (
-        (_("Fiche PDF (arbre courant)"), app.action_export_pdf_arbre,
-         "Ctrl+E"),
-        (_("Exporter toutes les fiches (PDF)…"),
-         app.action_export_pdf_mission, None),
-    ), last=True)
-    # Export de la comparaison en cours (« Diagnostic de la comparaison… »).
-    # Grisé tant qu'aucune comparaison n'est ouverte — avant, ces deux
-    # exports vivaient dans des boutons de la fenêtre de comparaison
-    # elle-même, la coupant du menu Export pendant qu'elle était ouverte.
-    # État tenu à jour par `postcommand` juste avant que le menu s'affiche
-    # (`_refresh_export_comparison_state`) plutôt que par un callback
-    # explicite à l'ouverture/fermeture de la fenêtre.
-    x.add_command(label=_("Comparaison — fiche PDF…"),
-                  command=app.action_export_comparison_pdf,
-                  state="disabled")
-    idx_export_comparison_pdf = cast(int, x.index("end"))
-    x.add_separator()
-    _add_export_section(x, "PNG", (
-        (_("PNG du dessin"), app.action_export_png, None),
-    ), last=True)
-    x.add_command(label=_("Comparaison — évolution (PNG)…"),
-                  command=app.action_export_comparison_png,
-                  state="disabled")
-    idx_export_comparison_png = cast(int, x.index("end"))
-    x.add_separator()
-    _add_export_section(x, "XLSX", (
-        (_("Tableau PRBS — Excel (XLSX)…"), app.action_export_prbs_xlsx,
-         None),
-        (_("Exporter la synthèse mission (XLSX)…"),
-         app.action_export_synthesis_xlsx, None),
-    ))
-    _add_export_section(x, "CSV", (
-        (_("Exporter sondages mission (CSV)…"), app.action_export_csv,
-         None),
-        (_("Exporter la synthèse mission (CSV)…"),
-         app.action_export_synthesis_csv, None),
-    ))
-    _add_export_section(x, "HTML", (
-        (_("Tableau PRBS — page HTML…"), app.action_export_prbs_html,
-         None),
-    ), last=True)
+    comparison_entries: list[int] = []
+    for etype in export_types():
+        if etype.needs_comparison:
+            x.add_separator()
+        label = etype.label + ("…" if etype.needs_dialog else "")
+        x.add_command(
+            label=label,
+            command=partial(app.action_export_choose, etype.key),
+            state="disabled" if etype.needs_comparison else "normal")
+        if etype.needs_comparison:
+            comparison_entries.append(cast(int, x.index("end")))
 
     def _refresh_export_comparison_state() -> None:
         from comparaison import is_comparison_active
         state = "normal" if is_comparison_active() else "disabled"
-        x.entryconfigure(idx_export_comparison_pdf, state=state)
-        x.entryconfigure(idx_export_comparison_png, state=state)
+        for idx in comparison_entries:
+            x.entryconfigure(idx, state=state)
 
     x.configure(postcommand=_refresh_export_comparison_state)
     m.add_cascade(label=_("Export"), menu=x)

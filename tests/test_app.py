@@ -433,6 +433,120 @@ class TestAppMixins(unittest.TestCase):
         self.app.remove_last_brin()
         self.assertEqual(len(a.brins), 1)
 
+    # --- Menu Export par type ---
+
+    def test_menu_export_liste_les_types_sans_doublon(self) -> None:
+        from export_registry import export_types
+        menu = self.app.nametowidget(self.app.cget("menu"))
+        idx = menu.index("end")
+        export = None
+        for i in range(idx + 1):
+            if menu.type(i) == "cascade" and menu.entrycget(i, "label") == "Export":
+                export = self.app.nametowidget(menu.entrycget(i, "menu"))
+        assert export is not None
+        labels = [export.entrycget(i, "label")
+                  for i in range(export.index("end") + 1)
+                  if export.type(i) == "command"]
+        self.assertEqual(len(labels), len(export_types()))
+        self.assertEqual(len(labels), len(set(labels)))
+
+    def test_action_export_choose_sans_dialogue_lance_l_action(self) -> None:
+        appels: list[str] = []
+        self.app.action_export_csv = lambda: appels.append("csv")  # type: ignore[method-assign]
+        self.app.action_export_choose("sondages")   # un seul choix : direct
+        self.assertEqual(appels, ["csv"])
+
+    def test_action_export_choose_dialogue_annule(self) -> None:
+        import dialogs_export
+        appels: list[str] = []
+        self.app.action_export_pdf_arbre = lambda: appels.append("a")  # type: ignore[method-assign]
+        orig = dialogs_export.ask_export_choice
+        dialogs_export.ask_export_choice = lambda parent, etype: None  # type: ignore[assignment]
+        try:
+            self.app.action_export_choose("fiche")
+        finally:
+            dialogs_export.ask_export_choice = orig  # type: ignore[assignment]
+        self.assertEqual(appels, [])
+
+    def test_action_export_choose_dialogue_valide(self) -> None:
+        import dialogs_export
+        appels: list[str] = []
+        self.app.action_export_pdf_mission = lambda: appels.append("m")  # type: ignore[method-assign]
+        orig = dialogs_export.ask_export_choice
+        dialogs_export.ask_export_choice = (  # type: ignore[assignment]
+            lambda parent, etype: ("mission", "pdf"))
+        try:
+            self.app.action_export_choose("fiche")
+        finally:
+            dialogs_export.ask_export_choice = orig  # type: ignore[assignment]
+        self.assertEqual(appels, ["m"])
+
+    def test_dialogue_export_valide_et_annule(self) -> None:
+        from tkinter import ttk
+
+        from dialogs_export import ask_export_choice
+        from export_registry import get_export_type
+
+        def _clic(texte: str) -> None:
+            """Clique le bouton `texte` du dialogue ouvert (pas de
+            `event_generate` : sans focus WM, l'évènement se perd et le
+            `wait_window` du dialogue ne rend jamais la main)."""
+            dlg = [w for w in self.app.winfo_children()
+                   if isinstance(w, tk.Toplevel)][0]
+
+            def cherche(w: "tk.Misc") -> "list[ttk.Button]":
+                out = [w] if isinstance(w, ttk.Button) \
+                    and w.cget("text") == texte else []
+                for c in w.winfo_children():
+                    out += cherche(c)
+                return out
+            cherche(dlg)[0].invoke()
+
+        t = get_export_type("tableau_prbs")
+        assert t is not None
+        self.app.after(200, lambda: _clic("Exporter"))
+        self.assertEqual(ask_export_choice(self.app, t), ("arbre", "xlsx"))
+        f = get_export_type("fiche")
+        assert f is not None
+        self.app.after(200, lambda: _clic("Annuler"))
+        self.assertIsNone(ask_export_choice(self.app, f))
+
+    # --- Ø sur écorce / épaisseur d'écorce (saisie terrain) ---
+
+    def test_identification_diametre_sur_ecorce(self) -> None:
+        """Ø saisi SUR écorce : le Ø sous écorce et le rayon en sont déduits ;
+        changer l'épaisseur GARDE le Ø mesuré et recalcule le bois."""
+        a = self.app.chantier.arbres[0]
+        b = a.brins[0]
+        pi = self.app.pane_id
+        pi.var_ep_ecorce.set("1.5")
+        pi.var_diam.set("43")
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 40.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 20.0)
+        self.assertEqual(pi.var_rayon.get(), "20")
+        pi.var_ep_ecorce.set("2")
+        self.assertAlmostEqual(b.diametre_sous_ecorce_cm, 39.0)
+        self.assertAlmostEqual(b.rayon_tronc_cm, 19.5)
+        self.assertEqual(pi.var_diam.get(), "43")       # mesure inchangée
+        self.assertEqual(pi.var_rayon.get(), "19.5")
+
+    def test_sondages_diametre_et_ecorce_locaux(self) -> None:
+        b = self.app.chantier.arbres[0].brins[0]
+        b.rayon_tronc_cm = 20.0
+        b.epaisseur_ecorce_cm = 1.5
+        ps = self.app.pane_s
+        ps.refresh()
+        ps._rows[100]["diam"].set("43")                 # Ø sur écorce
+        self.assertAlmostEqual(b.diametres_locaux[100], 40.0)
+        ps._rows[100]["ep"].set("3")                    # écorce locale
+        self.assertAlmostEqual(b.epaisseurs_ecorce_locales[100], 3.0)
+        self.assertAlmostEqual(b.diametres_locaux[100], 37.0)
+        self.assertAlmostEqual(b.diametre_local_sur_ecorce(100), 43.0)
+        ps._rows[100]["ep"].set("")                     # retombe sur la générale
+        self.assertNotIn(100, b.epaisseurs_ecorce_locales)
+        self.assertAlmostEqual(b.diametres_locaux[100], 40.0)
+        self.app.update_idletasks()
+
     # --- Brin courant / sélecteur de cépée ---
 
     def test_current_brin_est_brins0_pour_mono_caule(self) -> None:

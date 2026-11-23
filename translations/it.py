@@ -838,4 +838,106 @@ TRANSLATIONS = {
         "Seleziona il prossimo albero con diagnosi non affidabile "
         "(raggio mancante o < 3 sondaggi), in modo ciclico. "
         "Svuota i filtri se necessario.",
+    'Diamètre sur écorce (cm)':
+        'Diametro sopra la corteccia (cm)',
+    'Rayon sous écorce (cm)':
+        'Raggio sotto corteccia (cm)',
+    'Ép. écorce (cm)':
+        'Sp. corteccia (cm)',
+    'Ø sur écorce (cm)':
+        'Ø sopra corteccia (cm)',
+    "Diamètre mesuré au ruban SUR l'écorce, à cette direction. Vide = diamètre général.":
+        'Diametro misurato con il nastro SULLA corteccia, in questa direzione. Vuoto = diametro '
+        'generale.',
+    "Épaisseur de l'écorce à cette direction. Vide = épaisseur générale (onglet "
+    'Identification).':
+        'Spessore della corteccia in questa direzione. Vuoto = spessore generale (scheda '
+        'Identificazione).',
+    "Ø sur écorce : diamètre mesuré au ruban SUR l'écorce, à CETTE direction (un tronc n'est "
+    'jamais parfaitement cylindrique). Laissez vide pour utiliser le diamètre général de '
+    "l'onglet Identification.":
+        'Ø sopra corteccia: diametro misurato con il nastro SULLA corteccia, in QUESTA direzione '
+        '(un tronco non è mai perfettamente cilindrico). Lasciare vuoto per usare il diametro '
+        'generale della scheda Identificazione.',
+    "Ép. écorce : épaisseur d'écorce propre à cette direction (vide = épaisseur générale). La"
+    " modifier conserve le Ø sur écorce mesuré : c'est le bois sous l'écorce qui est "
+    'recalculé.':
+        'Sp. corteccia: spessore della corteccia proprio di questa direzione (vuoto = spessore '
+        'generale). Modificarlo mantiene il Ø sopra corteccia misurato: viene ricalcolato il '
+        'legno sotto la corteccia.',
+    "Ø sur écorce ignoré : il doit dépasser 2 × l'épaisseur d'écorce ({d:g} cm).":
+        'Ø sopra corteccia ignorato: deve superare 2 × lo spessore della corteccia ({d:g} cm).',
+    "Épaisseur d'écorce refusée : elle dépasserait le Ø mesuré à cette direction (plus de "
+    "bois sous l'écorce).":
+        'Spessore della corteccia rifiutato: supererebbe il Ø misurato in questa direzione '
+        '(nessun legno sotto la corteccia).',
+    "Épaisseur d'écorce refusée : elle dépasserait le diamètre mesuré (plus de bois sous "
+    "l'écorce).":
+        'Spessore della corteccia rifiutato: supererebbe il diametro misurato (nessun legno sotto'
+        ' la corteccia).',
+    "Saisissez le diamètre tel que mesuré SUR l'écorce : le rayon du bois (sous écorce) s'en "
+    "déduit (Ø − 2 × écorce) ÷ 2. Modifier l'épaisseur d'écorce conserve le diamètre mesuré "
+    'et recalcule le bois. PRBS inchangée si rayon corrigé après sondages : le bois altéré '
+    'seul est recalculé.':
+        'Inserire il diametro misurato SULLA corteccia: il raggio del legno (sotto corteccia) ne '
+        'deriva come (Ø − 2 × corteccia) ÷ 2. Modificare lo spessore della corteccia mantiene il '
+        'diametro misurato e ricalcola il legno. PRBS invariata se il raggio viene corretto dopo '
+        'i sondaggi: viene ricalcolato solo il legno alterato.',
+    "Le tronc n'est pas parfaitement cylindrique ? Saisissez un diamètre local (et, si "
+    "besoin, une épaisseur d'écorce locale) dans l'onglet Sondages, direction par direction —"
+    ' vide = valeur générale ci-dessus.':
+        'Il tronco non è perfettamente cilindrico? Inserire un diametro locale (e, se necessario,'
+        ' uno spessore di corteccia locale) nella scheda Sondaggi, direzione per direzione — '
+        'vuoto = valore generale sopra.',
+    'Arbre courant': 'Albero corrente',
+    'Comparaison (ré-inspection)': 'Confronto (rivisita)',
+    'Comparaison ouverte': 'Confronto aperto',
+    'Dessin de la section': 'Disegno della sezione',
+    'Excel (XLSX)': 'Excel (XLSX)',
+    'Exporter': 'Esporta',
+    'Exporter — {type}': 'Esporta — {type}',
+    'Fiche PDF': 'Scheda PDF',
+    "Fiche d'expertise": 'Scheda di perizia',
+    'Format du fichier': 'Formato del file',
+    'Page web (HTML)': 'Pagina web (HTML)',
+    'Que faut-il exporter ?': 'Cosa esportare?',
+    'Sondages de la mission': 'Sondaggi della missione',
+    'Synthèse de la mission': 'Riepilogo della missione',
+    'Tableau PRBS': 'Tabella PRBS',
+    'Toute la mission': 'Tutta la missione',
+    'Évolution (PNG)': 'Evoluzione (PNG)',
+    'Image {fmt} enregistrée':
+        'Immagine {fmt} salvata',
+    'Dossier des dessins de la mission':
+        'Cartella dei disegni della missione',
+    'Fichiers existants':
+        'File esistenti',
+    '{n} fichier(s) du dossier seront remplacés. Continuer ?':
+        '{n} file nella cartella verranno sostituiti. Continuare?',
+    'Export des dessins de la mission':
+        'Esportazione dei disegni della missione',
+    'Génération des dessins…':
+        'Generazione dei disegni…',
+    'Terminé':
+        'Completato',
+    '{n} dessin(s) déjà écrit(s) dans le dossier.':
+        '{n} disegno/i già scritto/i nella cartella.',
+    'Export annulé — {n} dessin(s) déjà écrit(s).':
+        'Esportazione annullata — {n} disegno/i già scritto/i.',
+    '{n} dessin(s) {fmt} enregistré(s)':
+        '{n} disegno/i {fmt} salvato/i',
+    'Toute la mission (un fichier par arbre)':
+        'Tutta la missione (un file per albero)',
+    'Tableau ODS enregistré':
+        'Tabella ODS salvata',
+    'Tableaux PRBS enregistrés ({n} arbre(s))':
+        'Tabelle PRBS salvate ({n} albero/i)',
+    'Synthèse mission ODS enregistrée':
+        'Riepilogo missione ODS salvato',
+    'LibreOffice (ODS)':
+        'LibreOffice (ODS)',
+    'Toute la mission (un seul fichier)':
+        'Tutta la missione (un solo file)',
+    'Synthèse mission':
+        'Riepilogo della missione',
 }

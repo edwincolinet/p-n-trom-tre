@@ -270,6 +270,22 @@ class Contrefort:
         return rayon_cm * angle_rad
 
 
+def _interp_cosinus(table: Dict[int, float], grade: float) -> float:
+    """Valeur d'une table `grade canonique → valeur` en une direction
+    quelconque : lecture exacte aux 16 grades, sinon interpolation lissée
+    par cosinus entre les deux directions voisines (strictement bornée)."""
+    g = grade % 400.0
+    g_int = round(g)
+    if abs(g - g_int) < 1e-9 and g_int % 25 == 0:
+        return table[g_int % 400]
+    g_lo = (int(g // 25) * 25) % 400
+    g_hi = (g_lo + 25) % 400
+    v_lo, v_hi = table[g_lo], table[g_hi]
+    t = (g - g_lo) / 25.0
+    t_lisse = (1.0 - math.cos(math.pi * t)) / 2.0
+    return v_lo + (v_hi - v_lo) * t_lisse
+
+
 @dataclass
 class Brin:
     """Un brin (= un *ramet*) : une tige individuelle d'un arbre.
@@ -316,6 +332,12 @@ class Brin:
     # `rayon_tronc_cm`. Permet d'approcher la vraie forme du tronc (jamais
     # parfaitement cylindrique) sans ellipse globale — cf. `rayon_a_grade`.
     diametres_locaux: Dict[int, float] = field(default_factory=dict)
+    # Épaisseur d'écorce LOCALE (grade → cm), mesurée à certaines directions
+    # (l'écorce n'est jamais d'épaisseur uniforme). Une direction absente de
+    # la table retombe sur `epaisseur_ecorce_cm` (valeur générale) ; une
+    # valeur 0 est une mesure (« pas d'écorce ici »). Vide ⟹ comportement
+    # historique strictement inchangé (écorce uniforme, goldens intacts).
+    epaisseurs_ecorce_locales: Dict[int, float] = field(default_factory=dict)
 
     def _rayon_locaux(self) -> Dict[int, float]:
         """Rayon local (cm) aux 16 `GRADES` canoniques.
@@ -346,17 +368,122 @@ class Brin:
         entre les deux valeurs voisines, jamais de dépassement contrairement
         à une spline) — utilisé pour le contour dessiné, échantillonné à des
         grades quelconques (`geometry.contour_polygon`)."""
-        table = self._rayon_locaux()
-        g = grade % 400.0
-        g_int = round(g)
-        if abs(g - g_int) < 1e-9 and g_int % 25 == 0:
-            return table[g_int % 400]
-        g_lo = (int(g // 25) * 25) % 400
-        g_hi = (g_lo + 25) % 400
-        r_lo, r_hi = table[g_lo], table[g_hi]
-        t = (g - g_lo) / 25.0
-        t_lisse = (1.0 - math.cos(math.pi * t)) / 2.0
-        return r_lo + (r_hi - r_lo) * t_lisse
+        return _interp_cosinus(self._rayon_locaux(), grade)
+
+    # --- Écorce : épaisseur générale + locale (par direction) -----------
+
+    def _ep_exacte(self, grade: int) -> float:
+        """Épaisseur d'écorce (cm) EN une direction canonique : la valeur
+        locale si elle existe, sinon la valeur générale. Jamais négative."""
+        return max(0.0, self.epaisseurs_ecorce_locales.get(
+            grade, self.epaisseur_ecorce_cm))
+
+    def _ecorce_locales(self) -> Dict[int, float]:
+        """Épaisseur d'écorce (cm) aux 16 `GRADES` canoniques."""
+        return {g: self._ep_exacte(g) for g in GRADES}
+
+    @property
+    def a_ecorce_variable(self) -> bool:
+        """Vrai si au moins une direction porte une épaisseur d'écorce
+        locale DIFFÉRENTE de l'épaisseur générale."""
+        gen = max(0.0, self.epaisseur_ecorce_cm)
+        return any(abs(e - gen) > 1e-9
+                   for e in self._ecorce_locales().values())
+
+    def ep_a_grade(self, grade: float) -> float:
+        """Épaisseur d'écorce (cm) dans la direction `grade` — même
+        interpolation lissée par cosinus que `rayon_a_grade`. Sans épaisseur
+        locale : renvoie exactement l'épaisseur générale (aucun calcul)."""
+        if not self.epaisseurs_ecorce_locales:
+            return max(0.0, self.epaisseur_ecorce_cm)
+        return _interp_cosinus(self._ecorce_locales(), grade)
+
+    @property
+    def ep_max_cm(self) -> float:
+        """Plus forte épaisseur d'écorce du brin (cadrage, présence d'écorce)."""
+        return max(self._ecorce_locales().values(), default=0.0)
+
+    def rayon_ext_a_grade(self, grade: float) -> float:
+        """Rayon extérieur **écorce comprise** (cm) dans la direction `grade`."""
+        return self.rayon_a_grade(grade) + self.ep_a_grade(grade)
+
+    def diametre_local_sur_ecorce(self, grade: int) -> float:
+        """Ø **sur écorce** (cm) mesuré à une direction — ce que l'opérateur
+        lit au ruban sur le terrain : Ø sous écorce + 2 × épaisseur d'écorce
+        de la direction. 0 si aucun Ø local n'est renseigné."""
+        d = self.diametres_locaux.get(grade, 0.0)
+        return round(d + 2.0 * self._ep_exacte(grade), 6) if d > 0 else 0.0
+
+    def set_diametre_local_sur_ecorce(self, grade: int, sur_cm: float) -> bool:
+        """Saisie d'un Ø local **sur écorce** : le Ø sous écorce stocké en
+        est déduit (`sur − 2 × épaisseur`). `sur_cm <= 0` efface l'entrée.
+        Renvoie `True` si le modèle a changé ; `False` aussi si la valeur est
+        inadmissible (Ø sur écorce ≤ 2 × épaisseur : plus de bois) — rien
+        n'est alors modifié."""
+        if sur_cm <= 0:
+            return self.set_diametre_local(grade, 0.0)
+        sous = round(sur_cm - 2.0 * self._ep_exacte(grade), 6)
+        if sous <= 0:
+            return False
+        return self.set_diametre_local(grade, sous)
+
+    def set_epaisseur_ecorce(self, new_ep: float) -> bool:
+        """Modifie l'épaisseur d'écorce GÉNÉRALE en **gardant les mesures
+        prises sur le terrain** : le Ø sur écorce (général, et local des
+        directions sans épaisseur propre) ne change pas, les Ø sous écorce
+        stockés — donc le rayon du bois — sont recalculés.
+
+        Le rayon n'est recalculé que si un Ø général a été saisi
+        (`diametre_sous_ecorce_cm > 0`) ; sinon il garde sa valeur par
+        défaut. Renvoie `False` sans RIEN modifier si la nouvelle épaisseur
+        est inadmissible (elle ferait disparaître le bois d'une direction)."""
+        new_ep = max(0.0, new_ep)
+        old_ep = max(0.0, self.epaisseur_ecorce_cm)
+        if abs(new_ep - old_ep) <= 1e-9:
+            return True
+        delta = 2.0 * (new_ep - old_ep)
+        nouveau_d = self.diametre_sous_ecorce_cm - delta
+        if self.diametre_sous_ecorce_cm > 0 and nouveau_d <= 0:
+            return False
+        nouveaux_locaux: Dict[int, float] = {}
+        for g, d in self.diametres_locaux.items():
+            if g in self.epaisseurs_ecorce_locales:
+                continue  # écorce propre à cette direction : inchangée
+            if d - delta <= 0:
+                return False
+            nouveaux_locaux[g] = round(d - delta, 6)
+        self.epaisseur_ecorce_cm = new_ep
+        if self.diametre_sous_ecorce_cm > 0:
+            self.diametre_sous_ecorce_cm = round(nouveau_d, 6)
+            self.set_rayon(nouveau_d / 2.0)
+        for g, d in nouveaux_locaux.items():
+            self.set_diametre_local(g, d)
+        return True
+
+    def set_epaisseur_locale(self, grade: int,
+                             ep_cm: "Optional[float]") -> bool:
+        """Définit (ou, avec `None`, efface) l'épaisseur d'écorce LOCALE d'une
+        direction, en **gardant le Ø sur écorce mesuré** à cette direction
+        (s'il existe) : le Ø sous écorce local est recalculé. Effacer fait
+        retomber la direction sur l'épaisseur générale. Renvoie `False` sans
+        rien modifier si la valeur est inadmissible (plus de bois)."""
+        ancien = self._ep_exacte(grade)
+        nouveau = (max(0.0, ep_cm) if ep_cm is not None
+                   else max(0.0, self.epaisseur_ecorce_cm))
+        deja = grade in self.epaisseurs_ecorce_locales
+        if abs(nouveau - ancien) <= 1e-9 and deja == (ep_cm is not None):
+            return True
+        d = self.diametres_locaux.get(grade, 0.0)
+        d_new = round(d - 2.0 * (nouveau - ancien), 6)
+        if d > 0 and d_new <= 0:
+            return False
+        if ep_cm is None:
+            self.epaisseurs_ecorce_locales.pop(grade, None)
+        else:
+            self.epaisseurs_ecorce_locales[grade] = nouveau
+        if d > 0:
+            self.set_diametre_local(grade, d_new)
+        return True
 
     def extent_cm(self) -> float:
         """Rayon d'encombrement (cm) : distance maximale du cœur du brin à sa
@@ -369,7 +496,7 @@ class Brin:
         r_max = max((self.rayon_a_grade(g) for g in GRADES),
                     default=self.rayon_tronc_cm)
         saillie = max((c.longueur_cm for c in self.contreforts), default=0.0)
-        return r_max + max(0.0, self.epaisseur_ecorce_cm) + saillie
+        return r_max + self.ep_max_cm + saillie
 
     def set_rayon(self, new_R: float) -> bool:
         """Modifie le rayon et propage la cohérence aux sondages et
@@ -423,7 +550,7 @@ class Brin:
             # part de la surface du bois (rayon seul).
             r_max = self.rayon_a_grade(deg.grade_debut)
             if deg.comprend_ecorce:
-                r_max += max(0.0, self.epaisseur_ecorce_cm)
+                r_max += self.ep_a_grade(deg.grade_debut)
             deg.profondeur_cm = min(deg.profondeur_cm, r_max)
 
     def set_diametre_local(self, grade: int, diametre_cm: float) -> bool:
@@ -465,7 +592,7 @@ class Brin:
                     continue
                 r_max = r_loc
                 if deg.comprend_ecorce:
-                    r_max += max(0.0, self.epaisseur_ecorce_cm)
+                    r_max += self.ep_a_grade(grade)
                 deg.profondeur_cm = min(deg.profondeur_cm, r_max)
         return True
 
@@ -626,6 +753,28 @@ class Arbre:
 
     def rayon_a_grade(self, grade: float) -> float:
         return self.brin_courant.rayon_a_grade(grade)
+
+    @property
+    def a_ecorce_variable(self) -> bool:
+        return self.brin_courant.a_ecorce_variable
+
+    @property
+    def epaisseurs_ecorce_locales(self) -> Dict[int, float]:
+        return self.brin_courant.epaisseurs_ecorce_locales
+
+    @epaisseurs_ecorce_locales.setter
+    def epaisseurs_ecorce_locales(self, value: Dict[int, float]) -> None:
+        self.brin_courant.epaisseurs_ecorce_locales = value
+
+    def ep_a_grade(self, grade: float) -> float:
+        return self.brin_courant.ep_a_grade(grade)
+
+    @property
+    def ep_max_cm(self) -> float:
+        return self.brin_courant.ep_max_cm
+
+    def rayon_ext_a_grade(self, grade: float) -> float:
+        return self.brin_courant.rayon_ext_a_grade(grade)
 
     @property
     def diametre_sous_ecorce_cm(self) -> float:

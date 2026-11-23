@@ -16,7 +16,7 @@ import angle_units
 from dialogs import _make_modal
 from geometry import brins_layout, contour_polygon, ring_polygon_points
 from i18n import _
-from model import Arbre, Brin
+from model import Arbre
 from palette import (
     COLOR_ACCENT,
     COLOR_ACCENT_SOFT,
@@ -89,7 +89,7 @@ def ask_cepee_layout(parent: tk.Misc,
         cv.delete("all")
         for i, b in enumerate(brins):
             cx, cy = to_px(positions[i][0], positions[i][1])
-            ep = max(0.0, b.epaisseur_ecorce_cm)
+            ep = b.ep_max_cm
             inner = contour_polygon(b.rayon_a_grade, cx, cy, scale,
                                     rotation_grades=rotations[i])
             anchor = (i == 0)
@@ -100,9 +100,7 @@ def ask_cepee_layout(parent: tk.Misc,
                 # dont l'écorce mesurée se touche/chevauche apparaissaient
                 # avec un écart (seul le bois était tracé) — trompeur pour
                 # juger le chevauchement pendant le placement.
-                def r_outer(g: float, b: "Brin" = b) -> float:
-                    return b.rayon_a_grade(g) + ep
-                outer = contour_polygon(r_outer, cx, cy, scale,
+                outer = contour_polygon(b.rayon_ext_a_grade, cx, cy, scale,
                                         rotation_grades=rotations[i])
                 ring = ring_polygon_points(outer, inner)
                 cv.create_polygon(*[c for p in ring for c in p],
@@ -125,7 +123,7 @@ def ask_cepee_layout(parent: tk.Misc,
         for i in reversed(range(len(brins))):
             cx, cy = to_px(positions[i][0], positions[i][1])
             b = brins[i]
-            rr = max(b.rayon_tronc_cm + max(0.0, b.epaisseur_ecorce_cm),
+            rr = max(b.rayon_tronc_cm + b.ep_max_cm,
                      1.0) * scale
             if (px - cx) ** 2 + (py - cy) ** 2 <= rr * rr:
                 return i

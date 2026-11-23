@@ -367,6 +367,16 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                 continue
             if diam > 0:
                 diametres_locaux[grade] = diam
+        # Épaisseurs d'écorce locales (ajout 2026-11) : absentes des anciens
+        # fichiers → table vide (écorce uniforme, comportement historique).
+        ecorces_locales: Dict[int, float] = {}
+        for k, v in bd.get("epaisseurs_ecorce_locales", {}).items():
+            try:
+                grade, ep = int(k), float(v)
+            except (TypeError, ValueError):
+                continue
+            if ep >= 0:
+                ecorces_locales[grade] = ep
         degs = [DegradationExterne(**{k: v for k, v in dg.items()
                                       if k in deg_fields})
                 for dg in bd.get("degradations_externes", [])]
@@ -377,12 +387,14 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         geom = {k: v for k, v in bd.items()
                 if k in brin_fields
                 and k not in ("sondages", "degradations_externes",
-                              "contreforts", "diametres_locaux")}
+                              "contreforts", "diametres_locaux",
+                              "epaisseurs_ecorce_locales")}
         brin = Brin(**geom)
         brin.sondages = sondages
         brin.degradations_externes = degs
         brin.contreforts = contreforts
         brin.diametres_locaux = diametres_locaux
+        brin.epaisseurs_ecorce_locales = ecorces_locales
         return brin
 
     arbres = []

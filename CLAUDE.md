@@ -26,7 +26,11 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
 penetrometre.py        ← App Tk + main — orchestration
 app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
 app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
-app_export_actions.py  ← ExportActionsMixin (les action_export_*)
+app_export_actions.py  ← ExportActionsMixin (les action_export_* + action_export_choose)
+ods_writer.py          ← écriture de classeurs ODS sans dépendance (zipfile + XML, pur)
+export_mission.py      ← tableaux PRBS de toute la mission en UN fichier (XLSX/ODS feuille par arbre, HTML sections)
+export_registry.py     ← registre des exports : type → portée → formats (pur ; alimente le menu Export et le dialogue)
+dialogs_export.py      ← dialogue unique de choix portée + format d'un export
 app_fichier.py         ← FichierMixin (cycle de vie fichier mission : new/open/save/save_as + récents + ré-inspection)
 app_layout.py          ← LayoutMixin (construction de l'UI : header, méta mission, barre d'état + bannières, 3 colonnes, sash)
 app_reglages.py        ← ReglagesMixin (préférences : langue, barème, taille texte, contraste, logo/cabinet + mises à jour/bannières)
@@ -126,7 +130,7 @@ arité). **Ajouter une dépendance à un mixin = la déclarer dans son bloc.**
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + angle_units.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + chrome_icons.py + photo_paths.py
+model.py + palette.py + ods_writer.py + angle_units.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + chrome_icons.py + photo_paths.py
    ↑
 diagnostic.py
    ↑
@@ -134,6 +138,8 @@ export.py + pil_render.py + persistence.py + dialogs.py + diagnostic_comparaison
    ↑
 dialogs_cepee.py + dialogs_saisie.py (dépendent aussi de dialogs.py, même palier)
    +  export_synthesis.py (dépend aussi de export.py — ChantierLike, _defuse)
+   ↑
+export_mission.py (dépend de export.py + export_synthesis.py)
    ↑
 fiche_pdf.py + comparaison_render.py
    ↑
@@ -176,6 +182,16 @@ penetrometre.py  (Tk + main) ← undo.py
   Sondages/Dégradations/Contreforts et la géométrie d'Identification éditent le
   brin courant, l'identité reste genet. Rotation d'un brin = purement visuelle
   (le diagnostic ne change pas). Détail et plan : `.claude/docs/archives/cepees-plan.md`.
+- **Diamètre SUR écorce (saisie)** : le terrain mesure sur écorce ; l'UI
+  (Identification + Ø local des Sondages) saisit/affiche le Ø **sur** écorce,
+  le modèle stocke toujours le Ø **sous** écorce (`sur − 2 × ép`) — pas de
+  migration. **Changer l'épaisseur garde le Ø sur écorce mesuré** et recalcule
+  le bois (`Brin.set_epaisseur_ecorce`/`set_epaisseur_locale`, qui refusent
+  sans rien modifier une valeur ne laissant plus de bois). **Épaisseur
+  d'écorce locale** : `Brin.epaisseurs_ecorce_locales` (grade → cm, vide =
+  générale), lue via `ep_a_grade` (interpolation cosinus), `ep_max_cm`,
+  `rayon_ext_a_grade` ; `geometry` accepte `ep` scalaire OU callable
+  (`_ep_present`). Écorce uniforme ⟹ chemin historique (goldens intacts).
 - **Diamètre local par direction** : `Brin.diametres_locaux` (grade → Ø cm),
   **indépendant de tout sondage** ; direction absente → diamètre général.
   Source unique `Brin.rayon_a_grade` (interpolation cosinus entre directions
@@ -262,6 +278,11 @@ penetrometre.py  (Tk + main) ← undo.py
   (`—` si non fiable), couleur de ligne = classe de risque seule. Filtres cumulés
   (ET) qui ne font que **masquer** (`iid = a{index}` stable, footer sur toute la
   mission). Vert/Orange/Rouge et niveaux d'urgence restent en français partout.
+- **Menu Export** : une entrée par **type d'export** (`export_registry`), jamais
+  par format ; portée (arbre/mission) + format se choisissent dans un dialogue
+  unique (`dialogs_export`), omis s'il n'y a rien à choisir. Le registre est
+  pur ; chaque format désigne une méthode `action_export_*` (testé : aucune
+  action orpheline).
 - **Raccourcis** : `Ctrl+T` ajout, `Ctrl+E` export PDF (ignoré si Entry/Combobox
   a le focus), `Ctrl+PgUp/PgDn` arbre précédent/suivant, `Ctrl+Z/Y` undo/redo,
   `Ctrl+Tab` onglets. Menu **Export** = point d'entrée unique des exports.
@@ -271,10 +292,10 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Fiche PDF vectorielle (fpdf2)** : texte/tableaux/diagnostic en vectoriel,
   dessin de section et légende en raster collé ; unité = 1 px @150 DPI ; **ni ⚠
   ni emoji** (▲). Pas de golden pixel (smoke tests).
-- **Exports XLSX ↔ HTML** : garder les deux **alignés** (même contenu, 9 colonnes,
+- **Exports XLSX ↔ HTML ↔ ODS** : garder les trois **alignés** (même contenu, 9 colonnes,
   ligne Diagnostic masquée si < 3 sondées) ; colonne **PRBS = mesure brute**,
   **t/R = ajusté** de la dégradation externe. Parité testée dans
-  `tests/test_export.py`.
+  `tests/test_export.py` (XLSX↔HTML) et `tests/test_export_ods.py` (XLSX↔ODS).
 - **Autres** : comparaison inter-missions (calcul `diagnostic_comparaison`, rendu
   `comparaison_render`, 16 directions sur la PRBS extrapolée, verdict sur le t/R
   minimal) ; case « Afficher sondages » (`var_show_sondages`) gouverne aussi les
@@ -293,6 +314,7 @@ venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
+  export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
@@ -350,6 +372,8 @@ retirés). L'app se lance directement, en développement comme en binaire.
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
    - Méthodes `action_export_*` (dispatch pur) → `app_export_actions.py` ;
+     types/portées/formats d'export + entrées du menu Export → `export_registry.py`
+     (un nouveau format = une ligne `ExportFormat` + sa méthode `action_export_*`) ;
      menu Export (entrées groupées par format) → `app_menu.py`
    - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Construction de l'UI (`_build_*`, barre d'état, sash) → `app_layout.py`

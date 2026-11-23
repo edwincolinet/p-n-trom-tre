@@ -44,9 +44,46 @@ class ExportActionsMixin(_MixinBase):
                                builder: Callable[[], Any],
                                parent: "tk.Misc") -> None: ...
 
+    def action_export_choose(self, type_key: str) -> None:
+        """Point d'entrée UNIQUE du menu Export : un TYPE d'export
+        (`export_registry`). Demande portée + format dans un dialogue
+        unique (omis s'il n'y a rien à choisir), puis lance l'action
+        `action_export_*` correspondante."""
+        from dialogs_export import ask_export_choice
+        from export_registry import get_export_type
+        etype = get_export_type(type_key)
+        if etype is None:
+            return
+        if etype.needs_comparison:
+            from comparaison import is_comparison_active
+            if not is_comparison_active():
+                return
+        if etype.needs_dialog:
+            choice = ask_export_choice(self, etype)
+            if choice is None:
+                return
+        else:
+            choice = etype.default_choice()
+        fmt = etype.format(*choice)
+        if fmt is None:
+            return
+        getattr(self, fmt.action)()
+
     def action_export_png(self) -> None:
-        app_exports.export_png(self, self._current_arbre(),
-                               self.var_show_sondages.get())
+        app_exports.export_dessin_arbre(self, self._current_arbre(),
+                                        self.var_show_sondages.get(), "png")
+
+    def action_export_jpeg(self) -> None:
+        app_exports.export_dessin_arbre(self, self._current_arbre(),
+                                        self.var_show_sondages.get(), "jpeg")
+
+    def action_export_png_mission(self) -> None:
+        app_exports.export_dessin_mission(self, self.chantier,
+                                          self.var_show_sondages.get(), "png")
+
+    def action_export_jpeg_mission(self) -> None:
+        app_exports.export_dessin_mission(self, self.chantier,
+                                          self.var_show_sondages.get(), "jpeg")
 
     def action_export_pdf_arbre(self) -> None:
         app_exports.export_pdf_arbre(self, self._current_arbre(),
@@ -75,6 +112,22 @@ class ExportActionsMixin(_MixinBase):
     def action_export_prbs_html(self) -> None:
         app_exports.export_html_arbre(self, self._current_arbre(),
                                       self.chantier)
+
+    def action_export_prbs_ods(self) -> None:
+        app_exports.export_ods_arbre(self, self._current_arbre(),
+                                     self.chantier)
+
+    def action_export_prbs_xlsx_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "xlsx")
+
+    def action_export_prbs_ods_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "ods")
+
+    def action_export_prbs_html_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "html")
+
+    def action_export_synthesis_ods(self) -> None:
+        app_exports.export_synthesis_ods_mission(self, self.chantier)
 
     # --- Comparaison (ré-inspection) ------------------------------------
     # Ne vivent plus dans des boutons de `comparaison.py` (coupaient du

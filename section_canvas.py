@@ -427,6 +427,7 @@ class SectionCanvas(tk.Canvas):
     def _draw_contreforts_canvas(self, cx: float, cy: float, scale: float,
                                   R: "RadiusSpec", contreforts: Any,
                                   ep_cm: float = 0.0,
+                                  ep_spec: "Optional[RadiusSpec]" = None,
                                   R_inner: Any = None,
                                   rotation_grades: float = 0.0) -> None:
         """Dessine TOUS les contreforts en utilisant les polygones fusionnés
@@ -441,7 +442,9 @@ class SectionCanvas(tk.Canvas):
         if not contreforts:
             return
         for zone in contrefort_zones(contreforts):
-            poly = contrefort_zone_outline(zone, contreforts, R, ep_cm,
+            poly = contrefort_zone_outline(zone, contreforts, R,
+                                           ep_cm if ep_spec is None
+                                           else ep_spec,
                                             cx, cy, scale, R_inner=R_inner,
                                             rotation_grades=rotation_grades)
             wood_outer = poly["wood_outer"]
@@ -492,7 +495,7 @@ class SectionCanvas(tk.Canvas):
 
     def _draw_degradation_externe_canvas(self, cx: float, cy: float,
                                           scale: float, R: "RadiusSpec",
-                                          ep_cm: float,
+                                          ep_cm: "RadiusSpec",
                                           contreforts: Any, deg: Any,
                                           idx: int = -1,
                                           rotation_grades: float = 0.0) -> None:
@@ -541,7 +544,7 @@ class SectionCanvas(tk.Canvas):
             return
 
         R = A.rayon_tronc_cm
-        ep = max(0.0, A.epaisseur_ecorce_cm)
+        ep = A.ep_max_cm   # plus forte épaisseur d'écorce (cadrage, présence)
         R_ext = R + ep   # rayon externe = bois + écorce
         # Réserver l'espace pour l'écorce + les contreforts (qui partent
         # de R_ext et dépassent encore de longueur_cm).
@@ -578,8 +581,10 @@ class SectionCanvas(tk.Canvas):
         # Fournisseurs de rayon par direction : constants si circulaire
         # (rendu identique à l'ancien), variables si ellipse.
         r_of = brin.rayon_a_grade
-        r_ext_of: "RadiusSpec" = (
-            (lambda g: brin.rayon_a_grade(g) + ep) if ep else r_of)
+        r_ext_of: "RadiusSpec" = brin.rayon_ext_a_grade if ep else r_of
+        # Épaisseur d'écorce pour `geometry` : scalaire (historique) ou
+        # fonction par direction si l'écorce varie.
+        ep_spec: "RadiusSpec" = brin.ep_a_grade if brin.a_ecorce_variable else ep
         self._draw_bois_sain(brin, cx, cy, R, scale)
         self._draw_cernes(brin, cx, cy, R, scale)
         self._draw_cavite(brin, cx, cy, scale)
@@ -587,12 +592,12 @@ class SectionCanvas(tk.Canvas):
         # Contreforts : R_inner descend de 1 px sous le rayon LOCAL pour
         # qu'aucun pixel de trou n'apparaisse entre polygone bois et disque.
         self._draw_contreforts_canvas(
-            cx, cy, scale, r_of, brin.contreforts, ep_cm=ep,
+            cx, cy, scale, r_of, brin.contreforts, ep_cm=ep, ep_spec=ep_spec,
             R_inner=(lambda g: brin.rayon_a_grade(g) - 1.0 / scale),
             rotation_grades=brin.rotation_grades)
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
         for idx, deg in enumerate(brin.degradations_externes):
-            self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep,
+            self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep_spec,
                                                    brin.contreforts, deg,
                                                    idx=idx,
                                                    rotation_grades=brin.rotation_grades)
@@ -655,7 +660,7 @@ class SectionCanvas(tk.Canvas):
         for b in drawable:
             cxb = origin_x + b.pos_x_cm * scale
             cyb = origin_y + b.pos_y_cm * scale
-            epb = max(0.0, b.epaisseur_ecorce_cm)
+            epb = b.ep_max_cm
             self._draw_brin(b, port, meche, cxb, cyb, b.rayon_tronc_cm, epb,
                             scale, draw_cardinales=False)
             self._draw_brin_label(b, cxb, cyb, b.rayon_tronc_cm, scale)
@@ -710,7 +715,7 @@ class SectionCanvas(tk.Canvas):
         if brin.a_rayon_variable and R < brin.rayon_tronc_cm * 0.5:
             gw = float(brin.rotation_grades % 400)
             R = brin.rayon_tronc_cm
-        ep = max(0.0, brin.epaisseur_ecorce_cm)
+        ep = brin.ep_a_grade(gw - brin.rotation_grades)  # écorce LOCALE
         step = adaptive_ruler_step_cm(scale, min_gap_px=24)
         data = radial_ruler_data(cx, cy, scale, R, ep, gw, step,
                                  tick_len_px=8, label_offset_px=13)
@@ -846,15 +851,12 @@ class SectionCanvas(tk.Canvas):
         # Si une épaisseur est renseignée, anneau brun épais entre R et
         # R+ep (centré sur R+ep/2 avec width=ep_px). Sinon trait fin
         # classique au bord du bois.
-        if brin.a_rayon_variable:
+        if brin.a_rayon_variable or brin.a_ecorce_variable:
             rot = brin.rotation_grades
             inner = contour_polygon(brin.rayon_a_grade, cx, cy, scale,
                                     rotation_grades=rot)
             if ep > 0:
-                def r_outer(g: float) -> float:
-                    return brin.rayon_a_grade(g) + ep
-
-                outer = contour_polygon(r_outer, cx, cy, scale,
+                outer = contour_polygon(brin.rayon_ext_a_grade, cx, cy, scale,
                                         rotation_grades=rot)
                 ring = ring_polygon_points(outer, inner)
                 flat = [c for p in ring for c in p]
