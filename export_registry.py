@@ -85,6 +85,8 @@ def export_types() -> Tuple[ExportType, ...]:
     mission = _("Toute la mission")
     # Une image par arbre, rangées dans un dossier (≠ un fichier unique).
     mission_dossier = _("Toute la mission (un fichier par arbre)")
+    # Un seul fichier regroupant tous les tableaux.
+    mission_tableaux = _("Toute la mission (un seul fichier)")
     return (
         ExportType("fiche", _("Fiche d'expertise"), (
             ExportScope(SCOPE_ARBRE, arbre, (
@@ -106,8 +108,20 @@ def export_types() -> Tuple[ExportType, ...]:
             ExportScope(SCOPE_ARBRE, arbre, (
                 ExportFormat("xlsx", _("Excel (XLSX)"),
                              "action_export_prbs_xlsx"),
+                ExportFormat("ods", _("LibreOffice (ODS)"),
+                             "action_export_prbs_ods"),
                 ExportFormat("html", _("Page web (HTML)"),
                              "action_export_prbs_html"),
+            )),
+            # Un seul fichier : une feuille par arbre (XLSX/ODS), une section
+            # par arbre (HTML).
+            ExportScope(SCOPE_MISSION, mission_tableaux, (
+                ExportFormat("xlsx", _("Excel (XLSX)"),
+                             "action_export_prbs_xlsx_mission"),
+                ExportFormat("ods", _("LibreOffice (ODS)"),
+                             "action_export_prbs_ods_mission"),
+                ExportFormat("html", _("Page web (HTML)"),
+                             "action_export_prbs_html_mission"),
             )),
         )),
         ExportType("sondages", _("Sondages de la mission"), (
@@ -118,6 +132,8 @@ def export_types() -> Tuple[ExportType, ...]:
             ExportScope(SCOPE_MISSION, mission, (
                 ExportFormat("xlsx", _("Excel (XLSX)"),
                              "action_export_synthesis_xlsx"),
+                ExportFormat("ods", _("LibreOffice (ODS)"),
+                             "action_export_synthesis_ods"),
                 ExportFormat("csv", "CSV", "action_export_synthesis_csv"),
             )),
         )),

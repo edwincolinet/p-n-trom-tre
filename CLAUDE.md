@@ -27,6 +27,8 @@ penetrometre.py        ← App Tk + main — orchestration
 app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
 app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
 app_export_actions.py  ← ExportActionsMixin (les action_export_* + action_export_choose)
+ods_writer.py          ← écriture de classeurs ODS sans dépendance (zipfile + XML, pur)
+export_mission.py      ← tableaux PRBS de toute la mission en UN fichier (XLSX/ODS feuille par arbre, HTML sections)
 export_registry.py     ← registre des exports : type → portée → formats (pur ; alimente le menu Export et le dialogue)
 dialogs_export.py      ← dialogue unique de choix portée + format d'un export
 app_fichier.py         ← FichierMixin (cycle de vie fichier mission : new/open/save/save_as + récents + ré-inspection)
@@ -128,7 +130,7 @@ arité). **Ajouter une dépendance à un mixin = la déclarer dans son bloc.**
 ```text
 geometry.py + bareme.py   (stdlib)
    ↑
-model.py + palette.py + angle_units.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + chrome_icons.py + photo_paths.py
+model.py + palette.py + ods_writer.py + angle_units.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + chrome_icons.py + photo_paths.py
    ↑
 diagnostic.py
    ↑
@@ -136,6 +138,8 @@ export.py + pil_render.py + persistence.py + dialogs.py + diagnostic_comparaison
    ↑
 dialogs_cepee.py + dialogs_saisie.py (dépendent aussi de dialogs.py, même palier)
    +  export_synthesis.py (dépend aussi de export.py — ChantierLike, _defuse)
+   ↑
+export_mission.py (dépend de export.py + export_synthesis.py)
    ↑
 fiche_pdf.py + comparaison_render.py
    ↑
@@ -288,10 +292,10 @@ penetrometre.py  (Tk + main) ← undo.py
 - **Fiche PDF vectorielle (fpdf2)** : texte/tableaux/diagnostic en vectoriel,
   dessin de section et légende en raster collé ; unité = 1 px @150 DPI ; **ni ⚠
   ni emoji** (▲). Pas de golden pixel (smoke tests).
-- **Exports XLSX ↔ HTML** : garder les deux **alignés** (même contenu, 9 colonnes,
+- **Exports XLSX ↔ HTML ↔ ODS** : garder les trois **alignés** (même contenu, 9 colonnes,
   ligne Diagnostic masquée si < 3 sondées) ; colonne **PRBS = mesure brute**,
   **t/R = ajusté** de la dégradation externe. Parité testée dans
-  `tests/test_export.py`.
+  `tests/test_export.py` (XLSX↔HTML) et `tests/test_export_ods.py` (XLSX↔ODS).
 - **Autres** : comparaison inter-missions (calcul `diagnostic_comparaison`, rendu
   `comparaison_render`, 16 directions sur la PRBS extrapolée, verdict sur le t/R
   minimal) ; case « Afficher sondages » (`var_show_sondages`) gouverne aussi les
@@ -310,7 +314,7 @@ venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
-  export_registry.py dialogs_export.py \
+  export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \

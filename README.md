@@ -125,6 +125,8 @@ mon-dossier/
 ├── app_recovery.py             ← RecoveryMixin (autosave anti-crash)
 ├── app_export_actions.py       ← ExportActionsMixin (action_export_*)
 ├── export_registry.py          ← registre des exports (type → portée → formats)
+├── export_mission.py           ← tableaux PRBS de toute la mission (un fichier)
+├── ods_writer.py               ← écriture ODS sans dépendance
 ├── dialogs_export.py           ← dialogue de choix portée + format
 ├── app_fichier.py              ← FichierMixin (cycle de vie fichier mission)
 ├── app_layout.py               ← LayoutMixin (construction de l'UI)

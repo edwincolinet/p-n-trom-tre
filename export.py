@@ -41,6 +41,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Dict,
     List,
     Mapping,
     Protocol,
@@ -57,6 +58,7 @@ from diagnostic import repartition_classes as _diag_repartition_classes
 from dialogs_shared import compart_glyph, compart_visual
 from geometry import GRADES, WIND_LABELS
 from i18n import _
+from ods_writer import Cell, Sheet, write_ods
 
 if TYPE_CHECKING:
     from diagnostic import MissionSynthesisRow  # noqa: F401
@@ -366,27 +368,14 @@ _CLASSE_LEGENDE = {
 }
 
 
-def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
+def _fill_prbs_sheet(ws: Any, arbre: ArbreLike, chantier: ChantierLike,
                      couleur_classe: Mapping[str, str],
                      classer_prbs: ClasserPrbs,
                      cabinet_name: str = "",
                      bareme_desc: str = "") -> None:
-    """Écrit le tableau PRBS dans `path` (.xlsx). `couleur_classe` est
-    le dict label → hex injecté depuis la couche UI.
-
-    `bareme_desc` : description des seuils ayant produit les classes
-    (cf. `bareme.description_seuils_mission`), injectée depuis la couche
-    UI comme `classer_prbs` — ce module reste sans dépendance vers
-    `bareme`. Vide = ligne omise."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError(
-            "openpyxl n'est pas installé. Lancer "
-            "`pip install -r requirements.txt`.")
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "PRBS"
-
+    """Remplit la feuille openpyxl `ws` avec le tableau PRBS de `arbre`
+    (mise en page décrite en tête de module). Partagée par l'export d'un
+    arbre et par l'export de mission (une feuille par arbre)."""
     BORDER = Border(
         left=Side(style="thin", color="D9D7CF"),
         right=Side(style="thin", color="D9D7CF"),
@@ -558,7 +547,142 @@ def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
     # Gel : tout l'en-tête (titre + identité + en-tête tableau)
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
 
+
+
+def export_prbs_xlsx(arbre: ArbreLike, chantier: ChantierLike, path: str,
+                     couleur_classe: Mapping[str, str],
+                     classer_prbs: ClasserPrbs,
+                     cabinet_name: str = "",
+                     bareme_desc: str = "") -> None:
+    """Écrit le tableau PRBS dans `path` (.xlsx). `couleur_classe` est
+    le dict label → hex injecté depuis la couche UI.
+
+    `bareme_desc` : description des seuils ayant produit les classes
+    (cf. `bareme.description_seuils_mission`), injectée depuis la couche
+    UI comme `classer_prbs` — ce module reste sans dépendance vers
+    `bareme`. Vide = ligne omise."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError(
+            "openpyxl n'est pas installé. Lancer "
+            "`pip install -r requirements.txt`.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "PRBS"
+    _fill_prbs_sheet(ws, arbre, chantier, couleur_classe, classer_prbs,
+                     cabinet_name, bareme_desc)
     wb.save(path)
+
+
+# ----------------------------------------------------------------------
+# Export ODS (LibreOffice / OpenOffice / Excel)
+# ----------------------------------------------------------------------
+
+# Somme ≈ 16 cm : le tableau tient sur la largeur d'une page A4 portrait.
+_ODS_WIDTHS_CM = [1.1, 1.6, 1.7, 1.7, 2.8, 2.4, 1.5, 1.7, 1.8]
+
+
+def prbs_sheet(arbre: ArbreLike, chantier: ChantierLike,
+               couleur_classe: Mapping[str, str],
+               classer_prbs: ClasserPrbs,
+               cabinet_name: str = "",
+               bareme_desc: str = "",
+               name: str = "PRBS") -> Sheet:
+    """Feuille ODS du tableau PRBS d'un arbre — mêmes lignes, mêmes valeurs
+    et même mise en page que `_fill_prbs_sheet` (XLSX) : parité verrouillée
+    par `tests/test_export_ods.py`."""
+    last = _NCOLS
+    rows: List[List[Any]] = []
+    heights: Dict[int, float] = {}
+
+    def banner(value: str, **kw: Any) -> None:
+        rows.append([Cell(value, span=last, align="left", **kw)])
+
+    banner(f"Pénétromètre Silvavenir — {chantier.nom or _('Mission')}",
+           bold=True, size=14, fg="F58101", font="Century Gothic")
+    sub = []
+    if chantier.client:
+        sub.append(_("Client") + f" : {chantier.client}")
+    if chantier.adresse:
+        sub.append(chantier.adresse)
+    if chantier.operateur:
+        sub.append(_("Opérateur") + f" : {chantier.operateur}")
+    sub.append(_("Relevé du") + f" {chantier.date_releve or '—'}")
+    banner(" • ".join(sub), size=10, fg="595959")
+    banner(_identity_line(arbre), bold=True, size=12, fg="404040")
+    banner(_dimension_line(arbre), size=10, fg="595959")
+    rows.append([])                                    # ligne vide
+    heights[len(rows)] = 0.9
+    rows.append([Cell(_(h), bg="385623", fg="FFFFFF", bold=True, size=11,
+                      border=True) for h in _headers()])
+
+    data = prbs_table_rows_par_sondage(arbre, classer_prbs)
+    if not data:
+        rows.append([Cell(_("Aucun sondage enregistré."), italic=True,
+                          size=10, fg="595959", align="left", border=True,
+                          span=last)])
+    for k, r in enumerate(data):
+        ident = r["sondage_id"]
+        if r.get("incertain"):
+            ident = f"~{ident}"
+        classe_hex = couleur_classe.get(r["classe"], "CCCCCC").lstrip("#")
+        glyph, glyph_hex = _compart_visual(r["compartimentation"])
+        alt = "F4F2EC" if k % 2 == 1 else None
+        base: Dict[str, Any] = dict(border=True, size=11, fg="404040",
+                                    bg=alt)
+        rows.append([
+            Cell(ident, **base),
+            Cell(WIND_LABELS.get(r["grade"], ""), **base),
+            Cell(angle_units.valeur(r["grade"]), **base),
+            Cell(round(r["rayon_cm"], 2), **base),
+            Cell(round(r["prbs_cm"], 2), **base),
+            Cell(round(r["bois_altere_cm"], 2), **base),
+            Cell(round(100 * r["ratio_tR"], 1), border=True, size=11,
+                 bold=True, fg="FFFFFF", bg=classe_hex),
+            Cell(r["classe"], border=True, size=11, bold=True, bg=alt,
+                 fg=classe_hex),
+            Cell(glyph, border=True, size=14, bold=True, bg=alt,
+                 fg=glyph_hex),
+        ])
+    rows.append([])
+    diag_text, diag_classe = _diagnostic_summary(arbre)
+    banner(diag_text, bold=True, size=12,
+           fg=couleur_classe.get(diag_classe, "404040").lstrip("#"))
+    rows.append([])
+    banner(f"Compartimentation :   {compart_glyph('active')} active     "
+           f"{compart_glyph('absente')} absente     "
+           f"{compart_glyph('non renseignée')} non renseignée / "
+           "pas d'altération", italic=True, size=10, fg="595959")
+    legend: List[Any] = []
+    for key, hexa in couleur_classe.items():
+        label = (_(_CLASSE_LEGENDE[key]) if key in _CLASSE_LEGENDE
+                 else f"Classe {key}")
+        legend.append(Cell(f"● {label}", bold=True, size=11, wrap=False,
+                           fg=hexa.lstrip("#")))
+    rows.append(legend)
+    if bareme_desc:
+        banner(f"Barème appliqué :   {bareme_desc}", italic=True, size=10,
+               fg="595959")
+    rows.append([])
+    suffix = f" · {cabinet_name}" if cabinet_name else ""
+    banner(_("Édité le")
+           + f" {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+           f" — {_NOM_PRODUIT}" + suffix, italic=True, size=9, fg="595959")
+    return Sheet(name=name, rows=rows, col_widths_cm=list(_ODS_WIDTHS_CM),
+                 row_heights_cm=heights)
+
+
+def export_prbs_ods(arbre: ArbreLike, chantier: ChantierLike, path: str,
+                    couleur_classe: Mapping[str, str],
+                    classer_prbs: ClasserPrbs,
+                    cabinet_name: str = "",
+                    bareme_desc: str = "") -> None:
+    """Écrit le tableau PRBS d'un arbre dans `path` (.ods). Aucune
+    dépendance (cf. `ods_writer`)."""
+    sheet = prbs_sheet(arbre, chantier, couleur_classe, classer_prbs,
+                       cabinet_name, bareme_desc)
+    write_ods(path, [sheet],
+              title=f"{_NOM_PRODUIT} — {chantier.nom or _('Mission')}")
 
 
 # ----------------------------------------------------------------------
@@ -637,19 +761,8 @@ def _h(s: object) -> str:
     return html_lib.escape(str(s), quote=True)
 
 
-def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
-                     couleur_classe: Mapping[str, str],
-                     classer_prbs: ClasserPrbs,
-                     cabinet_name: str = "",
-                     bareme_desc: str = "") -> None:
-    """Écrit le tableau PRBS dans `path` (.html). Aucun fichier externe :
-    le CSS est embarqué. Mise en page alignée sur l'export XLSX
-    (`bareme_desc` compris — cf. `export_prbs_xlsx`)."""
-    rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
-    title = (f"Pénétromètre Silvavenir — {chantier.nom or _('Mission')} — "
-             f"{arbre.numero_arbre or ''}")
-
-    # En-tête mission
+def _html_meta(chantier: ChantierLike) -> str:
+    """Ligne « Client · adresse · opérateur · relevé du » (HTML échappé)."""
     meta_chunks = []
     if chantier.client:
         meta_chunks.append(_("Client") + f" : {_h(chantier.client)}")
@@ -660,6 +773,16 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     meta_chunks.append(_("Relevé du") + f" {_h(chantier.date_releve or '—')}")
     meta_html = " • ".join(meta_chunks)
 
+    return meta_html
+
+
+def _html_arbre_section(arbre: ArbreLike, couleur_classe: Mapping[str, str],
+                        classer_prbs: ClasserPrbs,
+                        bareme_desc: str = "") -> str:
+    """Corps HTML d'UN arbre : identité, dimensions, tableau PRBS, ligne
+    Diagnostic et légendes. Partagé par la page d'un arbre et par la page de
+    mission (une section par arbre)."""
+    rows_data = prbs_table_rows_par_sondage(arbre, classer_prbs)
     headers_html = "".join(f'<th>{_h(_(h))}</th>' for h in _headers())
 
     # Données
@@ -724,17 +847,7 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
     bareme_html = (f'<div class="legend">Barème appliqué : '
                    f'{_h(bareme_desc)}</div>') if bareme_desc else ""
 
-    html = f"""<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<title>{_h(title)}</title>
-<style>{_HTML_CSS}</style>
-</head>
-<body>
-<h1>{_h('Pénétromètre Silvavenir — ' + (chantier.nom or _('Mission')))}</h1>
-<div class="meta-mission">{meta_html}</div>
-<div class="identity">{_h(_identity_line(arbre))}</div>
+    return f"""<div class="identity">{_h(_identity_line(arbre))}</div>
 <div class="dimensions">{_h(_dimension_line(arbre))}</div>
 
 <table>
@@ -749,7 +862,23 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 {diagnostic_html}
 {legend_html}
 <div class="classe-legend">{classe_legend_html}</div>
-{bareme_html}
+{bareme_html}"""
+
+
+def _html_page(title: str, h1: str, meta_html: str, corps: str,
+               cabinet_name: str, extra_css: str = "") -> str:
+    """Page HTML autonome (CSS embarqué) autour de `corps`."""
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{_h(title)}</title>
+<style>{_HTML_CSS}{extra_css}</style>
+</head>
+<body>
+<h1>{_h(h1)}</h1>
+<div class="meta-mission">{meta_html}</div>
+{corps}
 
 <footer>
 Édité le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — {_NOM_PRODUIT}{' · ' + cabinet_name if cabinet_name else ''}.
@@ -757,8 +886,25 @@ def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
 </body>
 </html>
 """
+
+
+def export_prbs_html(arbre: ArbreLike, chantier: ChantierLike, path: str,
+                     couleur_classe: Mapping[str, str],
+                     classer_prbs: ClasserPrbs,
+                     cabinet_name: str = "",
+                     bareme_desc: str = "") -> None:
+    """Écrit le tableau PRBS dans `path` (.html). Aucun fichier externe :
+    le CSS est embarqué. Mise en page alignée sur l'export XLSX
+    (`bareme_desc` compris — cf. `export_prbs_xlsx`)."""
+    title = (f"Pénétromètre Silvavenir — {chantier.nom or _('Mission')} — "
+             f"{arbre.numero_arbre or ''}")
+    page = _html_page(
+        title, "Pénétromètre Silvavenir — " + (chantier.nom or _("Mission")),
+        _html_meta(chantier),
+        _html_arbre_section(arbre, couleur_classe, classer_prbs, bareme_desc),
+        cabinet_name)
     with open(path, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(page)
 
 
 # La synthèse de mission (une ligne par arbre, CSV/XLSX) vit dans

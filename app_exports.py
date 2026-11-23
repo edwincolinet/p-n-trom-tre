@@ -36,8 +36,22 @@ from diagnostic import (
     mission_synthesis_rows,
 )
 from dialogs import ProgressDialog
-from export import HAS_OPENPYXL, export_prbs_html, export_prbs_xlsx
-from export_synthesis import export_synthesis_csv, export_synthesis_xlsx
+from export import (
+    HAS_OPENPYXL,
+    export_prbs_html,
+    export_prbs_ods,
+    export_prbs_xlsx,
+)
+from export_mission import (
+    export_prbs_mission_html,
+    export_prbs_mission_ods,
+    export_prbs_mission_xlsx,
+)
+from export_synthesis import (
+    export_synthesis_csv,
+    export_synthesis_ods,
+    export_synthesis_xlsx,
+)
 from fiche_pdf import HAS_FPDF, _new_pdf, render_fiche_arbre
 from geometry import DIRECTION_LABELS, GRADES
 from i18n import _
@@ -550,3 +564,130 @@ def export_html_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         log.exception("Échec export HTML")
         messagebox.showerror("Erreur", str(e))
 
+
+def _curseur(parent: tk.Misc, valeur: str) -> None:
+    """Curseur d'attente (« watch ») sur la fenêtre pendant un export long."""
+    opts: "dict[str, str]" = {"cursor": valeur}
+    try:
+        parent.configure(**opts)
+        parent.update_idletasks()
+    except tk.TclError:
+        pass
+
+
+def export_ods_arbre(parent: tk.Misc, arbre: Optional[Arbre],
+                     chantier: Chantier) -> None:
+    """Tableau PRBS de l'arbre courant en .ods (sans dépendance)."""
+    if not arbre:
+        return
+    if arbre.rayon_tronc_cm <= 0:
+        messagebox.showerror(
+            "Export impossible",
+            "Renseignez un rayon de tronc avant l'export.")
+        return
+    default = (f"tableau_arbre_{nom_fichier_sur(arbre.numero_arbre, 'X')}.ods")
+    p = filedialog.asksaveasfilename(
+        defaultextension=".ods",
+        initialfile=default,
+        filetypes=[("Classeur OpenDocument", "*.ods")])
+    if not p:
+        return
+    try:
+        cabinet_name, _logo = _get_cabinet_info(parent)
+        export_prbs_ods(arbre, chantier, p,
+                        couleur_classe=COULEUR_CLASSE,
+                        classer_prbs=classer_prbs,
+                        cabinet_name=cabinet_name,
+                        bareme_desc=description_seuils_mission(chantier))
+        _notify_export(parent, p, _("Tableau ODS enregistré"))
+    except Exception as e:
+        log.exception("Échec export ODS")
+        messagebox.showerror("Erreur", str(e))
+
+
+# Tableaux PRBS de la mission : format → (extension, filtre de dialogue).
+_FORMATS_TABLEAUX = {
+    "xlsx": (".xlsx", "Classeur Excel"),
+    "ods": (".ods", "Classeur OpenDocument"),
+    "html": (".html", "Page HTML"),
+}
+
+
+def export_tableaux_mission(parent: tk.Misc, chantier: Chantier,
+                            fmt: str) -> None:
+    """Tableaux PRBS de TOUS les arbres de la mission dans UN fichier
+    (`fmt` : "xlsx" | "ods" | "html"). XLSX/ODS : une feuille par arbre,
+    précédée d'une feuille « Synthèse » ; HTML : une page, une section par
+    arbre. Les arbres sans rayon renseigné sont ignorés (comme le PDF de
+    mission)."""
+    if fmt == "xlsx" and not HAS_OPENPYXL:
+        messagebox.showerror(
+            "Export XLSX indisponible",
+            "Le module openpyxl n'est pas installé.\n\n"
+            "Pour activer cet export, lancez dans un terminal :\n"
+            "    pip install -r requirements.txt\n\n"
+            "Les exports ODS et HTML restent disponibles sans dépendance.")
+        return
+    if not _check_completeness(parent, chantier):
+        return
+    arbres = [a for a in chantier.arbres if a.rayon_tronc_cm > 0]
+    if not arbres:
+        messagebox.showinfo(
+            _("Rien à exporter"),
+            "Aucun arbre avec un rayon renseigné dans cette mission.")
+        return
+    ext, filtre = _FORMATS_TABLEAUX[fmt]
+    suggest = (f"tableaux_mission_{chantier.nom or 'sans_nom'}{ext}"
+               .replace(" ", "_"))
+    p = filedialog.asksaveasfilename(
+        defaultextension=ext, initialfile=suggest,
+        filetypes=[(filtre, f"*{ext}")])
+    if not p:
+        return
+    cabinet_name, _logo = _get_cabinet_info(parent)
+    bareme = description_seuils_mission(chantier)
+    # Un classeur de plusieurs centaines de feuilles prend quelques
+    # secondes : curseur d'attente plutôt qu'une fenêtre qui semble figée.
+    _curseur(parent, "watch")
+    try:
+        if fmt == "html":
+            export_prbs_mission_html(
+                arbres, chantier, p, COULEUR_CLASSE, classer_prbs,
+                cabinet_name=cabinet_name, bareme_desc=bareme)
+        else:
+            synth = mission_synthesis_rows(chantier, trier_par_urgence=True)
+            ecrire = (export_prbs_mission_xlsx if fmt == "xlsx"
+                      else export_prbs_mission_ods)
+            ecrire(arbres, chantier, p, COULEUR_CLASSE, classer_prbs,
+                   cabinet_name=cabinet_name, bareme_desc=bareme,
+                   synthese=synth)
+        _notify_export(parent, p,
+                       _("Tableaux PRBS enregistrés ({n} arbre(s))")
+                       .format(n=len(arbres)))
+    except Exception as e:
+        log.exception("Échec export tableaux mission %s", fmt)
+        messagebox.showerror("Erreur", str(e))
+    finally:
+        _curseur(parent, "")
+
+
+def export_synthesis_ods_mission(parent: tk.Misc,
+                                 chantier: Chantier) -> None:
+    """Synthèse mission en .ods."""
+    if not _check_completeness(parent, chantier):
+        return
+    p = filedialog.asksaveasfilename(
+        defaultextension=".ods",
+        initialfile=_suggest_synthesis_name(chantier, "ods"),
+        filetypes=[("Classeur OpenDocument", "*.ods")])
+    if not p:
+        return
+    try:
+        export_synthesis_ods(
+            mission_synthesis_rows(chantier, trier_par_urgence=True),
+            chantier, p, couleur_classe=COULEUR_CLASSE,
+            bareme_desc=description_seuils_mission(chantier))
+        _notify_export(parent, p, _("Synthèse mission ODS enregistrée"))
+    except Exception as e:
+        log.exception("Échec export synthèse ODS")
+        messagebox.showerror("Erreur", str(e))

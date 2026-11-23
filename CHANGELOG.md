@@ -29,6 +29,13 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   dialogue unique (portée arbre/mission + format), omis quand il n'y a rien à
   choisir ; le dernier choix est mémorisé pour la session.
 - Registre pur `export_registry.py` : ajouter un format = une ligne.
+- **Tableau PRBS** : export **ODS** (LibreOffice/OpenOffice, écrit sans
+  dépendance : `ods_writer.py`) en plus du XLSX et du HTML, et export de
+  **toute la mission en un seul fichier** : XLSX/ODS = une feuille par arbre
+  (« Arbre 12 », noms valides et uniques) précédée d'une feuille « Synthèse » ;
+  HTML = une page avec sommaire et une section par arbre. Chaque tableau est
+  celui de l'export d'un seul arbre (mêmes fonctions de remplissage). La
+  **Synthèse de la mission** s'exporte aussi en ODS.
 - **Dessin de la section** : export **JPEG** (qualité 95) en plus du PNG, et
   export de **tous les dessins de la mission** d'un coup : un fichier par
   arbre (`arbre_<n°>.png|jpg`) dans un dossier choisi, avec barre de

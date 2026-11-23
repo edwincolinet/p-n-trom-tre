@@ -928,4 +928,16 @@ TRANSLATIONS = {
         '{n} disegno/i {fmt} salvato/i',
     'Toute la mission (un fichier par arbre)':
         'Tutta la missione (un file per albero)',
+    'Tableau ODS enregistré':
+        'Tabella ODS salvata',
+    'Tableaux PRBS enregistrés ({n} arbre(s))':
+        'Tabelle PRBS salvate ({n} albero/i)',
+    'Synthèse mission ODS enregistrée':
+        'Riepilogo missione ODS salvato',
+    'LibreOffice (ODS)':
+        'LibreOffice (ODS)',
+    'Toute la mission (un seul fichier)':
+        'Tutta la missione (un solo file)',
+    'Synthèse mission':
+        'Riepilogo della missione',
 }

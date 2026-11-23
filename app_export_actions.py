@@ -113,6 +113,22 @@ class ExportActionsMixin(_MixinBase):
         app_exports.export_html_arbre(self, self._current_arbre(),
                                       self.chantier)
 
+    def action_export_prbs_ods(self) -> None:
+        app_exports.export_ods_arbre(self, self._current_arbre(),
+                                     self.chantier)
+
+    def action_export_prbs_xlsx_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "xlsx")
+
+    def action_export_prbs_ods_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "ods")
+
+    def action_export_prbs_html_mission(self) -> None:
+        app_exports.export_tableaux_mission(self, self.chantier, "html")
+
+    def action_export_synthesis_ods(self) -> None:
+        app_exports.export_synthesis_ods_mission(self, self.chantier)
+
     # --- Comparaison (ré-inspection) ------------------------------------
     # Ne vivent plus dans des boutons de `comparaison.py` (coupaient du
     # menu Export pendant que la fenêtre était ouverte) : entrées du menu
