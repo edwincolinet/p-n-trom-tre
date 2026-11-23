@@ -86,7 +86,7 @@ from ui_fonts import font as ui_font
 from ui_fonts import font_small_bold
 from undo import UndoStack
 
-__version__ = "3.7.0"
+__version__ = "3.8.0"
 _SUPPORT_EMAIL = "e.colinet@silvavenir.fr"
 
 # Fichiers récents : on en garde 8, persistés en JSON dans le même

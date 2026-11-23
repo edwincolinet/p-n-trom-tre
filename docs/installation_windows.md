@@ -1,6 +1,6 @@
 # Pénétromètre Silvavenir — Installation sur Windows 11
 
-Logiciel interne du cabinet. Version 3.7.0.
+Logiciel interne du cabinet. Version 3.8.0.
 
 ## 1. Installer
 
