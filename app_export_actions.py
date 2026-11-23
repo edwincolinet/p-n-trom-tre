@@ -44,6 +44,31 @@ class ExportActionsMixin(_MixinBase):
                                builder: Callable[[], Any],
                                parent: "tk.Misc") -> None: ...
 
+    def action_export_choose(self, type_key: str) -> None:
+        """Point d'entrée UNIQUE du menu Export : un TYPE d'export
+        (`export_registry`). Demande portée + format dans un dialogue
+        unique (omis s'il n'y a rien à choisir), puis lance l'action
+        `action_export_*` correspondante."""
+        from dialogs_export import ask_export_choice
+        from export_registry import get_export_type
+        etype = get_export_type(type_key)
+        if etype is None:
+            return
+        if etype.needs_comparison:
+            from comparaison import is_comparison_active
+            if not is_comparison_active():
+                return
+        if etype.needs_dialog:
+            choice = ask_export_choice(self, etype)
+            if choice is None:
+                return
+        else:
+            choice = etype.default_choice()
+        fmt = etype.format(*choice)
+        if fmt is None:
+            return
+        getattr(self, fmt.action)()
+
     def action_export_png(self) -> None:
         app_exports.export_png(self, self._current_arbre(),
                                self.var_show_sondages.get())

@@ -124,6 +124,8 @@ mon-dossier/
 ├── app_arbres.py               ← ArbreListMixin (liste d'arbres, filtres, CRUD)
 ├── app_recovery.py             ← RecoveryMixin (autosave anti-crash)
 ├── app_export_actions.py       ← ExportActionsMixin (action_export_*)
+├── export_registry.py          ← registre des exports (type → portée → formats)
+├── dialogs_export.py           ← dialogue de choix portée + format
 ├── app_fichier.py              ← FichierMixin (cycle de vie fichier mission)
 ├── app_layout.py               ← LayoutMixin (construction de l'UI)
 ├── app_reglages.py             ← ReglagesMixin (préférences, mises à jour)

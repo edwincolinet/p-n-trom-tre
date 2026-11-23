@@ -433,6 +433,84 @@ class TestAppMixins(unittest.TestCase):
         self.app.remove_last_brin()
         self.assertEqual(len(a.brins), 1)
 
+    # --- Menu Export par type ---
+
+    def test_menu_export_liste_les_types_sans_doublon(self) -> None:
+        from export_registry import export_types
+        menu = self.app.nametowidget(self.app.cget("menu"))
+        idx = menu.index("end")
+        export = None
+        for i in range(idx + 1):
+            if menu.type(i) == "cascade" and menu.entrycget(i, "label") == "Export":
+                export = self.app.nametowidget(menu.entrycget(i, "menu"))
+        assert export is not None
+        labels = [export.entrycget(i, "label")
+                  for i in range(export.index("end") + 1)
+                  if export.type(i) == "command"]
+        self.assertEqual(len(labels), len(export_types()))
+        self.assertEqual(len(labels), len(set(labels)))
+
+    def test_action_export_choose_sans_dialogue_lance_l_action(self) -> None:
+        appels: list[str] = []
+        self.app.action_export_csv = lambda: appels.append("csv")  # type: ignore[method-assign]
+        self.app.action_export_choose("sondages")   # un seul choix : direct
+        self.assertEqual(appels, ["csv"])
+
+    def test_action_export_choose_dialogue_annule(self) -> None:
+        import dialogs_export
+        appels: list[str] = []
+        self.app.action_export_pdf_arbre = lambda: appels.append("a")  # type: ignore[method-assign]
+        orig = dialogs_export.ask_export_choice
+        dialogs_export.ask_export_choice = lambda parent, etype: None  # type: ignore[assignment]
+        try:
+            self.app.action_export_choose("fiche")
+        finally:
+            dialogs_export.ask_export_choice = orig  # type: ignore[assignment]
+        self.assertEqual(appels, [])
+
+    def test_action_export_choose_dialogue_valide(self) -> None:
+        import dialogs_export
+        appels: list[str] = []
+        self.app.action_export_pdf_mission = lambda: appels.append("m")  # type: ignore[method-assign]
+        orig = dialogs_export.ask_export_choice
+        dialogs_export.ask_export_choice = (  # type: ignore[assignment]
+            lambda parent, etype: ("mission", "pdf"))
+        try:
+            self.app.action_export_choose("fiche")
+        finally:
+            dialogs_export.ask_export_choice = orig  # type: ignore[assignment]
+        self.assertEqual(appels, ["m"])
+
+    def test_dialogue_export_valide_et_annule(self) -> None:
+        from tkinter import ttk
+
+        from dialogs_export import ask_export_choice
+        from export_registry import get_export_type
+
+        def _clic(texte: str) -> None:
+            """Clique le bouton `texte` du dialogue ouvert (pas de
+            `event_generate` : sans focus WM, l'évènement se perd et le
+            `wait_window` du dialogue ne rend jamais la main)."""
+            dlg = [w for w in self.app.winfo_children()
+                   if isinstance(w, tk.Toplevel)][0]
+
+            def cherche(w: "tk.Misc") -> "list[ttk.Button]":
+                out = [w] if isinstance(w, ttk.Button) \
+                    and w.cget("text") == texte else []
+                for c in w.winfo_children():
+                    out += cherche(c)
+                return out
+            cherche(dlg)[0].invoke()
+
+        t = get_export_type("tableau_prbs")
+        assert t is not None
+        self.app.after(200, lambda: _clic("Exporter"))
+        self.assertEqual(ask_export_choice(self.app, t), ("arbre", "xlsx"))
+        f = get_export_type("fiche")
+        assert f is not None
+        self.app.after(200, lambda: _clic("Annuler"))
+        self.assertIsNone(ask_export_choice(self.app, f))
+
     # --- Ø sur écorce / épaisseur d'écorce (saisie terrain) ---
 
     def test_identification_diametre_sur_ecorce(self) -> None:

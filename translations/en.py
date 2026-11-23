@@ -904,4 +904,21 @@ TRANSLATIONS = {
     ' vide = valeur générale ci-dessus.':
         'Trunk not perfectly cylindrical? Enter a local diameter (and, if needed, a local bark '
         'thickness) in the Soundings tab, direction by direction — empty = general value above.',
+    'Arbre courant': 'Current tree',
+    'Comparaison (ré-inspection)': 'Comparison (re-inspection)',
+    'Comparaison ouverte': 'Open comparison',
+    'Dessin de la section': 'Section drawing',
+    'Excel (XLSX)': 'Excel (XLSX)',
+    'Exporter': 'Export',
+    'Exporter — {type}': 'Export — {type}',
+    'Fiche PDF': 'PDF sheet',
+    "Fiche d'expertise": 'Expert report sheet',
+    'Format du fichier': 'File format',
+    'Page web (HTML)': 'Web page (HTML)',
+    'Que faut-il exporter ?': 'What should be exported?',
+    'Sondages de la mission': 'Mission soundings',
+    'Synthèse de la mission': 'Mission summary',
+    'Tableau PRBS': 'PRBS table',
+    'Toute la mission': 'Whole mission',
+    'Évolution (PNG)': 'Evolution (PNG)',
 }

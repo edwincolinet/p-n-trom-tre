@@ -21,6 +21,15 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   de SA direction). Sans valeur locale, rendu et calculs strictement inchangés.
 - Colonne Commentaire de la grille Sondages raccourcie pour faire de la place.
 
+### Menu Export par type d'export
+
+- Le menu **Export** liste des **types** (Fiche d'expertise, Dessin de la
+  section, Tableau PRBS, Sondages de la mission, Synthèse de la mission,
+  Comparaison) au lieu de blocs par format : plus de doublons. Un clic ouvre un
+  dialogue unique (portée arbre/mission + format), omis quand il n'y a rien à
+  choisir ; le dernier choix est mémorisé pour la session.
+- Registre pur `export_registry.py` : ajouter un format = une ligne.
+
 ## 3.7.0 — 2026-11-11 (mise en service interne)
 
 ### Distribution et mises à jour

@@ -889,4 +889,21 @@ TRANSLATIONS = {
         'Il tronco non è perfettamente cilindrico? Inserire un diametro locale (e, se necessario,'
         ' uno spessore di corteccia locale) nella scheda Sondaggi, direzione per direzione — '
         'vuoto = valore generale sopra.',
+    'Arbre courant': 'Albero corrente',
+    'Comparaison (ré-inspection)': 'Confronto (rivisita)',
+    'Comparaison ouverte': 'Confronto aperto',
+    'Dessin de la section': 'Disegno della sezione',
+    'Excel (XLSX)': 'Excel (XLSX)',
+    'Exporter': 'Esporta',
+    'Exporter — {type}': 'Esporta — {type}',
+    'Fiche PDF': 'Scheda PDF',
+    "Fiche d'expertise": 'Scheda di perizia',
+    'Format du fichier': 'Formato del file',
+    'Page web (HTML)': 'Pagina web (HTML)',
+    'Que faut-il exporter ?': 'Cosa esportare?',
+    'Sondages de la mission': 'Sondaggi della missione',
+    'Synthèse de la mission': 'Riepilogo della missione',
+    'Tableau PRBS': 'Tabella PRBS',
+    'Toute la mission': 'Tutta la missione',
+    'Évolution (PNG)': 'Evoluzione (PNG)',
 }

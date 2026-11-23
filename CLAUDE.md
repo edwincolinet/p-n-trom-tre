@@ -26,7 +26,9 @@ troncs au pénétromètre). Logiciel d'Edwin Colinet.
 penetrometre.py        ← App Tk + main — orchestration
 app_arbres.py          ← ArbreListMixin (liste d'arbres : filtre, état, CRUD)
 app_recovery.py        ← RecoveryMixin (autosave anti-crash + récupération)
-app_export_actions.py  ← ExportActionsMixin (les action_export_*)
+app_export_actions.py  ← ExportActionsMixin (les action_export_* + action_export_choose)
+export_registry.py     ← registre des exports : type → portée → formats (pur ; alimente le menu Export et le dialogue)
+dialogs_export.py      ← dialogue unique de choix portée + format d'un export
 app_fichier.py         ← FichierMixin (cycle de vie fichier mission : new/open/save/save_as + récents + ré-inspection)
 app_layout.py          ← LayoutMixin (construction de l'UI : header, méta mission, barre d'état + bannières, 3 colonnes, sash)
 app_reglages.py        ← ReglagesMixin (préférences : langue, barème, taille texte, contraste, logo/cabinet + mises à jour/bannières)
@@ -272,6 +274,11 @@ penetrometre.py  (Tk + main) ← undo.py
   (`—` si non fiable), couleur de ligne = classe de risque seule. Filtres cumulés
   (ET) qui ne font que **masquer** (`iid = a{index}` stable, footer sur toute la
   mission). Vert/Orange/Rouge et niveaux d'urgence restent en français partout.
+- **Menu Export** : une entrée par **type d'export** (`export_registry`), jamais
+  par format ; portée (arbre/mission) + format se choisissent dans un dialogue
+  unique (`dialogs_export`), omis s'il n'y a rien à choisir. Le registre est
+  pur ; chaque format désigne une méthode `action_export_*` (testé : aucune
+  action orpheline).
 - **Raccourcis** : `Ctrl+T` ajout, `Ctrl+E` export PDF (ignoré si Entry/Combobox
   a le focus), `Ctrl+PgUp/PgDn` arbre précédent/suivant, `Ctrl+Z/Y` undo/redo,
   `Ctrl+Tab` onglets. Menu **Export** = point d'entrée unique des exports.
@@ -303,6 +310,7 @@ venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
   persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
+  export_registry.py dialogs_export.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
   comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
@@ -360,6 +368,8 @@ retirés). L'app se lance directement, en développement comme en binaire.
    - Actions export → `app_exports.py` ; rendu Tk section → `section_canvas.py`
    - Liste d'arbres → `app_arbres.py` ; autosave/récup → `app_recovery.py`
    - Méthodes `action_export_*` (dispatch pur) → `app_export_actions.py` ;
+     types/portées/formats d'export + entrées du menu Export → `export_registry.py`
+     (un nouveau format = une ligne `ExportFormat` + sa méthode `action_export_*`) ;
      menu Export (entrées groupées par format) → `app_menu.py`
    - Cycle de vie fichier mission (new/open/save/save_as, récents, ré-inspection) → `app_fichier.py`
    - Construction de l'UI (`_build_*`, barre d'état, sash) → `app_layout.py`
