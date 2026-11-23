@@ -3,7 +3,7 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
-## Non publié
+## 3.8.0 — 2026-11-23 (saisie terrain et exports)
 
 ### Saisie « terrain » : diamètre sur écorce, écorce locale
 
