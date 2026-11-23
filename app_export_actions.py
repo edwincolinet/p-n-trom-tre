@@ -70,8 +70,20 @@ class ExportActionsMixin(_MixinBase):
         getattr(self, fmt.action)()
 
     def action_export_png(self) -> None:
-        app_exports.export_png(self, self._current_arbre(),
-                               self.var_show_sondages.get())
+        app_exports.export_dessin_arbre(self, self._current_arbre(),
+                                        self.var_show_sondages.get(), "png")
+
+    def action_export_jpeg(self) -> None:
+        app_exports.export_dessin_arbre(self, self._current_arbre(),
+                                        self.var_show_sondages.get(), "jpeg")
+
+    def action_export_png_mission(self) -> None:
+        app_exports.export_dessin_mission(self, self.chantier,
+                                          self.var_show_sondages.get(), "png")
+
+    def action_export_jpeg_mission(self) -> None:
+        app_exports.export_dessin_mission(self, self.chantier,
+                                          self.var_show_sondages.get(), "jpeg")
 
     def action_export_pdf_arbre(self) -> None:
         app_exports.export_pdf_arbre(self, self._current_arbre(),

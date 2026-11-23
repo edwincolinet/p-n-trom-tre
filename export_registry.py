@@ -83,6 +83,8 @@ def export_types() -> Tuple[ExportType, ...]:
     """Les types d'export, dans l'ordre d'affichage du menu."""
     arbre = _("Arbre courant")
     mission = _("Toute la mission")
+    # Une image par arbre, rangées dans un dossier (≠ un fichier unique).
+    mission_dossier = _("Toute la mission (un fichier par arbre)")
     return (
         ExportType("fiche", _("Fiche d'expertise"), (
             ExportScope(SCOPE_ARBRE, arbre, (
@@ -92,7 +94,13 @@ def export_types() -> Tuple[ExportType, ...]:
         )),
         ExportType("dessin", _("Dessin de la section"), (
             ExportScope(SCOPE_ARBRE, arbre, (
-                ExportFormat("png", "PNG", "action_export_png"),)),
+                ExportFormat("png", "PNG", "action_export_png"),
+                ExportFormat("jpeg", "JPEG", "action_export_jpeg"),
+            )),
+            ExportScope(SCOPE_MISSION, mission_dossier, (
+                ExportFormat("png", "PNG", "action_export_png_mission"),
+                ExportFormat("jpeg", "JPEG", "action_export_jpeg_mission"),
+            )),
         )),
         ExportType("tableau_prbs", _("Tableau PRBS"), (
             ExportScope(SCOPE_ARBRE, arbre, (

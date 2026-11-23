@@ -921,4 +921,26 @@ TRANSLATIONS = {
     'Tableau PRBS': 'PRBS table',
     'Toute la mission': 'Whole mission',
     'Évolution (PNG)': 'Evolution (PNG)',
+    'Image {fmt} enregistrée':
+        '{fmt} image saved',
+    'Dossier des dessins de la mission':
+        'Mission drawings folder',
+    'Fichiers existants':
+        'Existing files',
+    '{n} fichier(s) du dossier seront remplacés. Continuer ?':
+        '{n} file(s) in the folder will be replaced. Continue?',
+    'Export des dessins de la mission':
+        'Exporting mission drawings',
+    'Génération des dessins…':
+        'Generating drawings…',
+    'Terminé':
+        'Done',
+    '{n} dessin(s) déjà écrit(s) dans le dossier.':
+        '{n} drawing(s) already written to the folder.',
+    'Export annulé — {n} dessin(s) déjà écrit(s).':
+        'Export cancelled — {n} drawing(s) already written.',
+    '{n} dessin(s) {fmt} enregistré(s)':
+        '{n} {fmt} drawing(s) saved',
+    'Toute la mission (un fichier par arbre)':
+        'Whole mission (one file per tree)',
 }
