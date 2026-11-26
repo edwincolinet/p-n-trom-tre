@@ -2,7 +2,7 @@
 
 Extrait de `diagnostic.py` (2026-08-25) : sous-domaine à part — la
 comparaison de deux campagnes d'un même arbre — déjà séparé côté UI
-(`comparaison.py`/`comparaison_render.py` existent), pas seulement côté
+(`pane_evolution.py`/`comparaison_render.py`), pas seulement côté
 calcul. Dépend de `diagnostic.py` pour trois helpers réutilisés tels
 quels (`prbs_par_grade`, `_synthesis_row_for_section`,
 `_synthesis_genet_row`, `_GRAVITE_CLASSE`) — même principe que

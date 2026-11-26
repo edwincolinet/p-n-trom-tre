@@ -34,15 +34,20 @@ class ExportActionsMixin(_MixinBase):
 
     if TYPE_CHECKING:
         from pathlib import Path as _Path
+
+        from app_settings import SettingsStore
+        from pane_evolution import EvolutionPane
         chantier: Chantier
         current_file: "Optional[_Path]"
         var_show_sondages: tk.BooleanVar
 
         def _current_arbre(self) -> Optional[Arbre]: ...
-        # Fourni par `FichierMixin` — export comparaison (cf. plus bas).
-        def _export_comparison(self, fmt: str,
-                               builder: Callable[[], Any],
-                               parent: "tk.Misc") -> None: ...
+        # Fourni par `FichierMixin` — export de l'évolution (cf. plus bas).
+        def _export_comparison(
+            self, fmt: str,
+            builder: "Optional[Callable[[], Any]]") -> None: ...
+        pane_evo: Optional[EvolutionPane]
+        _settings: SettingsStore
 
     def action_export_choose(self, type_key: str) -> None:
         """Point d'entrée UNIQUE du menu Export : un TYPE d'export
@@ -54,9 +59,9 @@ class ExportActionsMixin(_MixinBase):
         etype = get_export_type(type_key)
         if etype is None:
             return
-        if etype.needs_comparison:
-            from comparaison import is_comparison_active
-            if not is_comparison_active():
+        if etype.needs_history:
+            a = self._current_arbre()
+            if a is None or not a.campagnes:
                 return
         if etype.needs_dialog:
             choice = ask_export_choice(self, etype)
@@ -129,23 +134,18 @@ class ExportActionsMixin(_MixinBase):
     def action_export_synthesis_ods(self) -> None:
         app_exports.export_synthesis_ods_mission(self, self.chantier)
 
-    # --- Comparaison (ré-inspection) ------------------------------------
-    # Ne vivent plus dans des boutons de `comparaison.py` (coupaient du
-    # menu Export pendant que la fenêtre était ouverte) : entrées du menu
-    # Export, activées seulement si une comparaison est en cours
-    # (`comparaison.is_comparison_active`, relu par un `postcommand` sur
-    # le menu dans `app_menu.py` — pas d'état à synchroniser à la main).
+    # --- Évolution (ré-inspection) --------------------------------------
+    # Les dates comparées sont celles choisies dans l'onglet Évolution.
+
+    def _export_evolution(self, fmt: str) -> None:
+        if self.pane_evo is None:
+            return
+        self._export_comparison(fmt, self.pane_evo.constructeur_export(
+            fmt, cabinet_name=self._settings.cabinet_name,
+            logo_path=self._settings.logo_path))
 
     def action_export_comparison_pdf(self) -> None:
-        from comparaison import export_active_comparison, get_comparison_window
-        builder = export_active_comparison("pdf")
-        if builder is None:
-            return
-        self._export_comparison("pdf", builder, get_comparison_window() or self)
+        self._export_evolution("pdf")
 
     def action_export_comparison_png(self) -> None:
-        from comparaison import export_active_comparison, get_comparison_window
-        builder = export_active_comparison("png")
-        if builder is None:
-            return
-        self._export_comparison("png", builder, get_comparison_window() or self)
+        self._export_evolution("png")

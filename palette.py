@@ -100,6 +100,8 @@ COLOR_CERNE      = "#2A1F10"   # cernes : brun très foncé presque noir
 # traverse la couche d'écorce. On vise un contraste fort en restant sur
 # une teinte chaude (pas du gris) — l'œil doit lire « plaie profonde »
 # vs « écorce intacte ».
+COLOR_NEW_WOOD   = "#FAF0CF"   # bois formé depuis le relevé comparé
+COLOR_CAL        = "#C08A52"   # bourrelet de cal par-dessus une plaie
 COLOR_ROT        = "#140804"   # quasi-noir chaud : bois dégradé
 COLOR_SOND       = "#1F3A8A"
 

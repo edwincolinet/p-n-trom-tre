@@ -71,7 +71,7 @@ jobs:
           python -m mypy
           bareme.py geometry.py palette.py model.py diagnostic.py
           persistence.py export.py pil_render.py fiche_pdf.py
-          diagnostic_comparaison.py evolution.py campagnes.py
+          diagnostic_comparaison.py evolution.py campagnes.py dialogs_campagne.py
           app_exports.py app_menu.py
           app_recent.py app_settings.py ui_fonts.py
           app_arbres.py app_recovery.py app_export_actions.py app_fichier.py
@@ -79,7 +79,7 @@ jobs:
           pane_identification.py pane_sondages.py pane_degradations.py
           pane_contreforts.py pane_diagnostic.py
           dialogs.py section_canvas.py
-          comparaison.py comparaison_render.py
+          comparaison_render.py pane_evolution.py
           undo.py tooltip.py aide_repliable.py
           penetrometre.py photo_gallery.py
           dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py

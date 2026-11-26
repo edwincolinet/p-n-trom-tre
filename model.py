@@ -70,6 +70,9 @@ class Sondage:
     compartimentation: str = "non renseignée"
     commentaire: str = ""
     incertain: bool = False   # sondage douteux (angle, pression, accès)
+    # Valeur reprise du relevé précédent, pas encore re-mesurée : elle ne
+    # compte pas comme mesure dans la comparaison (cf. `evolution`).
+    a_confirmer: bool = False
 
     def __post_init__(self) -> None:
         if self.grade not in GRADES:
@@ -132,10 +135,9 @@ class DegradationExterne:
     # Pilote à la fois `profondeur_bois_cm` (diagnostic) et le rayon de
     # départ du dessin (`geometry.degradation_externe_outline`).
     comprend_ecorce: bool = True
-    # Plaie refermée par un cal (bourrelet de recouvrement). Le bois dégradé
-    # reste perdu (même déduction dans la PRBS) : `profondeur_cm` est alors
-    # l'épaisseur de bois dégradé sous le cal. Compte comme un progrès entre
-    # deux campagnes (cf. `evolution`).
+    # Plaie refermée par un cal (bourrelet de recouvrement) posé PAR-DESSUS :
+    # la plaie (zone, profondeur, bois perdu) reste inchangée. Compte comme
+    # un progrès entre deux campagnes (cf. `evolution`).
     recouverte: bool = False
 
     def __post_init__(self) -> None:
@@ -156,10 +158,8 @@ class DegradationExterne:
         extérieure : la bande d'écorce traversée ne réduit pas la PRBS
         (l'écorce n'est pas du bois) → on déduit son épaisseur. Sinon, la
         dégradation part de la surface du bois et toute la profondeur compte.
-        Plaie `recouverte` : la profondeur est l'épaisseur de bois dégradé
-        sous le cal (ni cal ni écorce) → elle compte en entier.
         Fonction pure (utilisée par le diagnostic)."""
-        if self.comprend_ecorce and not self.recouverte:
+        if self.comprend_ecorce:
             return max(0.0, self.profondeur_cm - max(0.0, epaisseur_ecorce_cm))
         return self.profondeur_cm
 
@@ -669,8 +669,8 @@ class Arbre:
     suivi_echeance: str = "" # date de prochaine visite JJ/MM/AAAA, optionnelle
     suivi_texte: str = ""    # description du suivi, texte libre
     photos: List[str] = field(default_factory=list)  # chemins absolus des photos
-    # Photos de la **comparaison** (ré-inspection), ajoutées depuis la fenêtre
-    # de comparaison : l'état à la référence / l'état actuel du même arbre.
+    # Photos de la **comparaison** (ré-inspection), ajoutées depuis l'onglet
+    # Évolution : l'état à la référence / l'état actuel du même arbre.
     # Stockées sur l'arbre COURANT (la mission de référence n'est jamais
     # réécrite) ; mêmes règles de chemin que `photos` (`photo_paths`).
     photos_comparaison_ref: List[str] = field(default_factory=list)

@@ -17,7 +17,7 @@ usage — comme `app_reglages._reload_logo`, une `PhotoImage` nécessite un
 la construction des widgets, jamais au niveau module.
 
 **Utilisé uniquement sur Windows** (`sys.platform == "win32"` aux points
-d'appel — `app_layout.py`, `pane_diagnostic.py`, `comparaison.py`) :
+d'appel — `app_layout.py`, `pane_diagnostic.py`) :
 Linux/macOS gardent l'emoji d'origine, dont le rendu convient (confirmé
 à l'usage) — pas de raison de le remplacer là où il fonctionne déjà.
 """

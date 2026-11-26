@@ -149,8 +149,9 @@ def comparer_directions(ref_b: "Brin", cur_b: "Brin") -> List[DirectionDelta]:
     des rayons n'est pas renseigné."""
     if ref_b.rayon_tronc_cm <= 0 or cur_b.rayon_tronc_cm <= 0:
         return []
-    ref_sond = {s.grade: s for s in ref_b.sondages}
-    cur_sond = {s.grade: s for s in cur_b.sondages}
+    # Une valeur reprise et non confirmée n'est pas une mesure.
+    ref_sond = {s.grade: s for s in ref_b.sondages if not s.a_confirmer}
+    cur_sond = {s.grade: s for s in cur_b.sondages if not s.a_confirmer}
     prbs_r, prbs_c = prbs_par_grade(ref_b), prbs_par_grade(cur_b)
     ray_r, ray_c = rayon_par_grade(ref_b), rayon_par_grade(cur_b)
     alt_r = compute_alteration_par_grade(ref_b)
@@ -263,7 +264,9 @@ def degradations_reference_recalees(
     croissance = cur_b.rayon_tronc_cm - ref_b.rayon_tronc_cm
     out: "List[DegradationExterne]" = []
     for deg in ref_b.degradations_externes:
-        if deg.profondeur_bois_cm(ref_b.ep_a_grade(deg.grade_debut)) > 0:
+        # Sous un cal, la profondeur est une épaisseur de couche : inchangée.
+        if (not deg.recouverte and deg.profondeur_bois_cm(
+                ref_b.ep_a_grade(deg.grade_debut)) > 0):
             deg = replace(deg, profondeur_cm=max(
                 0.0, deg.profondeur_cm + croissance))
         out.append(deg)

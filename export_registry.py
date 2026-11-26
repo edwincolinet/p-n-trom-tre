@@ -48,9 +48,9 @@ class ExportType:
     key: str
     label: str
     scopes: Tuple[ExportScope, ...]
-    # Exports qui n'existent que tant qu'une comparaison est ouverte
-    # (entrée grisée sinon, cf. `comparaison.is_comparison_active`).
-    needs_comparison: bool = False
+    # Exports qui n'existent que si l'arbre courant a un relevé antérieur
+    # (entrée grisée sinon).
+    needs_history: bool = False
 
     @property
     def needs_dialog(self) -> bool:
@@ -137,14 +137,14 @@ def export_types() -> Tuple[ExportType, ...]:
                 ExportFormat("csv", "CSV", "action_export_synthesis_csv"),
             )),
         )),
-        ExportType("comparaison", _("Comparaison (ré-inspection)"), (
-            ExportScope("comparaison", _("Comparaison ouverte"), (
+        ExportType("comparaison", _("Évolution (ré-inspection)"), (
+            ExportScope("comparaison", _("Dates de l'onglet Évolution"), (
                 ExportFormat("pdf", _("Fiche PDF"),
                              "action_export_comparison_pdf"),
                 ExportFormat("png", _("Évolution (PNG)"),
                              "action_export_comparison_png"),
             )),
-        ), needs_comparison=True),
+        ), needs_history=True),
     )
 
 

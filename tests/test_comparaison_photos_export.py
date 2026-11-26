@@ -1,15 +1,17 @@
-"""Le PDF de comparaison doit embarquer les photos même si la mission a été
-enregistrée APRÈS la sélection des arbres dans la fenêtre de comparaison
-(régression : `mission_dir` figé à None, photos ignorées)."""
+"""Le PDF d'évolution doit embarquer les photos même si la mission a été
+enregistrée APRÈS la préparation de l'export (régression : `mission_dir` figé
+à None, photos ignorées)."""
 
 from __future__ import annotations
 
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
-from comparaison import _page_builder
+from campagnes import archiver
 from model import Arbre, Chantier, Sondage
+from pane_evolution import EvolutionPane
 
 
 def _arbre() -> Arbre:
@@ -21,28 +23,31 @@ def _arbre() -> Arbre:
     return a
 
 
-class TestPhotosPdfComparaison(unittest.TestCase):
-    def test_mission_enregistree_apres_la_selection(self) -> None:
+class TestPhotosPdfEvolution(unittest.TestCase):
+    def test_mission_enregistree_apres_la_preparation(self) -> None:
         from PIL import Image
         with TemporaryDirectory() as tmp:
             d = Path(tmp)
             (d / "m_photos").mkdir()
-            Image.new("RGB", (80, 60), (30, 120, 40)).save(d / "m_photos" / "a.jpg")
-            ref, cur = _arbre(), _arbre()
-            cur.photos_comparaison_cur = ["m_photos/a.jpg"]
-            ch = Chantier()
-            ch.arbres = [cur]
-            # État à la sélection : mission pas encore enregistrée.
-            etat: dict = {"builder_args": (
-                "Mission", ref, cur, 1.0, "2025", "2026", True,
-                {"chantier": ch, "mission_dir": None,
-                 "cabinet_name": "", "logo_path": None})}
-            sans = _page_builder(etat, "pdf")()
-            # Puis la mission est enregistrée : l'export doit la voir.
-            etat["en_tete_fn"] = lambda: {
-                "chantier": ch, "mission_dir": d,
-                "cabinet_name": "", "logo_path": None}
-            avec = _page_builder(etat, "pdf")()
+            Image.new("RGB", (80, 60), (30, 120, 40)).save(
+                d / "m_photos" / "a.jpg")
+            a = _arbre()
+            archiver(a, "01/06/2025")
+            a.photos_comparaison_cur = ["m_photos/a.jpg"]
+            chantier = Chantier(arbres=[a], date_releve="01/06/2026")
+            hote = SimpleNamespace(
+                chantier=chantier, current_file=None,
+                var_show_sondages=SimpleNamespace(get=lambda: True),
+                _current_arbre=lambda: a)
+            # Sans Tk : seules les méthodes d'export sont exercées.
+            pane = EvolutionPane.__new__(EvolutionPane)
+            pane._host, pane._arbre_id, pane._dates = hote, "", []
+            construire = pane.constructeur_export(
+                "pdf", cabinet_name="", logo_path=None)
+            assert construire is not None
+            sans = construire()
+            hote.current_file = d / "m.json"
+            avec = construire()
             self.assertEqual(len(avec), len(sans) + 1)   # + page « Photos »
 
 

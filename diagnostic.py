@@ -907,7 +907,7 @@ def mission_synthesis_rows(chantier: "Chantier", *,
 
 # La comparaison inter-missions (ré-inspection) vit dans
 # `diagnostic_comparaison.py` — sous-domaine distinct, déjà séparé côté
-# UI (comparaison.py/comparaison_render.py), qui ne réutilise d'ici que
+# UI (pane_evolution.py/comparaison_render.py), qui ne réutilise d'ici que
 # `prbs_par_grade`, `_synthesis_row_for_section`, `_synthesis_genet_row`
 # et `_GRAVITE_CLASSE`.
 
@@ -1024,6 +1024,13 @@ def mission_completeness_warnings(chantier: "Chantier") -> list[str]:
         warnings.append(
             f"{len(non_fiable)} arbre(s) avec moins de 3 sondages "
             f"(diagnostic non fiable) : {_nums(non_fiable)}")
+
+    a_confirmer = [a for a in arbres
+                   if any(s.a_confirmer for b in a.brins for s in b.sondages)]
+    if a_confirmer:
+        warnings.append(
+            f"{len(a_confirmer)} arbre(s) avec des sondages repris du relevé "
+            f"précédent et non confirmés : {_nums(a_confirmer)}")
 
     sans_urgence = [a for a in arbres if not a.urgence]
     if sans_urgence:

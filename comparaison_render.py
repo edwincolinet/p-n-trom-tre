@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import angle_units
+from campagnes import cal_depuis
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
@@ -27,9 +28,11 @@ from diagnostic_comparaison import (
 from evolution import degradations_reference_recalees, hauteurs_incompatibles
 from geometry import (
     GRADES,
+    cal_outline,
     cavity_polygon,
     contour_polygon,
     degradation_externe_outline,
+    ring_polygon_points,
 )
 from i18n import _
 from palette import (
@@ -38,6 +41,7 @@ from palette import (
     COLOR_FIELD_BORDER,
     COLOR_INK,
     COLOR_MUTED,
+    COLOR_NEW_WOOD,
     COLOR_RENDER_ACCENT,
     COLOR_ROT,
     COLOR_SIDE_PANEL,
@@ -48,7 +52,6 @@ from pil_render import (
     _draw_horizontal_legend_pil,
     _margin_top_titre,
     _pil_draw_cardinales,
-    _pil_draw_cernes,
     _pil_draw_echelle_radiale,
     _pil_draw_sondages,
     _pil_draw_ticks,
@@ -119,6 +122,7 @@ def render_brin_section(src: "Arbre", brin: "Brin", size: int = 460,
     tmp = Arbre(numero_arbre=src.numero_arbre, essence=src.essence,
                 port_arbre=src.port_arbre, meche_cm=src.meche_cm)
     tmp.brins = [brin]
+    tmp.campagnes = src.campagnes          # pour situer les plaies sous cal
     return render_arbre_to_pil_image(
         tmp, size, size, show_sondages=show_sondages, show_title=False,
         show_legend=False)
@@ -271,8 +275,8 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
     if ref_b is not None:
         # Une direction non sondée aux deux dates ne constate rien : on y
         # reprend la valeur courante pour ne rien colorer.
-        communs = ({s.grade for s in ref_b.sondages}
-                   & {s.grade for s in cur_b.sondages})
+        communs = ({s.grade for s in ref_b.sondages if not s.a_confirmer}
+                   & {s.grade for s in cur_b.sondages if not s.a_confirmer})
         alt = compute_alteration_par_grade(ref_b)
         ref_alt = [alt[i] if g in communs else cur_alt[i]
                    for i, g in enumerate(GRADES)]
@@ -304,23 +308,43 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         rw = R * scale
         d.ellipse([cx - rw, cy - rw, cx + rw, cy + rw], fill=COLOR_WOOD)
 
-    # Cernes de graduation (même primitives que la section réelle).
-    _pil_draw_cernes(d, cur_b, cx, cy, R, scale)
+    # Bois formé depuis la référence (anneau plus clair). Les cernes de
+    # graduation sont volontairement absents : ils brouillent la lecture.
+    if ref_b is not None and R > ref_b.rayon_tronc_cm:
+        d.polygon(ring_polygon_points(
+            contour_polygon(R_of, cx, cy, scale, rotation_grades=rot),
+            contour_polygon(ref_b.rayon_a_grade, cx, cy, scale,
+                            rotation_grades=rot)), fill=COLOR_NEW_WOOD)
 
     # Dégradation externe : arcs EXACTS (`degradation_externe_outline`),
     # orange = approfondie depuis la réf., vert = résorbée depuis la réf.
-    def _ext_polys(degs: List[Any]) -> List[Any]:
+    def _ext_polys(degs: List[Any], profondeurs_cal: List[float]
+                   ) -> List[Any]:
         polys = []
-        for deg in degs:
+        for deg, cal in zip(degs, profondeurs_cal):
             pts = degradation_externe_outline(
                 deg, cur_b.contreforts, R_of, ep_spec, cx, cy, scale,
-                rotation_grades=rot)
+                rotation_grades=rot, cal_cm=cal)
             if pts:
                 polys.append(pts)
         return polys
 
-    _peindre_evolution(img, _ext_polys(ref_degs),
-                       _ext_polys(cur_b.degradations_externes), _VERT)
+    # Plaie recouverte : placée sous le bois formé depuis la référence.
+    cal_cur = [(cal_depuis(ref_b, cur_b, d) or 0.0) if ref_b is not None
+               else 0.0 for d in cur_b.degradations_externes]
+    croissance = (max(0.0, cur_b.rayon_tronc_cm - ref_b.rayon_tronc_cm)
+                  if ref_b is not None else 0.0)
+    cal_ref = [croissance if d.recouverte else 0.0 for d in ref_degs]
+    _peindre_evolution(img, _ext_polys(ref_degs, cal_ref),
+                       _ext_polys(cur_b.degradations_externes, cal_cur), _VERT)
+
+    for deg, cal in zip(cur_b.degradations_externes, cal_cur):
+        if deg.recouverte:
+            bourrelet = cal_outline(
+                deg, cur_b.contreforts, R_of, ep_spec, cx, cy, scale,
+                rotation_grades=rot, cal_cm=cal)
+            if bourrelet:
+                d.polygon(bourrelet, fill=_VERT, outline=COLOR_BARK)
 
     # Cavité interne (`cavity_polygon` = primitive du rendu réel, Catmull-Rom
     # centrée) : orange = anneau creusé depuis la réf., vert = cavité
@@ -331,6 +355,14 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         if any(a > 0 for a in ref_alt) else [],
         [cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot)]
         if any(a > 0 for a in cur_alt) else [], _VIOLET)
+
+    # Contour de l'ancienne cavité, en tireté.
+    if ref_b is not None and any(a > 0 for a in ref_alt):
+        bord = cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot)
+        bord.append(bord[0])
+        for i in range(0, len(bord) - 1, 4):
+            d.line(bord[i:i + 3], fill=(255, 255, 255),
+                   width=max(2, int(2 * ds)))
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
@@ -385,8 +417,8 @@ def _evo_legende_complete(d: Any, f_base: Any, cur_b: "Brin", size: int,
 def _evo_legende_compacte(d: Any, f_base: Any, size: int, *,
                           avec_ref: bool, non_comparable: bool) -> None:
     """Légende d'origine, compacte, conservée pour les usages existants
-    (fenêtre de comparaison, cartes 3-colonnes) : ces vues affichent déjà
-    les dates en en-tête de colonne, pas besoin de la légende complète ici,
+    (dessin de l'onglet Évolution, page PDF à 3 colonnes) : ces vues
+    affichent déjà les dates autour du dessin, pas besoin de la légende complète ici,
     et le cadrage doit rester identique aux colonnes voisines. En bas À
     GAUCHE : centrée, elle passait sous la lettre cardinale « S » ; dans le
     coin elle reste lisible sans toucher au cadrage."""
@@ -456,7 +488,8 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
     refus = detail.hauteurs_incompatibles
     if (refus is None and detail.tR_min_ref is not None
             and detail.tR_min_cur is not None):
-        dpts = detail.tR_min_cur - detail.tR_min_ref
+        # Même arrondi que le verdict : écart des valeurs AFFICHÉES.
+        dpts = round(detail.tR_min_cur, 1) - round(detail.tR_min_ref, 1)
         evo_tr = f"{dpts:+.1f} pts"
     rows.append(("t/R minimal", _pct_aff(detail.tR_min_ref),
                  _pct_aff(detail.tR_min_cur), evo_tr))

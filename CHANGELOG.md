@@ -17,9 +17,26 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 - **Hauteurs de sondage différentes : aucune conclusion.**
 - PRBS identique malgré un diamètre différent : signalée (valeur re-mesurée ?).
 - Format de mission **v4** : identifiants stables des arbres et des brins
-  (les brins d'une cépée ne sont plus confondus après une suppression), place
-  pour l'historique des relevés et l'état « plaie recouverte » (pas encore
-  saisissables à l'écran).
+  (les brins d'une cépée ne sont plus confondus après une suppression) et
+  historique des relevés dans le fichier.
+- **Comparaison → Nouvelle campagne…** : archive le relevé actuel ; tout reste
+  prérempli. Les sondages repris sont grisés « à confirmer » (retaper, Entrée
+  ou clic) et ne comptent pas dans la comparaison avant validation ; un
+  avertissement précède l'export tant qu'il en reste.
+- **Comparaison → Importer un relevé antérieur…** : rattache une ancienne
+  mission, avec validation de la correspondance des arbres.
+- Onglet Sondages : colonne « Préc. / écart » et rappel du relevé précédent.
+- Nouvel onglet **Évolution** à la place de la fenêtre de comparaison : choix
+  des deux dates, dégradation et état séparés, détail par direction,
+  chronologie, photos. Dessin **Actuel | Précédent | Évolution** (bois neuf,
+  ancienne cavité en tireté, sans cernes).
+- Liste d'arbres : repère ▲ et filtre « Dégradation en progression ».
+- **Supprimés** : « Faire une comparaison (ré-inspection) » et la référence
+  chargée le temps de la session. Ouvrir la mission puis « Nouvelle
+  campagne » ; pour une ancienne mission, « Importer un relevé antérieur ».
+- Dégradations externes : case **« Recouverte »**. Un cal est dessiné
+  par-dessus la plaie, qui garde sa zone et sa profondeur (bois perdu
+  inchangé). L'épaisseur du cal n'est pas saisie.
 - Dessin d'évolution : une plaie externe inchangée sur un tronc qui a grossi
   n'apparaît plus comme aggravée.
 

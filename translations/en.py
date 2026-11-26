@@ -139,15 +139,158 @@ TRANSLATIONS = {
     "Profondeur (cm)":                     "Depth (cm)",
     "Zone dégradée":                       "Damaged area",
     "Écorce + bois":                       "Bark + wood",
+    '(aucun)':
+        '(none)',
+    'Ancienne mission à importer':
+        'Older mission to import',
+    'Bois sain du relevé précédent, et évolution de la cavité : ▲ elle a '
+    'grandi, = inchangée, ? elle a reculé (à vérifier).':
+        'Sound wood of the previous survey, and cavity change: ▲ it grew, '
+        '= unchanged, ? it shrank (to be checked).',
+    "Ce relevé ({a}) n'est pas antérieur à la mission ouverte ({b}).":
+        'This survey ({a}) is not earlier than the open mission ({b}).',
+    "Cet arbre n'a pas de relevé antérieur.":
+        'This tree has no earlier survey.',
+    'Date de cette ancienne visite':
+        'Date of that earlier visit',
+    'Date de la nouvelle visite':
+        'Date of the new visit',
+    'Importer':
+        'Import',
+    'Importer un relevé antérieur':
+        'Import an earlier survey',
+    'Importer un relevé antérieur…':
+        'Import an earlier survey…',
+    'Nouvelle campagne':
+        'New campaign',
+    'Nouvelle campagne…':
+        'New campaign…',
+    'Profondeur ajustée à {p:g} cm : le bois perdu reste le même.':
+        'Depth adjusted to {p:g} cm: the lost wood is unchanged.',
+    'Préc. / écart':
+        'Prev. / change',
+    'Relevé actuel : {date}.':
+        'Current survey: {date}.',
+    'Relevé précédent : {date} — Ø sur écorce {d:g} cm (à re-mesurer).':
+        'Previous survey: {date} — Ø over bark {d:g} cm (measure again).',
+    "Un même arbre de l'ancienne mission est choisi deux fois.":
+        'The same tree of the older mission is selected twice.',
+    'Vérifiez la correspondance des arbres. Seuls les arbres appariés reçoivent le relevé.':
+        'Check how trees are matched. Only matched trees receive the survey.',
+    '{arbre} : {n} brin(s) sans correspondance.':
+        '{arbre}: {n} stem(s) without a match.',
+    '{n} arbre(s) : relevé du {date} importé.':
+        '{n} tree(s): survey of {date} imported.',
+    '{n} arbre(s) archivé(s). Saisissez la nouvelle visite (Ctrl+Z pour annuler).':
+        '{n} tree(s) archived. Enter the new visit (Ctrl+Z to undo).',
+    'à sonder':
+        'to probe',
+    '⚠ Hauteur de sondage différente ({a:g} cm au lieu de {b:g} cm) : pas de comparaison.':
+        '⚠ Different sounding height ({a:g} cm instead of {b:g} cm): no comparison.',
+    'Zone dégradée — « Écorce + bois » : la zone part de la surface ; '
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. « "
+    "Bois seul » : l'écorce reste intacte, toute la profondeur est du bois "
+    'sain perdu.':
+        'Damaged area — « Bark + wood »: the area starts at the surface; '
+        'the bark thickness crossed is not counted as lost wood. « Wood '
+        'only »: the bark stays intact, the whole depth is lost sound wood.',
+    '= pas de progression':
+        '= no progression',
+    '? à vérifier':
+        '? to be checked',
+    'Actuel':
+        'Current',
+    'Ancien':
+        'Earlier',
+    'Brin {label}':
+        'Stem {label}',
+    'Cavité':
+        'Cavity',
+    "Cet arbre n'a pas de relevé antérieur. Pour suivre son évolution :":
+        'This tree has no earlier survey. To follow its evolution:',
+    'Chiffres':
+        'Figures',
+    'Chronologie':
+        'Timeline',
+    'Comparer':
+        'Compare',
+    'Croissance':
+        'Growth',
+    "Dates de l'onglet Évolution":
+        'Dates of the Evolution tab',
+    'Depuis le précédent':
+        'Since the previous one',
+    'Dégradation':
+        'Decay',
+    'Dégradation en progression':
+        'Decay progressing',
+    'Indicateur':
+        'Indicator',
+    'PRBS':
+        'PRBS',
+    'PRBS préc.':
+        'Prev. PRBS',
+    'Par direction':
+        'By direction',
+    'Photos du relevé antérieur':
+        'Photos of the earlier survey',
+    'Photos du relevé récent':
+        'Photos of the recent survey',
+    'Précédent':
+        'Previous',
+    'Récent':
+        'Recent',
+    "Un brin du relevé antérieur n'existe plus.":
+        'A stem of the earlier survey no longer exists.',
+    "Voir l'évolution":
+        'Show evolution',
+    'en cours':
+        'in progress',
+    'non comparable':
+        'not comparable',
+    'non datée':
+        'undated',
+    'non publié':
+        'not published',
+    'non re-sondée':
+        'not probed again',
+    'non évaluable':
+        'cannot be assessed',
+    'État à chaque date':
+        'Condition at each date',
+    'Évolution (ré-inspection)':
+        'Evolution (re-inspection)',
+    'Évolution':
+        'Evolution',
+    '▲ progression':
+        '▲ progression',
+    '✓ recouvrement':
+        '✓ occlusion',
+    '✓ recouverte':
+        '✓ occluded',
+    'Recouverte':
+        'Occluded',
+    'Recouverte par un cal':
+        'Occluded by a callus',
+    'Plaie refermée par un cal (bourrelet de recouvrement). La plaie reste inchangée dessous.':
+        'Wound closed by a callus ridge. The wound underneath is unchanged.',
+    'à confirmer':
+        'to confirm',
+    'Valeurs grisées : retapez-les, ou validez avec Entrée ou un clic sur « à confirmer ».':
+        'Greyed values: type them again, or validate with Enter or a click on “to confirm”.',
+    'Le relevé actuel sera archivé dans la mission.\n\nTout reste prérempli '
+    'pour la nouvelle visite. Les sondages sont marqués « à confirmer » : '
+    "ils ne comptent pas dans la comparaison tant qu'ils ne sont pas "
+    'retapés ou validés.\nPensez à revoir le diamètre, les diamètres '
+    'locaux, la préconisation, le suivi et les photos.\n\nContinuer ?':
+        'The current survey will be archived in the mission.\n\nEverything '
+        'stays pre-filled for the new visit. Soundings are marked “to '
+        'confirm”: they do not count in the comparison until typed again '
+        'or validated.\nRemember to review the diameter, local diameters, '
+        'recommendation, follow-up and photos.\n\nContinue?',
+    'Prof. (cm)':
+        'Depth (cm)',
     "Bois seul":                           "Wood only",
-    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
-    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
-    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
-    "bois sain perdu.":
-        "Damaged area — « Bark + wood »: the area starts at the surface; "
-        "the bark thickness crossed is not counted as lost wood. "
-        "« Wood only »: the bark stays intact, the whole depth is lost "
-        "sound wood.",
     "＋ Ajouter dégradation":              "＋ Add damage",
 
     # ── Onglet Diagnostic ─────────────────────────────────────────────

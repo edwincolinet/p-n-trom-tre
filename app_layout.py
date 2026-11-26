@@ -51,6 +51,7 @@ from palette import (
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
+from pane_evolution import EvolutionPane, VueDessin
 from pane_identification import IdentificationPane
 from pane_sondages import SondagesPane
 from section_canvas import SectionCanvas
@@ -93,6 +94,9 @@ class LayoutMixin(_MixinBase):
         pane_de: Optional[DegradationsPane]
         pane_cf: Optional[ContrefortsPane]
         pane_diag: Optional[DiagnosticPane]
+        pane_evo: Optional[EvolutionPane]
+        vue: VueDessin
+        var_progression_filter: tk.BooleanVar
 
         def action_cabinet_settings(self) -> None: ...
         def _reload_logo(self) -> None: ...
@@ -386,6 +390,13 @@ class LayoutMixin(_MixinBase):
         cmb_complet.bind("<<ComboboxSelected>>",
                          lambda e: self._refresh_tree_arbres())
 
+        self.var_progression_filter = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            self._filtres_avances, text=_("Dégradation en progression"),
+            variable=self.var_progression_filter, style="Side.TCheckbutton",
+            command=self._refresh_tree_arbres,
+        ).pack(anchor="w", pady=(0, 6))
+
         # Réinitialisation directement dans le panneau (pas seulement via
         # le bandeau « filtre actif » sous la liste, qui ne s'affiche que
         # si au moins un arbre est masqué — un filtre actif qui ne masque
@@ -539,6 +550,8 @@ class LayoutMixin(_MixinBase):
             n += 1
         if self.var_complet_filter.get() != _(_COMPLET_FILTER_ALL):
             n += 1
+        if self.var_progression_filter.get():
+            n += 1
         return n
 
     def _toggle_filtres_avances(self) -> None:
@@ -671,26 +684,31 @@ class LayoutMixin(_MixinBase):
         self.pane_diag = DiagnosticPane(nb, host=host)
         nb.add(self.pane_diag, text=_("Diagnostic"))
 
+        # Onglet Évolution (comparaison entre relevés, cf.
+        # pane_evolution.py) : reconstruit seulement quand il est visible.
+        self.pane_evo = EvolutionPane(nb, host=host)
+        nb.add(self.pane_evo, text=_("Évolution"))
+        nb.bind("<<NotebookTabChanged>>",
+                lambda _e: host._rafraichir_evolution(), add="+")
+
     def _build_right(self, parent: tk.PanedWindow) -> None:
         frame = ttk.Frame(parent, style="Panel.TFrame", padding=10)
         parent.add(frame, minsize=360, width=460, stretch="always")
         self.section = SectionCanvas(frame, host=cast("App", self),
                                       width=550, height=550)
         self.section.pack(fill="both", expand=True)
+        host = cast("App", self)
+        self.vue = VueDessin(frame, self.section,
+                             on_change=lambda: host._debounced_redraw())
         # Contrôle d'affichage : cohabite avec le dessin (visible quel
         # que soit l'onglet actif, plutôt que caché dans l'onglet
         # Diagnostic).
         self.var_show_sondages = tk.BooleanVar(value=True)
-        # `trace_add` (et non `command=` sur ce seul Checkbutton) : la
-        # fenêtre de comparaison (`comparaison.open_comparison`) porte sa
-        # PROPRE case cochée sur cette MÊME `BooleanVar` (partagée, un seul
-        # interpréteur Tcl pour toute l'app) pour ne pas avoir à changer de
-        # fenêtre — `command=` n'aurait réagi qu'aux clics sur CE
-        # Checkbutton-ci, pas à ceux de l'autre fenêtre sur la même variable.
-        self.var_show_sondages.trace_add(
-            "write",
-            lambda *_a: self.section.set_show_sondages(
-                self.var_show_sondages.get()))
+        def _bascule_sondages(*_a: str) -> None:
+            self.section.set_show_sondages(self.var_show_sondages.get())
+            host._debounced_redraw()
+
+        self.var_show_sondages.trace_add("write", _bascule_sondages)
         ttk.Checkbutton(
             frame,
             text=_("Afficher l'emplacement des sondages sur le dessin"),

@@ -22,11 +22,13 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 # `tests/__init__.py` ajoute la racine du projet à sys.path.
 from app_recent import RecentFilesStore
 from app_settings import UI_SCALE_DEFAULT, UI_SCALE_MAX, UI_SCALE_MIN, SettingsStore
-from model import Arbre, Sondage
+from model import Arbre, DegradationExterne, Sondage
+from persistence import chantier_from_dict, chantier_to_dict, save_chantier
 
 # --- Détection Tk (même sonde que test_section_canvas) ------------------
 _TK_AVAILABLE = False
@@ -1228,14 +1230,23 @@ class TestSaisieGardeFous(unittest.TestCase):
 
 
 @unittest.skipIf(_SKIP_TK, _SKIP_REASON)
-class TestComparaisonFenetre(unittest.TestCase):
-    """Fenêtre de ré-inspection : sélecteurs **courant + référence** (avant,
-    le courant était figé) et persistance des `StringVar` (régression GC :
-    locales, elles vidaient le combobox à la sortie de la fonction)."""
+class TestCampagnesApp(unittest.TestCase):
+    """Nouvelle campagne, import et valeurs précédentes dans la grille."""
 
     def setUp(self) -> None:
         import penetrometre
         self.app = penetrometre.App()
+        self.app.action_new()
+        a = self.app._current_arbre()
+        assert a is not None
+        a.hauteur_sondage_cm = 100.0
+        a.brins[0].rayon_tronc_cm = 40.0
+        a.brins[0].sondages = [
+            Sondage(numero=i + 1, grade=g, bois_sain_cm=20.0,
+                    bois_altere_cm=20.0)
+            for i, g in enumerate((0, 100, 200))]
+        self.app.chantier.date_releve = "01/06/2023"
+        self.app._load_arbre_to_ui()
         self.app.update_idletasks()
 
     def tearDown(self) -> None:
@@ -1244,49 +1255,186 @@ class TestComparaisonFenetre(unittest.TestCase):
         except tk.TclError:
             pass
 
-    @staticmethod
-    def _arbre(num: str, sain: float) -> Arbre:
-        a = Arbre(numero_arbre=num, essence="Chêne", port_arbre="libre")
-        a.brins[0].set_rayon(20.0)
-        for i in range(6):
-            a.brins[0].sondages.append(
-                Sondage(numero=i + 1, grade=i * 25, bois_sain_cm=sain,
-                        bois_altere_cm=20.0 - sain))
-        return a
+    def _nouvelle(self, date: str = "01/06/2025") -> None:
+        with mock.patch("dialogs.ask_date", return_value=date), \
+                mock.patch("app_fichier.messagebox.askyesno",
+                           return_value=True):
+            self.app.action_nouvelle_campagne()
+        self.app.update_idletasks()
 
-    @staticmethod
-    def _combos(dlg: tk.Misc) -> list:
-        out: list = []
+    def test_nouvelle_campagne_garde_tout_a_confirmer_et_s_annule(self) -> None:
+        self.assertEqual(self.app.pane_s._rows[0]["prec"].winfo_manager(), "")
+        self._nouvelle()
+        a = self.app._current_arbre()
+        assert a is not None
+        self.assertEqual([s.a_confirmer for s in a.sondages], [True] * 3)
+        self.assertEqual([r.date for r in a.campagnes], ["01/06/2023"])
+        self.assertEqual(self.app.var_ch_date.get(), "01/06/2025")
+        row = self.app.pane_s._rows[0]
+        self.assertEqual(row["sain"].get(), "20")
+        self.assertEqual(row["prec"].cget("text"), "20 · à confirmer")
+        self.assertEqual(str(row["entry"].cget("style")), "AConfirmer.TEntry")
+        self.app._perform_undo()
+        a = self.app._current_arbre()
+        assert a is not None
+        self.assertEqual((len(a.sondages), len(a.campagnes)), (3, 0))
+        self.assertFalse(any(s.a_confirmer for s in a.sondages))
+        self.assertEqual(self.app.var_ch_date.get(), "01/06/2023")
 
-        def walk(w: tk.Misc) -> None:
-            for c in w.winfo_children():
-                if c.winfo_class() == "TCombobox":
-                    out.append(c)
-                walk(c)
-        walk(dlg)
-        return out
+    def test_confirmer_par_entree_clic_ou_nouvelle_saisie(self) -> None:
+        self._nouvelle()
+        pane = self.app.pane_s
+        pane._valider_et_suivre(0, 0)             # Entrée
+        pane.confirmer(100)                       # clic « à confirmer »
+        pane._rows[200]["sain"].set("17")         # nouvelle saisie
+        pane.refresh_precedent()
+        a = self.app._current_arbre()
+        assert a is not None
+        self.assertFalse(any(s.a_confirmer for s in a.sondages))
+        for grade in (0, 100, 200):
+            self.assertEqual(
+                str(pane._rows[grade]["entry"].cget("style")), "TEntry")
+        self.assertEqual(pane._rows[0]["prec"].cget("text"), "20 · =")
 
-    def test_deux_selecteurs_et_persistance_des_vars(self) -> None:
-        import gc
+    def test_ecart_de_cavite_en_direct(self) -> None:
+        self._nouvelle()
+        pane = self.app.pane_s
+        pane.confirmer(100)
+        for grade, saisie in ((0, "18"), (200, "22")):
+            pane._rows[grade]["sain"].set(saisie)
+        pane.refresh_precedent()
+        textes = [pane._rows[g]["prec"].cget("text") for g in (0, 100, 200)]
+        self.assertEqual(textes, ["20 · ▲ +2.0", "20 · =", "20 · ? −2.0"])
+        a = self.app._current_arbre()
+        assert a is not None
+        a.hauteur_sondage_cm = 130.0
+        pane.refresh_precedent()
+        self.assertEqual(pane._rows[0]["prec"].cget("text"), "20")
+        self.assertIn("pas de comparaison", pane._lbl_prec_info.cget("text"))
 
-        from comparaison import open_comparison
-        from model import Chantier
-        cur = Chantier(nom="2026", date_releve="01/01/2026",
-                       arbres=[self._arbre("1", 10), self._arbre("2", 6)])
-        ref = Chantier(nom="2024", date_releve="01/01/2024",
-                       arbres=[self._arbre("1", 12), self._arbre("2", 9)])
-        open_comparison(self.app, cur, ref, default_arbre=cur.arbres[1],
-                        cur_date="01/01/2026", couleur_classe={},
-                        on_save=lambda: None)
-        gc.collect()           # force le GC : les StringVar doivent survivre
+    def test_date_non_posterieure_refusee_sans_rien_changer(self) -> None:
+        with mock.patch("app_fichier.messagebox.showerror") as erreur:
+            self._nouvelle("01/06/2020")
+        erreur.assert_called_once()
+        a = self.app._current_arbre()
+        assert a is not None
+        self.assertEqual((len(a.sondages), len(a.campagnes)), (3, 0))
+
+    def _onglet(self):
+        self.app.action_voir_evolution()
         self.app.update()
-        dlg = [w for w in self.app.winfo_children()
-               if w.winfo_class() == "Toplevel"][-1]
-        combos = self._combos(dlg)
-        self.assertEqual(len(combos), 2)         # courant + référence
-        # Non vides après GC → les StringVar sont bien retenues.
-        self.assertIn("n° 2", combos[0].get())   # courant = défaut (n° 2)
-        self.assertIn("n° 2", combos[1].get())   # référence = même n°
+        pane = self.app.pane_evo
+        pane.rafraichir()
+        return pane
+
+    def test_onglet_sans_historique_propose_d_en_creer_un(self) -> None:
+        pane = self._onglet()
+        self.assertEqual(pane._vide.winfo_manager(), "pack")
+        self.assertEqual(pane._corps.winfo_manager(), "")
+        self.assertEqual(self.app.vue.barre.winfo_manager(), "")
+        self.assertIsNone(pane.constructeur_export(
+            "pdf", cabinet_name="", logo_path=None))
+
+    def _deux_visites(self):
+        self._nouvelle()
+        self.app.pane_s._rows[0]["sain"].set("18")
+        for grade in (100, 200):
+            self.app.pane_s.confirmer(grade)
+        return self._onglet()
+
+    def test_onglet_verdict_tableaux_et_repere_dans_la_liste(self) -> None:
+        pane = self._deux_visites()
+        self.assertIn("EN PROGRESSION", pane._lbl_verdict.cget("text"))
+        lignes = [pane._tbl_dir.item(i, "values")
+                  for i in pane._tbl_dir.get_children()]
+        self.assertEqual(lignes[0][-1], "▲ +2.0")
+        self.assertEqual(pane._chrono.winfo_manager(), "")   # 2 relevés
+        self.app._refresh_tree_arbres()
+        self.assertEqual(self.app.tree_arbres.item("a0", "text"), "n° 1 ▲")
+        self.app.var_progression_filter.set(True)
+        self.app._refresh_tree_arbres()
+        self.assertEqual(len(self.app.tree_arbres.get_children()), 1)
+        self.app._reset_all_filters()
+        self.assertFalse(self.app.var_progression_filter.get())
+
+    def test_modes_du_dessin_en_lecture_seule(self) -> None:
+        pane = self._deux_visites()
+        vue = self.app.vue
+        for mode in ("precedent", "evolution", "actuel"):
+            vue.mode.set(mode)
+            vue.actualiser(pane, True)
+            self.app.update()
+            attendu = "" if mode == "actuel" else "place"
+            self.assertEqual(vue.image.winfo_manager(), attendu, mode)
+            if attendu:
+                self.assertTrue(vue.image.cget("image"), mode)
+
+    def test_trois_releves_choix_des_dates_et_chronologie(self) -> None:
+        self._deux_visites()
+        self._nouvelle("01/06/2027")
+        pane = self._onglet()
+        self.assertEqual(pane._chrono.winfo_manager(), "pack")
+        self.assertEqual(len(pane._tbl_chrono.get_children()), 3)
+        ref, cur = pane.selection()
+        self.assertEqual((ref.date, cur.date), ("01/06/2025", "01/06/2027"))
+        pane.choisir(1, 0)                    # ordre rétabli
+        ref, cur = pane.selection()
+        self.assertEqual((ref.date, cur.date), ("01/06/2023", "01/06/2025"))
+
+    def test_export_pdf_de_l_evolution(self) -> None:
+        self._deux_visites()
+        with TemporaryDirectory() as tmp:
+            sortie = Path(tmp) / "evo.pdf"
+            with mock.patch("app_fichier.filedialog.asksaveasfilename",
+                            return_value=str(sortie)):
+                self.app.action_export_comparison_pdf()
+            self.assertTrue(sortie.read_bytes().startswith(b"%PDF"))
+
+    def test_import_d_un_releve_anterieur(self) -> None:
+        with TemporaryDirectory() as tmp:
+            chemin = Path(tmp) / "ancienne.json"
+            ancienne = chantier_from_dict(chantier_to_dict(self.app.chantier))
+            ancienne.date_releve = "01/06/2020"
+            save_chantier(ancienne, chemin)
+            with mock.patch("app_fichier.filedialog.askopenfilename",
+                            return_value=str(chemin)), \
+                    mock.patch("app_fichier.ask_appariement",
+                               return_value=[0]):
+                self.app.action_importer_releve()
+        a = self.app._current_arbre()
+        assert a is not None
+        self.assertEqual([r.date for r in a.campagnes], ["01/06/2020"])
+        self.assertEqual(len(a.sondages), 3)        # mission inchangée
+
+    def test_case_recouverte_ne_touche_ni_zone_ni_profondeur(self) -> None:
+        a = self.app._current_arbre()
+        assert a is not None
+        a.brins[0].epaisseur_ecorce_cm = 2.0
+        deg = DegradationExterne(profondeur_cm=7.0)
+        a.brins[0].degradations_externes = [deg]
+        pane = self.app.pane_de
+        pane.refresh()
+        row = pane._row_refs[0]
+        for coche in (True, False):
+            row["recouverte"].set(coche)
+            pane._on_recouverte_toggle(deg, row)
+            self.assertEqual(
+                (deg.recouverte, deg.comprend_ecorce, deg.profondeur_cm),
+                (coche, True, 7.0))
+
+    def test_dialogue_d_appariement(self) -> None:
+        from dialogs_campagne import ask_appariement
+
+        def valider() -> None:
+            dlg = [w for w in self.app.winfo_children()
+                   if isinstance(w, tk.Toplevel)][-1]
+            dlg.focus_force()
+            dlg.event_generate("<Return>")
+
+        self.app.after(300, valider)
+        arbres = [Arbre(numero_arbre="1"), Arbre(numero_arbre="2")]
+        self.assertEqual(
+            ask_appariement(self.app, arbres, arbres, [1, None]), [1, None])
 
 
 if __name__ == "__main__":

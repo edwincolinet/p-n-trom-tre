@@ -1,7 +1,7 @@
 # Refonte des comparaisons (ré-inspection) — plan
 
-> **Statut** (26/11/2026) : **lots 0 à 2 implémentés** (non publiés) ; lots 3
-> à 5 à faire. Le constat du §1 décrit la v3.8.0.
+> **Statut** (26/11/2026) : **lots 0 à 4 implémentés** (non publiés) ; lot 5 à
+> faire. Le constat du §1 décrit la v3.8.0.
 
 ## 1. Constat
 
@@ -151,3 +151,41 @@ Reporté :
 - Dessin proposé (à valider) : avec un relevé antérieur, placer la couche à sa
   position d'alors (repère fixe) ; sinon la dessiner à la surface avec un trait
   « recouverte », sans inventer d'épaisseur de cal.
+
+## 9. Lot 3 (fait) et reports
+
+Fait : nouvelle campagne, import d'un relevé antérieur, colonne « Préc. /
+écart », zone « Recouverte (cal) » et son dessin (section, PNG, PDF,
+évolution), diagnostic de comparaison alimenté par l'historique (pont jusqu'au
+lot 4).
+
+Reporté :
+
+- Largeur de la grille Sondages : déjà trop large avant (709 px requis pour
+  659 disponibles, fenêtre de 1700 px), 795 px avec la nouvelle colonne.
+- Appariement des **brins** à l'import : automatique, les brins sans
+  correspondance sont seulement signalés.
+- Photos des relevés importés : chemins relatifs à l'ancienne mission, à
+  traiter avant de les afficher (lot 4).
+- « Faire une comparaison (ré-inspection) » subsiste ; à retirer au lot 4.
+
+## 10. Lot 4 (fait) et reports
+
+Fait : onglet Évolution, modes du dessin, repère et filtre dans la liste,
+export depuis l'onglet, retrait de `comparaison.py`.
+
+Écarts avec le §4 : les écarts douteux sont en violet plein (pas hachurés) ;
+les photos de comparaison restent sur l'arbre courant (pas de migration) ; la
+courbe montre le t/R minimal, pas la progression cumulée.
+
+Lot 5 : PDF vectoriel dans le style de la fiche (aujourd'hui raster),
+mention des plaies recouvertes dans les exports, guide de démarrage.
+
+## 11. Retours d'usage (Edwin, 26/11/2026) — remplacent les §8 et §9
+
+- Une plaie recouverte ne perd rien : zone et profondeur inchangées, le cal
+  est posé par-dessus (bourrelet). « Recouverte » est une case à part.
+- Une nouvelle campagne ne supprime rien : « tout garder, à confirmer ».
+  Choix d'implémentation : les valeurs non confirmées restent dans le
+  diagnostic courant (avertissement avant export), pas dans la comparaison.
+

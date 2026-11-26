@@ -4,10 +4,19 @@ ancienne mission, persistance (format v4) et plaie recouverte."""
 import json
 import unittest
 
-from campagnes import archiver, importer, proposer_appariement, serie
-from diagnostic import prbs_par_grade
+from campagnes import (
+    archiver,
+    cals,
+    importer,
+    nouvelle_campagne,
+    precedent,
+    proposer_appariement,
+    serie,
+)
+from diagnostic import mission_completeness_warnings, prbs_par_grade
 from diagnostic_comparaison import comparaison_par_brin
 from evolution import Alerte, Campagne, Conclusion, comparer_campagnes, suivre
+from geometry import cal_outline, degradation_externe_outline
 from model import Arbre, Chantier, DegradationExterne, Sondage
 from persistence import chantier_from_dict, chantier_to_dict
 
@@ -184,17 +193,15 @@ class PlaieRecouverteTests(unittest.TestCase):
             prbs_par_grade(self._arbre_blesse(5, True).brins[0]),
             prbs_par_grade(self._arbre_blesse(5).brins[0]))
 
-    def test_l_ecorce_n_est_pas_retiree_d_une_couche_sous_cal(self):
-        deg = DegradationExterne(profondeur_cm=5.0, comprend_ecorce=True,
-                                 recouverte=True)
-        self.assertEqual(deg.profondeur_bois_cm(2.0), 5.0)
-
-    def test_plaie_avec_ecorce_puis_recouverte_meme_bois_perdu(self):
-        # Ouverte : 7 cm dont 2 d'écorce. Recouverte : 5 cm de bois dégradé.
-        ref, cur = self._arbre_blesse(7), self._arbre_blesse(5, True)
+    def test_recouvrir_ne_change_ni_la_zone_ni_le_bois_perdu(self):
+        ref, cur = self._arbre_blesse(7), self._arbre_blesse(7, True)
         for a in (ref, cur):
             a.brins[0].epaisseur_ecorce_cm = 2.0
-        ref.brins[0].degradations_externes[0].comprend_ecorce = True
+            a.brins[0].degradations_externes[0].comprend_ecorce = True
+        deg = cur.brins[0].degradations_externes[0]
+        self.assertEqual(deg.profondeur_bois_cm(2.0), 5.0)
+        self.assertEqual(prbs_par_grade(cur.brins[0]),
+                         prbs_par_grade(ref.brins[0]))
         i = self._comparer(ref, cur)
         self.assertEqual(i.conclusion, Conclusion.RECOUVREMENT)
         self.assertEqual(i.brins[0].alertes, ())
@@ -229,6 +236,115 @@ class PlaieRecouverteTests(unittest.TestCase):
         deg = _aller_retour(c).arbres[0].brins[0].degradations_externes[0]
         self.assertTrue(deg.recouverte)
         self.assertFalse(DegradationExterne().recouverte)
+
+
+class NouvelleCampagneTests(unittest.TestCase):
+    def _mission(self):
+        a = _arbre()
+        a.preconisation, a.photos = "abattre", ["x.jpg"]
+        a.brins[0].diametres_locaux = {0: 82.0}
+        a.brins[0].degradations_externes = [DegradationExterne()]
+        c = Chantier(arbres=[a, Arbre(numero_arbre="2")])
+        c.date_releve, c.operateur = "01/06/2023", "EC"
+        return c
+
+    def test_archive_et_reprend_tout_a_confirmer(self):
+        c = self._mission()
+        self.assertEqual(nouvelle_campagne(c, "01/06/2025"), 1)
+        a, vide = c.arbres
+        self.assertEqual(c.date_releve, "01/06/2025")
+        self.assertEqual(len(a.brins[0].sondages), 4)
+        self.assertTrue(all(s.a_confirmer for s in a.brins[0].sondages))
+        self.assertEqual((a.brins[0].diametres_locaux, a.preconisation,
+                          a.photos), ({0: 82.0}, "abattre", ["x.jpg"]))
+        archive = a.campagnes[0].arbre
+        self.assertFalse(any(s.a_confirmer for s in archive.brins[0].sondages))
+        self.assertEqual(vide.campagnes, [])
+        self.assertEqual(len(precedent(a, a.brins[0]).brin.sondages), 4)
+
+    def test_non_confirme_ne_compte_pas_et_n_est_pas_archive(self):
+        c = self._mission()
+        nouvelle_campagne(c, "01/06/2025")
+        a = c.arbres[0]
+        passe = a.campagnes[0]
+        i = comparer_campagnes(Campagne(passe.date, passe.arbre),
+                               Campagne(c.date_releve, a))
+        self.assertEqual(i.conclusion, Conclusion.NON_EVALUABLE)
+        self.assertIn(Alerte.DIRECTION_NON_RESONDEE, i.brins[0].alertes)
+        self.assertTrue(any("non confirmés" in m
+                            for m in mission_completeness_warnings(c)))
+        a.brins[0].sondages[0].a_confirmer = False
+        nouvelle_campagne(c, "01/06/2027")
+        self.assertEqual(
+            [len(r.arbre.brins[0].sondages) for r in a.campagnes], [4, 1])
+        self.assertEqual(len(a.brins[0].sondages), 4)
+
+    def test_a_confirmer_survit_a_l_enregistrement(self):
+        c = self._mission()
+        nouvelle_campagne(c, "01/06/2025")
+        relu = _aller_retour(c).arbres[0]
+        self.assertTrue(all(s.a_confirmer for s in relu.brins[0].sondages))
+
+    def test_refus_sans_rien_modifier(self):
+        for date, preparer in (
+                ("01/06/2020", lambda c: None),
+                ("", lambda c: None),
+                ("01/06/2025", lambda c: setattr(c, "date_releve", "")),
+                ("01/06/2025", lambda c: archiver(c.arbres[0], "01/06/2023"))):
+            c = self._mission()
+            preparer(c)
+            avant = chantier_to_dict(c)
+            with self.subTest(date=date), self.assertRaises(ValueError):
+                nouvelle_campagne(c, date)
+            self.assertEqual(chantier_to_dict(c), avant)
+
+
+class CalTests(unittest.TestCase):
+    def _suivi(self):
+        a = _arbre()
+        a.brins[0].degradations_externes = [DegradationExterne(
+            grade_debut=0, grade_fin=50, profondeur_cm=5,
+            comprend_ecorce=False)]
+        archiver(a, "01/06/2023")
+        a.brins[0].rayon_tronc_cm = 43.0
+        a.brins[0].degradations_externes[0].recouverte = True
+        return a
+
+    def test_cal_deduit_de_la_croissance(self):
+        a = self._suivi()
+        self.assertEqual(cals(a, a.brins[0]), {0: 3.0})
+        # Une seconde visite recouverte ne change pas l'origine du cal.
+        archiver(a, "01/06/2025")
+        a.brins[0].rayon_tronc_cm = 45.0
+        self.assertEqual(cals(a, a.brins[0]), {0: 5.0})
+
+    def test_sans_releve_ouvert_aucune_epaisseur_inventee(self):
+        a = self._suivi()
+        a.campagnes = []
+        self.assertEqual(cals(a, a.brins[0]), {})
+
+    def test_plaie_inchangee_et_cal_par_dessus(self):
+        a = self._suivi()
+        deg = a.brins[0].degradations_externes[0]
+
+        def rayons(forme, **kw):
+            pts = forme(deg, [], 43.0, 2.0, 0.0, 0.0, 1.0, **kw)
+            moitie = len(pts) // 2
+            return [(x * x + y * y) ** 0.5 for x, y in
+                    (pts[moitie // 2], pts[-moitie // 2])]
+
+        # Plaie « bois seul » replacée sous les 3 cm de bois formé.
+        haut, bas = rayons(degradation_externe_outline, cal_cm=3.0)
+        self.assertAlmostEqual(haut, 40.0)
+        self.assertAlmostEqual(bas, 35.0)
+        # Le cal part du sommet de la plaie et bombe au-delà de l'écorce.
+        dessus, dessous = rayons(cal_outline, cal_cm=3.0)
+        self.assertAlmostEqual(dessous, 40.0)
+        self.assertGreater(dessus, 45.0)
+        # Avec l'écorce comprise, la plaie garde son départ en surface.
+        deg.comprend_ecorce = True
+        self.assertAlmostEqual(
+            rayons(degradation_externe_outline, cal_cm=3.0)[0], 42.0)
 
 
 if __name__ == "__main__":

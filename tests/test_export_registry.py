@@ -57,10 +57,10 @@ class ExportRegistryTests(unittest.TestCase):
         for t in export_types():
             self.assertIsNotNone(t.format(*t.default_choice()), t.key)
 
-    def test_comparaison_dependante_d_une_comparaison_ouverte(self) -> None:
+    def test_evolution_dependante_d_un_historique(self) -> None:
         t = get_export_type("comparaison")
         assert t is not None
-        self.assertTrue(t.needs_comparison)
+        self.assertTrue(t.needs_history)
 
 
 if __name__ == "__main__":

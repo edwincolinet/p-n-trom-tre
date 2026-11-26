@@ -47,19 +47,20 @@ pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
 pane_diagnostic.py     ← onglet Diagnostic (résumé + tableau PRBS + préconisation)
-comparaison.py         ← fenêtre de comparaison inter-missions (ré-inspection)
+pane_evolution.py      ← onglet Évolution (dates comparées, verdict, chronologie, exports) + sélecteur Actuel/Précédent/Évolution du dessin
 comparaison_render.py  ← rendu PIL de la comparaison (section d'évolution + page export PNG/PDF)
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
 app_menu.py            ← barre de menu Tk
 app_style.py           ← thème ttk
 dialogs.py             ← primitives Tk génériques (ask_string/choice/date, ProgressDialog) + _make_modal
 dialogs_saisie.py      ← dialogues d'édition détaillée (Sondage, Dégradation, Contrefort)
+dialogs_campagne.py    ← appariement des arbres à l'import d'un relevé antérieur
 dialogs_cepee.py       ← éditeur de disposition d'une cépée (ask_cepee_layout, souris)
 model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
 evolution.py           ← évolution entre campagnes (repère fixe, alertes, conclusion, N dates ; pur, sans texte UI)
 campagnes.py           ← historique des relevés : archiver, importer une ancienne mission, série (pur)
-diagnostic_comparaison.py ← adaptateur de evolution pour la fenêtre actuelle + verdict en mots (pur)
+diagnostic_comparaison.py ← adaptateur de evolution pour l'onglet et l'export + verdict en mots (pur)
 persistence.py         ← I/O JSON (save/load + migration ; v3 = brins, v4 = historique ; `file_stamp` = garde-fou multi-poste)
 profil_cabinet.py      ← profil cabinet appliqué au 1er lancement (nom, logo, barème, dossier MàJ ; pur)
 geometry.py            ← briques géométriques pures (spline, polaire, cernes, ellipse)
@@ -92,9 +93,9 @@ callbacks, pour un gain net faible). Découpage :
   `app_menu` → doivent rester des méthodes de `App`) : pur dispatcher
   en lecture seule, le seul mixin réellement découplé.
 - `FichierMixin` (cycle de vie du fichier mission : `action_new`/`_open`/
-  `_save`/`_save_as`, `_open_path`, récents, + ré-inspection
-  `action_load_reference`/`_compare_arbre`/`_export_comparison`) — mute
-  `chantier`, `current_file`, `_dirty`, `_reference_chantier` ; porte la
+  `_save`/`_save_as`, `_open_path`, récents, + historique
+  `action_nouvelle_campagne`/`_importer_releve`/`_export_comparison`) — mute
+  `chantier`, `current_file`, `_dirty` ; porte la
   constante `_BACKUP_PATH` (réimportée par `penetrometre` pour le menu).
 - `LayoutMixin` (fabrique de widgets : `_build_layout`/`_build_left`/
   `_build_center`/`_build_right`/`_build_statusbar` + sash). Quasi-pur
@@ -147,7 +148,7 @@ export_mission.py (dépend de export.py + export_synthesis.py)
    ↑
 fiche_pdf.py + comparaison_render.py
    ↑
-section_canvas.py + pane_*.py + comparaison.py + app_exports.py + app_menu.py + app_style.py
+section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
 app_arbres.py + app_recovery.py + app_export_actions.py + app_fichier.py + app_layout.py + app_reglages.py  (mixins de App)
    ↑
@@ -260,8 +261,14 @@ penetrometre.py  (Tk + main) ← undo.py
   (`compare=False`) — dupliquer un arbre passe par `Arbre.dupliquer()` (nouveaux
   id, pas d'historique), jamais `deepcopy`. `Arbre.campagnes` = relevés figés
   (`model.Releve`), l'arbre lui-même est le relevé courant.
-  `DegradationExterne.recouverte` : le bois reste perdu, `profondeur_cm` =
-  épaisseur dégradée sous le cal.
+  `DegradationExterne.recouverte` (case à part) : un cal **par-dessus** ; la
+  plaie garde zone, profondeur et bois perdu. Cal **non saisi** : bourrelet
+  (`geometry.cal_outline`), plaie replacée sous le bois formé depuis qu'elle
+  était ouverte (`campagnes.cals`). Une nouvelle campagne
+  (`campagnes.nouvelle_campagne`) **ne vide rien** : les sondages sont marqués
+  `Sondage.a_confirmer` — comptés dans le diagnostic courant (avertissement
+  avant export) mais pas comme mesures dans `evolution`, absents de l'archive
+  s'ils le sont encore à la campagne suivante.
 - **Compat fichier** : ajout de champ = OK (défaut) ; renommage/suppression =
   migration explicite dans `persistence.chantier_from_dict`. Format v3 = brins, v4 = suivi dans le temps.
   Écriture atomique (`.tmp` + `os.replace`).
@@ -311,7 +318,8 @@ penetrometre.py  (Tk + main) ← undo.py
   repère fixe (la croissance n'est pas une évolution), directions sondées aux
   deux dates, **aucune tolérance de mesure**, bois dégradé jamais « redevenu
   sain » (à vérifier), plaie recouverte = progrès, **hauteurs de sondage
-  différentes = refus de conclure** ; refonte prévue :
+  différentes = refus de conclure** ; UI = onglet Évolution (plus de fenêtre
+  séparée ni de référence en session) ; plan :
   `.claude/docs/comparaisons-plan.md`) ; case « Afficher sondages » (`var_show_sondages`) gouverne aussi les
   exports ; préconisation = champs genet, **valeur persistée toujours française**
   (`translate_values` / `untranslate_value`) ; synthèse mission =
@@ -326,12 +334,12 @@ venv/bin/python -m pytest tests --ignore=tests/test_app.py --ignore=tests/test_s
   --ignore=tests/test_export_async.py       # sans affichage (tests Tk exclus)
 venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
-  persistence.py export.py export_synthesis.py diagnostic_comparaison.py evolution.py campagnes.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  persistence.py export.py export_synthesis.py diagnostic_comparaison.py evolution.py campagnes.py dialogs_campagne.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
-  comparaison.py comparaison_render.py undo.py tooltip.py aide_repliable.py \
+  comparaison_render.py pane_evolution.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
   template_store.py update_checker.py profil_cabinet.py photo_paths.py icons.py chrome_icons.py

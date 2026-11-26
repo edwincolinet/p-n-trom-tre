@@ -75,6 +75,7 @@ from palette import (
 from pane_contreforts import ContrefortsPane
 from pane_degradations import DegradationsPane
 from pane_diagnostic import DiagnosticPane
+from pane_evolution import EvolutionPane
 from pane_sondages import SondagesPane
 from persistence import (
     chantier_from_dict,
@@ -182,14 +183,11 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         # Dernier fichier exporté — cible des boutons « Ouvrir le
         # fichier / le dossier » de la barre d'état (cf. notify_export).
         self._last_export_path: Optional[Path] = None
-        # Mission de référence pour la comparaison inter-missions
-        # (ré-inspection) : chargée en mémoire, PAR SESSION (rien de
-        # persisté dans le fichier courant).
-        self._reference_chantier: Optional[Chantier] = None
         self.pane_s: Optional[SondagesPane] = None
         self.pane_de: Optional[DegradationsPane] = None
         self.pane_cf: Optional[ContrefortsPane] = None
         self.pane_diag: Optional[DiagnosticPane] = None
+        self.pane_evo: Optional[EvolutionPane] = None
         # Déclarés ici pour que mypy connaisse les types avant _build_layout.
         self._logo_image: Optional[Any] = None
         self._logo_frame: tk.Frame = tk.Frame(self)  # réassigné dans _build_layout
@@ -285,12 +283,20 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         self.title(f"Pénétromètre Silvavenir — {name}{dirty}")
         self._update_save_indicator()
 
-    def _update_compare_state(self) -> None:
-        """Active ou désactive l'entrée menu « Diagnostic de la comparaison »
-        selon qu'une mission de référence est chargée ou non."""
-        state = "normal" if self._reference_chantier is not None else "disabled"
-        if hasattr(self, "_menu_comparaison"):
-            self._menu_comparaison.entryconfigure(1, state=state)
+    # --- Évolution --------------------------------------------------
+
+    def _rafraichir_evolution(self) -> None:
+        """Reconstruit l'onglet Évolution, seulement s'il est visible."""
+        if (self.pane_evo is not None
+                and self.nb.select() == str(self.pane_evo)):
+            self.pane_evo.rafraichir()
+
+    def on_evolution_dates_changed(self) -> None:
+        self._debounced_redraw()
+
+    def action_voir_evolution(self) -> None:
+        if self.pane_evo is not None:
+            self.nb.select(self.pane_evo)
 
     def _update_save_indicator(self) -> None:
         """Reflète l'état d'enregistrement dans la barre d'état (texte +
@@ -298,7 +304,7 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
         `_update_title`, donc à jour à chaque changement du dirty flag.
         No-op tant que la barre n'est pas construite (ordre d'`__init__`).
         Texte/couleur/activation viennent de `dialogs_shared.save_state_label`
-        (source unique, partagée avec le pied de la fenêtre de comparaison)."""
+        (source unique)."""
         if not hasattr(self, "lbl_save_state"):
             return
         text, color, enabled = save_state_label(
@@ -699,6 +705,9 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.pane_s.refresh_fusion_warnings()
         if self.pane_de is not None:
             self.pane_de.refresh_fusion_warnings()
+        self._rafraichir_evolution()
+        if self.pane_evo is not None:
+            self.vue.actualiser(self.pane_evo, self.var_show_sondages.get())
 
     def _update_canvas_hint(self) -> None:
         """Affiche/masque l'indice « → Cliquer pour ajouter un sondage »
@@ -721,6 +730,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.var_echeance_filter.set(_(_ECHEANCE_FILTER_ALL))
         if hasattr(self, "var_complet_filter"):
             self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
+        if hasattr(self, "var_progression_filter"):
+            self.var_progression_filter.set(False)
         self.var_filter.set("")  # la trace sur var_filter déclenche le refresh
 
     def essences_utilisees(self) -> list[str]:
