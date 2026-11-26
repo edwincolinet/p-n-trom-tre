@@ -625,6 +625,9 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "no reference stem — current state only",
     "pas de brin de référence":          "no reference stem",
+    "hauteurs de sondage différentes — état courant seul":
+        "different sounding heights — current state only",
+    "hauteurs différentes":              "different heights",
     "— état courant seul":               "— current state only",
     "Photos de la comparaison":          "Comparison photos",
     "Photos de la référence — {r}":      "Reference photos — {r}",

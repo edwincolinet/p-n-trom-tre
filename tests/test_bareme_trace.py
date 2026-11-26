@@ -290,38 +290,29 @@ class SeuilsArbreEtVerdictTests(unittest.TestCase):
     def _detail(self, ref, cur):
         from diagnostic_comparaison import ComparaisonDetail
         return ComparaisonDetail(
-            annees=None, directions=[], perte_moy_par_dir=None,
+            annees=None, directions=[], progression_moy=None,
             taux_cm_an=None, pire=None, compart_aggravees=0,
             compart_changees=0, classe_ref="Vert", classe_cur="Vert",
             tR_min_ref=ref, tR_min_cur=cur)
 
-    def test_verdict_perte_gain_stable_sur_tr_meme_classe(self):
-        from diagnostic_comparaison import verdict_evolution
-        self.assertIn("AGGRAVATION", verdict_evolution(self._detail(60.0, 52.0)))
-        self.assertIn("AMÉLIORATION",
-                      verdict_evolution(self._detail(52.0, 60.0)))
-        self.assertIn("STABLE", verdict_evolution(self._detail(52.0, 52.04)))
+    def test_verdict_cite_l_evolution_du_tr_min(self):
+        from diagnostic_comparaison import DirectionDelta, verdict_evolution
+        d = self._detail(60.0, 52.0)._replace(directions=[
+            DirectionDelta(0, "N", 12.0, 12.0, 0.0, "", "",
+                           mesuree_2_dates=True)])
+        self.assertIn("60.0 % → 52.0 % (-8.0 pts)", verdict_evolution(d))
 
-    def test_tr_min_stable_mais_perte_ailleurs_n_est_pas_stable(self):
-        from diagnostic_comparaison import DirectionDelta, evolution_globale, verdict_evolution
-        d = self._detail(5.0, 5.0)
-        perdues = [DirectionDelta(0, "N", 10.0, 10.0, 0.0, "", ""),
-                   DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "")]
-        d = d._replace(directions=perdues)
+    def test_tr_min_stable_mais_progression_ailleurs(self):
+        from diagnostic_comparaison import DirectionDelta, evolution_degradation, verdict_evolution
+        d = self._detail(5.0, 5.0)._replace(directions=[
+            DirectionDelta(0, "N", 10.0, 10.0, 0.0, "", "",
+                           mesuree_2_dates=True),
+            DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "",
+                           mesuree_2_dates=True, prog_interne=1.5)])
         v = verdict_evolution(d)
-        self.assertNotIn("STABLE", v)
-        self.assertIn("AGGRAVATION LOCALISÉE", v)
+        self.assertIn("EN PROGRESSION", v)
         self.assertIn("NE", v)
-        self.assertEqual(evolution_globale(d), 1)
-
-    def test_gain_tr_avec_perte_ailleurs_est_contraste_pas_ameliore(self):
-        from diagnostic_comparaison import DirectionDelta, verdict_contraste, verdict_evolution
-        d = self._detail(5.0, 8.0)._replace(directions=[
-            DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "")])
-        v = verdict_evolution(d)
-        self.assertIn("CONTRASTÉE", v)
-        self.assertNotIn("AMÉLIORATION", v)
-        self.assertTrue(verdict_contraste(d))
+        self.assertEqual(evolution_degradation(d), 1)
 
     def test_comparaison_signale_les_directions_mesurees_aux_deux_dates(self):
         from comparaison_render import metric_rows
@@ -345,15 +336,8 @@ class SeuilsArbreEtVerdictTests(unittest.TestCase):
         self.assertEqual(d.n_mesurees_2_dates, 3)
         from diagnostic_comparaison import verdict_evolution
         self.assertIn("3/16", verdict_evolution(d))
-        self.assertTrue(any(r[0].startswith("Directions mesurées")
+        self.assertTrue(any(r[0].startswith("Directions sondées")
                             for r in metric_rows(d)))
-
-    def test_pire_direction_extrapolee_est_signalee(self):
-        from diagnostic_comparaison import DirectionDelta, verdict_evolution
-        d = self._detail(5.0, 5.0)._replace(directions=[
-            DirectionDelta(50, "NE", 12.0, 10.5, -1.5, "", "",
-                           mesuree_2_dates=False)])
-        self.assertIn("extrapolée", verdict_evolution(d))
 
     def test_pas_de_ligne_prbs_moyenne(self):
         from comparaison_render import metric_rows

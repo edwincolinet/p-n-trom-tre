@@ -297,8 +297,12 @@ penetrometre.py  (Tk + main) ← undo.py
   **t/R = ajusté** de la dégradation externe. Parité testée dans
   `tests/test_export.py` (XLSX↔HTML) et `tests/test_export_ods.py` (XLSX↔ODS).
 - **Autres** : comparaison inter-missions (calcul `diagnostic_comparaison`, rendu
-  `comparaison_render`, 16 directions sur la PRBS extrapolée, verdict sur le t/R
-  minimal) ; case « Afficher sondages » (`var_show_sondages`) gouverne aussi les
+  `comparaison_render` ; verdict sur la **progression de la dégradation** en
+  repère fixe (la croissance n'est pas une évolution), directions sondées aux
+  deux dates, **aucune tolérance de mesure**, bois dégradé jamais « redevenu
+  sain » (à vérifier), plaie recouverte = progrès, **hauteurs de sondage
+  différentes = refus de conclure** ; refonte prévue :
+  `.claude/docs/comparaisons-plan.md`) ; case « Afficher sondages » (`var_show_sondages`) gouverne aussi les
   exports ; préconisation = champs genet, **valeur persistée toujours française**
   (`translate_values` / `untranslate_value`) ; synthèse mission =
   `diagnostic.mission_synthesis_rows`. Détail : `ui-reference.md`.

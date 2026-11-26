@@ -71,7 +71,7 @@ from comparaison_render import (
 )
 from diagnostic_comparaison import (
     comparaison_par_brin,
-    evolution_globale,
+    evolution_degradation,
     verdict_lignes,
 )
 from dialogs_shared import annees_entre, save_state_label
@@ -524,7 +524,9 @@ def _build_brin_block(parent: tk.Misc, label: Optional[str], ref_arbre: Arbre,
                                     show_sondages=show_sondages))
     photos.append(pc)
     img_cur.configure(image=pc)
-    pe = _photo(render_evolution_section_brin(ref_b, cur_b, _SEC))
+    pe = _photo(render_evolution_section_brin(
+        ref_b, cur_b, _SEC,
+        non_comparable=detail.hauteurs_incompatibles is not None))
     photos.append(pe)
     img_evo.configure(image=pe)
 
@@ -609,6 +611,7 @@ def _page_builder(state: dict, fmt: str) -> Callable[[], Any]:
 
 
 def _verdict_color(detail: Any) -> str:
-    if evolution_globale(detail) is None:
-        return COLOR_MUTED
-    return verdict_couleur(detail) or COLOR_INK
+    couleur = verdict_couleur(detail)
+    if couleur is not None:
+        return couleur
+    return COLOR_MUTED if evolution_degradation(detail) is None else COLOR_INK

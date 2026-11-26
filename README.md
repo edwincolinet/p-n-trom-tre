@@ -288,21 +288,18 @@ purement descriptif : n'impacte pas le diagnostic.
   Sans objet), une **échéance** d'intervention facultative et une
   **action recommandée** en texte libre. Reprise dans la synthèse de
   mission (colonnes triables, urgence colorée) et sur la fiche PDF.
-- **Comparaison inter-missions (ré-inspection)** : *Fichier → Comparer
-  l'arbre courant à une mission…* charge une campagne antérieure et ouvre
-  une vue **côte à côte** — section de référence, section courante et une
-  **section d'évolution** où la couronne de bois sain **perdu depuis la
-  référence** est surlignée en orange (sur la géométrie réelle, 16
-  directions extrapolées). Un **tableau chiffré** quantifie l'aggravation :
-    **perte moyenne de bois sain par direction (cm)**, taux annualisé (cm/an,
-  seulement si l'intervalle est suffisant), compartimentation perdue, t/R
-  minimal, classe, direction la plus aggravée ;
-  avec un **verdict perte / gain / stable** fondé sur le **t/R minimal**
-  (stable = même t/R au dixième de pour cent ; la classe n'est qu'un
-  complément, deux arbres d'une même classe n'ayant pas le même t/R). La
-  comparaison est **exportable en PNG et en PDF** (A4 livrable au client :
-  même en-tête et même pied de page que la fiche d'examen — logo et nom du
-  cabinet, seuils vert/orange/rouge de l'arbre). **Photos de comparaison** :
+- **Comparaison inter-missions (ré-inspection)** : *Comparaison → Faire une
+  comparaison* repart d'une campagne antérieure, puis une vue **côte à côte**
+  montre la section de référence, la section courante et une **section
+  d'évolution** (progression en orange, recouvrement en vert, écarts à vérifier
+  en violet). Le **verdict porte sur la progression de la dégradation**,
+  mesurée depuis le centre du tronc : la croissance de l'arbre ne la masque
+  pas. Seules les directions sondées aux deux dates concluent ; des hauteurs de
+  sondage différentes interdisent toute conclusion. Le t/R minimal et la classe
+  sont donnés à part. La comparaison est **exportable en PNG et en PDF** (A4
+  livrable au client : même en-tête et même pied de page que la fiche d'examen —
+  logo et nom du cabinet, seuils vert/orange/rouge de l'arbre).
+  **Photos de comparaison** :
   la fenêtre permet d'ajouter des photos de la référence et du diagnostic
   actuel ; elles forment une page « Photos » du PDF (4 par colonne au plus,
   trait de séparation entre les deux états). Elles sont stockées sur l'arbre

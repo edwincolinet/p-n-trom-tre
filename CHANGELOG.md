@@ -3,6 +3,22 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## Non publié — comparaison (ré-inspection)
+
+- **La croissance ne masque plus la progression** : le verdict porte sur
+  l'avancée de la dégradation, mesurée par rapport au centre du tronc
+  (altération interne et fond des dégradations externes). Le t/R minimal reste
+  indiqué à part. Auparavant, une cavité qui grandissait moins vite que le
+  tronc pouvait être annoncée « amélioration ».
+- Seules les directions **sondées aux deux dates** concluent sur l'altération
+  interne. Aucune tolérance de mesure n'est appliquée.
+- Un bois dégradé qui redevient sain est signalé **« à vérifier »** ; une
+  dégradation externe **recouverte** par du bois neuf est un progrès.
+- **Hauteurs de sondage différentes : aucune conclusion.**
+- PRBS identique malgré un diamètre différent : signalée (valeur re-mesurée ?).
+- Dessin d'évolution : une plaie externe inchangée sur un tronc qui a grossi
+  n'apparaît plus comme aggravée.
+
 ## 3.8.0 — 2026-11-23 (saisie terrain et exports)
 
 ### Saisie « terrain » : diamètre sur écorce, écorce locale

@@ -14,14 +14,16 @@ Module sans Tk (PIL pur). Les calculs viennent de `diagnostic_comparaison`
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import angle_units
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
-    evolution_globale,
-    verdict_contraste,
+    directions_a_verifier,
+    evolution_degradation,
+    hauteurs_incompatibles,
     verdict_lignes,
 )
 from geometry import (
@@ -69,16 +71,19 @@ if TYPE_CHECKING:
 _GR_TO_DEG = 0.9
 _ORANGE = (232, 128, 26)   # bois sain perdu depuis la référence
 _ORANGE_HEX = "#{:02X}{:02X}{:02X}".format(*_ORANGE)
-_VERT = (45, 122, 62)      # bois sain regagné (zone dégradée à la réf., plus maintenant)
+_VERT = (45, 122, 62)      # dégradation externe recouverte par du bois neuf
 _VERT_HEX = "#{:02X}{:02X}{:02X}".format(*_VERT)
+_VIOLET = (110, 90, 170)   # cavité en recul : impossible en principe, à vérifier
+_VIOLET_HEX = "#{:02X}{:02X}{:02X}".format(*_VIOLET)
 
 
 def _peindre_evolution(img: "PILImage", ref_polys: List[Any],
-                       cur_polys: List[Any]) -> None:
+                       cur_polys: List[Any],
+                       couleur_recul: Tuple[int, int, int]) -> None:
     """Peint sur `img` la différence entre deux ensembles de zones
     dégradées (polygones écran) : **orange** = dégradé maintenant mais pas à
-    la référence (aggravation), **vert** = dégradé à la référence mais plus
-    maintenant (amélioration), `COLOR_ROT` = dégradé aux deux campagnes.
+    la référence (progression), `couleur_recul` = dégradé à la référence mais
+    plus maintenant, `COLOR_ROT` = dégradé aux deux campagnes.
     Par masques (et non par simple superposition) : seule façon de montrer
     à la fois ce qui s'ajoute et ce qui disparaît."""
     from PIL import Image as _Image
@@ -89,7 +94,7 @@ def _peindre_evolution(img: "PILImage", ref_polys: List[Any],
         dm = ImageDraw.Draw(mask)
         for pts in polys:
             dm.polygon(pts, fill=255)
-    img.paste(_VERT, mask=ImageChops.subtract(m_ref, m_cur))
+    img.paste(couleur_recul, mask=ImageChops.subtract(m_ref, m_cur))
     img.paste(_ORANGE, mask=ImageChops.subtract(m_cur, m_ref))
     img.paste(COLOR_ROT, mask=ImageChops.multiply(m_ref, m_cur))
 
@@ -100,7 +105,8 @@ def render_evolution_section(ref_arbre: "Arbre", cur_arbre: "Arbre",
     à `render_evolution_section_brin`. Conservé pour le rendu mono-caule et
     l'export genet."""
     return render_evolution_section_brin(
-        ref_arbre.brin_courant, cur_arbre.brin_courant, size)
+        ref_arbre.brin_courant, cur_arbre.brin_courant, size,
+        non_comparable=hauteurs_incompatibles(ref_arbre, cur_arbre) is not None)
 
 
 def render_brin_section(src: "Arbre", brin: "Brin", size: int = 460,
@@ -123,7 +129,9 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
                                   size: int = 460, *,
                                   show_title: bool = False, titre: str = "",
                                   port: str = "", meche: float = 0.0,
-                                  show_sondages: bool = False) -> "PILImage":
+                                  show_sondages: bool = False,
+                                  non_comparable: bool = False
+                                  ) -> "PILImage":
     """« Section d'évolution » d'**un brin** : sur la géométrie du brin
     COURANT, le bois sain **perdu depuis la référence** est surligné en
     orange. Contrairement à une lecture « tout depuis le centre », la perte
@@ -152,6 +160,9 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     est obtenue par superposition : on peint l'état COURANT en orange (bois
     perdu), puis l'état de RÉFÉRENCE en `COLOR_ROT` par-dessus → l'orange ne
     subsiste que dans la zone creusée entre les deux campagnes.
+
+    `non_comparable=True` (hauteurs de sondage différentes) : aucune zone
+    d'évolution n'est peinte, seul l'état courant est montré.
 
     `show_title=True` ajoute un titre en tête et une **légende complète**
     en bas (même format que l'export PNG classique d'un arbre,
@@ -186,7 +197,10 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
         return f_base(max(1, int(sz * ds)), variant)
 
     cx, cy, scale, caption_h = _evo_cadrage(
-        cur_b, size, ds, show_title=show_title, sans_ref=ref_b is None)
+        cur_b, size, ds, show_title=show_title,
+        sans_ref=ref_b is None or non_comparable)
+    if non_comparable:
+        ref_b = None
 
     if show_title:
         d.text((size / 2, _titre_y(size)), titre,
@@ -199,9 +213,11 @@ def render_evolution_section_brin(ref_b: Optional["Brin"], cur_b: "Brin",
     if show_title:
         _evo_legende_complete(d, f_base, cur_b, size, caption_h,
                               avec_ref=ref_b is not None,
-                              show_sondages=show_sondages)
+                              show_sondages=show_sondages,
+                              non_comparable=non_comparable)
     else:
-        _evo_legende_compacte(d, f_base, size, avec_ref=ref_b is not None)
+        _evo_legende_compacte(d, f_base, size, avec_ref=ref_b is not None,
+                              non_comparable=non_comparable)
     return img
 
 
@@ -238,6 +254,24 @@ def _evo_cadrage(cur_b: "Brin", size: int, ds: float, *, show_title: bool,
     return cx, cy, scale, caption_h
 
 
+def _degs_reference_recales(ref_b: "Brin", cur_b: "Brin") -> List[Any]:
+    """Dégradations externes de référence replacées dans un repère fixe.
+
+    Leur profondeur est mesurée depuis la surface de l'époque : tracée telle
+    quelle sur le tronc courant (plus gros), la zone glisserait vers
+    l'extérieur et une plaie inchangée paraîtrait aggravée. On ajoute la
+    croissance à la profondeur pour que le fond reste à la même distance du
+    centre. Une dégradation limitée à l'écorce est laissée telle quelle."""
+    croissance = cur_b.rayon_tronc_cm - ref_b.rayon_tronc_cm
+    out: List[Any] = []
+    for deg in ref_b.degradations_externes:
+        if deg.profondeur_bois_cm(ref_b.ep_a_grade(deg.grade_debut)) > 0:
+            deg = replace(deg, profondeur_cm=max(
+                0.0, deg.profondeur_cm + croissance))
+        out.append(deg)
+    return out
+
+
 def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
                  cur_b: "Brin", cx: float, cy: float, scale: float,
                  ds: float, *, port: str, meche: float,
@@ -254,8 +288,14 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
     R_of = cur_b.rayon_a_grade               # callable grade→rayon (cm)
     cur_alt = compute_alteration_par_grade(cur_b)
     if ref_b is not None:
-        ref_alt = compute_alteration_par_grade(ref_b)
-        ref_degs = ref_b.degradations_externes
+        # Une direction non sondée aux deux dates ne constate rien : on y
+        # reprend la valeur courante pour ne rien colorer.
+        communs = ({s.grade for s in ref_b.sondages}
+                   & {s.grade for s in cur_b.sondages})
+        alt = compute_alteration_par_grade(ref_b)
+        ref_alt = [alt[i] if g in communs else cur_alt[i]
+                   for i, g in enumerate(GRADES)]
+        ref_degs = _degs_reference_recales(ref_b, cur_b)
     else:
         # Pas d'homologue : réf = courant → l'état courant repeint en ROT
         # par-dessus l'orange ⟹ aucune bande orange (état courant seul).
@@ -299,7 +339,7 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         return polys
 
     _peindre_evolution(img, _ext_polys(ref_degs),
-                       _ext_polys(cur_b.degradations_externes))
+                       _ext_polys(cur_b.degradations_externes), _VERT)
 
     # Cavité interne (`cavity_polygon` = primitive du rendu réel, Catmull-Rom
     # centrée) : orange = anneau creusé depuis la réf., vert = cavité
@@ -309,7 +349,7 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         [cavity_polygon(ref_alt, cx, cy, scale, rotation_grades=rot)]
         if any(a > 0 for a in ref_alt) else [],
         [cavity_polygon(cur_alt, cx, cy, scale, rotation_grades=rot)]
-        if any(a > 0 for a in cur_alt) else [])
+        if any(a > 0 for a in cur_alt) else [], _VIOLET)
 
     d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(230, 230, 226))
 
@@ -330,13 +370,16 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
 
 def _evo_legende_complete(d: Any, f_base: Any, cur_b: "Brin", size: int,
                           caption_h: int, *, avec_ref: bool,
-                          show_sondages: bool) -> None:
+                          show_sondages: bool,
+                          non_comparable: bool) -> None:
     """Légende complète de l'export PNG « rapport » (`show_title=True`) :
-    Bois sain / dégradé / écorce / sondage + « Aggravation » (orange) et
-    « Amélioration » (vert) ; note si pas de brin de référence."""
+    Bois sain / dégradé / écorce / sondage + « Progression » (orange),
+    « Recouvrement » (vert) et « À vérifier » (violet) ; note si pas de
+    référence exploitable."""
     legend_y = size - caption_h + int(size * 0.012)
-    extra_items = ((("Aggravation", _ORANGE_HEX),
-                    ("Amélioration", _VERT_HEX))
+    extra_items = ((("Progression", _ORANGE_HEX),
+                    ("Recouvrement", _VERT_HEX),
+                    ("À vérifier", _VIOLET_HEX))
                    if avec_ref else ())
     # `height` pilote la taille de police/pastille de la légende, PAS le
     # cadrage (qui reste `width=size`, le vrai canevas) : à `size` réel
@@ -352,12 +395,14 @@ def _evo_legende_complete(d: Any, f_base: Any, cur_b: "Brin", size: int,
     if not avec_ref:
         note_font = f_base(int(size * 0.022), "sans")
         d.text((size * 0.5, legend_y + int(size * 0.06)),
-               _("pas de brin de référence — état courant seul"),
+               _("hauteurs de sondage différentes — état courant seul")
+               if non_comparable
+               else _("pas de brin de référence — état courant seul"),
                font=note_font, fill=COLOR_MUTED, anchor="mm")
 
 
 def _evo_legende_compacte(d: Any, f_base: Any, size: int, *,
-                          avec_ref: bool) -> None:
+                          avec_ref: bool, non_comparable: bool) -> None:
     """Légende d'origine, compacte, conservée pour les usages existants
     (fenêtre de comparaison, cartes 3-colonnes) : ces vues affichent déjà
     les dates en en-tête de colonne, pas besoin de la légende complète ici,
@@ -369,7 +414,11 @@ def _evo_legende_compacte(d: Any, f_base: Any, size: int, *,
     x0 = int(size * 0.02)
     if avec_ref:
         lines: List[str] = []
-        entries = [(_ORANGE, "aggravation"), (_VERT, "amélioration")]
+        entries = [(_ORANGE, "progression"), (_VERT, "recouvrement"),
+                   (_VIOLET, "à vérifier")]
+    elif non_comparable:
+        lines = [_("hauteurs différentes"), _("— état courant seul")]
+        entries = []
     else:
         lines = [_("pas de brin de référence"), _("— état courant seul")]
         entries = []
@@ -423,37 +472,42 @@ def metric_rows(detail: "ComparaisonDetail") -> List[Tuple[str, str, str, str]]:
         rows.append(("Diamètre du tronc", diam_ref, diam_cur, evo_diam))
     # t/R minimal (point le plus faible — seul indicateur biomécanique)
     evo_tr = ""
-    if detail.tR_min_ref is not None and detail.tR_min_cur is not None:
+    refus = detail.hauteurs_incompatibles
+    if (refus is None and detail.tR_min_ref is not None
+            and detail.tR_min_cur is not None):
         dpts = detail.tR_min_cur - detail.tR_min_ref
         evo_tr = f"{dpts:+.1f} pts"
     rows.append(("t/R minimal", _pct_aff(detail.tR_min_ref),
                  _pct_aff(detail.tR_min_cur), evo_tr))
-    # Perte moyenne de bois sain PAR DIRECTION (cm) — la mesure de référence.
-    if detail.perte_moy_par_dir is not None:
-        rows.append(("Perte moyenne de bois sain", "—", "—",
-                     f"{detail.perte_moy_par_dir:.2f} cm / direction"))
+    if refus is not None:
+        rows.append(("Hauteur de sondage", f"{refus[0]:g} cm",
+                     f"{refus[1]:g} cm", "différente : non comparable"))
+        return rows
+    # Avancée moyenne de la dégradation (directions évaluées, hors croissance).
+    if detail.progression_moy is not None:
+        rows.append(("Progression moyenne de la dégradation", "—", "—",
+                     f"{detail.progression_moy:.2f} cm / direction"))
     # Taux annualisé (uniquement si l'intervalle est suffisant).
     if detail.taux_cm_an is not None:
         rows.append(("Taux annualisé", "—", "—",
                      f"{detail.taux_cm_an:.2f} cm/an"))
-    elif detail.annees is not None:
+    elif detail.annees is None:
+        rows.append(("Taux annualisé", "—", "—", "missions non datées"))
+    elif detail.progression_moy is not None:
         rows.append(("Taux annualisé", "—", "—",
                      "intervalle trop court (< 6 mois)"))
-    else:
-        rows.append(("Taux annualisé", "—", "—", "missions non datées"))
     # Part réellement mesurée de la comparaison (le reste est extrapolé).
     if detail.n_mesurees_2_dates is not None:
-        rows.append(("Directions mesurées aux 2 dates", "—", "—",
+        rows.append(("Directions sondées aux 2 dates", "—", "—",
                      f"{detail.n_mesurees_2_dates}/16"))
     # Compartimentation
     rows.append(("Compartimentation perdue (active→absente)", "—", "—",
                  f"{detail.compart_aggravees} direction(s)"))
     # Pire direction
     if detail.pire is not None:
-        extrap = "" if detail.pire.mesuree_2_dates else " (extrapolée)"
         rows.append(("Direction la plus aggravée", "—", "—",
                      f"{detail.pire.direction} ({angle_units.fmt(detail.pire.grade)}) : "
-                     f"{detail.pire.delta:+.2f} cm{extrap}"))
+                     f"{detail.pire.progression:+.2f} cm"))
     return rows
 
 
@@ -652,16 +706,15 @@ def _compose_comparison_page(mission_nom: str, titre: str, ref_label: str,
 
 def verdict_couleur(detail: "ComparaisonDetail") -> Optional[str]:
     """Couleur du verdict (source unique fenêtre ↔ export) : rouge =
-    aggravation, ambre = évolution contrastée, vert = amélioration,
-    `None` = stable / non comparable (à la charge de l'appelant)."""
-    evo = evolution_globale(detail)
-    if evo is None:
-        return None
-    if verdict_contraste(detail):
-        return "#B7791F"
-    if evo > 0:
+    progression, ambre = écarts à vérifier, vert = recouvrement,
+    `None` = pas de progression / pas de conclusion (à la charge de
+    l'appelant)."""
+    evo = evolution_degradation(detail)
+    if evo == 1:
         return "#C0392B"
-    if evo < 0:
+    if directions_a_verifier(detail):
+        return "#B7791F"
+    if evo == -1:
         return "#2D7A3E"
     return None
 
@@ -845,7 +898,9 @@ def _pages_sondages(mission_nom: str, ref_arbre: "Arbre", cur_arbre: "Arbre",
                    else _blank_section(_PAGE_SEC, _("pas de brin de référence")))
         cur_img = render_brin_section(cur_arbre, cur_b, _PAGE_SEC,
                                       show_sondages=show_sondages)
-        evo_img = render_evolution_section_brin(ref_b, cur_b, _PAGE_SEC)
+        evo_img = render_evolution_section_brin(
+            ref_b, cur_b, _PAGE_SEC,
+            non_comparable=detail.hauteurs_incompatibles is not None)
         titre = f"{cur_arbre.display_name} — Brin {label}"
         pages.append(_compose_comparison_page(
             mission_nom, titre, ref_label, cur_label,
@@ -861,7 +916,7 @@ def _pages_sondages(mission_nom: str, ref_arbre: "Arbre", cur_arbre: "Arbre",
 # d'expertise (texte + trois dessins). Il reprend désormais EXACTEMENT le
 # format de l'export PNG classique d'un arbre (titre + un seul dessin +
 # légende, cf. `pil_render.render_arbre_to_pil_image`), mais le dessin est
-# la « section d'évolution » (couronne orange = bois sain perdu depuis la
+# la « section d'évolution » (zones orange = dégradation en progression depuis la
 # référence). La feuille A4 complète (3 dessins + tableau + verdict) reste
 # le format du PDF (`render_comparison_pages`), inchangé — c'est le
 # livrable formel, pas destiné à être recadré dans un rapport tiers.
@@ -894,16 +949,19 @@ def render_evolution_pngs(mission_nom: str, ref_arbre: "Arbre",
             _EVOLUTION_PNG_SIZE, show_title=True,
             titre=cur_arbre.display_name,
             port=cur_arbre.port_arbre, meche=cur_arbre.meche_cm,
-            show_sondages=show_sondages)
+            show_sondages=show_sondages,
+            non_comparable=hauteurs_incompatibles(
+                ref_arbre, cur_arbre) is not None)
         return [("", img)]
     imgs: List[Tuple[str, "PILImage"]] = []
-    for label, cur_b, ref_b, _detail in comparaison_par_brin(
+    for label, cur_b, ref_b, detail in comparaison_par_brin(
             ref_arbre, cur_arbre, annees):
         imgs.append((label, render_evolution_section_brin(
             ref_b, cur_b, _EVOLUTION_PNG_SIZE, show_title=True,
             titre=f"{cur_arbre.display_name} — Brin {label}",
             port=cur_arbre.port_arbre, meche=cur_arbre.meche_cm,
-            show_sondages=show_sondages)))
+            show_sondages=show_sondages,
+            non_comparable=detail.hauteurs_incompatibles is not None)))
     return imgs
 
 

@@ -596,6 +596,9 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "nessun fusto di riferimento — solo stato corrente",
     "pas de brin de référence":          "nessun fusto di riferimento",
+    "hauteurs de sondage différentes — état courant seul":
+        "altezze di sondaggio diverse — solo stato attuale",
+    "hauteurs différentes":              "altezze diverse",
     "— état courant seul":               "— solo stato corrente",
     "Photos de la comparaison":          "Foto del confronto",
     "Photos de la référence — {r}":      "Foto di riferimento — {r}",
