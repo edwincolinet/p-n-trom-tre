@@ -14,7 +14,6 @@ Module sans Tk (PIL pur). Les calculs viennent de `diagnostic_comparaison`
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import angle_units
@@ -23,9 +22,9 @@ from diagnostic_comparaison import (
     comparaison_par_brin,
     directions_a_verifier,
     evolution_degradation,
-    hauteurs_incompatibles,
     verdict_lignes,
 )
+from evolution import degradations_reference_recalees, hauteurs_incompatibles
 from geometry import (
     GRADES,
     cavity_polygon,
@@ -254,24 +253,6 @@ def _evo_cadrage(cur_b: "Brin", size: int, ds: float, *, show_title: bool,
     return cx, cy, scale, caption_h
 
 
-def _degs_reference_recales(ref_b: "Brin", cur_b: "Brin") -> List[Any]:
-    """Dégradations externes de référence replacées dans un repère fixe.
-
-    Leur profondeur est mesurée depuis la surface de l'époque : tracée telle
-    quelle sur le tronc courant (plus gros), la zone glisserait vers
-    l'extérieur et une plaie inchangée paraîtrait aggravée. On ajoute la
-    croissance à la profondeur pour que le fond reste à la même distance du
-    centre. Une dégradation limitée à l'écorce est laissée telle quelle."""
-    croissance = cur_b.rayon_tronc_cm - ref_b.rayon_tronc_cm
-    out: List[Any] = []
-    for deg in ref_b.degradations_externes:
-        if deg.profondeur_bois_cm(ref_b.ep_a_grade(deg.grade_debut)) > 0:
-            deg = replace(deg, profondeur_cm=max(
-                0.0, deg.profondeur_cm + croissance))
-        out.append(deg)
-    return out
-
-
 def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
                  cur_b: "Brin", cx: float, cy: float, scale: float,
                  ds: float, *, port: str, meche: float,
@@ -295,7 +276,7 @@ def _evo_couches(img: "PILImage", d: Any, f: Any, ref_b: Optional["Brin"],
         alt = compute_alteration_par_grade(ref_b)
         ref_alt = [alt[i] if g in communs else cur_alt[i]
                    for i, g in enumerate(GRADES)]
-        ref_degs = _degs_reference_recales(ref_b, cur_b)
+        ref_degs = degradations_reference_recalees(ref_b, cur_b)
     else:
         # Pas d'homologue : réf = courant → l'état courant repeint en ROT
         # par-dessus l'orange ⟹ aucune bande orange (état courant seul).

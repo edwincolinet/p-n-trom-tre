@@ -1,7 +1,7 @@
 # Refonte des comparaisons (ré-inspection) — plan
 
-> **Statut** (26/11/2026) : **lot 0 implémenté** (non publié) ; lots 1 à 5 à
-> faire. Le constat du §1 décrit la v3.8.0.
+> **Statut** (26/11/2026) : **lots 0 et 1 implémentés** (non publiés) ; lots 2
+> à 5 à faire. Le constat du §1 décrit la v3.8.0.
 
 ## 1. Constat
 
@@ -119,3 +119,9 @@ campagnes.
 Question ouverte (lot 2) : une dégradation externe recouverte reste du bois
 perdu. Si l'expert la retire de la saisie, le t/R la compte comme saine ; il
 faudra pouvoir la garder avec l'état « recouverte ».
+
+Constat du lot 1, à traiter au lot 2 : `supprimer_brin` réétiquette les brins,
+et la fenêtre actuelle apparie par rang. Après suppression d'un brin, elle
+compare donc des tiges différentes. `evolution.appariement_par_defaut` ne
+devine rien si le nombre de brins change ; seuls des identifiants stables
+règlent aussi le cas suppression + ajout.

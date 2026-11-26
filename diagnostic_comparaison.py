@@ -10,6 +10,12 @@ quels (`prbs_par_grade`, `_synthesis_row_for_section`,
 
 Toutes les fonctions exposées sont **pures**, comme dans `diagnostic.py`.
 
+Le calcul de l'évolution (repère fixe, alertes, conclusion) vit dans
+`evolution` ; ce module l'adapte à la fenêtre et à l'export actuels et met
+le verdict en mots. Il disparaîtra avec la fenêtre (lot 4 de la refonte).
+
+Toutes les fonctions exposées sont **pures**, comme dans `diagnostic.py`.
+
 **Principe** : la croissance de l'arbre n'est pas une évolution de la
 dégradation. La progression se mesure dans un repère fixe (distance au
 centre du tronc) : rayon de l'altération interne, et fond des dégradations
@@ -22,18 +28,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
 
-import angle_units
 from diagnostic import (
     _GRAVITE_CLASSE,
     MissionSynthesisRow,
     _synthesis_genet_row,
     _synthesis_row_for_section,
-    compute_alteration_par_grade,
-    degradation_externe_par_grade,
-    prbs_par_grade,
-    rayon_par_grade,
 )
-from geometry import GRADES, WIND_LABELS
+from evolution import (
+    EPS_CM,
+    Conclusion,
+    DirectionDelta,
+    comparer_directions,
+    conclure,
+    hauteurs_incompatibles,
+    progression_moyenne,
+    taux_annuel,
+)
 
 if TYPE_CHECKING:
     from model import Arbre, Brin  # noqa: F401
@@ -95,10 +105,6 @@ def evolution_tr(detail: "ComparaisonDetail") -> Optional[int]:
     return (cur < ref) - (cur > ref)
 
 
-# Résolution d'affichage (0,1 cm) : en deçà, deux valeurs sont identiques.
-# Ce n'est PAS une tolérance de mesure (trop variable pour être fixée).
-_EPS_CM = 0.05
-
 # Nombre de directions citées en toutes lettres dans le verdict.
 _MAX_DIRECTIONS_CITEES = 6
 
@@ -109,7 +115,7 @@ def directions_en_progression(
     Vide si la comparaison est refusée (hauteurs de sondage différentes)."""
     if detail.hauteurs_incompatibles:
         return []
-    return sorted((d for d in detail.directions if d.progression > _EPS_CM),
+    return sorted((d for d in detail.directions if d.progression > EPS_CM),
                   key=lambda d: -d.progression)
 
 
@@ -127,25 +133,20 @@ def directions_recouvertes(
     """Directions où une dégradation externe a été recouverte (progrès)."""
     if detail.hauteurs_incompatibles:
         return []
-    return [d for d in detail.directions if d.recouvrement > _EPS_CM]
+    return [d for d in detail.directions if d.recouvrement > EPS_CM]
 
 
-def progression_evaluable(detail: "ComparaisonDetail") -> bool:
-    """Vrai s'il existe de quoi conclure : hauteurs identiques et au moins
-    une direction sondée aux deux dates."""
-    return (not detail.hauteurs_incompatibles and bool(detail.directions)
-            and detail.n_mesurees_2_dates != 0)
+def _conclusion(detail: "ComparaisonDetail") -> Conclusion:
+    return conclure(detail.directions,
+                    detail.hauteurs_incompatibles is not None)
 
 
 def evolution_degradation(detail: "ComparaisonDetail") -> Optional[int]:
     """`+1` dégradation en progression, `-1` recouvrement seul (progrès),
     `0` pas de progression constatée, `None` pas de conclusion possible
     (non comparable, non évaluable ou écarts à vérifier)."""
-    if directions_en_progression(detail):
-        return 1
-    if not progression_evaluable(detail) or directions_a_verifier(detail):
-        return None
-    return -1 if directions_recouvertes(detail) else 0
+    return {Conclusion.PROGRESSION: 1, Conclusion.RECOUVREMENT: -1,
+            Conclusion.STABLE: 0}.get(_conclusion(detail))
 
 
 def _n_directions(n: int) -> str:
@@ -189,16 +190,17 @@ def verdict_lignes(detail: "ComparaisonDetail") -> Tuple[str, str]:
     progression = directions_en_progression(detail)
     a_verifier = directions_a_verifier(detail)
     recouvertes = directions_recouvertes(detail)
-    if progression:
+    conclusion = _conclusion(detail)
+    if conclusion is Conclusion.PROGRESSION:
         titre = (f"▲ DÉGRADATION EN PROGRESSION — "
                  f"{_n_directions(len(progression))}")
-    elif not progression_evaluable(detail):
+    elif conclusion is Conclusion.NON_EVALUABLE:
         titre = ("? PROGRESSION NON ÉVALUABLE — aucune direction sondée "
                  "aux deux dates")
-    elif a_verifier:
+    elif conclusion is Conclusion.A_VERIFIER:
         titre = (f"? À VÉRIFIER — bois dégradé en recul sur "
                  f"{_n_directions(len(a_verifier))}")
-    elif recouvertes:
+    elif conclusion is Conclusion.RECOUVREMENT:
         titre = (f"✓ PROGRÈS — dégradation externe recouverte sur "
                  f"{_n_directions(len(recouvertes))}")
     else:
@@ -228,62 +230,6 @@ def verdict_evolution(detail: "ComparaisonDetail") -> str:
     """Verdict complet (titre + détail, sur deux lignes). Partagé par la
     fenêtre et l'export — cf. `verdict_lignes`."""
     return "\n".join(verdict_lignes(detail))
-
-
-class DirectionDelta(NamedTuple):
-    """Évolution d'une direction sondée dans les DEUX campagnes (appariée
-    par grade). `delta` = PRBS courante − PRBS de référence (négatif = bois
-    sain perdu = aggravation)."""
-    grade: int
-    direction: str
-    prbs_ref: float
-    prbs_cur: float
-    delta: float
-    compart_ref: str
-    compart_cur: str
-    # Direction réellement sondée aux DEUX campagnes (sinon, au moins une
-    # des deux PRBS est extrapolée : l'écart peut être du bruit
-    # d'interpolation plutôt qu'une évolution mesurée).
-    mesuree_2_dates: bool = False
-    # Avancée de l'altération interne (rayon courant − référence, cm) ;
-    # n'a de valeur de constat que si `mesuree_2_dates`.
-    prog_interne: float = 0.0
-    # Avancée du fond de la dégradation externe vers le centre (cm) ;
-    # négatif = recouvrement par du bois neuf.
-    prog_externe: float = 0.0
-    # Dégradation externe en recul sans que le rayon ait augmenté.
-    externe_disparue: bool = False
-    # PRBS saisie identique aux deux dates alors que le rayon a changé.
-    reconduite: bool = False
-
-    @property
-    def progression(self) -> float:
-        """Bois sain **constaté** perdu depuis la référence (cm, ≥ 0)."""
-        interne = self.prog_interne if self.mesuree_2_dates else 0.0
-        return max(0.0, interne) + max(0.0, self.prog_externe)
-
-    @property
-    def recouvrement(self) -> float:
-        """Dégradation externe recouverte (cm, ≥ 0)."""
-        if self.externe_disparue:
-            return 0.0
-        return max(0.0, -self.prog_externe)
-
-    @property
-    def anomalie(self) -> bool:
-        interne = self.mesuree_2_dates and self.prog_interne < -_EPS_CM
-        return interne or self.externe_disparue
-
-    @property
-    def compart_aggravee(self) -> bool:
-        """Compartimentation perdue : active en référence → absente."""
-        return self.compart_ref == "active" and self.compart_cur == "absente"
-
-
-# Intervalle minimal (années) pour qu'un taux annualisé soit pertinent.
-# En dessous (ré-inspection rapprochée), `perte / annees` explose et n'a
-# pas de sens — on n'affiche alors que la perte absolue par direction.
-_TAUX_ANNEES_MIN = 0.5
 
 
 class ComparaisonDetail(NamedTuple):
@@ -320,17 +266,6 @@ class ComparaisonDetail(NamedTuple):
     hauteurs_incompatibles: Optional[Tuple[float, float]] = None
 
 
-def hauteurs_incompatibles(
-        reference: "Arbre", courant: "Arbre") -> Optional[Tuple[float, float]]:
-    """(h réf, h courant) si les deux hauteurs de sondage sont renseignées
-    et différentes, sinon `None` (une hauteur non renseignée, 0, ne permet
-    pas d'affirmer qu'elles diffèrent)."""
-    h_ref, h_cur = reference.hauteur_sondage_cm, courant.hauteur_sondage_cm
-    if h_ref > 0 and h_cur > 0 and abs(h_ref - h_cur) > _EPS_CM:
-        return (h_ref, h_cur)
-    return None
-
-
 def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
                       annees: Optional[float], s_ref: ArbreCompareSummary,
                       s_cur: ArbreCompareSummary,
@@ -340,61 +275,18 @@ def _comparaison_core(ref_b: Optional["Brin"], cur_b: "Brin",
     résumés (classe/t/R) déjà calculés au bon niveau (genet OU brin). Les
     16 directions sont comparées via la PRBS extrapolée. `ref_b=None` (pas
     d'homologue de référence) ⟹ directions vides, classe_ref = `None`."""
-    ref_sond = ({s.grade: s for s in ref_b.sondages}
-                if ref_b is not None else {})
-    cur_sond = {s.grade: s for s in cur_b.sondages}
-
-    directions: List[DirectionDelta] = []
-    evaluees: List[DirectionDelta] = []
-    if (ref_b is not None and ref_b.rayon_tronc_cm > 0
-            and cur_b.rayon_tronc_cm > 0):
-        prbs_r = prbs_par_grade(ref_b)   # PRBS extrapolée 16 dir.
-        prbs_c = prbs_par_grade(cur_b)
-        ray_r, ray_c = rayon_par_grade(ref_b), rayon_par_grade(cur_b)
-        alt_r = compute_alteration_par_grade(ref_b)
-        alt_c = compute_alteration_par_grade(cur_b)
-        ext_r = degradation_externe_par_grade(ref_b)
-        ext_c = degradation_externe_par_grade(cur_b)
-        for i, g in enumerate(GRADES):
-            s_r, s_c = ref_sond.get(g), cur_sond.get(g)
-            croissance = ray_c[i] - ray_r[i]
-            # Dégradation externe : position de son fond depuis le centre.
-            if ext_r[i] <= 0:
-                prog_ext = ext_c[i]      # nouvelle (ou aucune)
-            else:
-                prog_ext = (ray_r[i] - ext_r[i]) - (ray_c[i] - ext_c[i])
-            disparue = prog_ext < -_EPS_CM and croissance <= _EPS_CM
-            d = DirectionDelta(
-                grade=g, direction=WIND_LABELS.get(g, angle_units.fmt(g)),
-                prbs_ref=prbs_r[i], prbs_cur=prbs_c[i],
-                delta=prbs_c[i] - prbs_r[i],
-                compart_ref=s_r.compartimentation if s_r else "",
-                compart_cur=s_c.compartimentation if s_c else "",
-                mesuree_2_dates=s_r is not None and s_c is not None,
-                prog_interne=alt_c[i] - alt_r[i],
-                prog_externe=prog_ext, externe_disparue=disparue,
-                reconduite=(s_r is not None and s_c is not None
-                            and abs(croissance) > _EPS_CM
-                            and abs(s_c.bois_sain_cm - s_r.bois_sain_cm)
-                            <= _EPS_CM))
-            directions.append(d)
-            if d.mesuree_2_dates or ext_r[i] > 0 or ext_c[i] > 0:
-                evaluees.append(d)
-
+    directions = (comparer_directions(ref_b, cur_b)
+                  if ref_b is not None else [])
     n_mesurees = (sum(1 for d in directions if d.mesuree_2_dates)
                   if directions else None)
     progression_moy: Optional[float] = None
     pire: Optional[DirectionDelta] = None
-    if evaluees and hauteurs is None:
-        progression_moy = sum(d.progression for d in evaluees) / len(evaluees)
-        pire_c = max(evaluees, key=lambda d: d.progression)
-        if pire_c.progression > _EPS_CM:
+    if directions and hauteurs is None:
+        progression_moy = progression_moyenne(directions)
+        pire_c = max(directions, key=lambda d: d.progression)
+        if pire_c.progression > EPS_CM:
             pire = pire_c
-
-    taux_cm_an: Optional[float] = None
-    if (progression_moy is not None and annees is not None
-            and annees >= _TAUX_ANNEES_MIN):
-        taux_cm_an = progression_moy / annees
+    taux_cm_an = taux_annuel(progression_moy, annees)
 
     return ComparaisonDetail(
         annees=annees, directions=directions,

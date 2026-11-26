@@ -3,7 +3,7 @@ ni inventer une progression de la dégradation."""
 
 import unittest
 
-from comparaison_render import _degs_reference_recales, metric_rows, render_evolution_section
+from comparaison_render import metric_rows, render_evolution_section
 from diagnostic_comparaison import (
     comparaison_detaillee,
     comparaison_par_brin,
@@ -13,6 +13,7 @@ from diagnostic_comparaison import (
     evolution_degradation,
     verdict_evolution,
 )
+from evolution import degradations_reference_recalees
 from model import Arbre, DegradationExterne, Sondage
 
 GRADES_SONDES = (0, 100, 200, 300)
@@ -111,7 +112,7 @@ class DegradationExterneTests(unittest.TestCase):
     def test_reference_recalee_dans_le_repere_fixe(self):
         ref = _arbre(80, 20, degs=[_deg(5)])
         cur = _arbre(85, 22.5)
-        (deg,) = _degs_reference_recales(ref.brins[0], cur.brins[0])
+        (deg,) = degradations_reference_recalees(ref.brins[0], cur.brins[0])
         self.assertAlmostEqual(deg.profondeur_cm, 7.5)
         # La mission de référence n'est pas modifiée.
         self.assertAlmostEqual(ref.brins[0].degradations_externes[0]

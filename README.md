@@ -142,6 +142,8 @@ mon-dossier/
 ├── pane_degradations.py        ← onglet Dégradations externes
 ├── pane_contreforts.py         ← onglet Contreforts
 ├── pane_diagnostic.py          ← onglet Diagnostic (résumé + PRBS + exports)
+├── evolution.py                ← évolution entre campagnes (calculs purs)
+├── diagnostic_comparaison.py   ← adaptation et verdict de la comparaison
 ├── comparaison.py              ← fenêtre de comparaison inter-missions
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,

@@ -57,7 +57,8 @@ dialogs_saisie.py      ← dialogues d'édition détaillée (Sondage, Dégradati
 dialogs_cepee.py       ← éditeur de disposition d'une cépée (ask_cepee_layout, souris)
 model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
-diagnostic_comparaison.py ← comparaison inter-missions (ré-inspection), fonctions pures
+evolution.py           ← évolution entre campagnes (repère fixe, alertes, conclusion, N dates ; pur, sans texte UI)
+diagnostic_comparaison.py ← adaptateur de evolution pour la fenêtre actuelle + verdict en mots (pur)
 persistence.py         ← I/O JSON (save/load + migration ; v3 = brins ; `file_stamp` = garde-fou multi-poste)
 profil_cabinet.py      ← profil cabinet appliqué au 1er lancement (nom, logo, barème, dossier MàJ ; pur)
 geometry.py            ← briques géométriques pures (spline, polaire, cernes, ellipse)
@@ -133,6 +134,8 @@ geometry.py + bareme.py   (stdlib)
 model.py + palette.py + ods_writer.py + angle_units.py + tooltip.py + aide_repliable.py + app_recent.py + app_settings.py + ui_fonts.py + icons.py + chrome_icons.py + photo_paths.py
    ↑
 diagnostic.py
+   ↑
+evolution.py (dépend aussi de dialogs_shared.py pour les dates — sans Tk)
    ↑
 export.py + pil_render.py + persistence.py + dialogs.py + diagnostic_comparaison.py
    ↑
@@ -316,7 +319,7 @@ venv/bin/python -m pytest tests --ignore=tests/test_app.py --ignore=tests/test_s
   --ignore=tests/test_export_async.py       # sans affichage (tests Tk exclus)
 venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
-  persistence.py export.py export_synthesis.py diagnostic_comparaison.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  persistence.py export.py export_synthesis.py diagnostic_comparaison.py evolution.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
@@ -365,8 +368,9 @@ retirés). L'app se lance directement, en développement comme en binaire.
    - Barème métier → `bareme.py`
    - Géométrie pure → `geometry.py`
    - Modèle / mutateurs → `model.py` ; migration JSON → `persistence.py`
-   - Diagnostic (calculs purs) → `diagnostic.py` ; comparaison inter-missions
-     (ré-inspection) → `diagnostic_comparaison.py`
+   - Diagnostic (calculs purs) → `diagnostic.py` ; évolution entre campagnes
+     (ré-inspection) → `evolution.py` (calcul) et `diagnostic_comparaison.py`
+     (verdict en mots)
    - Rendu PNG section → `pil_render.py` ; fiche PDF A4 vectorielle (fpdf2) → `fiche_pdf.py`
    - Couleurs → `palette.py` ; exports tableau PRBS par arbre → `export.py` ;
      synthèse mission (une ligne par arbre) → `export_synthesis.py`
