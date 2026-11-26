@@ -1173,6 +1173,7 @@ class GenetDiagnosticTests(unittest.TestCase):
                 Sondage(grade=g, bois_sain_cm=8.0, bois_altere_cm=12.0))
             cur.brins[0].sondages.append(
                 Sondage(grade=g, bois_sain_cm=5.0, bois_altere_cm=15.0))
+        cur.brins[0].id = ref.brins[0].id       # même tige suivie
         cur.ajouter_brin()
         cur.brins[1].set_rayon(15.0)
         for g in (0, 100, 200, 300):

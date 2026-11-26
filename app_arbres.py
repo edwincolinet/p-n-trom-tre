@@ -15,7 +15,6 @@ Mixin de `App` : s'appuie sur les attributs/méthodes Tk déclarés en
 
 from __future__ import annotations
 
-import copy
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Optional
@@ -544,7 +543,7 @@ class ArbreListMixin(_MixinBase):
         if not a:
             return
         self.push_undo()
-        new = copy.deepcopy(a)
+        new = a.dupliquer()
         new.numero_arbre = self._next_arbre_numero()
         self.chantier.arbres.insert(self.current_idx + 1, new)
         self.current_idx += 1

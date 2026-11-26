@@ -16,6 +16,10 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   dégradation externe **recouverte** par du bois neuf est un progrès.
 - **Hauteurs de sondage différentes : aucune conclusion.**
 - PRBS identique malgré un diamètre différent : signalée (valeur re-mesurée ?).
+- Format de mission **v4** : identifiants stables des arbres et des brins
+  (les brins d'une cépée ne sont plus confondus après une suppression), place
+  pour l'historique des relevés et l'état « plaie recouverte » (pas encore
+  saisissables à l'écran).
 - Dessin d'évolution : une plaie externe inchangée sur un tronc qui a grossi
   n'apparaît plus comme aggravée.
 

@@ -71,6 +71,7 @@ class Alerte(Enum):
     DIAMETRE_EN_BAISSE = "diametre_en_baisse"
     CAVITE_EN_RECUL = "cavite_en_recul"
     EXTERNE_DISPARUE = "externe_disparue"
+    COUCHE_REDUITE = "couche_reduite"
     VALEUR_RECONDUITE = "valeur_reconduite"
     DIRECTION_NON_RESONDEE = "direction_non_resondee"
 
@@ -105,6 +106,10 @@ class DirectionDelta(NamedTuple):
     non_resondee: bool = False
     # Altération (mesurée) ou dégradation externe : la direction est évaluée.
     evaluee: bool = False
+    # Dégradation externe nouvellement marquée recouverte par un cal.
+    cal_forme: bool = False
+    # Épaisseur de bois dégradé sous le cal en diminution : à vérifier.
+    couche_reduite: bool = False
 
     @property
     def progression(self) -> float:
@@ -114,10 +119,15 @@ class DirectionDelta(NamedTuple):
 
     @property
     def recouvrement(self) -> float:
-        """Dégradation externe recouverte (cm, ≥ 0)."""
+        """Bois neuf formé sur le fond de la dégradation externe (cm, ≥ 0)."""
         if self.externe_disparue:
             return 0.0
         return max(0.0, -self.prog_externe)
+
+    @property
+    def recouverte(self) -> bool:
+        """Progrès : cal signalé, ou bois neuf sur le fond de la plaie."""
+        return self.cal_forme or self.recouvrement > EPS_CM
 
     @property
     def cavite_en_recul(self) -> bool:
@@ -125,7 +135,8 @@ class DirectionDelta(NamedTuple):
 
     @property
     def anomalie(self) -> bool:
-        return self.cavite_en_recul or self.externe_disparue
+        return (self.cavite_en_recul or self.externe_disparue
+                or self.couche_reduite)
 
     @property
     def compart_aggravee(self) -> bool:
@@ -147,15 +158,24 @@ def comparer_directions(ref_b: "Brin", cur_b: "Brin") -> List[DirectionDelta]:
     ext_r = degradation_externe_par_grade(ref_b)
     ext_c = degradation_externe_par_grade(cur_b)
 
+    cal_r, cal_c = _recouverte_par_grade(ref_b), _recouverte_par_grade(cur_b)
+
     out: List[DirectionDelta] = []
     for i, g in enumerate(GRADES):
         s_r, s_c = ref_sond.get(g), cur_sond.get(g)
         croissance = ray_c[i] - ray_r[i]
-        # Dégradation externe : position de son fond depuis le centre.
+        disparue = reduite = False
         if ext_r[i] <= 0:
             prog_ext = ext_c[i]      # nouvelle (ou aucune)
+        elif cal_c[i]:
+            # Sous un cal, la profondeur saisie est l'épaisseur de la couche
+            # dégradée : on compare les épaisseurs.
+            prog_ext = max(0.0, ext_c[i] - ext_r[i])
+            reduite = ext_c[i] < ext_r[i] - EPS_CM
         else:
+            # Plaie ouverte : position de son fond depuis le centre.
             prog_ext = (ray_r[i] - ext_r[i]) - (ray_c[i] - ext_c[i])
+            disparue = prog_ext < -EPS_CM and croissance <= EPS_CM
         mesuree = s_r is not None and s_c is not None
         out.append(DirectionDelta(
             grade=g, direction=WIND_LABELS.get(g, angle_units.fmt(g)),
@@ -166,7 +186,9 @@ def comparer_directions(ref_b: "Brin", cur_b: "Brin") -> List[DirectionDelta]:
             mesuree_2_dates=mesuree,
             prog_interne=alt_c[i] - alt_r[i],
             prog_externe=prog_ext,
-            externe_disparue=prog_ext < -EPS_CM and croissance <= EPS_CM,
+            externe_disparue=disparue,
+            couche_reduite=reduite,
+            cal_forme=cal_c[i] and not cal_r[i] and ext_r[i] > 0,
             reconduite=(
                 s_r is not None and s_c is not None
                 and abs(croissance) > EPS_CM
@@ -174,6 +196,16 @@ def comparer_directions(ref_b: "Brin", cur_b: "Brin") -> List[DirectionDelta]:
             croissance=croissance,
             non_resondee=s_r is not None and s_c is None,
             evaluee=mesuree or ext_r[i] > 0 or ext_c[i] > 0))
+    return out
+
+
+def _recouverte_par_grade(brin: "Brin") -> List[bool]:
+    """Par direction : des dégradations externes la couvrent et toutes sont
+    recouvertes (une plaie encore ouverte au même endroit l'emporte)."""
+    out: List[bool] = []
+    for g in GRADES:
+        degs = [d for d in brin.degradations_externes if d.couvre_grade(g)]
+        out.append(bool(degs) and all(d.recouverte for d in degs))
     return out
 
 
@@ -199,7 +231,7 @@ def conclure(directions: Sequence[DirectionDelta],
         return Conclusion.NON_EVALUABLE
     if any(d.anomalie for d in directions):
         return Conclusion.A_VERIFIER
-    if any(d.recouvrement > EPS_CM for d in directions):
+    if any(d.recouverte for d in directions):
         return Conclusion.RECOUVREMENT
     return Conclusion.STABLE
 
@@ -288,9 +320,14 @@ def appariement_par_defaut(reference: "Arbre",
                            courant: "Arbre") -> List[Optional[int]]:
     """Pour chaque brin courant, l'index du brin de référence.
 
-    Même nombre de brins : appariement par rang. Sinon **aucun** : supprimer
-    ou ajouter un brin décale rangs et libellés, un appariement deviné
-    comparerait deux tiges différentes. L'appelant fournit alors le sien."""
+    Par **identifiant** dès que les deux relevés en partagent un (même
+    lignée) : un brin ajouté depuis reste alors sans référence. Sinon
+    (fichiers sans lien) : par rang si le nombre de brins est le même, et
+    **aucun** appariement dans le cas contraire — un appariement deviné
+    comparerait deux tiges différentes."""
+    par_id = {b.id: i for i, b in enumerate(reference.brins)}
+    if any(b.id in par_id for b in courant.brins):
+        return [par_id.get(b.id) for b in courant.brins]
     if len(reference.brins) == len(courant.brins):
         return list(range(len(courant.brins)))
     return [None] * len(courant.brins)
@@ -301,6 +338,7 @@ def _alertes(directions: Sequence[DirectionDelta]) -> List[Alerte]:
         (Alerte.DIAMETRE_EN_BAISSE, lambda d: d.croissance < -EPS_CM),
         (Alerte.CAVITE_EN_RECUL, lambda d: d.cavite_en_recul),
         (Alerte.EXTERNE_DISPARUE, lambda d: d.externe_disparue),
+        (Alerte.COUCHE_REDUITE, lambda d: d.couche_reduite),
         (Alerte.VALEUR_RECONDUITE, lambda d: d.reconduite),
         (Alerte.DIRECTION_NON_RESONDEE, lambda d: d.non_resondee),
     )

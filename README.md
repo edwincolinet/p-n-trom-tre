@@ -142,6 +142,7 @@ mon-dossier/
 ├── pane_degradations.py        ← onglet Dégradations externes
 ├── pane_contreforts.py         ← onglet Contreforts
 ├── pane_diagnostic.py          ← onglet Diagnostic (résumé + PRBS + exports)
+├── campagnes.py                ← historique des relevés (archivage, import)
 ├── evolution.py                ← évolution entre campagnes (calculs purs)
 ├── diagnostic_comparaison.py   ← adaptation et verdict de la comparaison
 ├── comparaison.py              ← fenêtre de comparaison inter-missions

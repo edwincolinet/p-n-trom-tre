@@ -1,6 +1,6 @@
 # Refonte des comparaisons (ré-inspection) — plan
 
-> **Statut** (26/11/2026) : **lots 0 et 1 implémentés** (non publiés) ; lots 2
+> **Statut** (26/11/2026) : **lots 0 à 2 implémentés** (non publiés) ; lots 3
 > à 5 à faire. Le constat du §1 décrit la v3.8.0.
 
 ## 1. Constat
@@ -125,3 +125,29 @@ et la fenêtre actuelle apparie par rang. Après suppression d'un brin, elle
 compare donc des tiges différentes. `evolution.appariement_par_defaut` ne
 devine rien si le nombre de brins change ; seuls des identifiants stables
 règlent aussi le cas suppression + ajout.
+
+## 7. Lot 2 (fait) et reports
+
+Fait : `Arbre.id`, `Brin.id`, `Arbre.campagnes`, format v4, `campagnes.py`
+(archiver, proposer/importer depuis une ancienne mission),
+`DegradationExterne.recouverte` (modèle, fichier, calcul). Aucun poste n'ayant
+le logiciel, pas de précaution vis-à-vis des anciennes versions.
+
+Reporté :
+
+- **Lot 3** : case « recouverte » dans la saisie des dégradations (vérifier que
+  l'édition ne la perd pas) ; dessin de la couche sous le cal (il faudra
+  décider comment connaître l'épaisseur du cal) ; mention dans la fiche et les
+  exports ; boutons « Nouvelle campagne » et « Importer » (confirmation de
+  l'appariement) ; la ré-inspection actuelle n'archive encore rien.
+- **Lot 4** : `photos_comparaison_ref/_cur` (restent en place jusqu'au retrait
+  de la fenêtre).
+
+## 8. Plaie recouverte : décisions (Edwin, 26/11/2026)
+
+- L'épaisseur du cal n'est en général **pas mesurée** : aucun champ obligatoire.
+- La profondeur saisie est l'**épaisseur de bois dégradé sous le cal**, cal non
+  compris (et donc sans déduction d'écorce).
+- Dessin proposé (à valider) : avec un relevé antérieur, placer la couche à sa
+  position d'alors (repère fixe) ; sinon la dessiner à la surface avec un trait
+  « recouverte », sans inventer d'épaisseur de cal.

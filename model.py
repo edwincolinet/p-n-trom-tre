@@ -31,7 +31,9 @@ dataclasses.
 
 from __future__ import annotations
 
+import copy
 import math
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -50,6 +52,13 @@ URGENCE_NIVEAUX = (
     "< 2 ans",
 )
 URGENCE_RANG = {niveau: i for i, niveau in enumerate(URGENCE_NIVEAUX)}
+
+
+def nouvel_id() -> str:
+    """Identifiant stable d'un arbre ou d'un brin : il suit la tige d'une
+    campagne à l'autre, quels que soient son numéro, son libellé ou son
+    rang dans la liste."""
+    return uuid.uuid4().hex
 
 
 @dataclass
@@ -123,6 +132,11 @@ class DegradationExterne:
     # Pilote à la fois `profondeur_bois_cm` (diagnostic) et le rayon de
     # départ du dessin (`geometry.degradation_externe_outline`).
     comprend_ecorce: bool = True
+    # Plaie refermée par un cal (bourrelet de recouvrement). Le bois dégradé
+    # reste perdu (même déduction dans la PRBS) : `profondeur_cm` est alors
+    # l'épaisseur de bois dégradé sous le cal. Compte comme un progrès entre
+    # deux campagnes (cf. `evolution`).
+    recouverte: bool = False
 
     def __post_init__(self) -> None:
         if self.grade_debut not in GRADES:
@@ -133,6 +147,7 @@ class DegradationExterne:
                 f"grade_fin={self.grade_fin} invalide (multiple de 25, 0–375)")
         self.profondeur_cm = max(0.0, float(self.profondeur_cm))
         self.comprend_ecorce = bool(self.comprend_ecorce)
+        self.recouverte = bool(self.recouverte)
 
     def profondeur_bois_cm(self, epaisseur_ecorce_cm: float = 0.0) -> float:
         """Profondeur qui consomme effectivement du **bois sain** (cm).
@@ -141,8 +156,10 @@ class DegradationExterne:
         extérieure : la bande d'écorce traversée ne réduit pas la PRBS
         (l'écorce n'est pas du bois) → on déduit son épaisseur. Sinon, la
         dégradation part de la surface du bois et toute la profondeur compte.
+        Plaie `recouverte` : la profondeur est l'épaisseur de bois dégradé
+        sous le cal (ni cal ni écorce) → elle compte en entier.
         Fonction pure (utilisée par le diagnostic)."""
-        if self.comprend_ecorce:
+        if self.comprend_ecorce and not self.recouverte:
             return max(0.0, self.profondeur_cm - max(0.0, epaisseur_ecorce_cm))
         return self.profondeur_cm
 
@@ -338,6 +355,7 @@ class Brin:
     # valeur 0 est une mesure (« pas d'écorce ici »). Vide ⟹ comportement
     # historique strictement inchangé (écorce uniforme, goldens intacts).
     epaisseurs_ecorce_locales: Dict[int, float] = field(default_factory=dict)
+    id: str = field(default_factory=nouvel_id, compare=False)
 
     def _rayon_locaux(self) -> Dict[int, float]:
         """Rayon local (cm) aux 16 `GRADES` canoniques.
@@ -658,6 +676,10 @@ class Arbre:
     photos_comparaison_ref: List[str] = field(default_factory=list)
     photos_comparaison_cur: List[str] = field(default_factory=list)
     brins: List[Brin] = field(default_factory=lambda: [Brin()])
+    id: str = field(default_factory=nouvel_id, compare=False)
+    # Relevés antérieurs de CET arbre, figés, du plus ancien au plus récent.
+    # L'arbre lui-même est le relevé courant (cf. `campagnes`).
+    campagnes: "List[Releve]" = field(default_factory=list)
 
     def __init__(
         self,
@@ -679,6 +701,8 @@ class Arbre:
         photos: "Optional[List[str]]" = None,
         photos_comparaison_ref: "Optional[List[str]]" = None,
         photos_comparaison_cur: "Optional[List[str]]" = None,
+        id: "Optional[str]" = None,
+        campagnes: "Optional[List[Releve]]" = None,
         # --- Compat : kwargs de géométrie/mesures hérités de l'API pré-brins.
         # Routés vers le premier brin (brins[0]) pour la compatibilité fichiers.
         rayon_tronc_cm: "Optional[float]" = None,
@@ -712,6 +736,9 @@ class Arbre:
             list(photos_comparaison_cur) if photos_comparaison_cur is not None
             else [])
         self.brins = list(brins) if brins is not None else [Brin()]
+        self.id = id or nouvel_id()
+        self.campagnes: "List[Releve]" = (
+            list(campagnes) if campagnes is not None else [])
         b = self.brins[0]
         if rayon_tronc_cm is not None:
             b.rayon_tronc_cm = rayon_tronc_cm
@@ -844,6 +871,19 @@ class Arbre:
 
     # ---- Gestion des brins de la cépée -----------------------------------
 
+    def dupliquer(self) -> "Arbre":
+        """Copie destinée à devenir un AUTRE arbre : mêmes saisies, nouveaux
+        identifiants, pas d'historique (il appartient à l'original)."""
+        historique, self.campagnes = self.campagnes, []
+        try:
+            copie = copy.deepcopy(self)
+        finally:
+            self.campagnes = historique
+        copie.id = nouvel_id()
+        for b in copie.brins:
+            b.id = nouvel_id()
+        return copie
+
     def _relabel_brins(self) -> None:
         """Réétiquette les brins : `""` pour un genet mono-caule (un seul
         brin), sinon `"a"`, `"b"`, `"c"`… dans l'ordre de la liste. Appelé
@@ -895,6 +935,18 @@ class Arbre:
         if self.essence:
             return f"{base} — {self.essence}"
         return base
+
+
+@dataclass
+class Releve:
+    """État figé d'un arbre à une date antérieure. `arbre` porte le même
+    `id` que l'arbre courant et n'a pas lui-même d'historique."""
+    date: str = ""            # JJ/MM/AAAA
+    operateur: str = ""
+    # Barème en vigueur à cette date (même forme que
+    # `Chantier.bareme_seuils` ; vide = inconnu).
+    bareme_seuils: "List[Dict[str, Any]]" = field(default_factory=list)
+    arbre: Arbre = field(default_factory=lambda: Arbre())
 
 
 @dataclass

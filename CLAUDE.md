@@ -58,8 +58,9 @@ dialogs_cepee.py       ← éditeur de disposition d'une cépée (ask_cepee_layo
 model.py               ← dataclasses + mutateurs + validation. Arbre (genet) = conteneur de Brin (ramet) ≥1
 diagnostic.py          ← fonctions pures de diagnostic + sondage_render_data
 evolution.py           ← évolution entre campagnes (repère fixe, alertes, conclusion, N dates ; pur, sans texte UI)
+campagnes.py           ← historique des relevés : archiver, importer une ancienne mission, série (pur)
 diagnostic_comparaison.py ← adaptateur de evolution pour la fenêtre actuelle + verdict en mots (pur)
-persistence.py         ← I/O JSON (save/load + migration ; v3 = brins ; `file_stamp` = garde-fou multi-poste)
+persistence.py         ← I/O JSON (save/load + migration ; v3 = brins, v4 = historique ; `file_stamp` = garde-fou multi-poste)
 profil_cabinet.py      ← profil cabinet appliqué au 1er lancement (nom, logo, barème, dossier MàJ ; pur)
 geometry.py            ← briques géométriques pures (spline, polaire, cernes, ellipse)
 bareme.py              ← barème métier (classer_prbs, ports)
@@ -135,7 +136,7 @@ model.py + palette.py + ods_writer.py + angle_units.py + tooltip.py + aide_repli
    ↑
 diagnostic.py
    ↑
-evolution.py (dépend aussi de dialogs_shared.py pour les dates — sans Tk)
+evolution.py (dépend aussi de dialogs_shared.py pour les dates — sans Tk) ; campagnes.py au-dessus de lui
    ↑
 export.py + pil_render.py + persistence.py + dialogs.py + diagnostic_comparaison.py
    ↑
@@ -255,8 +256,14 @@ penetrometre.py  (Tk + main) ← undo.py
   (`d.ellipse`/`create_oval`) sous `if a_rayon_variable` → goldens byte-identiques.
   **Anneaux** (écorce, bande de contrefort) : toujours via
   `geometry.ring_polygon_points`, jamais `outer + inner[::-1]` à la main.
+- **Suivi dans le temps (format v4)** : `Arbre.id`/`Brin.id` stables
+  (`compare=False`) — dupliquer un arbre passe par `Arbre.dupliquer()` (nouveaux
+  id, pas d'historique), jamais `deepcopy`. `Arbre.campagnes` = relevés figés
+  (`model.Releve`), l'arbre lui-même est le relevé courant.
+  `DegradationExterne.recouverte` : le bois reste perdu, `profondeur_cm` =
+  épaisseur dégradée sous le cal.
 - **Compat fichier** : ajout de champ = OK (défaut) ; renommage/suppression =
-  migration explicite dans `persistence.chantier_from_dict`. Format v3 = brins.
+  migration explicite dans `persistence.chantier_from_dict`. Format v3 = brins, v4 = suivi dans le temps.
   Écriture atomique (`.tmp` + `os.replace`).
 - **Sauvegardes glissantes** (`write_backup`, 12 par mission dans
   `~/.penetrometre/backups/`) : best-effort, n'interrompent jamais l'enregistrement.
@@ -319,7 +326,7 @@ venv/bin/python -m pytest tests --ignore=tests/test_app.py --ignore=tests/test_s
   --ignore=tests/test_export_async.py       # sans affichage (tests Tk exclus)
 venv/bin/ruff check .                       # Lint
 venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py \
-  persistence.py export.py export_synthesis.py diagnostic_comparaison.py evolution.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
+  persistence.py export.py export_synthesis.py diagnostic_comparaison.py evolution.py campagnes.py pil_render.py fiche_pdf.py app_exports.py app_menu.py \
   app_recent.py app_settings.py ui_fonts.py app_arbres.py app_recovery.py app_export_actions.py app_fichier.py app_layout.py app_reglages.py \
   export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \

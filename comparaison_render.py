@@ -863,7 +863,7 @@ def _pages_sondages(mission_nom: str, ref_arbre: "Arbre", cur_arbre: "Arbre",
                     logo_path: "Optional[str]",
                     cabinet_name: str) -> List["PILImage"]:
     """Pages de comparaison chiffrée (genet ou une par brin)."""
-    if len(cur_arbre.brins) <= 1:
+    if max(len(ref_arbre.brins), len(cur_arbre.brins)) <= 1:
         detail = comparaison_detaillee(ref_arbre, cur_arbre, annees)
         return [render_comparison_page(
             mission_nom, ref_arbre, cur_arbre, detail,
@@ -924,7 +924,7 @@ def render_evolution_pngs(mission_nom: str, ref_arbre: "Arbre",
     `save_evolution_pngs` écrive **un fichier PNG par brin** (une cépée
     stockée dans une seule image empilée verticalement n'est pas
     directement insérable dans un rapport)."""
-    if len(cur_arbre.brins) <= 1:
+    if max(len(ref_arbre.brins), len(cur_arbre.brins)) <= 1:
         img = render_evolution_section_brin(
             ref_arbre.brin_courant, cur_arbre.brin_courant,
             _EVOLUTION_PNG_SIZE, show_title=True,

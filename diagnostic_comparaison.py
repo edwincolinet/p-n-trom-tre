@@ -38,6 +38,7 @@ from evolution import (
     EPS_CM,
     Conclusion,
     DirectionDelta,
+    appariement_par_defaut,
     comparer_directions,
     conclure,
     hauteurs_incompatibles,
@@ -133,7 +134,7 @@ def directions_recouvertes(
     """Directions où une dégradation externe a été recouverte (progrès)."""
     if detail.hauteurs_incompatibles:
         return []
-    return [d for d in detail.directions if d.recouvrement > EPS_CM]
+    return [d for d in detail.directions if d.recouverte]
 
 
 def _conclusion(detail: "ComparaisonDetail") -> Conclusion:
@@ -309,8 +310,13 @@ def comparaison_detaillee(reference: "Arbre", courant: "Arbre",
     """Comparaison chiffrée référence → courant au niveau **genet** (brin
     courant pour les directions, classe globale genet). Inchangé. Pour le
     détail **par brin** d'une cépée, voir `comparaison_par_brin`."""
+    appariement = appariement_par_defaut(reference, courant)
+    i_cur = next((i for i, b in enumerate(courant.brins)
+                  if b is courant.brin_courant), 0)
+    i_ref = appariement[i_cur]
     return _comparaison_core(
-        reference.brin_courant, courant.brin_courant, annees,
+        reference.brins[i_ref] if i_ref is not None else None,
+        courant.brin_courant, annees,
         arbre_compare_summary(reference), arbre_compare_summary(courant),
         hauteurs_incompatibles(reference, courant))
 
@@ -328,15 +334,17 @@ def comparaison_par_brin(reference: "Arbre", courant: "Arbre",
                          annees: Optional[float]
                          ) -> List[Tuple[str, "Brin", Optional["Brin"],
                                          ComparaisonDetail]]:
-    """Comparaison **brin-à-brin** d'une cépée, appariée par **index/label**
-    (a↔a, b↔b…). Un brin courant sans homologue de référence (mission de
-    référence plus courte, ou brins ré-ordonnés) est comparé à `None` →
+    """Comparaison **brin-à-brin** d'une cépée, appariée comme
+    `evolution.appariement_par_defaut` (identifiants stables). Un brin
+    courant sans homologue de référence est comparé à `None` →
     directions vides, classe_ref `None` (jamais d'appariement décalé
     silencieux). La classe/t/R sont calculés AU NIVEAU DU BRIN. Renvoie
     `[(label, cur_brin, ref_brin|None, detail)]`, un tuple par brin courant."""
     out: List[Tuple[str, "Brin", Optional["Brin"], ComparaisonDetail]] = []
+    appariement = appariement_par_defaut(reference, courant)
     for i, cur_b in enumerate(courant.brins):
-        ref_b = reference.brins[i] if i < len(reference.brins) else None
+        i_ref = appariement[i]
+        ref_b = reference.brins[i_ref] if i_ref is not None else None
         label = cur_b.label or chr(ord("a") + i)
         s_cur = _brin_compare_summary(cur_b, courant.port_arbre)
         s_ref = (_brin_compare_summary(ref_b, reference.port_arbre)
