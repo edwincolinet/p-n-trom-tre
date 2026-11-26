@@ -27,11 +27,9 @@ from typing import Any, Callable, List, Optional, Protocol, Sequence, Tuple
 import angle_units
 from campagnes import serie
 from comparaison_render import (
-    PHOTOS_COMPARAISON_MAX,
     PTS_LEGENDE,
     metric_rows,
     render_brin_section,
-    render_comparison_pages,
     render_evolution_pngs,
     render_evolution_section_brin,
     verdict_couleur,
@@ -53,6 +51,7 @@ from evolution import (
     etat_brin,
     suivre,
 )
+from fiche_evolution import PHOTOS_COMPARAISON_MAX, construire_pdf_evolution
 from i18n import _
 from model import Arbre, Brin, Chantier
 from palette import COLOR_ACCENT, COLOR_INK, COLOR_MUTED, COLOR_PANEL
@@ -66,6 +65,7 @@ class _EvolutionHost(Protocol):
     chantier: Chantier
     current_file: Optional[Path]
     var_show_sondages: tk.BooleanVar
+    var_show_cernes: tk.BooleanVar
 
     def _current_arbre(self) -> Optional[Arbre]: ...
     def _current_brin(self) -> Optional[Brin]: ...
@@ -417,7 +417,8 @@ class EvolutionPane(ttk.Frame):
 
     # --- Dessin et exports ------------------------------------------------
 
-    def image(self, mode: str, taille: int, show_sondages: bool) -> Any:
+    def image(self, mode: str, taille: int, show_sondages: bool,
+              show_cernes: bool = True) -> Any:
         """Image PIL du dessin pour `mode` (« precedent » ou
         « evolution »), ou `None` sans historique."""
         choisis = self.selection()
@@ -430,7 +431,8 @@ class EvolutionPane(ttk.Frame):
             if ref_b is None:
                 return None
             return render_brin_section(ref.arbre, ref_b, taille,
-                                       show_sondages=show_sondages)
+                                       show_sondages=show_sondages,
+                                       show_cernes=show_cernes)
         return render_evolution_section_brin(
             ref_b, cur_b, taille,
             non_comparable=detail.hauteurs_incompatibles is not None)
@@ -439,7 +441,7 @@ class EvolutionPane(ttk.Frame):
                             logo_path: Optional[str]
                             ) -> Optional[Callable[[], Any]]:
         """Closure qui rend le contenu à exporter pour les dates choisies :
-        pages du PDF (`fmt="pdf"`) ou images d'évolution (`"png"`). `None`
+        document PDF (`fmt="pdf"`) ou images d'évolution (`"png"`). `None`
         sans historique. Tout est relu à l'appel de la closure : la mission
         a pu être enregistrée entre-temps (chemin des photos)."""
         a = self._host._current_arbre()
@@ -464,9 +466,10 @@ class EvolutionPane(ttk.Frame):
                     ref_label=ref.date, cur_label=cur.date,
                     show_sondages=show)
             fichier = self._host.current_file
-            return render_comparison_pages(
-                chantier.nom, ref.arbre, recent, annees, ref_label=ref.date,
+            return construire_pdf_evolution(
+                ref.arbre, recent, annees, ref_label=ref.date,
                 cur_label=cur.date, show_sondages=show,
+                show_cernes=bool(self._host.var_show_cernes.get()),
                 chantier=dataclasses.replace(chantier, date_releve=cur.date),
                 mission_dir=Path(fichier).parent if fichier else None,
                 cabinet_name=cabinet_name, logo_path=logo_path)
@@ -496,7 +499,8 @@ class VueDessin:
         self._photo: Any = None
         canevas.bind("<Configure>", lambda _e: on_change(), add="+")
 
-    def actualiser(self, pane: EvolutionPane, show_sondages: bool) -> None:
+    def actualiser(self, pane: EvolutionPane, show_sondages: bool,
+                   show_cernes: bool = True) -> None:
         choisis = pane.selection()
         if choisis is None:
             self.mode.set("actuel")
@@ -511,7 +515,7 @@ class VueDessin:
             return
         cote = max(240, min(self._canevas.winfo_width(),
                             self._canevas.winfo_height()) - 24)
-        img = pane.image(mode, cote, show_sondages)
+        img = pane.image(mode, cote, show_sondages, show_cernes)
         ref, cur = choisis
         legende = (ref.date if mode == "precedent"
                    else f"{ref.date} → {cur.date}")

@@ -1383,6 +1383,8 @@ class TestCampagnesApp(unittest.TestCase):
 
     def test_export_pdf_de_l_evolution(self) -> None:
         self._deux_visites()
+        self.assertFalse(any(s.a_confirmer
+                             for s in self.app._current_arbre().sondages))
         with TemporaryDirectory() as tmp:
             sortie = Path(tmp) / "evo.pdf"
             with mock.patch("app_fichier.filedialog.asksaveasfilename",
@@ -1421,6 +1423,47 @@ class TestCampagnesApp(unittest.TestCase):
             self.assertEqual(
                 (deg.recouverte, deg.comprend_ecorce, deg.profondeur_cm),
                 (coche, True, 7.0))
+
+    def test_export_refuse_tant_que_non_actualise(self) -> None:
+        self._nouvelle()
+        with mock.patch("app_export_actions.messagebox.showerror") as erreur, \
+                mock.patch("app_exports.export_pdf_arbre") as pdf, \
+                mock.patch("app_exports.export_csv_mission") as csv:
+            self.app.action_export_pdf_arbre()
+            self.app.action_export_csv()
+            self.app.action_export_comparison_pdf()
+        self.assertEqual(erreur.call_count, 3)
+        self.assertIn("3 sondage(s)", erreur.call_args.args[1])
+        pdf.assert_not_called()
+        csv.assert_not_called()
+        for grade in (0, 100, 200):
+            self.app.pane_s.confirmer(grade)
+        with mock.patch("app_export_actions.messagebox.showerror") as erreur, \
+                mock.patch("app_exports.export_pdf_arbre") as pdf:
+            self.app.action_export_pdf_arbre()
+        erreur.assert_not_called()
+        pdf.assert_called_once()
+
+    def test_cernes_masquables_et_grille_defilante(self) -> None:
+        def cercles() -> int:
+            return len(self.app.section.find_all())
+
+        self.app._redraw_all()
+        self.app.update()
+        avec = cercles()
+        self.app.var_show_cernes.set(False)
+        self.app.update()
+        self.assertEqual(cercles(), avec - self.app.section.N_CERNES)
+        self.app.var_show_cernes.set(True)
+        pane = self.app.pane_s
+        self.app.nb.select(pane)
+        self.app.update()
+        # Le contenu garde sa largeur naturelle : il défile au lieu d'être
+        # tronqué.
+        region = [float(v) for v in
+                  str(pane._canvas.cget("scrollregion")).split()]
+        self.assertGreaterEqual(region[2], pane._grid.winfo_reqwidth())
+        self.assertEqual(pane._scroll_x.winfo_manager(), "pack")
 
     def test_dialogue_d_appariement(self) -> None:
         from dialogs_campagne import ask_appariement

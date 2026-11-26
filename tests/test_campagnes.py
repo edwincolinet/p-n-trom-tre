@@ -13,7 +13,7 @@ from campagnes import (
     proposer_appariement,
     serie,
 )
-from diagnostic import mission_completeness_warnings, prbs_par_grade
+from diagnostic import plaies_recouvertes, prbs_par_grade
 from diagnostic_comparaison import comparaison_par_brin
 from evolution import Alerte, Campagne, Conclusion, comparer_campagnes, suivre
 from geometry import cal_outline, degradation_externe_outline
@@ -231,6 +231,30 @@ class PlaieRecouverteTests(unittest.TestCase):
         self.assertEqual(i.conclusion, Conclusion.A_VERIFIER)
         self.assertIn(Alerte.COUCHE_REDUITE, i.brins[0].alertes)
 
+    def test_mention_dans_les_livrables(self):
+        import tempfile
+        from pathlib import Path
+
+        from bareme import classer_prbs
+        from export import export_prbs_html
+        from fiche_pdf import _new_pdf, render_fiche_arbre
+        from palette import COULEUR_CLASSE
+
+        a = self._arbre_blesse(5, True)
+        (ligne,) = plaies_recouvertes(a)
+        self.assertIn("recouverte par un cal", ligne)
+        self.assertIn("bois seul", ligne)
+        self.assertEqual(plaies_recouvertes(self._arbre_blesse(5)), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            chemin = Path(tmp) / "a.html"
+            export_prbs_html(a, Chantier(), str(chemin), COULEUR_CLASSE,
+                             classer_prbs)
+            self.assertIn("recouverte par un cal",
+                          chemin.read_text(encoding="utf-8"))
+        pdf = _new_pdf()
+        render_fiche_arbre(pdf, a, Chantier())
+        self.assertEqual(pdf.page_no(), 1)
+
     def test_persistance_et_ancien_fichier(self):
         c = Chantier(arbres=[self._arbre_blesse(5, True)])
         deg = _aller_retour(c).arbres[0].brins[0].degradations_externes[0]
@@ -271,8 +295,6 @@ class NouvelleCampagneTests(unittest.TestCase):
                                Campagne(c.date_releve, a))
         self.assertEqual(i.conclusion, Conclusion.NON_EVALUABLE)
         self.assertIn(Alerte.DIRECTION_NON_RESONDEE, i.brins[0].alertes)
-        self.assertTrue(any("non confirmés" in m
-                            for m in mission_completeness_warnings(c)))
         a.brins[0].sondages[0].a_confirmer = False
         nouvelle_campagne(c, "01/06/2027")
         self.assertEqual(

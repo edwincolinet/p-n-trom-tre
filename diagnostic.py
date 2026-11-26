@@ -983,6 +983,27 @@ def sondage_render_data(
 
 # --- Checkliste de complétude de mission --------------------------------
 
+def plaies_recouvertes(arbre: "Arbre",
+                       brin: "Optional[Brin]" = None) -> List[str]:
+    """Une ligne par dégradation externe recouverte (d'un brin, ou de tout
+    l'arbre) pour les livrables. Liste vide s'il n'y en a pas."""
+    brins = [brin] if brin is not None else list(arbre.brins)
+    lignes: List[str] = []
+    for b in brins:
+        prefixe = (f"Brin {b.label} — " if b.label and len(arbre.brins) > 1
+                   else "")
+        for d in b.degradations_externes:
+            if not d.recouverte:
+                continue
+            zone = ("écorce et bois" if d.comprend_ecorce else "bois seul")
+            lignes.append(
+                f"{prefixe}Dégradation n° {d.numero} recouverte par un cal : "
+                f"{_angle_units.fmt(d.grade_debut)} → "
+                f"{_angle_units.fmt(d.grade_fin)}, profondeur "
+                f"{d.profondeur_cm:g} cm ({zone}).")
+    return lignes
+
+
 def mission_completeness_warnings(chantier: "Chantier") -> list[str]:
     """Renvoie une liste de messages d'avertissement sur la complétude
     de la mission avant export. Liste vide = mission exportable sans réserve.
@@ -1024,13 +1045,6 @@ def mission_completeness_warnings(chantier: "Chantier") -> list[str]:
         warnings.append(
             f"{len(non_fiable)} arbre(s) avec moins de 3 sondages "
             f"(diagnostic non fiable) : {_nums(non_fiable)}")
-
-    a_confirmer = [a for a in arbres
-                   if any(s.a_confirmer for b in a.brins for s in b.sondages)]
-    if a_confirmer:
-        warnings.append(
-            f"{len(a_confirmer)} arbre(s) avec des sondages repris du relevé "
-            f"précédent et non confirmés : {_nums(a_confirmer)}")
 
     sans_urgence = [a for a in arbres if not a.urgence]
     if sans_urgence:

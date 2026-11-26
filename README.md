@@ -146,6 +146,7 @@ mon-dossier/
 ├── campagnes.py                ← historique des relevés (archivage, import)
 ├── evolution.py                ← évolution entre campagnes (calculs purs)
 ├── diagnostic_comparaison.py   ← adaptation et verdict de la comparaison
+├── fiche_evolution.py          ← PDF d'évolution vectoriel
 ├── pane_evolution.py           ← onglet Évolution (comparaison des relevés)
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,

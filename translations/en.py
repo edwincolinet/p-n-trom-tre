@@ -290,6 +290,26 @@ TRANSLATIONS = {
         'recommendation, follow-up and photos.\n\nContinue?',
     'Prof. (cm)':
         'Depth (cm)',
+    (
+        'Afficher les cernes'
+    ):
+    (
+        'Show growth rings'
+    ),
+    (
+        'Export impossible'
+    ):
+    (
+        'Export not possible'
+    ),
+    (
+        "{n} sondage(s) n'ont pas été actualisé(s).\n\nArbre(s) : {d}\n\n"
+        "Retapez ou validez ces valeurs dans l'onglet Sondages."
+    ):
+    (
+        '{n} sounding(s) have not been updated.\n\nTree(s): {d}\n\nType t'
+        'hese values again or validate them in the Soundings tab.'
+    ),
     "Bois seul":                           "Wood only",
     "＋ Ajouter dégradation":              "＋ Add damage",
 

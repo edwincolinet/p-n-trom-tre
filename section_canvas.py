@@ -116,6 +116,7 @@ class SectionCanvas(tk.Canvas):
                          bd=0, **kw)
         self.arbre: Optional[Arbre] = None
         self.show_sondages: bool = True
+        self.show_cernes: bool = True
         self._host = host
         # Géométrie du dernier rendu (cx, cy, scale, R, R_ext), mise à
         # jour à chaque `redraw`. Sert au clic sur fond pour convertir
@@ -403,6 +404,10 @@ class SectionCanvas(tk.Canvas):
         self.show_sondages = bool(show)
         self.redraw()
 
+    def set_show_cernes(self, show: bool) -> None:
+        self.show_cernes = bool(show)
+        self.redraw()
+
     def _center_and_scale(self, R: float,
                           expansion_cm: float = 0.0
                           ) -> Tuple[float, float, float]:
@@ -599,7 +604,8 @@ class SectionCanvas(tk.Canvas):
         # fonction par direction si l'écorce varie.
         ep_spec: "RadiusSpec" = brin.ep_a_grade if brin.a_ecorce_variable else ep
         self._draw_bois_sain(brin, cx, cy, R, scale)
-        self._draw_cernes(brin, cx, cy, R, scale)
+        if self.show_cernes:
+            self._draw_cernes(brin, cx, cy, R, scale)
         self._draw_cavite(brin, cx, cy, scale)
         self._draw_ecorce(brin, cx, cy, R, ep, scale)
         # Contreforts : R_inner descend de 1 px sous le rayon LOCAL pour

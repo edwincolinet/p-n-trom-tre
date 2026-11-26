@@ -129,22 +129,29 @@ class SondagesPane(ttk.Frame):
         # soit offert autrement — même motif que `pane_diagnostic`.
         canvas = tk.Canvas(self, bg=COLOR_PANEL, highlightthickness=0, bd=0)
         scroll = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scroll.set)
-        canvas.pack(side="left", fill="both", expand=True)
+        scroll_x = ttk.Scrollbar(self, orient="horizontal",
+                                 command=canvas.xview)
+        canvas.configure(yscrollcommand=scroll.set,
+                         xscrollcommand=scroll_x.set)
+        # Les barres d'abord : le canevas prend la place restante.
         scroll.pack(side="right", fill="y")
+        scroll_x.pack(side="bottom", fill="x")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._canvas, self._scroll_x = canvas, scroll_x
 
         content = ttk.Frame(canvas, style="Panel.TFrame", padding=10)
         content_window = canvas.create_window((0, 0), window=content,
                                                anchor="nw")
 
-        def _on_configure_inner(_e: "tk.Event[tk.Misc]") -> None:
+        def _ajuster(_e: "Optional[tk.Event[tk.Misc]]" = None) -> None:
+            # Le contenu garde au moins sa largeur naturelle : au-delà de
+            # la place disponible, il défile au lieu d'être tronqué.
+            canvas.itemconfigure(content_window, width=max(
+                canvas.winfo_width(), content.winfo_reqwidth()))
             canvas.configure(scrollregion=canvas.bbox("all"))
 
-        def _on_configure_outer(event: "tk.Event[tk.Misc]") -> None:
-            canvas.itemconfigure(content_window, width=event.width)
-
-        content.bind("<Configure>", _on_configure_inner)
-        canvas.bind("<Configure>", _on_configure_outer)
+        content.bind("<Configure>", _ajuster)
+        canvas.bind("<Configure>", _ajuster)
 
         # Molette : bindings globaux N'ACTIVÉS QUE si pointeur sur ce
         # canvas — sinon la molette détourne le scroll des autres onglets.
@@ -154,15 +161,27 @@ class SondagesPane(ttk.Frame):
         def _on_mousewheel_linux(event: "tk.Event[tk.Misc]") -> None:
             canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
 
+        # Maj + molette : défilement horizontal.
+        def _on_shift_wheel(event: "tk.Event[tk.Misc]") -> None:
+            sens = (-1 if event.num == 4 or getattr(event, "delta", 0) > 0
+                    else 1)
+            canvas.xview_scroll(sens * 3, "units")
+
         def _bind_wheel(_e: "tk.Event[tk.Misc]") -> None:
             canvas.bind_all("<MouseWheel>", _on_mousewheel)
             canvas.bind_all("<Button-4>", _on_mousewheel_linux)
             canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+            for seq in ("<Shift-MouseWheel>", "<Shift-Button-4>",
+                        "<Shift-Button-5>"):
+                canvas.bind_all(seq, _on_shift_wheel)
 
         def _unbind_wheel(_e: "tk.Event[tk.Misc]") -> None:
             canvas.unbind_all("<MouseWheel>")
             canvas.unbind_all("<Button-4>")
             canvas.unbind_all("<Button-5>")
+            for seq in ("<Shift-MouseWheel>", "<Shift-Button-4>",
+                        "<Shift-Button-5>"):
+                canvas.unbind_all(seq)
 
         canvas.bind("<Enter>", _bind_wheel)
         canvas.bind("<Leave>", _unbind_wheel)

@@ -292,6 +292,26 @@ TRANSLATIONS = {
         'foto.\n\nContinuare?',
     'Prof. (cm)':
         'Prof. (cm)',
+    (
+        'Afficher les cernes'
+    ):
+    (
+        'Mostra gli anelli di crescita'
+    ),
+    (
+        'Export impossible'
+    ):
+    (
+        'Esportazione impossibile'
+    ),
+    (
+        "{n} sondage(s) n'ont pas été actualisé(s).\n\nArbre(s) : {d}\n\n"
+        "Retapez ou validez ces valeurs dans l'onglet Sondages."
+    ):
+    (
+        '{n} sondaggio/i non aggiornato/i.\n\nAlbero/i: {d}\n\nRidigitare'
+        ' o confermare questi valori nella scheda Sondaggi.'
+    ),
     "Bois seul":                           "Solo legno",
     "＋ Ajouter dégradation":              "＋ Aggiungi degrado",
 

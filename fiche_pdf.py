@@ -59,6 +59,7 @@ from diagnostic import (
     COUVERTURE_ECART_MAX_GRADES,
     degradation_externe_par_grade,
     genet_diagnostic,
+    plaies_recouvertes,
     repartition_classes,
     repartition_classes_brin,
 )
@@ -380,7 +381,9 @@ class _PlanFiche(NamedTuple):
 
 
 def _draw_en_tete(pg: _Page, chantier: "Chantier", logo_path: "str | None",
-                  margin: int, y: float) -> float:
+                  margin: int, y: float,
+                  titre: str = "Fiche d'examen approfondis — Pénétromètre"
+                  ) -> float:
     """Bandeau d'en-tête de la fiche (titre, adresse/client, date/opérateur,
     logo du cabinet). Renvoie l'ordonnée sous le bandeau."""
     from PIL import Image
@@ -411,8 +414,7 @@ def _draw_en_tete(pg: _Page, chantier: "Chantier", logo_path: "str | None",
         pass
 
     header_text_w = W - margin * 2 - logo_w - 20
-    pg.text(margin + 20, y + 22, "Fiche d'examen approfondis — Pénétromètre",
-            30, "serif_bold", "white")
+    pg.text(margin + 20, y + 22, titre, 30, "serif_bold", "white")
     _lbl_client = _("Client")
     mission_txt = _fit_text(
         pg,
@@ -493,6 +495,9 @@ def _plan_fiche(pg: _Page, arbre: "Arbre", margin: int, y: float) -> _PlanFiche:
             pg, arbre, _preco_txt_w, has_intervention, has_suivi)
     else:
         est_preco_h = 0
+    n_plaies = len(plaies_recouvertes(arbre))
+    if n_plaies:
+        est_diag_h += 14 + 22 * min(n_plaies * 2, 8)
     est_section_h = max(est_diag_h, est_preco_h)
     used_so_far = int(y) - margin
     remaining = (H - margin - footer_reserve) - used_so_far \
@@ -520,7 +525,7 @@ def _plan_fiche(pg: _Page, arbre: "Arbre", margin: int, y: float) -> _PlanFiche:
 
 
 def _draw_dessin(pg: _Page, arbre: "Arbre", plan: _PlanFiche, y: float,
-                 show_sondages: bool) -> float:
+                 show_sondages: bool, show_cernes: bool = True) -> float:
     """Dessin de la section (rendu Pillow collé en image) puis légende
     horizontale. Renvoie l'ordonnée suivante."""
     from PIL import Image, ImageDraw
@@ -531,6 +536,7 @@ def _draw_dessin(pg: _Page, arbre: "Arbre", plan: _PlanFiche, y: float,
     est_legend_h = plan.est_legend_h
     drawing = render_arbre_to_pil_image(arbre, drawing_w, drawing_h,
                                         show_sondages=show_sondages,
+                                        show_cernes=show_cernes,
                                         show_title=False,
                                         show_legend=False)
     x_draw = (W - drawing_w) // 2
@@ -769,6 +775,7 @@ def render_fiche_arbre(pdf: FPDF,
                        chantier: "Chantier",
                        *,
                        show_sondages: bool = True,
+                       show_cernes: bool = True,
                        logo_path: "str | None" = None,
                        cabinet_name: str = "",
                        mission_file: "Path | None" = None) -> None:
@@ -793,7 +800,7 @@ def render_fiche_arbre(pdf: FPDF,
     y = _draw_en_tete(pg, chantier, logo_path, margin, y)
     y = _draw_identite(pg, arbre, margin, y)
     plan = _plan_fiche(pg, arbre, margin, y)
-    y = _draw_dessin(pg, arbre, plan, y, show_sondages)
+    y = _draw_dessin(pg, arbre, plan, y, show_sondages, show_cernes)
     pg, y = _draw_tableau_prbs(pdf, pg, arbre, chantier, cabinet_name,
                                margin, plan, y)
 
@@ -817,6 +824,21 @@ def render_fiche_arbre(pdf: FPDF,
     else:
         y_diag = int(_draw_mono_diagnostic(
             pg, arbre, col_diag_left, col_diag_right, R, y_diag))
+
+    # Plaies recouvertes : sous le diagnostic.
+    plaies = plaies_recouvertes(arbre)
+    if plaies:
+        y_diag += 6
+        restantes = 8
+        for plaie in plaies:
+            for ligne in _wrap_lines(pg, plaie, 15, "sans",
+                                     col_diag_right - col_diag_left,
+                                     max_lines=2):
+                if restantes and y_diag + 22 < H - 68:
+                    pg.text(col_diag_left, y_diag, ligne, 15, "sans",
+                            COLOR_INK)
+                    y_diag += 22
+                    restantes -= 1
 
     y_preco = _draw_preconisation(
         pg, arbre, y_section, col_preco_left, col_preco_right,

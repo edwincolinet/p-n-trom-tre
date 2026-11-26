@@ -499,10 +499,10 @@ class FichierMixin(_MixinBase):
                            builder: "Optional[Callable[[], Any]]") -> None:
         """Enregistre l'évolution construite par `builder` (menu Export).
 
-        PDF : liste de pages (une par brin pour une cépée). PNG :
+        PDF : document vectoriel (`fiche_evolution`). PNG :
         `(label, image)`, **un fichier par brin** — jamais empilés, pour
         rester insérables dans un rapport."""
-        from comparaison_render import save_comparison_pdf, save_evolution_pngs
+        from comparaison_render import save_evolution_pngs
         if builder is None:
             return
         ext = ".pdf" if fmt == "pdf" else ".png"
@@ -516,7 +516,7 @@ class FichierMixin(_MixinBase):
             pages = builder()
             label = "Comparaison d'inspections"
             if fmt == "pdf":
-                save_comparison_pdf(pages, p)
+                pages.output(p)
                 out_path = Path(p)
             else:
                 written = save_evolution_pngs(pages, p)

@@ -707,7 +707,8 @@ class App(ArbreListMixin, RecoveryMixin, ExportActionsMixin, FichierMixin,
             self.pane_de.refresh_fusion_warnings()
         self._rafraichir_evolution()
         if self.pane_evo is not None:
-            self.vue.actualiser(self.pane_evo, self.var_show_sondages.get())
+            self.vue.actualiser(self.pane_evo, self.var_show_sondages.get(),
+                                self.var_show_cernes.get())
 
     def _update_canvas_hint(self) -> None:
         """Affiche/masque l'indice « → Cliquer pour ajouter un sondage »

@@ -38,6 +38,7 @@ class TestPhotosPdfEvolution(unittest.TestCase):
             hote = SimpleNamespace(
                 chantier=chantier, current_file=None,
                 var_show_sondages=SimpleNamespace(get=lambda: True),
+                var_show_cernes=SimpleNamespace(get=lambda: True),
                 _current_arbre=lambda: a)
             # Sans Tk : seules les méthodes d'export sont exercées.
             pane = EvolutionPane.__new__(EvolutionPane)
@@ -45,10 +46,10 @@ class TestPhotosPdfEvolution(unittest.TestCase):
             construire = pane.constructeur_export(
                 "pdf", cabinet_name="", logo_path=None)
             assert construire is not None
-            sans = construire()
+            sans = construire().page_no()
             hote.current_file = d / "m.json"
-            avec = construire()
-            self.assertEqual(len(avec), len(sans) + 1)   # + page « Photos »
+            avec = construire().page_no()
+            self.assertEqual(avec, sans + 1)             # + page « Photos »
 
 
 if __name__ == "__main__":

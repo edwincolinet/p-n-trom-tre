@@ -70,6 +70,12 @@ def _get_cabinet_info(parent: tk.Misc) -> "tuple[str, str | None]":
     return getattr(settings, "cabinet_name", ""), getattr(settings, "logo_path", None)
 
 
+def _cernes(parent: tk.Misc) -> bool:
+    """Réglage « Afficher les cernes » de l'hôte (affichés par défaut)."""
+    var = getattr(parent, "var_show_cernes", None)
+    return True if var is None else bool(var.get())
+
+
 def _check_completeness(parent: tk.Misc, chantier: "Chantier") -> bool:
     """Vérifie la complétude de la mission avant export.
 
@@ -188,6 +194,7 @@ def export_dessin_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         img = render_arbre_to_pil_image(
             arbre, width=_DESSIN_PX, height=_DESSIN_PX,
             show_sondages=show_sondages,
+            show_cernes=_cernes(parent),
             show_legend=True)
         _enregistrer_image(img, p, fmt)
         _notify_export(parent, p, _("Image {fmt} enregistrée").format(
@@ -242,7 +249,8 @@ def export_dessin_mission(parent: tk.Misc, chantier: Chantier,
                 break
             img = render_arbre_to_pil_image(
                 a, width=_DESSIN_PX, height=_DESSIN_PX,
-                show_sondages=show_sondages, show_legend=True)
+                show_sondages=show_sondages,
+                show_cernes=_cernes(parent), show_legend=True)
             cible = Path(dossier) / nom
             _enregistrer_image(img, str(cible), fmt)
             ecrits.append(cible)
@@ -296,6 +304,7 @@ def export_pdf_arbre(parent: tk.Misc, arbre: Optional[Arbre],
         pdf = _new_pdf()
         render_fiche_arbre(pdf, arbre, chantier,
                            show_sondages=show_sondages,
+                           show_cernes=_cernes(parent),
                            logo_path=logo_path,
                            cabinet_name=cabinet_name,
                            mission_file=mission_file)
@@ -352,6 +361,7 @@ def export_pdf_mission(parent: tk.Misc, chantier: Chantier,
             render_fiche_arbre(
                 pdf, a, chantier,
                 show_sondages=show_sondages,
+                show_cernes=_cernes(parent),
                 logo_path=logo_path,
                 cabinet_name=cabinet_name,
                 mission_file=mission_file)

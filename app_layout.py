@@ -97,6 +97,7 @@ class LayoutMixin(_MixinBase):
         pane_evo: Optional[EvolutionPane]
         vue: VueDessin
         var_progression_filter: tk.BooleanVar
+        var_show_cernes: tk.BooleanVar
 
         def action_cabinet_settings(self) -> None: ...
         def _reload_logo(self) -> None: ...
@@ -715,6 +716,17 @@ class LayoutMixin(_MixinBase):
             variable=self.var_show_sondages,
             style="Panel.TCheckbutton",
         ).pack(anchor="w", pady=(6, 0))
+        self.var_show_cernes = tk.BooleanVar(value=True)
+
+        def _bascule_cernes(*_a: str) -> None:
+            self.section.set_show_cernes(self.var_show_cernes.get())
+            host._debounced_redraw()
+
+        self.var_show_cernes.trace_add("write", _bascule_cernes)
+        ttk.Checkbutton(
+            frame, text=_("Afficher les cernes"),
+            variable=self.var_show_cernes, style="Panel.TCheckbutton",
+        ).pack(anchor="w", pady=(2, 0))
         # Indice de découvrabilité : le canevas est interactif (clic sur
         # un élément = édition, clic sur une direction vide = ajout).
         # Rien ne le signalait a priori — d'où ce rappel, repliable.

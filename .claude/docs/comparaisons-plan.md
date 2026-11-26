@@ -1,7 +1,6 @@
 # Refonte des comparaisons (ré-inspection) — plan
 
-> **Statut** (26/11/2026) : **lots 0 à 4 implémentés** (non publiés) ; lot 5 à
-> faire. Le constat du §1 décrit la v3.8.0.
+> **Statut** (26/11/2026) : **lots 0 à 5 implémentés** (non publiés). Le constat du §1 décrit la v3.8.0.
 
 ## 1. Constat
 
@@ -188,4 +187,17 @@ mention des plaies recouvertes dans les exports, guide de démarrage.
 - Une nouvelle campagne ne supprime rien : « tout garder, à confirmer ».
   Choix d'implémentation : les valeurs non confirmées restent dans le
   diagnostic courant (avertissement avant export), pas dans la comparaison.
+
+## 12. Lot 5 (fait) et décision sur les valeurs à confirmer
+
+Décision (Edwin) : aucun marquage sur les livrables ; **l'export est refusé**
+tant qu'un sondage n'a pas été actualisé (remplace la fin du §11).
+
+Fait : PDF d'évolution vectoriel (`fiche_evolution.py`), mention des plaies
+recouvertes (fiche, tableaux, évolution), guide de démarrage, case « Afficher
+les cernes », défilement horizontal de la grille des sondages.
+
+Non couvert : les diamètres locaux, la préconisation, le suivi et les photos
+repris ne sont pas soumis à confirmation. La synthèse de mission ne mentionne
+pas les plaies recouvertes.
 

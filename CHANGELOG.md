@@ -21,8 +21,7 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
   historique des relevés dans le fichier.
 - **Comparaison → Nouvelle campagne…** : archive le relevé actuel ; tout reste
   prérempli. Les sondages repris sont grisés « à confirmer » (retaper, Entrée
-  ou clic) et ne comptent pas dans la comparaison avant validation ; un
-  avertissement précède l'export tant qu'il en reste.
+  ou clic) et ne comptent pas dans la comparaison avant validation.
 - **Comparaison → Importer un relevé antérieur…** : rattache une ancienne
   mission, avec validation de la correspondance des arbres.
 - Onglet Sondages : colonne « Préc. / écart » et rappel du relevé précédent.
@@ -37,6 +36,13 @@ dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.COR
 - Dégradations externes : case **« Recouverte »**. Un cal est dessiné
   par-dessus la plaie, qui garde sa zone et sa profondeur (bois perdu
   inchangé). L'épaisseur du cal n'est pas saisie.
+- **Export refusé** tant qu'un sondage repris n'a pas été actualisé.
+- **PDF d'évolution vectoriel**, dans le style de la fiche (A4 portrait, deux
+  pages par brin plus les photos).
+- Plaies recouvertes mentionnées sur la fiche, les tableaux PRBS et le PDF
+  d'évolution.
+- Case **« Afficher les cernes »** (écran, dessins et PDF).
+- Grille des sondages : défilement horizontal (Maj + molette).
 - Dessin d'évolution : une plaie externe inchangée sur un tronc qui a grossi
   n'apparaît plus comme aggravée.
 

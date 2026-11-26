@@ -154,8 +154,8 @@ class CepeeExportLayoutTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_PIL, "Pillow absent")
 class ComparaisonExportPagesTests(unittest.TestCase):
-    """Export de la ré-inspection : une page par brin pour une cépée (PDF
-    multi-pages / PNG empilé), une page genet pour un mono-caule."""
+    """Export de la ré-inspection : PDF vectoriel (deux pages par brin) et
+    PNG d'évolution (un fichier par brin)."""
 
     @staticmethod
     def _arbre(n_brins: int, sain: float):
@@ -170,52 +170,33 @@ class ComparaisonExportPagesTests(unittest.TestCase):
             a.ajouter_brin()
         return a
 
-    def test_une_page_pour_mono_caule(self):
-        from comparaison_render import render_comparison_pages
-        pages = render_comparison_pages(
-            "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
-            ref_label="2024", cur_label="2026")
-        self.assertEqual(len(pages), 1)
+    def _pdf(self, ref, cur, **kw):
+        from fiche_evolution import construire_pdf_evolution
+        from model import Chantier
+        pdf = construire_pdf_evolution(
+            ref, cur, 2.0, ref_label="01/06/2024", cur_label="01/06/2026",
+            chantier=Chantier(), **kw)
+        pdf.compress = False
+        return pdf
 
-    def test_une_page_par_brin_pour_cepee(self):
-        # Réf 1 brin, courant 3 brins → 3 pages (brins b, c orphelins).
-        from comparaison_render import render_comparison_pages
-        pages = render_comparison_pages(
-            "M", self._arbre(1, 8.0), self._arbre(3, 5.0), 2.0,
-            ref_label="2024", cur_label="2026")
-        self.assertEqual(len(pages), 3)
+    def test_deux_pages_pour_mono_caule(self):
+        pdf = self._pdf(self._arbre(1, 8.0), self._arbre(1, 5.0))
+        self.assertEqual(pdf.page_no(), 2)
+        self.assertTrue(bytes(pdf.output()).startswith(b"%PDF"))
 
-    def test_show_sondages_false_masque_les_fleches(self):
-        # La case « Afficher sondages » doit être respectée dans l'export :
-        # avec sondages, les flèches ajoutent des pixels → rendu différent.
-        from PIL import ImageChops
+    def test_deux_pages_par_brin_pour_cepee(self):
+        pdf = self._pdf(self._arbre(1, 8.0), self._arbre(3, 5.0))
+        self.assertEqual(pdf.page_no(), 6)
 
-        from comparaison_render import render_comparison_pages
+    def test_cases_sondages_et_cernes_respectees(self):
         ref, cur = self._arbre(1, 8.0), self._arbre(1, 5.0)
-        on = render_comparison_pages("M", ref, cur, 2.0, ref_label="r",
-                                     cur_label="c", show_sondages=True)[0]
-        off = render_comparison_pages("M", ref, cur, 2.0, ref_label="r",
-                                      cur_label="c", show_sondages=False)[0]
-        self.assertIsNotNone(ImageChops.difference(on, off).getbbox())
 
-    def test_png_empile_les_pages_d_une_cepee(self):
-        import os
-        import tempfile
+        def taille(**kw):
+            return len(self._pdf(ref, cur, **kw).output())
 
-        from PIL import Image
-
-        from comparaison_render import (
-            _PAGE_H,
-            render_comparison_pages,
-            save_comparison_png,
-        )
-        pages = render_comparison_pages(
-            "M", self._arbre(1, 8.0), self._arbre(2, 5.0), 2.0,
-            ref_label="2024", cur_label="2026")
-        path = os.path.join(tempfile.mkdtemp(), "c.png")
-        save_comparison_png(pages, path)
-        with Image.open(path) as img:
-            self.assertEqual(img.height, 2 * _PAGE_H)
+        complet = taille()
+        self.assertNotEqual(taille(show_sondages=False), complet)
+        self.assertNotEqual(taille(show_cernes=False), complet)
 
     def test_evolution_png_une_pour_mono_caule(self):
         from comparaison_render import render_evolution_pngs
@@ -235,17 +216,15 @@ class ComparaisonExportPagesTests(unittest.TestCase):
 
     def test_evolution_png_meme_format_que_export_classique(self):
         # Format du PNG « rapport » : un seul dessin carré (titre + section
-        # + légende), pas la feuille A4 ni la carte 3-colonnes.
+        # + légende).
         from comparaison_render import (
             _EVOLUTION_PNG_SIZE,
-            _PAGE_H,
             render_evolution_pngs,
         )
         _label, img = render_evolution_pngs(
             "M", self._arbre(1, 8.0), self._arbre(1, 5.0), 2.0,
             ref_label="2024", cur_label="2026")[0]
         self.assertEqual(img.size, (_EVOLUTION_PNG_SIZE, _EVOLUTION_PNG_SIZE))
-        self.assertLess(img.height, _PAGE_H * 2)
 
     def test_evolution_png_cepee_ecrit_un_fichier_par_brin(self):
         # Contrairement au PDF (empilé/multi-pages), une cépée en PNG doit

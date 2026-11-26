@@ -47,6 +47,7 @@ pane_sondages.py       ← onglet Sondages
 pane_degradations.py   ← onglet Dégradations externes
 pane_contreforts.py    ← onglet Contreforts
 pane_diagnostic.py     ← onglet Diagnostic (résumé + tableau PRBS + préconisation)
+fiche_evolution.py     ← PDF d'évolution vectoriel (mêmes en-tête/pied que la fiche)
 pane_evolution.py      ← onglet Évolution (dates comparées, verdict, chronologie, exports) + sélecteur Actuel/Précédent/Évolution du dessin
 comparaison_render.py  ← rendu PIL de la comparaison (section d'évolution + page export PNG/PDF)
 app_exports.py         ← actions d'export (adaptateur Tk, fonctions pures)
@@ -146,7 +147,7 @@ dialogs_cepee.py + dialogs_saisie.py (dépendent aussi de dialogs.py, même pali
    ↑
 export_mission.py (dépend de export.py + export_synthesis.py)
    ↑
-fiche_pdf.py + comparaison_render.py
+fiche_pdf.py + comparaison_render.py + fiche_evolution.py (au-dessus des deux)
    ↑
 section_canvas.py + pane_*.py + app_exports.py + app_menu.py + app_style.py
    ↑
@@ -266,8 +267,10 @@ penetrometre.py  (Tk + main) ← undo.py
   (`geometry.cal_outline`), plaie replacée sous le bois formé depuis qu'elle
   était ouverte (`campagnes.cals`). Une nouvelle campagne
   (`campagnes.nouvelle_campagne`) **ne vide rien** : les sondages sont marqués
-  `Sondage.a_confirmer` — comptés dans le diagnostic courant (avertissement
-  avant export) mais pas comme mesures dans `evolution`, absents de l'archive
+  `Sondage.a_confirmer` — comptés dans le diagnostic affiché, mais **tout
+  export est refusé** (`ExportActionsMixin._non_actualises`, à appeler dans
+  chaque nouvelle `action_export_*` ; aucun marquage sur les livrables), pas
+  comptés comme mesures dans `evolution`, absents de l'archive
   s'ils le sont encore à la campagne suivante.
 - **Compat fichier** : ajout de champ = OK (défaut) ; renommage/suppression =
   migration explicite dans `persistence.chantier_from_dict`. Format v3 = brins, v4 = suivi dans le temps.
@@ -339,7 +342,7 @@ venv/bin/python -m mypy bareme.py geometry.py palette.py model.py diagnostic.py 
   export_registry.py dialogs_export.py export_mission.py ods_writer.py \
   pane_identification.py pane_sondages.py pane_degradations.py \
   pane_contreforts.py pane_diagnostic.py dialogs.py dialogs_cepee.py dialogs_saisie.py section_canvas.py \
-  comparaison_render.py pane_evolution.py undo.py tooltip.py aide_repliable.py \
+  comparaison_render.py fiche_evolution.py pane_evolution.py undo.py tooltip.py aide_repliable.py \
   penetrometre.py photo_gallery.py \
   dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py \
   template_store.py update_checker.py profil_cabinet.py photo_paths.py icons.py chrome_icons.py

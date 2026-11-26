@@ -360,7 +360,7 @@ class PhotosComparaisonTests(unittest.TestCase):
 
         from PIL import Image
 
-        from comparaison_render import render_comparison_pages
+        from fiche_evolution import construire_pdf_evolution
         from model import Chantier
         from persistence import load_chantier, save_chantier
         with tempfile.TemporaryDirectory() as tmp:
@@ -380,11 +380,11 @@ class PhotosComparaisonTests(unittest.TestCase):
             save_chantier(ch, d / "m.json")
             cur2 = load_chantier(d / "m.json").arbres[0]
             self.assertEqual(cur2.photos_comparaison_cur, ["m_photos/b.png"])
-            avec = render_comparison_pages(
-                "M", self._arbre(8.0), cur2, 2.0, ref_label="2024",
-                cur_label="2026", chantier=ch, mission_dir=d)
-            sans = render_comparison_pages(
-                "M", self._arbre(8.0), cur2, 2.0, ref_label="2024",
-                cur_label="2026", chantier=ch, mission_dir=None)
-            self.assertEqual(len(avec), 2)   # chiffrée + photos
-            self.assertEqual(len(sans), 1)   # relatifs non résolus → rien
+            def pages(mission_dir):
+                return construire_pdf_evolution(
+                    self._arbre(8.0), cur2, 2.0, ref_label="2024",
+                    cur_label="2026", chantier=ch,
+                    mission_dir=mission_dir).page_no()
+
+            self.assertEqual(pages(d), 3)      # deux pages + photos
+            self.assertEqual(pages(None), 2)   # relatifs non résolus → rien

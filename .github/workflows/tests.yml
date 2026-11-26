@@ -79,7 +79,7 @@ jobs:
           pane_identification.py pane_sondages.py pane_degradations.py
           pane_contreforts.py pane_diagnostic.py
           dialogs.py section_canvas.py
-          comparaison_render.py pane_evolution.py
+          comparaison_render.py fiche_evolution.py pane_evolution.py
           undo.py tooltip.py aide_repliable.py
           penetrometre.py photo_gallery.py
           dialogs_settings.py dialogs_shared.py i18n.py bareme_store.py
