@@ -298,8 +298,7 @@ format du menu Export — réorganisation du 2026-09-05) :
   section *Support* (Contacter le support, Ouvrir le fichier de log),
   section *Mises à jour* (Vérifier les mises à jour, Vérification
   automatique au démarrage — checkbutton, sa variable est conservée sur
-  `app` pour ne pas être ramassée par le GC, cf. piège identique pour
-  les combobox de `comparaison.py`), puis Redémarrer / À propos.
+  `app` pour ne pas être ramassée par le GC, pour la même raison que toute variable Tk locale), puis Redémarrer / À propos.
 
 `refresh_recent_menu(app)` est exposée pour être réappelée par l'App
 après chaque ouverture/enregistrement ; elle vide et reconstruit le
@@ -702,41 +701,15 @@ d'`App`). Détail et justification dans CLAUDE.md (« App = orchestration +
   Linux/macOS gardent les glyphes d'`icons.py` (`ICON_CALENDAR` 📅),
   rendu confirmé correct à l'usage. Cf. CLAUDE.md pour l'historique complet.
 
-## Ré-inspection inter-missions
+## Ré-inspection (suivi dans le temps)
 
-- **`comparaison.py`** — fenêtre Tk `open_comparison(...)` redimensionnable :
-  3 sections côte à côte (référence | courant | **section d'évolution**),
-  tableau chiffré, verdict. Référence chargée **par session** (rien de
-  persisté). Porte le **MÊME bandeau que la fenêtre principale**, en-tête
-  ET pied :
-  - **Menu** : le même widget `tk.Menu` (posé sur `App._menubar` par
-    `app_menu.build_menu`, réattaché à `dlg` via `dlg.config(menu=…)`, un
-    `tk.Menu` pouvant servir de barre de menu à plusieurs fenêtres). L'export
-    PDF/PNG se fait donc depuis le menu Export ordinaire, grisé hors
-    comparaison active (`comparaison.is_comparison_active`/
-    `export_active_comparison`/`get_comparison_window`).
-  - **Pied** : un widget ordinaire ne pouvant pas être partagé comme un
-    menu, c'est une reconstruction visuellement identique à la barre
-    d'état (mêmes styles `Side.TFrame`/`Side.TLabel`/`Ghost.TButton`) —
-    bouton « 💾 Enregistrer » (icône bitmap + texte sur Windows, cf. `chrome_icons.py`)
-    (`App.action_save`) + indicateur
-    d'enregistrement (`dialogs_shared.save_state_label(dirty, has_file)`,
-    SOURCE UNIQUE partagée avec `App._update_save_indicator`) + message
-    d'export + « Ouvrir le fichier/dossier ». L'ancien bouton Enregistrer
-    du bandeau supérieur a été retiré (doublon, 2026-09-06).
-  Sans ce bandeau, la fenêtre (quasi plein écran, pas `transient`) coupait
-  de tout le reste de l'app (2026-09-05). Elle porte aussi sa **propre case
-  « Afficher sondages »** posée sur `App.var_show_sondages` — la MÊME
-  `BooleanVar` que celle de la fenêtre principale (un seul interpréteur Tcl
-  pour toute l'app, même mécanique de partage que le menu) — pour ne plus
-  avoir à changer de fenêtre pour l'afficher/masquer ; une `trace_add`
-  redessine les blocs de cette fenêtre à chaque bascule (retirée à la
-  fermeture via `<Destroy>`) et une autre, posée une fois dans
-  `App._build_right`, redessine `App.section` — plus de `command=` local
-  qui n'aurait réagi qu'aux clics sur SA propre case. Décisions métier dans
-  CLAUDE.md.
-- **`comparaison_render.py`** (PIL pur, sans Tk) — `render_evolution_section`
-  (couronne **orange** = bois sain perdu depuis la référence, contours
-  lissés Catmull-Rom), `render_comparison_page` (A4 paysage),
-  `save_comparison_{png,pdf}`, `metric_rows`/`verdict_evolution` partagés
-  fenêtre ↔ page.
+- `model.Releve` + `Arbre.campagnes` : relevés antérieurs figés dans la
+  mission ; `Arbre.id`/`Brin.id` stables.
+- `campagnes.py` : archiver, nouvelle campagne, importer, relevé précédent,
+  cal déduit.
+- `evolution.py` : calcul pur (repère fixe, alertes, conclusion, N dates).
+- `diagnostic_comparaison.py` / `comparaison_render.py` : verdict en mots,
+  dessins et pages d'export.
+- `pane_evolution.py` : onglet Évolution (`EvolutionPane`) et sélecteur
+  Actuel/Précédent/Évolution du dessin (`VueDessin`) ;
+  `dialogs_campagne.py` : appariement à l'import.

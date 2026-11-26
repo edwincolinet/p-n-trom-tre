@@ -907,7 +907,7 @@ def mission_synthesis_rows(chantier: "Chantier", *,
 
 # La comparaison inter-missions (ré-inspection) vit dans
 # `diagnostic_comparaison.py` — sous-domaine distinct, déjà séparé côté
-# UI (comparaison.py/comparaison_render.py), qui ne réutilise d'ici que
+# UI (pane_evolution.py/comparaison_render.py), qui ne réutilise d'ici que
 # `prbs_par_grade`, `_synthesis_row_for_section`, `_synthesis_genet_row`
 # et `_GRAVITE_CLASSE`.
 
@@ -982,6 +982,27 @@ def sondage_render_data(
 
 
 # --- Checkliste de complétude de mission --------------------------------
+
+def plaies_recouvertes(arbre: "Arbre",
+                       brin: "Optional[Brin]" = None) -> List[str]:
+    """Une ligne par dégradation externe recouverte (d'un brin, ou de tout
+    l'arbre) pour les livrables. Liste vide s'il n'y en a pas."""
+    brins = [brin] if brin is not None else list(arbre.brins)
+    lignes: List[str] = []
+    for b in brins:
+        prefixe = (f"Brin {b.label} — " if b.label and len(arbre.brins) > 1
+                   else "")
+        for d in b.degradations_externes:
+            if not d.recouverte:
+                continue
+            zone = ("écorce et bois" if d.comprend_ecorce else "bois seul")
+            lignes.append(
+                f"{prefixe}Dégradation n° {d.numero} recouverte par un cal : "
+                f"{_angle_units.fmt(d.grade_debut)} → "
+                f"{_angle_units.fmt(d.grade_fin)}, profondeur "
+                f"{d.profondeur_cm:g} cm ({zone}).")
+    return lignes
+
 
 def mission_completeness_warnings(chantier: "Chantier") -> list[str]:
     """Renvoie une liste de messages d'avertissement sur la complétude

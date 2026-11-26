@@ -139,15 +139,180 @@ TRANSLATIONS = {
     "Profondeur (cm)":                     "Profondità (cm)",
     "Zone dégradée":                       "Zona degradata",
     "Écorce + bois":                       "Corteccia + legno",
+    '(aucun)':
+        '(nessuno)',
+    'Ancienne mission à importer':
+        'Missione precedente da importare',
+    'Bois sain du relevé précédent, et évolution de la cavité : ▲ elle a '
+    'grandi, = inchangée, ? elle a reculé (à vérifier).':
+        'Legno sano del rilievo precedente ed evoluzione della cavità: ▲ è '
+        'aumentata, = invariata, ? si è ridotta (da verificare).',
+    "Ce relevé ({a}) n'est pas antérieur à la mission ouverte ({b}).":
+        'Questo rilievo ({a}) non è anteriore alla missione aperta ({b}).',
+    "Cet arbre n'a pas de relevé antérieur.":
+        'Questo albero non ha rilievi precedenti.',
+    'Date de cette ancienne visite':
+        'Data di quella visita precedente',
+    'Date de la nouvelle visite':
+        'Data della nuova visita',
+    'Importer':
+        'Importa',
+    'Importer un relevé antérieur':
+        'Importa un rilievo precedente',
+    'Importer un relevé antérieur…':
+        'Importa un rilievo precedente…',
+    'Nouvelle campagne':
+        'Nuova campagna',
+    'Nouvelle campagne…':
+        'Nuova campagna…',
+    'Profondeur ajustée à {p:g} cm : le bois perdu reste le même.':
+        'Profondità adattata a {p:g} cm: il legno perso resta invariato.',
+    'Préc. / écart':
+        'Prec. / scarto',
+    'Relevé actuel : {date}.':
+        'Rilievo attuale: {date}.',
+    'Relevé précédent : {date} — Ø sur écorce {d:g} cm (à re-mesurer).':
+        'Rilievo precedente: {date} — Ø sopra corteccia {d:g} cm (da rimisurare).',
+    "Un même arbre de l'ancienne mission est choisi deux fois.":
+        'Lo stesso albero della missione precedente è scelto due volte.',
+    'Vérifiez la correspondance des arbres. Seuls les arbres appariés reçoivent le relevé.':
+        'Verificare la corrispondenza degli alberi. Solo gli alberi abbinati ricevono il rilievo.',
+    '{arbre} : {n} brin(s) sans correspondance.':
+        '{arbre}: {n} fusto/i senza corrispondenza.',
+    '{n} arbre(s) : relevé du {date} importé.':
+        '{n} albero/i: rilievo del {date} importato.',
+    '{n} arbre(s) archivé(s). Saisissez la nouvelle visite (Ctrl+Z pour annuler).':
+        '{n} albero/i archiviato/i. Inserire la nuova visita (Ctrl+Z per annullare).',
+    'à sonder':
+        'da sondare',
+    '⚠ Hauteur de sondage différente ({a:g} cm au lieu de {b:g} cm) : pas de comparaison.':
+        '⚠ Altezza di sondaggio diversa ({a:g} cm invece di {b:g} cm): nessun confronto.',
+    'Zone dégradée — « Écorce + bois » : la zone part de la surface ; '
+    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. « "
+    "Bois seul » : l'écorce reste intacte, toute la profondeur est du bois "
+    'sain perdu.':
+        'Zona degradata — « Corteccia + legno »: la zona parte dalla '
+        'superficie; lo spessore di corteccia attraversato non è '
+        'conteggiato come legno perso. « Solo legno »: la corteccia resta '
+        'intatta, tutta la profondità è legno sano perso.',
+    '= pas de progression':
+        '= nessuna progressione',
+    '? à vérifier':
+        '? da verificare',
+    'Actuel':
+        'Attuale',
+    'Ancien':
+        'Precedente',
+    'Brin {label}':
+        'Fusto {label}',
+    'Cavité':
+        'Cavità',
+    "Cet arbre n'a pas de relevé antérieur. Pour suivre son évolution :":
+        "Questo albero non ha rilievi precedenti. Per seguirne l'evoluzione:",
+    'Chiffres':
+        'Cifre',
+    'Chronologie':
+        'Cronologia',
+    'Comparer':
+        'Confronta',
+    'Croissance':
+        'Crescita',
+    "Dates de l'onglet Évolution":
+        'Date della scheda Evoluzione',
+    'Depuis le précédent':
+        'Dal precedente',
+    'Dégradation':
+        'Degrado',
+    'Dégradation en progression':
+        'Degrado in progressione',
+    'Indicateur':
+        'Indicatore',
+    'PRBS':
+        'PRBS',
+    'PRBS préc.':
+        'PRBS prec.',
+    'Par direction':
+        'Per direzione',
+    'Photos du relevé antérieur':
+        'Foto del rilievo precedente',
+    'Photos du relevé récent':
+        'Foto del rilievo recente',
+    'Précédent':
+        'Precedente',
+    'Récent':
+        'Recente',
+    "Un brin du relevé antérieur n'existe plus.":
+        'Un fusto del rilievo precedente non esiste più.',
+    "Voir l'évolution":
+        "Mostra l'evoluzione",
+    'en cours':
+        'in corso',
+    'non comparable':
+        'non confrontabile',
+    'non datée':
+        'senza data',
+    'non publié':
+        'non pubblicato',
+    'non re-sondée':
+        'non risondata',
+    'non évaluable':
+        'non valutabile',
+    'État à chaque date':
+        'Stato a ogni data',
+    'Évolution (ré-inspection)':
+        'Evoluzione (reispezione)',
+    'Évolution':
+        'Evoluzione',
+    '▲ progression':
+        '▲ progressione',
+    '✓ recouvrement':
+        '✓ ricopertura',
+    '✓ recouverte':
+        '✓ ricoperta',
+    'Recouverte':
+        'Ricoperta',
+    'Recouverte par un cal':
+        'Ricoperta da un callo',
+    'Plaie refermée par un cal (bourrelet de recouvrement). La plaie reste inchangée dessous.':
+        'Ferita richiusa da un cordone cicatriziale. La ferita sottostante resta invariata.',
+    'à confirmer':
+        'da confermare',
+    'Valeurs grisées : retapez-les, ou validez avec Entrée ou un clic sur « à confirmer ».':
+        'Valori in grigio: ridigitarli, o confermare con Invio o un clic su «da confermare».',
+    'Le relevé actuel sera archivé dans la mission.\n\nTout reste prérempli '
+    'pour la nouvelle visite. Les sondages sont marqués « à confirmer » : '
+    "ils ne comptent pas dans la comparaison tant qu'ils ne sont pas "
+    'retapés ou validés.\nPensez à revoir le diamètre, les diamètres '
+    'locaux, la préconisation, le suivi et les photos.\n\nContinuer ?':
+        'Il rilievo attuale sarà archiviato nella missione.\n\nTutto resta '
+        'precompilato per la nuova visita. I sondaggi sono segnati «da '
+        'confermare»: non contano nel confronto finché non vengono '
+        'ridigitati o confermati.\nRicordarsi di rivedere diametro, '
+        'diametri locali, raccomandazione, monitoraggio e '
+        'foto.\n\nContinuare?',
+    'Prof. (cm)':
+        'Prof. (cm)',
+    (
+        'Afficher les cernes'
+    ):
+    (
+        'Mostra gli anelli di crescita'
+    ),
+    (
+        'Export impossible'
+    ):
+    (
+        'Esportazione impossibile'
+    ),
+    (
+        "{n} sondage(s) n'ont pas été actualisé(s).\n\nArbre(s) : {d}\n\n"
+        "Retapez ou validez ces valeurs dans l'onglet Sondages."
+    ):
+    (
+        '{n} sondaggio/i non aggiornato/i.\n\nAlbero/i: {d}\n\nRidigitare'
+        ' o confermare questi valori nella scheda Sondaggi.'
+    ),
     "Bois seul":                           "Solo legno",
-    "Zone dégradée — « Écorce + bois » : la zone part de la surface ; "
-    "l'épaisseur d'écorce traversée n'est pas comptée comme bois perdu. "
-    "« Bois seul » : l'écorce reste intacte, toute la profondeur est du "
-    "bois sain perdu.":
-        "Zona degradata — « Corteccia + legno »: la zona parte dalla "
-        "superficie; lo spessore di corteccia attraversato non è "
-        "conteggiato come legno perso. « Solo legno »: la corteccia "
-        "resta intatta, tutta la profondità è legno sano perso.",
     "＋ Ajouter dégradation":              "＋ Aggiungi degrado",
 
     # ── Scheda Diagnosi ───────────────────────────────────────────────
@@ -596,6 +761,9 @@ TRANSLATIONS = {
     "pas de brin de référence — état courant seul":
         "nessun fusto di riferimento — solo stato corrente",
     "pas de brin de référence":          "nessun fusto di riferimento",
+    "hauteurs de sondage différentes — état courant seul":
+        "altezze di sondaggio diverse — solo stato attuale",
+    "hauteurs différentes":              "altezze diverse",
     "— état courant seul":               "— solo stato corrente",
     "Photos de la comparaison":          "Foto del confronto",
     "Photos de la référence — {r}":      "Foto di riferimento — {r}",

@@ -29,9 +29,10 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from campagnes import cals
 from diagnostic import (
     compute_alteration_par_grade,
     sondage_render_data,
@@ -40,6 +41,7 @@ from geometry import (
     RadiusSpec,
     adaptive_ruler_step_cm,
     brins_layout,
+    cal_outline,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
@@ -55,6 +57,7 @@ from geometry import (
 from palette import (
     COLOR_BARK,
     COLOR_BARK_LIGHT,
+    COLOR_CAL,
     COLOR_CERNE,
     COLOR_INK,
     COLOR_MUTED,
@@ -225,7 +228,8 @@ def render_arbre_to_pil_image(arbre: "Arbre",
                               width: int = 1600, height: int = 1600,
                               show_sondages: bool = True,
                               show_title: bool = True,
-                              show_legend: bool = False) -> "PILImage":
+                              show_legend: bool = False,
+                              show_cernes: bool = True) -> "PILImage":
     """Rend la section transversale d'un arbre en image PIL (PNG/PDF).
     Logique identique à SectionCanvas.redraw() mais sans dépendance tk.
 
@@ -259,7 +263,7 @@ def render_arbre_to_pil_image(arbre: "Arbre",
             and brins[0].pos_y_cm == 0.0):
         _pil_draw_cepee(d, f, f_base, arbre, width, height, _ds,
                         show_sondages=show_sondages, show_title=show_title,
-                        show_legend=show_legend)
+                        show_legend=show_legend, show_cernes=show_cernes)
         return img
 
     if arbre.rayon_tronc_cm <= 0:
@@ -297,7 +301,9 @@ def render_arbre_to_pil_image(arbre: "Arbre",
     # explicitement à la section.
     _pil_draw_brin(d, f, arbre.brin_courant, arbre.port_arbre, arbre.meche_cm,
                    cx, cy, R, ep, scale,
-                   show_sondages=show_sondages, bullet_r=bullet_r, ds=_ds)
+                   show_sondages=show_sondages, bullet_r=bullet_r, ds=_ds,
+                   cals=cals(arbre, arbre.brin_courant),
+                   show_cernes=show_cernes)
     if show_title:
         _pil_draw_titre(d, f, arbre, R, width, height)
     if show_legend:
@@ -316,7 +322,9 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
                    port: str, meche: float,
                    cx: float, cy: float, R: float, ep: float, scale: float,
                    *, show_sondages: bool, bullet_r: int,
-                   ds: float = 1.0, draw_cardinales: bool = True) -> None:
+                   ds: float = 1.0, draw_cardinales: bool = True,
+                   cals: "Optional[Mapping[int, float]]" = None,
+                   show_cernes: bool = True) -> None:
     """Dessine UNE section (bois → pastilles + moelle) centrée en (cx, cy).
 
     Regroupe toutes les couches **propres à un brin** dans l'ordre de
@@ -338,12 +346,13 @@ def _pil_draw_brin(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
     # circulaire (rendu identique à l'ancien), variable pour une ellipse.
     r_ext_of = brin.rayon_ext_a_grade if ep else brin.rayon_a_grade
     _pil_draw_bois_sain(d, brin, cx, cy, R, scale)
-    _pil_draw_cernes(d, brin, cx, cy, R, scale)
+    if show_cernes:
+        _pil_draw_cernes(d, brin, cx, cy, R, scale)
     _pil_draw_cavite(d, brin, cx, cy, scale)
     _pil_draw_ecorce(d, brin, cx, cy, R, ep, R_ext, scale)
     _pil_draw_contreforts(d, brin, cx, cy, ep, scale)
     # Dégradations EN DERNIER des couches de surface (cf. CLAUDE.md).
-    _pil_draw_degradations(d, brin, cx, cy, ep, scale)
+    _pil_draw_degradations(d, brin, cx, cy, ep, scale, cals)
     _pil_draw_ticks(d, cx, cy, r_ext_of, scale)
     if draw_cardinales:
         _pil_draw_cardinales(d, f, cx, cy, r_ext_of, scale)
@@ -380,7 +389,8 @@ def _pil_draw_brin_label(d: "ImageDraw.ImageDraw", f: FontFn, brin: "Brin",
 def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
                     arbre: "Arbre", width: int, height: int, ds: float, *,
                     show_sondages: bool, show_title: bool,
-                    show_legend: bool = False) -> None:
+                    show_legend: bool = False,
+                    show_cernes: bool = True) -> None:
     """Compose une cépée : N brins positionnés dans un cadrage commun.
 
     Pendant multi-brins de la branche mono-brin de `render_arbre_to_pil_image`.
@@ -430,7 +440,8 @@ def _pil_draw_cepee(d: "ImageDraw.ImageDraw", f: FontFn, f_base: FontFn,
         epb = b.ep_max_cm
         _pil_draw_brin(d, f, b, port, meche, cxb, cyb, b.rayon_tronc_cm, epb,
                        scale, show_sondages=show_sondages, bullet_r=bullet_r,
-                       ds=ds, draw_cardinales=False)
+                       ds=ds, draw_cardinales=False, cals=cals(arbre, b),
+                       show_cernes=show_cernes)
         _pil_draw_brin_label(d, f, b, cxb, cyb, b.rayon_tronc_cm, scale, ds)
     # Boussole globale autour de la bounding box : orientation commune à
     # tous les brins. Placée sur le RECTANGLE de la bbox (N/S/E/O sur les
@@ -695,18 +706,29 @@ def _pil_draw_contreforts(d: "ImageDraw.ImageDraw", brin: "Brin",
 
 def _pil_draw_degradations(d: "ImageDraw.ImageDraw", brin: "Brin",
                            cx: float, cy: float,
-                           ep: float, scale: float) -> None:
+                           ep: float, scale: float,
+                           cals: "Optional[Mapping[int, float]]" = None
+                           ) -> None:
     # Le bord externe du polygone suit la surface réelle (rayon local +
     # ep + cloche). Une dégradation qui passe sur un contrefort y mord à
     # concurrence de sa profondeur.
-    for deg in brin.degradations_externes:
+    for i, deg in enumerate(brin.degradations_externes):
         pts_arc = degradation_externe_outline(deg, brin.contreforts,
                                                brin.rayon_a_grade,
                                                _ep_spec(brin, ep),
                                                cx, cy, scale,
-                                               rotation_grades=brin.rotation_grades)
+                                               rotation_grades=brin.rotation_grades,
+                                               cal_cm=(cals or {}).get(i, 0.0))
         if pts_arc:
             d.polygon(pts_arc, fill=COLOR_ROT, outline=None)
+        if deg.recouverte:
+            bourrelet = cal_outline(
+                deg, brin.contreforts, brin.rayon_a_grade,
+                _ep_spec(brin, ep), cx, cy, scale,
+                rotation_grades=brin.rotation_grades,
+                cal_cm=(cals or {}).get(i, 0.0))
+            if bourrelet:
+                d.polygon(bourrelet, fill=COLOR_CAL, outline=COLOR_BARK)
 
 
 def _pil_draw_ticks(d: "ImageDraw.ImageDraw",
@@ -834,6 +856,8 @@ def _draw_horizontal_legend_pil(d: "ImageDraw.ImageDraw", arbre: "Arbre | Brin",
         items.append(("bark", "Écorce"))
     if has_sondages and show_sondage_item:
         items.append(("arrow", "Sondage"))
+    if any(deg.recouverte for deg in arbre.degradations_externes):
+        items.append((f"solid:{COLOR_CAL}", "Cal"))
     for label, hex_col in extra_items:
         items.append((f"solid:{hex_col}", label))
 

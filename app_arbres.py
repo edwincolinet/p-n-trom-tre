@@ -15,12 +15,12 @@ Mixin de `App` : s'appuie sur les attributs/méthodes Tk déclarés en
 
 from __future__ import annotations
 
-import copy
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Optional
 
 from bareme import CLASSE_ORANGE, CLASSE_ROUGE, CLASSE_VERT
+from campagnes import en_progression
 from diagnostic import genet_diagnostic
 from dialogs import ask_string
 from i18n import _, untranslate_value
@@ -108,6 +108,7 @@ class ArbreListMixin(_MixinBase):
         var_urgence_filter: tk.StringVar
         var_echeance_filter: tk.StringVar
         var_complet_filter: tk.StringVar
+        var_progression_filter: tk.BooleanVar
         lbl_etat_footer: ttk.Label
         _tree_arbres_ctx_menu: tk.Menu
         _filtre_actif_frame: ttk.Frame
@@ -216,6 +217,10 @@ class ArbreListMixin(_MixinBase):
                             return False
                     except Exception:
                         return False
+        pf = getattr(self, "var_progression_filter", None)
+        if pf is not None and pf.get():
+            if not en_progression(a, self.chantier.date_releve):
+                return False
         # Filtre par complétude
         cf = getattr(self, "var_complet_filter", None)
         if cf is not None:
@@ -228,6 +233,14 @@ class ArbreListMixin(_MixinBase):
                 if choice == _(_COMPLET_FILTER_INCOMPLETS) and complet:
                     return False
         return True
+
+    def _libelle_ligne(self, a: Arbre) -> str:
+        """« n° 12 », suivi de ▲ si la dégradation a progressé depuis le
+        dernier relevé archivé."""
+        label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+        if en_progression(a, self.chantier.date_releve):
+            label += " ▲"
+        return label
 
     def _refresh_tree_arbres(self) -> None:
         self.tree_arbres.delete(*self.tree_arbres.get_children())
@@ -257,7 +270,7 @@ class ArbreListMixin(_MixinBase):
             if not self._arbre_matches_filter(a, (glyph, risque, tag)):
                 continue
             # Affichage compact : "n°X" (l'essence est dans la 2e colonne)
-            label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+            label = self._libelle_ligne(a)
             # iid = position réelle dans chantier.arbres (cf.
             # _on_select_arbre) — préservée même quand des lignes sont
             # masquées par le filtre.
@@ -395,7 +408,7 @@ class ArbreListMixin(_MixinBase):
             self._etat_cache.pop(id(a), None)
         sel = self.tree_arbres.selection()
         if sel:
-            label = f"n° {a.numero_arbre}" if a.numero_arbre else "(sans n°)"
+            label = self._libelle_ligne(a)
             glyph, risque, tag = self._arbre_etat(a)
             if hasattr(self, "_etat_cache"):
                 self._etat_cache[id(a)] = (glyph, risque, tag)
@@ -471,6 +484,8 @@ class ArbreListMixin(_MixinBase):
             self.var_echeance_filter.set(_(_ECHEANCE_FILTER_ALL))
         if getattr(self, "var_complet_filter", None) is not None:
             self.var_complet_filter.set(_(_COMPLET_FILTER_ALL))
+        if getattr(self, "var_progression_filter", None) is not None:
+            self.var_progression_filter.set(False)
 
     def _select_arbre_relative(self, delta: int) -> None:
         """Navigation clavier entre arbres (Ctrl+PgDown / Ctrl+PgUp) :
@@ -544,7 +559,7 @@ class ArbreListMixin(_MixinBase):
         if not a:
             return
         self.push_undo()
-        new = copy.deepcopy(a)
+        new = a.dupliquer()
         new.numero_arbre = self._next_arbre_numero()
         self.chantier.arbres.insert(self.current_idx + 1, new)
         self.current_idx += 1

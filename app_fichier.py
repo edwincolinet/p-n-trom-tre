@@ -3,17 +3,13 @@ Cycle de vie des fichiers de mission (mixin de `App`).
 
 Regroupe tout ce qui touche au **fichier mission** (`.json`) : créer une
 mission vierge, ouvrir (boîte de dialogue, chemin direct, récents),
-enregistrer (+ sauvegarde glissante), enregistrer sous — ainsi que la
-**ré-inspection** (charger une mission de référence, comparer l'arbre
-courant, exporter la page de comparaison), qui consiste elle aussi à
-manipuler des fichiers de mission.
+enregistrer (+ sauvegarde glissante), enregistrer sous — ainsi que
+l'historique des relevés (nouvelle campagne, import d'une ancienne mission)
+et l'export de l'évolution.
 
-Extrait de `penetrometre.py` (qui restait le fichier le plus volumineux
-du projet) sur le même **partitionnement par responsabilité** que
-`ArbreListMixin` / `RecoveryMixin` / `ExportActionsMixin` : le mixin lit
-et **mute** l'état d'`App` (`chantier`, `current_idx`, `current_file`,
-`_dirty`, `_reference_chantier`, …) ; le couplage est assumé et
-documenté (greppable) par le bloc `TYPE_CHECKING` ci-dessous.
+L'état muté est celui d'`App` (`chantier`, `current_idx`, `current_file`,
+`_dirty`, …) ; le couplage est assumé et documenté (greppable) par le bloc
+`TYPE_CHECKING` ci-dessous.
 
 Ce module fournit aussi la constante `_BACKUP_PATH` (dossier des
 sauvegardes glissantes), partagée avec `penetrometre.py` qui l'ouvre
@@ -33,12 +29,25 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app_recent import RecentFilesStore
 from app_recovery import _RECOVERY_PATH
 from app_settings import SettingsStore
-from bareme import description_seuils, get_groupes, seuils_depuis_brut
-from comparaison import open_comparison
+from bareme import (
+    description_seuils,
+    get_groupes,
+    groupes_vers_brut,
+    seuils_depuis_brut,
+)
+from campagnes import (
+    importer,
+    nouvelle_campagne,
+    proposer_appariement,
+)
+from dialogs_campagne import ask_appariement, libelle_arbre
+from dialogs_shared import annees_entre, normaliser_date
+from evolution import appariement_par_defaut
 from i18n import _
 from model import Arbre, Chantier
-from palette import COLOR_BG, COULEUR_CLASSE
+from palette import COLOR_BG
 from persistence import (
+    chantier_to_dict,
     clear_recovery,
     file_stamp,
     load_chantier,
@@ -77,7 +86,6 @@ class FichierMixin(_MixinBase):
         current_file: Optional[Path]
         _file_stamp: Optional[tuple[Path, tuple[int, int]]]
         _dirty: bool
-        _reference_chantier: Optional[Chantier]
         _recent: RecentFilesStore
         _undo_stack: UndoStack
         _settings: SettingsStore
@@ -99,11 +107,7 @@ class FichierMixin(_MixinBase):
         def notify_export(self, path: str, label: str) -> None: ...
         def _open_in_system(self, path: Path) -> None: ...
         def push_undo(self) -> None: ...
-        def _update_compare_state(self) -> None: ...
-        # Fournis par `ExportActionsMixin` (menu Export ET menu propre à
-        # la fenêtre de comparaison — cf. `action_compare_arbre`).
-        def action_export_comparison_pdf(self) -> None: ...
-        def action_export_comparison_png(self) -> None: ...
+        def push_undo_snapshot(self, snapshot: Any) -> None: ...
 
     def action_new(self) -> None:
         if self._dirty:
@@ -387,169 +391,139 @@ class FichierMixin(_MixinBase):
             log.exception("Échec ouverture mission d'exemple")
             messagebox.showerror(_("Erreur"), str(e))
 
-    def action_load_reference(self) -> bool:
-        """Charge en mémoire une mission de référence (campagne antérieure)
-        pour la comparaison inter-missions. Par session : rien n'est écrit
-        dans la mission courante. Renvoie True si chargée."""
-        p = filedialog.askopenfilename(
-            title=_("Choisir la mission de référence (campagne antérieure)"),
-            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"), ("Tous", "*.*")])
-        if not p:
-            return False
-        try:
-            self._reference_chantier = load_chantier(p)
-        except Exception as e:
-            log.exception("Échec chargement mission de référence")
-            messagebox.showerror(_("Erreur"), str(e))
-            return False
-        n = len(self._reference_chantier.arbres)
-        self.set_status(_("Mission de référence chargée — {nom} ({n} arbre(s)).").format(nom=Path(p).name, n=n))
-        self._update_compare_state()
-        return True
-
-    def action_reinspection(self) -> None:
-        """« Faire une comparaison » (ré-inspection) : charge une mission
-        antérieure comme **base de travail** (on ré-mesure au lieu de tout
-        ressaisir) ET la **fige comme référence** dans le même geste.
-
-        Trois garde-fous, conformes au protocole de ré-inspection :
-        - la **date de relevé** est redemandée (campagne nouvelle ; aujourd'hui
-          par défaut) — sinon `annees=0` rendrait la comparaison absurde ;
-        - le **lien fichier est détaché** (`current_file=None`) → « Enregistrer »
-          forcera un « Enregistrer sous… », pour ne JAMAIS écraser la mission
-          de référence ;
-        - la référence est un **instantané pris avant toute édition**
-          (`deepcopy`), donc figée pendant qu'on met à jour diamètres/sondages.
-        """
-        import copy
+    def action_nouvelle_campagne(self) -> None:
+        """Archive le relevé actuel de chaque arbre mesuré dans la mission ;
+        la nouvelle visite repart des mêmes valeurs, à confirmer."""
         from datetime import datetime
 
         from dialogs import ask_date
 
-        if self._dirty:
-            if not messagebox.askyesno(
-                    _("Faire une comparaison"),
-                    "Des modifications n'ont pas été enregistrées.\n"
-                    "Continuer quand même ?"):
-                return
+        titre = _("Nouvelle campagne")
+        date = ask_date(
+            self, datetime.now().strftime("%d/%m/%Y"), title=titre,
+            prompt=_("Date de la nouvelle visite"),
+            info=_("Relevé actuel : {date}.").format(
+                date=self.chantier.date_releve or _("non renseignée")))
+        if not date:
+            return
+        if not messagebox.askyesno(titre, _(
+                "Le relevé actuel sera archivé dans la mission.\n\n"
+                "Tout reste prérempli pour la nouvelle visite. Les sondages "
+                "sont marqués « à confirmer » : ils ne comptent pas dans la "
+                "comparaison tant qu'ils ne sont pas retapés ou validés.\n"
+                "Pensez à revoir le diamètre, les diamètres locaux, la "
+                "préconisation, le suivi et les photos.\n\n"
+                "Continuer ?")):
+            return
+        avant = chantier_to_dict(self.chantier)
+        try:
+            n = nouvelle_campagne(
+                self.chantier, date,
+                self.chantier.bareme_seuils or groupes_vers_brut(get_groupes()))
+        except ValueError as e:
+            messagebox.showerror(titre, str(e))
+            return
+        self.push_undo_snapshot(avant)
+        self._apres_changement_historique()
+        self.set_status(_("{n} arbre(s) archivé(s). Saisissez la nouvelle "
+                          "visite (Ctrl+Z pour annuler).").format(n=n))
+
+    def action_importer_releve(self) -> None:
+        """Rattache aux arbres de la mission les relevés d'une ancienne
+        mission, après validation de la correspondance."""
+        from dialogs import ask_date
+
+        titre = _("Importer un relevé antérieur")
         p = filedialog.askopenfilename(
-            title=_("Mission antérieure à ré-inspecter (servira de référence)"),
-            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"), ("Tous", "*.*")])
+            title=_("Ancienne mission à importer"),
+            filetypes=[("Mission Pénétromètre Silvavenir", "*.json"),
+                       ("Tous", "*.*")])
         if not p:
             return
         try:
-            loaded = load_chantier(p)
+            ancienne = load_chantier(p)
         except Exception as e:
-            log.exception("Échec chargement pour ré-inspection")
+            log.exception("Échec chargement du relevé à importer")
             messagebox.showerror(_("Erreur"), str(e))
             return
-        # Nouvelle date de relevé (aujourd'hui par défaut). Annulé → on
-        # abandonne ; effacé → on retombe sur aujourd'hui (une date est
-        # indispensable au calcul du taux d'évolution). Calculée AVANT
-        # l'appel à `ask_date` pour être affichée dans son `info` — sans
-        # ça, rien n'indiquait à l'utilisateur QUELLE date on lui demande
-        # (celle du diagnostic présent, pas celle de la référence) ni la
-        # date de référence à laquelle elle sera comparée (repéré à
-        # l'usage : la fenêtre de calendrier, générique, ne le disait pas).
-        today = datetime.now().strftime("%d/%m/%Y")
-        ref_date = loaded.date_releve or _("non renseignée")
-        new_date = ask_date(
-            self, today,
-            title=_("Date du diagnostic actuel"),
-            prompt=_("Choisissez la date du présent diagnostic"),
-            info=_("Mission de référence « {nom} » : relevée le "
-                    "{date}. La date choisie ici sera comparée à "
-                    "celle-ci.").format(nom=loaded.nom, date=ref_date))
-        if new_date is None:
+        date = normaliser_date(ancienne.date_releve)
+        if not date:
+            date = ask_date(self, "", title=titre,
+                            prompt=_("Date de cette ancienne visite"))
+            if not date:
+                return
+        ecart = annees_entre(date, self.chantier.date_releve)
+        if ecart is not None and ecart <= 0:
+            messagebox.showerror(titre, _(
+                "Ce relevé ({a}) n'est pas antérieur à la mission "
+                "ouverte ({b}).").format(a=date, b=self.chantier.date_releve))
             return
-        if not new_date:
-            new_date = today
-
-        # Référence = instantané figé AVANT toute édition (garde l'ancienne
-        # date, donc l'intervalle « annees » est correct).
-        self._reference_chantier = copy.deepcopy(loaded)
-
-        self._undo_stack.clear()
-        clear_recovery(_RECOVERY_PATH)
-        self.chantier = loaded
-        self.chantier.date_releve = new_date
-        self.current_file = None          # détaché → Enregistrer sous… forcé
-        self._dirty = True
-        self._install_chantier_ui()
-        self._update_compare_state()
-        n = len(self.chantier.arbres)
-        self.set_status(
-            f"Ré-inspection : « {Path(p).name} » chargée comme base "
-            f"({n} arbre(s) ; réf. du {ref_date} → courant du {new_date}). "
-            "Mettez à jour les diamètres et sondages, puis « Diagnostic de "
-            "la comparaison ».")
-
-    def action_compare_arbre(self) -> None:
-        """Ouvre la fenêtre « Diagnostic de la comparaison » : l'arbre courant
-        confronté à son homologue de la mission de référence (figée par
-        `action_reinspection`). Disponible seulement après un clic sur
-        « Faire une comparaison… » — bouton et menu désactivés sinon.
-
-        La fenêtre partage le bandeau de l'App (même `tk.Menu`, cf.
-        `comparaison.open_comparison`) : l'export PDF/PNG de cette
-        comparaison se fait depuis le menu Export, comme partout ailleurs
-        (entrées activées par `comparaison.is_comparison_active()`, pointant
-        vers `app_export_actions.action_export_comparison_pdf/_png`)."""
-        ref = self._reference_chantier
-        a = self._current_arbre()
-        if ref is None or a is None:
+        arbres = self.chantier.arbres
+        choix = ask_appariement(self, arbres, ancienne.arbres,
+                                proposer_appariement(self.chantier, ancienne))
+        if choix is None:
             return
-        open_comparison(self, self.chantier, ref,
-                        default_arbre=a,
-                        cur_date=self.chantier.date_releve,
-                        couleur_classe=COULEUR_CLASSE,
-                        on_save=self.action_save)
+        avant = chantier_to_dict(self.chantier)
+        n, remarques = 0, []
+        for arbre, i_ancien in zip(arbres, choix):
+            if i_ancien is None:
+                continue
+            ancien = ancienne.arbres[i_ancien]
+            sans_pair = appariement_par_defaut(ancien, arbre).count(None)
+            try:
+                importer(arbre, ancien, date, ancienne.operateur,
+                         ancienne.bareme_seuils)
+            except ValueError as e:
+                remarques.append(f"{libelle_arbre(arbre)} : {e}")
+                continue
+            n += 1
+            if sans_pair:
+                remarques.append(_("{arbre} : {n} brin(s) sans correspondance."
+                                   ).format(arbre=libelle_arbre(arbre),
+                                            n=sans_pair))
+        if n:
+            self.push_undo_snapshot(avant)
+            self._apres_changement_historique()
+        self.set_status(_("{n} arbre(s) : relevé du {date} importé.").format(
+            n=n, date=date))
+        if remarques:
+            messagebox.showwarning(titre, "\n".join(remarques[:15]))
 
-    def _export_comparison(self, fmt: str, builder: Callable[[], Any],
-                           parent: "tk.Misc") -> None:
-        """Enregistre la comparaison (PNG ou PDF) construite par `builder`
-        (appelé depuis le menu Export — cf. `action_export_comparison_pdf`/
-        `_png` de `ExportActionsMixin`). `parent` = la fenêtre de
-        comparaison si elle est encore ouverte (ancre le filedialog pour
-        qu'il s'ouvre AU PREMIER PLAN, sinon il passe derrière), sinon la
-        fenêtre principale.
+    def _apres_changement_historique(self) -> None:
+        with self._suspend_sync_block():
+            self.var_ch_date.set(self.chantier.date_releve)
+        self._refresh_tree_arbres()
+        self._load_arbre_to_ui()
 
-        `builder()` renvoie une **liste de pages** PDF (une par brin pour
-        une cépée, assemblées en un seul PDF multi-pages) ; pour le PNG,
-        `render_evolution_pngs` renvoie des `(label, image)` et
-        `save_evolution_pngs` écrit **un fichier par brin** — une cépée
-        n'est jamais empilée dans un unique PNG, ce qui la rendrait
-        réinsérable dans un rapport uniquement en la recadrant.
+    def _export_comparison(self, fmt: str,
+                           builder: "Optional[Callable[[], Any]]") -> None:
+        """Enregistre l'évolution construite par `builder` (menu Export).
 
-        Le succès est signalé à DEUX endroits : la barre d'état principale
-        (`notify_export`, comme tout export) et le pied de la fenêtre de
-        comparaison (`show_export_feedback`) — la première est invisible
-        tant que la seconde couvre l'écran."""
-        from comparaison import show_export_feedback
-        from comparaison_render import save_comparison_pdf, save_evolution_pngs
+        PDF : document vectoriel (`fiche_evolution`). PNG :
+        `(label, image)`, **un fichier par brin** — jamais empilés, pour
+        rester insérables dans un rapport."""
+        from comparaison_render import save_evolution_pngs
+        if builder is None:
+            return
         ext = ".pdf" if fmt == "pdf" else ".png"
         typ = "PDF" if fmt == "pdf" else "Image PNG"
         p = filedialog.asksaveasfilename(
-            parent=parent, defaultextension=ext,
+            parent=self, defaultextension=ext,
             filetypes=[(typ, f"*{ext}"), ("Tous", "*.*")])
         if not p:
             return
         try:
             pages = builder()
+            label = "Comparaison d'inspections"
             if fmt == "pdf":
-                save_comparison_pdf(pages, p)
+                pages.output(p)
                 out_path = Path(p)
-                label = "Comparaison d'inspections"
             else:
                 written = save_evolution_pngs(pages, p)
                 out_path = Path(written[0])
-                label = ("Comparaison d'inspections" if len(written) == 1
-                         else f"Comparaison d'inspections ({len(written)} fichiers)")
+                if len(written) > 1:
+                    label += f" ({len(written)} fichiers)"
             self.notify_export(str(out_path), label)
-            show_export_feedback(
-                f"✓ {label} — {out_path.name}",
-                on_open_file=lambda: self._open_in_system(out_path),
-                on_open_folder=lambda: self._open_in_system(out_path.parent))
         except Exception as e:
             log.exception("Échec export comparaison")
             messagebox.showerror(_("Erreur"), str(e))

@@ -53,6 +53,7 @@ from typing import (
 import angle_units
 from diagnostic import couverture_avertissement as _diag_couverture_avertissement
 from diagnostic import genet_diagnostic as _diag_genet_diagnostic
+from diagnostic import plaies_recouvertes as _diag_plaies_recouvertes
 from diagnostic import ratio_tR_par_grade as _diag_ratio_tR_par_grade
 from diagnostic import repartition_classes as _diag_repartition_classes
 from dialogs_shared import compart_glyph, compart_visual
@@ -292,6 +293,11 @@ def _dimension_line(arbre: ArbreLike) -> str:
     return "  ·  ".join(f"{k} {v}" for k, v in dims)
 
 
+def _plaies_lignes(arbre: ArbreLike) -> "list[str]":
+    """Mentions des plaies recouvertes, sous la ligne « Diagnostic »."""
+    return _diag_plaies_recouvertes(cast("Arbre", arbre))
+
+
 def _diagnostic_summary(arbre: ArbreLike) -> Tuple[str, str]:
     """(texte, classe|"") de la ligne « Diagnostic » sous le tableau.
 
@@ -498,6 +504,9 @@ def _fill_prbs_sheet(ws: Any, arbre: ArbreLike, chantier: ChantierLike,
     diag_hex = couleur_classe.get(diag_classe, "404040").lstrip("#")
     _banner(row, diag_text,
             Font(name="Segoe UI", size=12, bold=True, color=diag_hex))
+    for plaie in _plaies_lignes(arbre):
+        row += 1
+        _banner(row, plaie, SUBTITLE_FONT)
     row += 2
 
     # --- Légende compartimentation (une bannière, glyphes en clair) ---
@@ -648,6 +657,8 @@ def prbs_sheet(arbre: ArbreLike, chantier: ChantierLike,
     diag_text, diag_classe = _diagnostic_summary(arbre)
     banner(diag_text, bold=True, size=12,
            fg=couleur_classe.get(diag_classe, "404040").lstrip("#"))
+    for plaie in _plaies_lignes(arbre):
+        banner(plaie, size=10, fg="595959")
     rows.append([])
     banner(f"Compartimentation :   {compart_glyph('active')} active     "
            f"{compart_glyph('absente')} absente     "
@@ -826,6 +837,9 @@ def _html_arbre_section(arbre: ArbreLike, couleur_classe: Mapping[str, str],
     diagnostic_html = (
         f'<div class="diagnostic" style="border-left-color:{diag_color}">'
         f'{_h(diag_text)}</div>')
+    diagnostic_html += "".join(
+        f'<div class="plaie">{_h(plaie)}</div>'
+        for plaie in _plaies_lignes(arbre))
 
     # Légende compartimentation (glyphes source-unique `dialogs_shared`).
     legend_html = (

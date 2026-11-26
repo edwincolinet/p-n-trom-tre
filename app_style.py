@@ -168,6 +168,11 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
     s.configure("TEntry", fieldbackground=COLOR_PANEL,
                 foreground=ink, padding=3, bordercolor=COLOR_FIELD_BORDER,
                 lightcolor=COLOR_FIELD_BORDER, darkcolor=COLOR_FIELD_BORDER)
+    # Valeur reprise d'un relevé précédent, pas encore confirmée.
+    s.configure("AConfirmer.TEntry", fieldbackground=COLOR_SIDE_PANEL,
+                foreground=COLOR_MUTED, padding=3,
+                bordercolor=COLOR_FIELD_BORDER,
+                lightcolor=COLOR_FIELD_BORDER, darkcolor=COLOR_FIELD_BORDER)
     # Focus d'un champ : liseré orange de la charte.
     s.map("TEntry", bordercolor=[("focus", COLOR_BRAND_ORANGE)],
           lightcolor=[("focus", COLOR_BRAND_ORANGE)],
@@ -196,6 +201,16 @@ def apply_ttk_styles(root: tk.Misc, *, high_contrast: bool = False) -> None:
                                ("!disabled", "white")],
           indicatorforeground=[("disabled", "selected", COLOR_MUTED),
                                ("selected", "white")])
+    # Même apparence sur le panneau latéral (filtres de la liste).
+    s.configure("Side.TCheckbutton", background=COLOR_SIDE_PANEL,
+                foreground=ink, indicatorsize=16)
+    s.map("Side.TCheckbutton",
+          background=[("active", COLOR_SIDE_PANEL)],
+          indicatorbackground=[("selected", COLOR_ACCENT),
+                               ("!disabled", "white")],
+          indicatorforeground=[("selected", "white")])
+    s.configure("Panel.TRadiobutton", background=COLOR_PANEL, foreground=ink)
+    s.map("Panel.TRadiobutton", background=[("active", COLOR_PANEL)])
     s.configure("TNotebook", background=COLOR_PANEL, borderwidth=0)
     s.configure("TNotebook.Tab", padding=(16, 9),
                 font=font_body_bold(),

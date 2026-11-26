@@ -1130,11 +1130,11 @@ class GenetDiagnosticTests(unittest.TestCase):
                                         compartimentation="absente"))
         det = comparaison_detaillee(ref, cur, annees=3.0)
         self.assertEqual(len(det.directions), 16)            # extrapolé
-        self.assertAlmostEqual(det.perte_moy_par_dir, 3.0)   # 8 - 5
+        self.assertAlmostEqual(det.progression_moy, 3.0)     # 15 - 12
         self.assertAlmostEqual(det.taux_cm_an, 1.0)          # 3 cm / 3 ans
         self.assertEqual(det.compart_aggravees, 4)           # 4 sondées only
         self.assertIsNotNone(det.pire)
-        self.assertAlmostEqual(det.pire.delta, -3.0)
+        self.assertAlmostEqual(det.pire.progression, 3.0)
 
     def test_comparaison_taux_seulement_si_intervalle_suffisant(self):
         ref = Arbre(rayon_tronc_cm=20.0)
@@ -1147,7 +1147,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         # 20 jours ≈ 0.055 an < 0.5 → pas de taux (évite l'explosion).
         det = comparaison_detaillee(ref, cur, annees=20 / 365.25)
         self.assertIsNone(det.taux_cm_an)
-        self.assertAlmostEqual(det.perte_moy_par_dir, 2.0)   # toujours dispo
+        self.assertAlmostEqual(det.progression_moy, 2.0)   # toujours dispo
         # Sans date non plus.
         self.assertIsNone(
             comparaison_detaillee(ref, cur, annees=None).taux_cm_an)
@@ -1157,7 +1157,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         cur = Arbre(rayon_tronc_cm=20.0)
         det = comparaison_detaillee(ref, cur, annees=1.0)
         self.assertEqual(det.directions, [])
-        self.assertIsNone(det.perte_moy_par_dir)
+        self.assertIsNone(det.progression_moy)
 
     def test_comparaison_par_brin_apparie_par_label_et_gere_orphelins(self):
         # Réf : cépée à 1 brin (a). Courant : cépée à 2 brins (a, b).
@@ -1173,6 +1173,7 @@ class GenetDiagnosticTests(unittest.TestCase):
                 Sondage(grade=g, bois_sain_cm=8.0, bois_altere_cm=12.0))
             cur.brins[0].sondages.append(
                 Sondage(grade=g, bois_sain_cm=5.0, bois_altere_cm=15.0))
+        cur.brins[0].id = ref.brins[0].id       # même tige suivie
         cur.ajouter_brin()
         cur.brins[1].set_rayon(15.0)
         for g in (0, 100, 200, 300):
@@ -1185,7 +1186,7 @@ class GenetDiagnosticTests(unittest.TestCase):
         _, _, ref_a, det_a = pairs[0]
         self.assertIsNotNone(ref_a)
         self.assertEqual(len(det_a.directions), 16)
-        self.assertAlmostEqual(det_a.perte_moy_par_dir, 3.0)
+        self.assertAlmostEqual(det_a.progression_moy, 3.0)
         # Brin b : pas d'homologue → comparé à None, classe_ref None.
         _, _, ref_b, det_b = pairs[1]
         self.assertIsNone(ref_b)

@@ -22,6 +22,7 @@ import math
 import tkinter as tk
 from typing import Any, Optional, Protocol, Tuple
 
+from campagnes import cals
 from diagnostic import (
     compute_alteration_par_grade,
     sondage_render_data,
@@ -30,6 +31,7 @@ from geometry import (
     RadiusSpec,
     adaptive_ruler_step_cm,
     brins_layout,
+    cal_outline,
     cardinal_label_positions,
     cavity_polygon,
     cerne_radii_px,
@@ -46,6 +48,7 @@ from model import Arbre, Brin, Contrefort, DegradationExterne, Sondage
 from palette import (
     COLOR_BARK,
     COLOR_BARK_LIGHT,
+    COLOR_CAL,
     COLOR_CERNE,
     COLOR_INK,
     COLOR_MUTED,
@@ -113,6 +116,7 @@ class SectionCanvas(tk.Canvas):
                          bd=0, **kw)
         self.arbre: Optional[Arbre] = None
         self.show_sondages: bool = True
+        self.show_cernes: bool = True
         self._host = host
         # Géométrie du dernier rendu (cx, cy, scale, R, R_ext), mise à
         # jour à chaque `redraw`. Sert au clic sur fond pour convertir
@@ -400,6 +404,10 @@ class SectionCanvas(tk.Canvas):
         self.show_sondages = bool(show)
         self.redraw()
 
+    def set_show_cernes(self, show: bool) -> None:
+        self.show_cernes = bool(show)
+        self.redraw()
+
     def _center_and_scale(self, R: float,
                           expansion_cm: float = 0.0
                           ) -> Tuple[float, float, float]:
@@ -498,13 +506,15 @@ class SectionCanvas(tk.Canvas):
                                           ep_cm: "RadiusSpec",
                                           contreforts: Any, deg: Any,
                                           idx: int = -1,
-                                          rotation_grades: float = 0.0) -> None:
+                                          rotation_grades: float = 0.0,
+                                          cal_cm: float = 0.0) -> None:
         """Dessine une dégradation externe sur le canvas Tkinter à partir
         des points renvoyés par `degradation_externe_outline` (cf.
         geometry.py). `idx` (>= 0) tague le polygone pour le clic-édit."""
         points = degradation_externe_outline(deg, contreforts, R, ep_cm,
                                               cx, cy, scale,
-                                              rotation_grades=rotation_grades)
+                                              rotation_grades=rotation_grades,
+                                              cal_cm=cal_cm)
         if not points:
             return
         flat = [c for p in points for c in p]
@@ -514,6 +524,14 @@ class SectionCanvas(tk.Canvas):
         # Pas de contour : fusion visuelle avec la cavité interne
         self.create_polygon(*flat, fill=COLOR_ROT, outline="",
                             tags=tags)
+        if getattr(deg, "recouverte", False):
+            bourrelet = cal_outline(deg, contreforts, R, ep_cm, cx, cy, scale,
+                                    rotation_grades=rotation_grades,
+                                    cal_cm=cal_cm)
+            if bourrelet:
+                self.create_polygon(
+                    *[c for p in bourrelet for c in p], fill=COLOR_CAL,
+                    outline=COLOR_BARK, tags=tags)
 
     def redraw(self) -> None:
         """Orchestre le rendu de la section. Chaque couche est déléguée à
@@ -586,7 +604,8 @@ class SectionCanvas(tk.Canvas):
         # fonction par direction si l'écorce varie.
         ep_spec: "RadiusSpec" = brin.ep_a_grade if brin.a_ecorce_variable else ep
         self._draw_bois_sain(brin, cx, cy, R, scale)
-        self._draw_cernes(brin, cx, cy, R, scale)
+        if self.show_cernes:
+            self._draw_cernes(brin, cx, cy, R, scale)
         self._draw_cavite(brin, cx, cy, scale)
         self._draw_ecorce(brin, cx, cy, R, ep, scale)
         # Contreforts : R_inner descend de 1 px sous le rayon LOCAL pour
@@ -596,11 +615,13 @@ class SectionCanvas(tk.Canvas):
             R_inner=(lambda g: brin.rayon_a_grade(g) - 1.0 / scale),
             rotation_grades=brin.rotation_grades)
         # Dégradations externes EN DERNIER (cf. CLAUDE.md).
+        cal_par_deg = cals(self.arbre, brin) if self.arbre else {}
         for idx, deg in enumerate(brin.degradations_externes):
             self._draw_degradation_externe_canvas(cx, cy, scale, r_of, ep_spec,
                                                    brin.contreforts, deg,
                                                    idx=idx,
-                                                   rotation_grades=brin.rotation_grades)
+                                                   rotation_grades=brin.rotation_grades,
+                cal_cm=cal_par_deg.get(idx, 0.0))
         self._draw_ticks(cx, cy, r_ext_of, scale)
         if draw_cardinales:
             self._draw_cardinales(cx, cy, r_ext_of, scale)

@@ -43,7 +43,9 @@ from model import (
     Chantier,
     Contrefort,
     DegradationExterne,
+    Releve,
     Sondage,
+    nouvel_id,
 )
 
 _log = logging.getLogger("penetrometre")
@@ -61,7 +63,10 @@ _log = logging.getLogger("penetrometre")
 #       (rayon, diamètre, écorce, sondages, dégradations, contreforts) qui
 #       vivaient au niveau `arbre` passent dans `arbre.brins[i]`. Un fichier
 #       v≤2 est migré en un arbre à brin unique (cf. `chantier_from_dict`).
-FORMAT_VERSION = 3
+#   4 — suivi dans le temps : identifiants stables d'arbre et de brin,
+#       historique `arbre.campagnes` (relevés figés) et dégradation externe
+#       `recouverte`. Un fichier v≤3 reçoit des identifiants à la lecture.
+FORMAT_VERSION = 4
 
 
 def chantier_to_dict(chantier: Chantier) -> Dict[str, Any]:
@@ -332,6 +337,10 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
     deg_fields = set(DegradationExterne.__dataclass_fields__)
     cf_fields = set(Contrefort.__dataclass_fields__)
 
+    def _id(valeur: Any) -> str:
+        """Identifiant lu, ou nouveau s'il est absent ou invalide."""
+        return valeur if isinstance(valeur, str) and valeur else nouvel_id()
+
     def _brin_from_dict(bd: Dict[str, Any]) -> Brin:
         """Reconstruit un `Brin` (géométrie + mesures) à partir d'un dict.
 
@@ -390,6 +399,7 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
                               "contreforts", "diametres_locaux",
                               "epaisseurs_ecorce_locales")}
         brin = Brin(**geom)
+        brin.id = _id(brin.id)
         brin.sondages = sondages
         brin.degradations_externes = degs
         brin.contreforts = contreforts
@@ -397,8 +407,10 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         brin.epaisseurs_ecorce_locales = ecorces_locales
         return brin
 
-    arbres = []
-    for a in d.get("arbres", []):
+    def _arbre_from_dict(a: Dict[str, Any],
+                         historique: bool = True) -> Arbre:
+        """Un arbre courant, ou (`historique=False`) l'arbre d'un relevé
+        archivé, qui n'a jamais lui-même d'historique."""
         # Migration du port si ancien format. On copie le dict pour
         # appliquer la migration sans toucher à l'entrée du caller
         # (lecture non destructive).
@@ -426,7 +438,9 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         # ci-dessous) et les anciens champs de géométrie/mesures (qui ne
         # sont plus des champs d'`Arbre` et seraient filtrés de toute façon).
         arb = Arbre(**{k: v for k, v in a_norm.items()
-                       if k in arbre_fields and k != "brins"})
+                       if k in arbre_fields
+                       and k not in ("brins", "campagnes", "id")})
+        arb.id = _id(a_norm.get("id"))
         if "brins" in a:
             # Format v3+ : brins explicites. Au moins un brin garanti.
             arb.brins = [_brin_from_dict(bd)
@@ -434,8 +448,22 @@ def chantier_from_dict(d: Dict[str, Any]) -> Chantier:
         else:
             # Format v≤2 : géométrie et mesures à plat sur l'arbre →
             # migration en un brin unique centré.
-            arb.brins = [_brin_from_dict(a_norm)]
-        arbres.append(arb)
+            arb.brins = [_brin_from_dict(
+                {k: v for k, v in a_norm.items() if k != "id"})]
+        if historique:
+            arb.campagnes = [_releve_from_dict(r)
+                             for r in a.get("campagnes", [])]
+        return arb
+
+    def _releve_from_dict(r: Dict[str, Any]) -> Releve:
+        seuils = r.get("bareme_seuils") or []
+        return Releve(
+            date=r.get("date", ""), operateur=r.get("operateur", ""),
+            bareme_seuils=(groupes_vers_brut(seuils_depuis_brut(seuils))
+                           if seuils else []),
+            arbre=_arbre_from_dict(r.get("arbre", {}), historique=False))
+
+    arbres = [_arbre_from_dict(a) for a in d.get("arbres", [])]
     c = Chantier(nom=d.get("nom", ""), adresse=d.get("adresse", ""),
                   client=d.get("client", ""),
                   operateur=d.get("operateur", ""),

@@ -264,6 +264,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
     v_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
     v_ecorce = tk.StringVar(value=zone_degradee_label(deg.comprend_ecorce))
     v_com = tk.StringVar(value=deg.commentaire)
+    v_rec = tk.BooleanVar(value=deg.recouverte)
     result = {"ok": False}
     syncing: List[bool] = [False]
 
@@ -326,6 +327,10 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
               ).grid(row=8, column=0, sticky="w", padx=10, pady=6)
     ttk.Entry(dlg, textvariable=v_com, width=28
               ).grid(row=8, column=1, sticky="we", padx=10, pady=6)
+    ttk.Checkbutton(dlg, text=_("Recouverte par un cal"), variable=v_rec,
+                    style="Panel.TCheckbutton"
+                    ).grid(row=9, column=0, columnspan=2, sticky="w",
+                           padx=10, pady=4)
 
     # --- Liens auto entre fin / largeur_gr / largeur_cm -------------
     def _on_fin(*_: object) -> None:
@@ -404,6 +409,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
             deg.grade_fin = new_fin
             deg.profondeur_cm = max(0.0, to_float(v_prof.get()))
             deg.comprend_ecorce = zone_degradee_to_bool(v_ecorce.get())
+            deg.recouverte = v_rec.get()
             deg.commentaire = v_com.get()
             result["ok"] = True
             dlg.destroy()
@@ -412,7 +418,7 @@ def edit_degradation(parent: tk.Misc, arbre: Optional[Section],
                                  f"Valeur invalide : {e}", parent=dlg)
 
     btns = ttk.Frame(dlg, style="Panel.TFrame")
-    btns.grid(row=9, column=0, columnspan=2, pady=(10, 12))
+    btns.grid(row=10, column=0, columnspan=2, pady=(10, 12))
     ttk.Button(btns, text=_("Annuler"), style="Ghost.TButton",
                command=dlg.destroy).pack(side="right", padx=6)
     ttk.Button(btns, text=_("Valider"), style="Accent.TButton",

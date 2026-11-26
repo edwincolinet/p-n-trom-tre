@@ -377,7 +377,8 @@ def degradation_externe_outline(deg: Any,
                                 contreforts: List[Any],
                                 R: "RadiusSpec", ep_cm: "RadiusSpec",
                                 cx: float, cy: float, scale: float,
-                                rotation_grades: float = 0.0
+                                rotation_grades: float = 0.0,
+                                cal_cm: float = 0.0
                                 ) -> List[Tuple[float, float]]:
     """Renvoie le polygone d'une dégradation externe : bord externe
     puis bord interne en sens inverse (à `outer - profondeur`).
@@ -397,6 +398,11 @@ def degradation_externe_outline(deg: Any,
     ou de fond visible entre les deux). Le recouvrement ne déborde que
     vers l'extérieur — il ne change pas la profondeur creusée.
 
+    Dégradation `recouverte` : la plaie garde sa zone et sa profondeur ;
+    elle est replacée `cal_cm` sous la surface actuelle (bois formé depuis
+    qu'elle était ouverte, 0 si inconnu). Le cal se dessine par-dessus
+    (`cal_outline`).
+
     `deg` est typé `Any` (duck-typing) : on lit `grade_debut`,
     `profondeur_cm`, `comprend_ecorce` et la méthode `largeur_grades()`.
 
@@ -405,9 +411,12 @@ def degradation_externe_outline(deg: Any,
     """
     if deg.profondeur_cm <= 0 or _radius_at(R, deg.grade_debut) <= 0:
         return []
+    recouverte = getattr(deg, "recouverte", False)
     comprend_ecorce = getattr(deg, "comprend_ecorce", True)
+    cal = max(0.0, cal_cm) if recouverte else 0.0
     # Recouvrement anti-couture, exprimé en cm (constant ~1 px à l'écran).
-    seam_cm = (_BARK_SEAM_PX / scale) if scale > 0 else 0.0
+    # Sous un cal épais, la plaie ne touche plus le bord : pas de débord.
+    seam_cm = (_BARK_SEAM_PX / scale) if scale > 0 and not cal else 0.0
     largeur = deg.largeur_grades()
     n_steps = max(16, int(largeur) + 1)
     outer_pts: List[Tuple[float, float]] = []
@@ -418,6 +427,7 @@ def degradation_externe_outline(deg: Any,
         r_surface = _radius_at(R, g) + bell_max_at_grade(g, contreforts)
         if comprend_ecorce:
             r_surface += _radius_at(ep_cm, g)
+        r_surface = max(0.0, r_surface - cal)
         # Profondeur creusée depuis la surface réelle ; le recouvrement ne
         # déborde que vers l'extérieur (ne change pas la profondeur creusée).
         r_in = max(0.0, r_surface - deg.profondeur_cm)
@@ -430,6 +440,44 @@ def degradation_externe_outline(deg: Any,
 # ----------------------------------------------------------------------
 # Règle graduée — pas adaptatif (présentation, partagé Tk ↔ PIL)
 # ----------------------------------------------------------------------
+
+# Épaisseur de CONVENTION du bourrelet au-delà de l'écorce (en fraction du
+# rayon) : le cal n'est pas mesuré, seule sa présence est figurée.
+_BOURRELET_FRACTION = 0.06
+
+
+def cal_outline(deg: Any, contreforts: List[Any],
+                R: "RadiusSpec", ep_cm: "RadiusSpec",
+                cx: float, cy: float, scale: float,
+                rotation_grades: float = 0.0,
+                cal_cm: float = 0.0) -> List[Tuple[float, float]]:
+    """Polygone du bourrelet de recouvrement posé **par-dessus** une plaie :
+    part du sommet de la plaie (cf. `degradation_externe_outline`), remplit
+    le bois formé depuis (`cal_cm`) et bombe au-delà de l'écorce, en
+    s'effilant aux deux extrémités. La première moitié des points est son
+    bord externe. Liste vide si la dégradation est dégénérée."""
+    if deg.profondeur_cm <= 0 or _radius_at(R, deg.grade_debut) <= 0:
+        return []
+    largeur = deg.largeur_grades()
+    n_steps = max(16, int(largeur) + 1)
+    comprend_ecorce = getattr(deg, "comprend_ecorce", True)
+    outer: List[Tuple[float, float]] = []
+    inner: List[Tuple[float, float]] = []
+    for k in range(n_steps + 1):
+        t = k / n_steps
+        g = (deg.grade_debut + t * largeur) % 400
+        bois = _radius_at(R, g) + bell_max_at_grade(g, contreforts)
+        ecorce = _radius_at(ep_cm, g)
+        sommet = bois + (ecorce if comprend_ecorce else 0.0)
+        bombe = (_BOURRELET_FRACTION * _radius_at(R, g)
+                 * math.sqrt(max(0.0, math.sin(math.pi * t))))
+        outer.append(polar_to_xy(cx, cy, scale, bois + ecorce + bombe,
+                                 g + rotation_grades))
+        inner.append(polar_to_xy(cx, cy, scale,
+                                 max(0.0, sommet - max(0.0, cal_cm)),
+                                 g + rotation_grades))
+    return outer + inner[::-1]
+
 
 def adaptive_ruler_step_cm(scale_px_per_cm: float,
                            min_gap_px: float) -> int:

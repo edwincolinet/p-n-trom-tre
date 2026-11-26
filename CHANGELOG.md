@@ -3,6 +3,49 @@
 La version applicative vit dans `penetrometre.__version__` (affichée
 dans « À propos » et journalisée au démarrage). Format : `MAJEUR.MINEUR.CORRECTIF`.
 
+## Non publié — comparaison (ré-inspection)
+
+- **La croissance ne masque plus la progression** : le verdict porte sur
+  l'avancée de la dégradation, mesurée par rapport au centre du tronc
+  (altération interne et fond des dégradations externes). Le t/R minimal reste
+  indiqué à part. Auparavant, une cavité qui grandissait moins vite que le
+  tronc pouvait être annoncée « amélioration ».
+- Seules les directions **sondées aux deux dates** concluent sur l'altération
+  interne. Aucune tolérance de mesure n'est appliquée.
+- Un bois dégradé qui redevient sain est signalé **« à vérifier »** ; une
+  dégradation externe **recouverte** par du bois neuf est un progrès.
+- **Hauteurs de sondage différentes : aucune conclusion.**
+- PRBS identique malgré un diamètre différent : signalée (valeur re-mesurée ?).
+- Format de mission **v4** : identifiants stables des arbres et des brins
+  (les brins d'une cépée ne sont plus confondus après une suppression) et
+  historique des relevés dans le fichier.
+- **Comparaison → Nouvelle campagne…** : archive le relevé actuel ; tout reste
+  prérempli. Les sondages repris sont grisés « à confirmer » (retaper, Entrée
+  ou clic) et ne comptent pas dans la comparaison avant validation.
+- **Comparaison → Importer un relevé antérieur…** : rattache une ancienne
+  mission, avec validation de la correspondance des arbres.
+- Onglet Sondages : colonne « Préc. / écart » et rappel du relevé précédent.
+- Nouvel onglet **Évolution** à la place de la fenêtre de comparaison : choix
+  des deux dates, dégradation et état séparés, détail par direction,
+  chronologie, photos. Dessin **Actuel | Précédent | Évolution** (bois neuf,
+  ancienne cavité en tireté, sans cernes).
+- Liste d'arbres : repère ▲ et filtre « Dégradation en progression ».
+- **Supprimés** : « Faire une comparaison (ré-inspection) » et la référence
+  chargée le temps de la session. Ouvrir la mission puis « Nouvelle
+  campagne » ; pour une ancienne mission, « Importer un relevé antérieur ».
+- Dégradations externes : case **« Recouverte »**. Un cal est dessiné
+  par-dessus la plaie, qui garde sa zone et sa profondeur (bois perdu
+  inchangé). L'épaisseur du cal n'est pas saisie.
+- **Export refusé** tant qu'un sondage repris n'a pas été actualisé.
+- **PDF d'évolution vectoriel**, dans le style de la fiche (A4 portrait, deux
+  pages par brin plus les photos).
+- Plaies recouvertes mentionnées sur la fiche, les tableaux PRBS et le PDF
+  d'évolution.
+- Case **« Afficher les cernes »** (écran, dessins et PDF).
+- Grille des sondages : défilement horizontal (Maj + molette).
+- Dessin d'évolution : une plaie externe inchangée sur un tronc qui a grossi
+  n'apparaît plus comme aggravée.
+
 ## 3.8.0 — 2026-11-23 (saisie terrain et exports)
 
 ### Saisie « terrain » : diamètre sur écorce, écorce locale

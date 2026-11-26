@@ -58,6 +58,7 @@ from typing import Any, Dict, Optional, Protocol
 
 import angle_units
 from aide_repliable import AideRepliable
+from campagnes import Precedent, precedent
 from diagnostic import FUSION_WARN_TEXT, fusion_ecretee_par_grade
 from dialogs_saisie import edit_sondage
 from dialogs_shared import (
@@ -72,9 +73,10 @@ from dialogs_shared import (
     to_float,
     validate_numeric,
 )
+from evolution import EPS_CM
 from geometry import GRADES, WIND_LABELS
 from i18n import _
-from model import Brin, Sondage
+from model import Arbre, Brin, Sondage
 from palette import COLOR_ACCENT, COLOR_PANEL, COLOR_WARN
 from tooltip import Tooltip
 from ui_fonts import font_body_bold, font_small_bold, font_subheading
@@ -84,6 +86,7 @@ _COMPART_VALUES = compart_choices(_COMPART_FR)
 
 class _SondagesHost(Protocol):
     def _current_brin(self) -> Optional[Brin]: ...
+    def _current_arbre(self) -> Optional[Arbre]: ...
     def on_sondages_changed(self) -> None: ...
     def push_undo(self) -> None: ...
     def capture_undo_snapshot(self) -> dict: ...
@@ -126,22 +129,29 @@ class SondagesPane(ttk.Frame):
         # soit offert autrement — même motif que `pane_diagnostic`.
         canvas = tk.Canvas(self, bg=COLOR_PANEL, highlightthickness=0, bd=0)
         scroll = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scroll.set)
-        canvas.pack(side="left", fill="both", expand=True)
+        scroll_x = ttk.Scrollbar(self, orient="horizontal",
+                                 command=canvas.xview)
+        canvas.configure(yscrollcommand=scroll.set,
+                         xscrollcommand=scroll_x.set)
+        # Les barres d'abord : le canevas prend la place restante.
         scroll.pack(side="right", fill="y")
+        scroll_x.pack(side="bottom", fill="x")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._canvas, self._scroll_x = canvas, scroll_x
 
         content = ttk.Frame(canvas, style="Panel.TFrame", padding=10)
         content_window = canvas.create_window((0, 0), window=content,
                                                anchor="nw")
 
-        def _on_configure_inner(_e: "tk.Event[tk.Misc]") -> None:
+        def _ajuster(_e: "Optional[tk.Event[tk.Misc]]" = None) -> None:
+            # Le contenu garde au moins sa largeur naturelle : au-delà de
+            # la place disponible, il défile au lieu d'être tronqué.
+            canvas.itemconfigure(content_window, width=max(
+                canvas.winfo_width(), content.winfo_reqwidth()))
             canvas.configure(scrollregion=canvas.bbox("all"))
 
-        def _on_configure_outer(event: "tk.Event[tk.Misc]") -> None:
-            canvas.itemconfigure(content_window, width=event.width)
-
-        content.bind("<Configure>", _on_configure_inner)
-        canvas.bind("<Configure>", _on_configure_outer)
+        content.bind("<Configure>", _ajuster)
+        canvas.bind("<Configure>", _ajuster)
 
         # Molette : bindings globaux N'ACTIVÉS QUE si pointeur sur ce
         # canvas — sinon la molette détourne le scroll des autres onglets.
@@ -151,15 +161,27 @@ class SondagesPane(ttk.Frame):
         def _on_mousewheel_linux(event: "tk.Event[tk.Misc]") -> None:
             canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
 
+        # Maj + molette : défilement horizontal.
+        def _on_shift_wheel(event: "tk.Event[tk.Misc]") -> None:
+            sens = (-1 if event.num == 4 or getattr(event, "delta", 0) > 0
+                    else 1)
+            canvas.xview_scroll(sens * 3, "units")
+
         def _bind_wheel(_e: "tk.Event[tk.Misc]") -> None:
             canvas.bind_all("<MouseWheel>", _on_mousewheel)
             canvas.bind_all("<Button-4>", _on_mousewheel_linux)
             canvas.bind_all("<Button-5>", _on_mousewheel_linux)
+            for seq in ("<Shift-MouseWheel>", "<Shift-Button-4>",
+                        "<Shift-Button-5>"):
+                canvas.bind_all(seq, _on_shift_wheel)
 
         def _unbind_wheel(_e: "tk.Event[tk.Misc]") -> None:
             canvas.unbind_all("<MouseWheel>")
             canvas.unbind_all("<Button-4>")
             canvas.unbind_all("<Button-5>")
+            for seq in ("<Shift-MouseWheel>", "<Shift-Button-4>",
+                        "<Shift-Button-5>"):
+                canvas.unbind_all(seq)
 
         canvas.bind("<Enter>", _bind_wheel)
         canvas.bind("<Leave>", _unbind_wheel)
@@ -206,10 +228,11 @@ class SondagesPane(ttk.Frame):
         # à cocher se cache derrière un tiret). Le symbole reste affiché
         # entre parenthèses pour le lien visuel avec le préfixe « ~ » que
         # portent les exports (PDF/XLSX/CSV) pour une mesure incertaine.
-        _COL_INCERTAIN = 8
+        _COL_INCERTAIN = 9
         heads = [_("Direction"), angle_head(), _("Ø sur écorce (cm)"),
                  _("Ép. écorce (cm)"),
-                 _("Bois sain (cm)"), _("Altéré (cm)"), _("Compart."),
+                 _("Bois sain (cm)"), _("Altéré (cm)"), _("Préc. / écart"),
+                 _("Compart."),
                  _("Commentaire"), _("Douteux (~)")]
         # Réutilisée par la case à cocher de chaque ligne (§ ci-dessous).
         _tip_incertain = _(
@@ -224,6 +247,12 @@ class SondagesPane(ttk.Frame):
             lbl_head.grid(row=0, column=c, sticky="w", padx=6, pady=(0, 4))
             if c == 1:
                 self._lbl_head_angle = lbl_head
+            if c == 6:
+                self._lbl_head_prec = lbl_head
+                Tooltip(lbl_head, _(
+                    "Bois sain du relevé précédent, et évolution de la "
+                    "cavité : ▲ elle a grandi, = inchangée, ? elle a reculé "
+                    "(à vérifier)."))
             if c == _COL_INCERTAIN:
                 Tooltip(lbl_head, _tip_incertain)
             if c == 2:
@@ -274,14 +303,17 @@ class SondagesPane(ttk.Frame):
                                 anchor="center")
             lbl_alt.grid(row=r, column=5, sticky="w", padx=6, pady=1)
 
+            lbl_prec = ttk.Label(grid, style="Muted.TLabel", width=14)
+            lbl_prec.grid(row=r, column=6, sticky="w", padx=6, pady=1)
+
             cmb = ttk.Combobox(grid, textvariable=var_comp,
                                values=_COMPART_VALUES, state="disabled",
                                width=14)
-            cmb.grid(row=r, column=6, sticky="w", padx=6, pady=1)
+            cmb.grid(row=r, column=7, sticky="w", padx=6, pady=1)
 
             com = ttk.Entry(grid, textvariable=var_com, width=10,
                             state="disabled")
-            com.grid(row=r, column=7, sticky="we", padx=6, pady=1)
+            com.grid(row=r, column=8, sticky="we", padx=6, pady=1)
 
             var_inc = tk.BooleanVar(value=False)
             # `textvariable` (et non `variable` seul) affichait la valeur du
@@ -291,7 +323,7 @@ class SondagesPane(ttk.Frame):
             # pilote l'état coché/décoché ; pas de texte affiché.
             chk_inc = ttk.Checkbutton(grid, variable=var_inc,
                                       style="Panel.TCheckbutton")
-            chk_inc.grid(row=r, column=8, sticky="w", padx=2, pady=1)
+            chk_inc.grid(row=r, column=9, sticky="w", padx=2, pady=1)
             chk_inc.configure(state="disabled")
             Tooltip(chk_inc, _tip_incertain)
             var_inc.trace_add("write", lambda *a, gr=g: self._on_incertain_changed(gr))
@@ -302,7 +334,7 @@ class SondagesPane(ttk.Frame):
                              "chk_inc": chk_inc, "com": var_com,
                              "com_entry": com, "diam": var_diam,
                              "diam_entry": ent_diam, "ep": var_ep,
-                             "ep_entry": ent_ep}
+                             "ep_entry": ent_ep, "prec": lbl_prec}
             self._entries_order.append(ent)
 
             var_sain.trace_add(
@@ -311,7 +343,9 @@ class SondagesPane(ttk.Frame):
             ent.bind("<FocusOut>", lambda e, gr=g: self._on_focus_out(gr))
             # Navigation verticale rapide (saisie au kilomètre).
             row_idx = r - 1
-            ent.bind("<Return>", lambda e, i=row_idx: self._focus_entry(i + 1))
+            ent.bind("<Return>",
+                     lambda e, gr=g, i=row_idx: self._valider_et_suivre(gr, i))
+            lbl_prec.bind("<Button-1>", lambda e, gr=g: self.confirmer(gr))
             ent.bind("<Down>", lambda e, i=row_idx: self._focus_entry(i + 1))
             ent.bind("<Up>", lambda e, i=row_idx: self._focus_entry(i - 1))
             cmb.bind("<<ComboboxSelected>>",
@@ -360,13 +394,19 @@ class SondagesPane(ttk.Frame):
                 w.bind("<Double-1>", lambda e, gr=g: self._open_dialog(gr))
                 Tooltip(w, _tip)
 
-        grid.columnconfigure(7, weight=1)  # la colonne Commentaire s'étire
+        grid.columnconfigure(8, weight=1)  # la colonne Commentaire s'étire
 
         # Bandeau du garde-fou fusion : créé non packé, montré/caché par
         # `refresh_fusion_warnings` quand une direction est écrêtée.
         self._lbl_fusion = ttk.Label(
             parent, text=FUSION_WARN_TEXT, style="Panel.TLabel",
             foreground=COLOR_WARN, wraplength=420, justify="left")
+
+        # Rappel du relevé précédent (créé non packé, cf.
+        # `refresh_precedent`).
+        self._lbl_prec_info = ttk.Label(
+            parent, text="", style="Muted.TLabel", wraplength=420,
+            justify="left")
 
         self._aide = AideRepliable(
             parent,
@@ -461,6 +501,9 @@ class SondagesPane(ttk.Frame):
         try:
             for g, row in self._rows.items():
                 s: Optional[Sondage] = by_grade.get(g)
+                row["entry"].configure(style=(
+                    "AConfirmer.TEntry" if s is not None and s.a_confirmer
+                    else "TEntry"))
                 # Ø local : indépendant du sondage, toujours actif.
                 d = b.diametre_local_sur_ecorce(g) if b else 0.0
                 row["diam"].set(f"{d:g}" if d else "")
@@ -489,6 +532,60 @@ class SondagesPane(ttk.Frame):
                     row["chk_inc"].configure(state="normal")
         finally:
             self._suspend = False
+        self.refresh_precedent()
+
+    def refresh_precedent(self) -> None:
+        """Colonne « Préc. / écart » et rappel du relevé précédent, montrés
+        seulement si le brin courant a un historique. Lecture seule."""
+        a = self._host._current_arbre()
+        b = self._host._current_brin()
+        prec = precedent(a, b) if a is not None and b is not None else None
+        widgets = [self._lbl_head_prec] + [r["prec"]
+                                           for r in self._rows.values()]
+        if prec is None or b is None:
+            for w in widgets:
+                w.grid_remove()
+            self._lbl_prec_info.pack_forget()
+            return
+        for w in widgets:
+            w.grid()
+        anciens = {s.grade: s for s in prec.brin.sondages}
+        for g, row in self._rows.items():
+            texte, couleur = self._texte_precedent(
+                prec, anciens.get(g), self._find_sondage(b, g))
+            row["prec"].configure(text=texte, foreground=couleur)
+        diametre = 2.0 * (prec.brin.rayon_tronc_cm
+                          + prec.brin.epaisseur_ecorce_cm)
+        info = _("Relevé précédent : {date} — Ø sur écorce {d:g} cm "
+                 "(à re-mesurer).").format(date=prec.date, d=diametre)
+        if any(s.a_confirmer for s in b.sondages):
+            info += " " + _("Valeurs grisées : retapez-les, ou validez avec "
+                            "Entrée ou un clic sur « à confirmer ».")
+        if prec.hauteurs:
+            info += " " + _("⚠ Hauteur de sondage différente ({a:g} cm "
+                            "au lieu de {b:g} cm) : pas de comparaison.").format(
+                                a=prec.hauteurs[1], b=prec.hauteurs[0])
+        self._lbl_prec_info.configure(text=info)
+        self._lbl_prec_info.pack(anchor="w", pady=(0, 8), before=self._grid)
+
+    @staticmethod
+    def _texte_precedent(prec: Precedent, ancien: Optional[Sondage],
+                         courant: Optional[Sondage]) -> "tuple[str, str]":
+        if ancien is None:
+            return "—", ""
+        texte = f"{ancien.bois_sain_cm:g}"
+        if prec.hauteurs:
+            return texte, ""
+        if courant is None:
+            return texte + " · " + _("à sonder"), ""
+        if courant.a_confirmer:
+            return texte + " · " + _("à confirmer"), COLOR_WARN
+        ecart = courant.bois_altere_cm - ancien.bois_altere_cm
+        if ecart > EPS_CM:
+            return f"{texte} · ▲ +{ecart:.1f}", COLOR_WARN
+        if ecart < -EPS_CM:
+            return f"{texte} · ? −{-ecart:.1f}", COLOR_ACCENT
+        return f"{texte} · =", ""
 
     def refresh_fusion_warnings(self) -> None:
         """Garde-fou non bloquant : suffixe « ⚠ » (ambre) sur la colonne
@@ -500,6 +597,7 @@ class SondagesPane(ttk.Frame):
         appelable à tout moment, y compris pendant la frappe — câblée sur
         `App._redraw_all` (debouncé) pour suivre aussi les éditions
         faites dans l'onglet Dégradations."""
+        self.refresh_precedent()
         b = self._host._current_brin()
         flags = fusion_ecretee_par_grade(b) if b else [False] * 16
         any_ecrete = False
@@ -582,6 +680,9 @@ class SondagesPane(ttk.Frame):
 
         s = self._get_or_create_sondage(b, g)
         s.bois_sain_cm = sain
+        if s.a_confirmer:           # retaper la valeur la confirme
+            s.a_confirmer = False
+            row["entry"].configure(style="TEntry")
         s.bois_altere_cm = max(0.0, r_loc - sain) if R > 0 else 0.0
         row["alt"].set(f"{s.bois_altere_cm:g}" if R > 0 else "—")
         if str(row["combo"].cget("state")) == "disabled":
@@ -591,6 +692,22 @@ class SondagesPane(ttk.Frame):
         if str(row["chk_inc"].cget("state")) == "disabled":
             row["chk_inc"].configure(state="normal")
         self._host.on_sondages_changed()
+
+    def confirmer(self, g: int) -> None:
+        """Valide telle quelle la valeur reprise du relevé précédent."""
+        b = self._host._current_brin()
+        s = self._find_sondage(b, g) if b else None
+        if s is None or not s.a_confirmer:
+            return
+        self._host.push_undo()
+        s.a_confirmer = False
+        self._rows[g]["entry"].configure(style="TEntry")
+        self._host.on_sondages_changed()
+        self.refresh_precedent()
+
+    def _valider_et_suivre(self, g: int, ligne: int) -> str:
+        self.confirmer(g)
+        return self._focus_entry(ligne + 1)
 
     def _on_focus_in(self, g: int) -> None:
         # Snapshot pré-édition : empilé sur l'undo seulement si la valeur
@@ -892,6 +1009,7 @@ class SondagesPane(ttk.Frame):
             self._host.push_undo_snapshot(snap)
             if created:
                 b.sondages.append(s)
+            s.a_confirmer = False
             b.sondages.sort(key=lambda x: x.grade)
             b.renumeroter_sondages()
             self.refresh()

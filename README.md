@@ -142,7 +142,12 @@ mon-dossier/
 ├── pane_degradations.py        ← onglet Dégradations externes
 ├── pane_contreforts.py         ← onglet Contreforts
 ├── pane_diagnostic.py          ← onglet Diagnostic (résumé + PRBS + exports)
-├── comparaison.py              ← fenêtre de comparaison inter-missions
+├── dialogs_campagne.py         ← appariement à l'import d'un relevé antérieur
+├── campagnes.py                ← historique des relevés (archivage, import)
+├── evolution.py                ← évolution entre campagnes (calculs purs)
+├── diagnostic_comparaison.py   ← adaptation et verdict de la comparaison
+├── fiche_evolution.py          ← PDF d'évolution vectoriel
+├── pane_evolution.py           ← onglet Évolution (comparaison des relevés)
 ├── comparaison_render.py       ← rendu PIL de la comparaison (export PNG/PDF)
 ├── dialogs.py                  ← boîtes de dialogue Tk (Sondage, Dégradation,
 │                                  Contrefort, Disposition de la cépée)
@@ -288,27 +293,17 @@ purement descriptif : n'impacte pas le diagnostic.
   Sans objet), une **échéance** d'intervention facultative et une
   **action recommandée** en texte libre. Reprise dans la synthèse de
   mission (colonnes triables, urgence colorée) et sur la fiche PDF.
-- **Comparaison inter-missions (ré-inspection)** : *Fichier → Comparer
-  l'arbre courant à une mission…* charge une campagne antérieure et ouvre
-  une vue **côte à côte** — section de référence, section courante et une
-  **section d'évolution** où la couronne de bois sain **perdu depuis la
-  référence** est surlignée en orange (sur la géométrie réelle, 16
-  directions extrapolées). Un **tableau chiffré** quantifie l'aggravation :
-    **perte moyenne de bois sain par direction (cm)**, taux annualisé (cm/an,
-  seulement si l'intervalle est suffisant), compartimentation perdue, t/R
-  minimal, classe, direction la plus aggravée ;
-  avec un **verdict perte / gain / stable** fondé sur le **t/R minimal**
-  (stable = même t/R au dixième de pour cent ; la classe n'est qu'un
-  complément, deux arbres d'une même classe n'ayant pas le même t/R). La
-  comparaison est **exportable en PNG et en PDF** (A4 livrable au client :
-  même en-tête et même pied de page que la fiche d'examen — logo et nom du
-  cabinet, seuils vert/orange/rouge de l'arbre). **Photos de comparaison** :
-  la fenêtre permet d'ajouter des photos de la référence et du diagnostic
-  actuel ; elles forment une page « Photos » du PDF (4 par colonne au plus,
-  trait de séparation entre les deux états). Elles sont stockées sur l'arbre
-  courant, dans `<mission>_photos/` (mission à enregistrer d'abord). La
-  mission de référence est chargée le temps de la session (rien n'est écrit
-  dans le fichier de référence).
+- **Suivi dans le temps (ré-inspection)** : *Comparaison → Nouvelle
+  campagne…* archive le relevé dans la mission et prépare la visite suivante
+  (*Importer un relevé antérieur…* pour une ancienne mission). L'onglet
+  **Évolution** compare deux dates au choix : **progression de la
+  dégradation** (mesurée depuis le centre du tronc, la croissance ne la masque
+  pas), état t/R à chaque date, détail par direction, chronologie à partir de
+  trois relevés. Le dessin bascule entre **Actuel, Précédent et Évolution** ;
+  la liste marque d'un ▲ les arbres en progression et peut les filtrer. Seules
+  les directions sondées aux deux dates concluent ; des hauteurs de sondage
+  différentes interdisent toute conclusion. Export **PDF** (A4 livrable, avec
+  les photos de la comparaison) et **PNG** depuis le menu Export.
 - **Fiabilité de l'extrapolation** : ligne « N/16 directions sondées —
   écart angulaire maximal entre voisins : X gr (ou X°) » affichée dans le
   diagnostic Tk et la fiche PDF. Permet de juger au coup d'œil la

@@ -47,9 +47,10 @@ class AppLike(Protocol):
     def action_save(self) -> None: ...
     def action_save_as(self) -> None: ...
     def action_open_backups_folder(self) -> None: ...
-    def action_load_reference(self) -> bool: ...
-    def action_compare_arbre(self) -> None: ...
-    def action_reinspection(self) -> None: ...
+    def action_voir_evolution(self) -> None: ...
+    def _current_arbre(self) -> Any: ...
+    def action_nouvelle_campagne(self) -> None: ...
+    def action_importer_releve(self) -> None: ...
 
     # Exports — menu dédié, une entrée par TYPE d'export ; portée et format
     # sont choisis dans un dialogue (cf. `export_registry`,
@@ -115,11 +116,6 @@ def build_menu(app: AppLike) -> None:
     # à l'usage `app` est toujours une instance de `tk.Tk` (l'App).
     m = tk.Menu(cast(tk.Misc, app))
     app.config(menu=m)
-    # Mémorisé pour que `comparaison.open_comparison` puisse donner à sa
-    # fenêtre EXACTEMENT le même bandeau (un `tk.Menu` peut être attaché
-    # comme barre de menu à plusieurs fenêtres à la fois) plutôt qu'un
-    # sous-ensemble reconstruit à la main.
-    setattr(app, "_menubar", m)
 
     # Fichier — organisé PAR ÉTAPE du cycle de vie (même principe que le
     # rangement par format du menu Export) plutôt que dans l'ordre où les
@@ -153,11 +149,13 @@ def build_menu(app: AppLike) -> None:
 
     # Comparaison (ré-inspection)
     c = tk.Menu(m, tearoff=0)
-    c.add_command(label=_("Faire une comparaison (ré-inspection)…"),
-                  command=app.action_reinspection)
-    c.add_command(label=_("Diagnostic de la comparaison…"),
-                  command=app.action_compare_arbre, state="disabled")
-    app._menu_comparaison = c  # type: ignore[attr-defined]
+    c.add_command(label=_("Nouvelle campagne…"),
+                  command=app.action_nouvelle_campagne)
+    c.add_command(label=_("Importer un relevé antérieur…"),
+                  command=app.action_importer_releve)
+    c.add_separator()
+    c.add_command(label=_("Voir l'évolution"),
+                  command=app.action_voir_evolution)
     m.add_cascade(label=_("Comparaison"), menu=c)
 
     # Arbres
@@ -230,30 +228,28 @@ def build_menu(app: AppLike) -> None:
     # demande la portée (arbre / mission) et le format (cf. `export_registry`,
     # `dialogs_export`) — ajouter un format ne touche ni ce menu ni le
     # dialogue. Les types sans choix à faire partent directement.
-    # La comparaison (« Diagnostic de la comparaison… ») n'est exportable que
-    # tant qu'elle est ouverte : son entrée est grisée sinon, état tenu à jour
-    # par `postcommand` juste avant l'affichage du menu
-    # (`_refresh_export_comparison_state`) plutôt que par un callback explicite.
+    # L'évolution n'est exportable que si l'arbre courant a un relevé
+    # antérieur : état tenu à jour par `postcommand`, à l'ouverture du menu.
     x = tk.Menu(m, tearoff=0)
-    comparison_entries: list[int] = []
+    history_entries: list[int] = []
     for etype in export_types():
-        if etype.needs_comparison:
+        if etype.needs_history:
             x.add_separator()
         label = etype.label + ("…" if etype.needs_dialog else "")
         x.add_command(
             label=label,
             command=partial(app.action_export_choose, etype.key),
-            state="disabled" if etype.needs_comparison else "normal")
-        if etype.needs_comparison:
-            comparison_entries.append(cast(int, x.index("end")))
+            state="disabled" if etype.needs_history else "normal")
+        if etype.needs_history:
+            history_entries.append(cast(int, x.index("end")))
 
-    def _refresh_export_comparison_state() -> None:
-        from comparaison import is_comparison_active
-        state = "normal" if is_comparison_active() else "disabled"
-        for idx in comparison_entries:
+    def _refresh_export_history_state() -> None:
+        a = app._current_arbre()
+        state = "normal" if a is not None and a.campagnes else "disabled"
+        for idx in history_entries:
             x.entryconfigure(idx, state=state)
 
-    x.configure(postcommand=_refresh_export_comparison_state)
+    x.configure(postcommand=_refresh_export_history_state)
     m.add_cascade(label=_("Export"), menu=x)
 
     # Aide

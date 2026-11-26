@@ -61,6 +61,7 @@ class _DegradationsHost(Protocol):
     def _current_brin(self) -> Optional[Brin]: ...
     def on_section_changed(self) -> None: ...
     def push_undo(self) -> None: ...
+    def set_status(self, text: str) -> None: ...
     def capture_undo_snapshot(self) -> dict: ...
     def push_undo_snapshot(self, snap: dict) -> None: ...
 
@@ -166,17 +167,17 @@ class DegradationsPane(ttk.Frame):
             self._lbl_zone_aide.pack_forget()
             return
 
-        heads = [_("N°"), _("Début"), _("Fin"), _("Largeur"), _("Profondeur (cm)"),
-                 _("Zone dégradée"), _("Commentaire"), ""]
+        heads = [_("N°"), _("Début"), _("Fin"), _("Largeur"), _("Prof. (cm)"),
+                 _("Zone dégradée"), _("Recouverte"), _("Commentaire"), ""]
         for c, h in enumerate(heads):
             ttk.Label(self._rows_frame, text=h, style="Panel.TLabel",
                       font=font_small_bold()).grid(
-                row=0, column=c, sticky="w", padx=6, pady=(0, 4))
+                row=0, column=c, sticky="w", padx=3, pady=(0, 4))
 
         vcmd = (self.register(validate_numeric), "%P")
         for r, deg in enumerate(b.degradations_externes, start=1):
             self._build_row(r, deg, vcmd)
-        self._rows_frame.columnconfigure(6, weight=1)
+        self._rows_frame.columnconfigure(7, weight=1)
         self._lbl_zone_aide.pack(anchor="w", pady=(8, 0),
                                  before=self._toolbar)
         self.refresh_fusion_warnings()
@@ -221,10 +222,12 @@ class DegradationsPane(ttk.Frame):
         var_prof = tk.StringVar(value=f"{deg.profondeur_cm:g}")
         var_ecorce = tk.StringVar(value=zone_degradee_label(deg.comprend_ecorce))
         var_com = tk.StringVar(value=deg.commentaire)
+        var_rec = tk.BooleanVar(value=deg.recouverte)
         row: Dict[str, Any] = {"deb": var_deb, "fin": var_fin,
                                "larg": var_larg, "prof": var_prof,
                                "ecorce": var_ecorce,
                                "com": var_com, "warn": tk.StringVar(),
+                               "recouverte": var_rec,
                                "deg": deg}
         # Référence gardée dans l'ordre des lignes : les callbacks
         # passent par les closures, mais `refresh_fusion_warnings` et les
@@ -235,30 +238,30 @@ class DegradationsPane(ttk.Frame):
         lbl_num = ttk.Label(f, text=str(deg.numero), style="Panel.TLabel",
                             width=3, cursor="hand2",
                             font=font_body_bold())
-        lbl_num.grid(row=r, column=0, sticky="w", padx=6, pady=1)
+        lbl_num.grid(row=r, column=0, sticky="w", padx=3, pady=1)
         lbl_num.bind("<Double-1>", lambda e: self._open_detail(deg))
         Tooltip(lbl_num, _("Double-cliquez pour saisir la largeur en cm"))
 
         cmb_deb = ttk.Combobox(f, textvariable=var_deb,
                                values=self._grade_choices,
-                               state="readonly", width=11)
-        cmb_deb.grid(row=r, column=1, sticky="w", padx=6, pady=1)
+                               state="readonly", width=9)
+        cmb_deb.grid(row=r, column=1, sticky="w", padx=3, pady=1)
         cmb_fin = ttk.Combobox(f, textvariable=var_fin,
                                values=self._grade_choices,
-                               state="readonly", width=11)
-        cmb_fin.grid(row=r, column=2, sticky="w", padx=6, pady=1)
+                               state="readonly", width=9)
+        cmb_fin.grid(row=r, column=2, sticky="w", padx=3, pady=1)
         for cmb in (cmb_deb, cmb_fin):
             cmb.bind("<<ComboboxSelected>>",
                      lambda e: self._on_arc_changed(deg, row))
 
         ttk.Label(f, textvariable=var_larg, style="Muted.TLabel",
-                  width=14).grid(row=r, column=3, sticky="w",
-                                 padx=6, pady=1)
+                  width=13).grid(row=r, column=3, sticky="w",
+                                 padx=3, pady=1)
 
-        ent_prof = ttk.Entry(f, textvariable=var_prof, width=8,
+        ent_prof = ttk.Entry(f, textvariable=var_prof, width=7,
                              validate="key", validatecommand=vcmd,
                              justify="center")
-        ent_prof.grid(row=r, column=4, sticky="w", padx=6, pady=1)
+        ent_prof.grid(row=r, column=4, sticky="w", padx=3, pady=1)
         var_prof.trace_add(
             "write", lambda *a: self._on_prof_write(deg, row))
         self._prof_entries.append(ent_prof)
@@ -272,12 +275,19 @@ class DegradationsPane(ttk.Frame):
         cmb_ec = ttk.Combobox(f, textvariable=var_ecorce,
                               values=list(zone_degradee_choices()),
                               state="readonly", width=12)
-        cmb_ec.grid(row=r, column=5, sticky="w", padx=6, pady=1)
+        cmb_ec.grid(row=r, column=5, sticky="w", padx=3, pady=1)
         cmb_ec.bind("<<ComboboxSelected>>",
                     lambda e: self._on_ecorce_toggle(deg, row))
 
-        ent_com = ttk.Entry(f, textvariable=var_com, width=18)
-        ent_com.grid(row=r, column=6, sticky="we", padx=6, pady=1)
+        chk_rec = ttk.Checkbutton(
+            f, variable=var_rec, style="Panel.TCheckbutton",
+            command=lambda: self._on_recouverte_toggle(deg, row))
+        chk_rec.grid(row=r, column=6, padx=3, pady=1)
+        Tooltip(chk_rec, _("Plaie refermée par un cal (bourrelet de "
+                           "recouvrement). La plaie reste inchangée dessous."))
+
+        ent_com = ttk.Entry(f, textvariable=var_com, width=10)
+        ent_com.grid(row=r, column=7, sticky="we", padx=3, pady=1)
         var_com.trace_add(
             "write", lambda *a: self._on_com_write(deg, row))
         self._com_entries.append(ent_com)
@@ -313,7 +323,7 @@ class DegradationsPane(ttk.Frame):
 
         ttk.Button(f, text="✕", style="Ghost.TButton", width=2,
                    command=lambda: self._on_del(deg)
-                   ).grid(row=r, column=7, sticky="w", padx=(6, 0), pady=1)
+                   ).grid(row=r, column=8, sticky="w", padx=(3, 0), pady=1)
 
         # Garde-fou fusion : « ⚠ » quand cette dégradation, cumulée à
         # l'altération centrale, dépasse le rayon sur une direction
@@ -323,7 +333,7 @@ class DegradationsPane(ttk.Frame):
                              style="Panel.TLabel", width=2,
                              foreground=COLOR_WARN,
                              font=font_body_bold())
-        lbl_warn.grid(row=r, column=8, sticky="w", pady=1)
+        lbl_warn.grid(row=r, column=9, sticky="w", pady=1)
         Tooltip(lbl_warn,
                 _("Profondeur + altération centrale > rayon sur au moins "
                 "une direction couverte : les deux zones dégradées se "
@@ -434,6 +444,22 @@ class DegradationsPane(ttk.Frame):
             return
         self._host.push_undo()
         deg.comprend_ecorce = new_val
+        self._host.on_section_changed()
+
+    def _on_recouverte_toggle(self, deg: DegradationExterne,
+                              row: Dict[str, Any]) -> None:
+        """Case « Recouverte » : un cal posé par-dessus la plaie, qui garde
+        sa zone et sa profondeur."""
+        if self._suspend:
+            return
+        b = self._host._current_brin()
+        if not b or self._index_de(b, deg) is None:
+            return
+        new_val = bool(row["recouverte"].get())
+        if new_val == deg.recouverte:
+            return
+        self._host.push_undo()
+        deg.recouverte = new_val
         self._host.on_section_changed()
 
     def _on_com_write(self, deg: DegradationExterne,
